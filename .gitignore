@@ -1,0 +1,11 @@
+# directories
+CMakeFiles/*
+ignore/*
+
+# files
+*.cxx
+*.sublime-*
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+PBR
