@@ -3,7 +3,7 @@
 #include <GL/glut.h>
 
 #include <iostream>
-#include <math.h>
+#include <unistd.h>
 
 #include "../config.h"
 #include "Window.h"
