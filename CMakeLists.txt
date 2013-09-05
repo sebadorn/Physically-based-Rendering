@@ -2,7 +2,7 @@ cmake_minimum_required( VERSION 2.8 )
 project( PBR )
 set( TRUNK ${PROJECT_SOURCE_DIR}/classes )
 
-file( GLOB SOURCES_CPP ${TRUNK}/*.cpp ${TRUNK}/qt/*.cpp )
+file( GLOB SOURCES_CPP ${TRUNK}/*.cpp ${TRUNK}/qt/*.cpp ${TRUNK}/tinyobjloader/*.cpp )
 file( GLOB HEADERS_QT ${TRUNK}/qt/*.h )
 
 

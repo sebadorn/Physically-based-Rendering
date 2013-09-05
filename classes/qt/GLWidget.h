@@ -13,6 +13,7 @@ class GLWidget : public QGLWidget {
 		~GLWidget();
 
 		void calculateFPS();
+		void loadModel();
 		QSize minimumSizeHint() const;
 		QSize sizeHint() const;
 
