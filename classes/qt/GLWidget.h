@@ -3,6 +3,8 @@
 
 #include <QGLWidget>
 
+#include "../tinyobjloader/tiny_obj_loader.h"
+
 
 class GLWidget : public QGLWidget {
 
@@ -13,7 +15,7 @@ class GLWidget : public QGLWidget {
 		~GLWidget();
 
 		void calculateFPS();
-		void loadModel();
+		std::vector<tinyobj::shape_t> loadModel();
 		QSize minimumSizeHint() const;
 		QSize sizeHint() const;
 
@@ -25,6 +27,7 @@ class GLWidget : public QGLWidget {
 	private:
 		uint mFrameCount;
 		uint mPreviousTime;
+		std::vector<tinyobj::shape_t> mLoadedShapes;
 		QTimer *mTimer;
 
 };
