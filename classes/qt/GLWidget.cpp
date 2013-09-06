@@ -20,6 +20,18 @@ GLWidget::GLWidget( QWidget *parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers
 	mFrameCount = 0;
 	mPreviousTime = 0;
 
+	mCamera.eyeX = 0.0f;
+	mCamera.eyeY = 0.8f;
+	mCamera.eyeZ = 3.0f;
+
+	mCamera.centerX =  0.0f;
+	mCamera.centerY =  0.8f;
+	mCamera.centerZ = -1.0f;
+
+	mCamera.upX = 0.0f;
+	mCamera.upY = 1.0f;
+	mCamera.upZ = 0.0f;
+
 	mLoadedShapes = GLWidget::loadModel();
 
 	mTimer = new QTimer( this );
@@ -46,6 +58,30 @@ void GLWidget::calculateFPS() {
 		snprintf( statusText, 20, "%.2f FPS", fps );
 		( (Window*) parentWidget() )->updateStatus( statusText );
 	}
+}
+
+
+void GLWidget::cameraMoveBackward() {
+	mCamera.eyeX -= 0.2f;
+	mCamera.centerX -= 0.2f;
+}
+
+
+void GLWidget::cameraMoveForward() {
+	mCamera.eyeX += 0.2f;
+	mCamera.centerX += 0.2f;
+}
+
+
+void GLWidget::cameraMoveLeft() {
+	mCamera.eyeZ -= 0.2f;
+	mCamera.centerZ -= 0.2f;
+}
+
+
+void GLWidget::cameraMoveRight() {
+	mCamera.eyeZ += 0.2f;
+	mCamera.centerZ += 0.2f;
 }
 
 
@@ -110,6 +146,11 @@ void GLWidget::initializeGL() {
 }
 
 
+bool GLWidget::isRendering() {
+	return mTimer->isActive();
+}
+
+
 std::vector<tinyobj::shape_t> GLWidget::loadModel() {
 	std::string inputfile = "resources/models/cornell-box/CornellBox-Glossy.obj";
 	std::vector<tinyobj::shape_t> shapes;
@@ -135,7 +176,11 @@ void GLWidget::paintGL() {
 	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 
 	glPushMatrix();
-	gluLookAt( 0.0f, 0.8f, 3.0f,  0, 0.8f, -1.0f,  0, 1, 0 );
+	gluLookAt(
+		mCamera.eyeX, mCamera.eyeY, mCamera.eyeZ,
+		mCamera.centerX, mCamera.centerY, mCamera.centerZ,
+		mCamera.upX, mCamera.upY, mCamera.upZ
+	);
 	this->drawAxis();
 	this->drawScene();
 	glPopMatrix();

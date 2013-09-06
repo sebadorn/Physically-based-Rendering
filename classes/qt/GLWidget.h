@@ -6,6 +6,13 @@
 #include "../tinyobjloader/tiny_obj_loader.h"
 
 
+typedef struct {
+	float eyeX, eyeY, eyeZ;
+	float centerX, centerY, centerZ;
+	float upX, upY, upZ;
+} camera_t;
+
+
 class GLWidget : public QGLWidget {
 
 	Q_OBJECT
@@ -14,6 +21,11 @@ class GLWidget : public QGLWidget {
 		GLWidget( QWidget *parent = 0 );
 		~GLWidget();
 
+		void cameraMoveBackward();
+		void cameraMoveForward();
+		void cameraMoveLeft();
+		void cameraMoveRight();
+		bool isRendering();
 		QSize minimumSizeHint() const;
 		QSize sizeHint() const;
 
@@ -29,6 +41,7 @@ class GLWidget : public QGLWidget {
 	private:
 		uint mFrameCount;
 		uint mPreviousTime;
+		camera_t mCamera;
 		std::vector<tinyobj::shape_t> mLoadedShapes;
 		QTimer *mTimer;
 

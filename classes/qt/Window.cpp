@@ -1,3 +1,4 @@
+#include <iostream>
 #include <QtGui>
 #include <QSizePolicy>
 
@@ -40,11 +41,29 @@ Window::Window() {
 
 
 void Window::keyPressEvent( QKeyEvent *e ) {
-	if( e->key() == Qt::Key_Escape ) {
-		close();
-	}
-	else {
-		QWidget::keyPressEvent( e );
+	bool rendererActive = mGlWidget->isRendering();
+
+	switch( e->key() ) {
+
+		case Qt::Key_W:
+			mGlWidget->cameraMoveForward();
+			break;
+
+		case Qt::Key_S:
+			mGlWidget->cameraMoveBackward();
+			break;
+
+		case Qt::Key_A:
+			mGlWidget->cameraMoveLeft();
+			break;
+
+		case Qt::Key_D:
+			mGlWidget->cameraMoveRight();
+			break;
+
+		default:
+			QWidget::keyPressEvent( e );
+
 	}
 }
 
