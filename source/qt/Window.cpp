@@ -1,8 +1,10 @@
 #include <iostream>
+#include <cmath>
 #include <QtGui>
 #include <QSizePolicy>
 
 #include "../config.h"
+#include "../utils.h"
 #include "GLWidget.h"
 #include "Window.h"
 
@@ -11,6 +13,8 @@ Window::Window() {
 	setlocale( LC_ALL, "C" );
 
 	mGlWidget = new GLWidget;
+	mMouseLastX = 0;
+	mMouseLastY = 0;
 
 	QAction *actionExit = new QAction( tr( "&Exit" ), this );
 	actionExit->setShortcuts( QKeySequence::Quit );
@@ -41,7 +45,10 @@ Window::Window() {
 
 
 void Window::keyPressEvent( QKeyEvent *e ) {
-	bool rendererActive = mGlWidget->isRendering();
+	if( !mGlWidget->isRendering() ) {
+		QWidget::keyPressEvent( e );
+		return;
+	}
 
 	switch( e->key() ) {
 
@@ -64,6 +71,50 @@ void Window::keyPressEvent( QKeyEvent *e ) {
 		default:
 			QWidget::keyPressEvent( e );
 
+	}
+}
+
+
+void Window::mouseMoveEvent( QMouseEvent *e ) {
+	if( e->buttons() == Qt::LeftButton && mGlWidget->isRendering() ) {
+		int diffX = mMouseLastX - e->x();
+		int diffY = mMouseLastY - e->y();
+
+		mGlWidget->mCamera.rotX += diffX;
+		mGlWidget->mCamera.rotY += diffY;
+
+		if( mGlWidget->mCamera.rotX >= 360 ) {
+			mGlWidget->mCamera.rotX = 0;
+		}
+		else if( mGlWidget->mCamera.rotX < 0 ) {
+			mGlWidget->mCamera.rotX = 360;
+		}
+
+		if( mGlWidget->mCamera.rotY > 90 ) {
+			mGlWidget->mCamera.rotY = 90;
+		}
+		else if( mGlWidget->mCamera.rotY < -90 ) {
+			mGlWidget->mCamera.rotY = -90;
+		}
+
+		mGlWidget->mCamera.centerX = sin( utils::degToRad( mGlWidget->mCamera.rotX ) )
+			- fabs( sin( utils::degToRad( mGlWidget->mCamera.rotY ) ) )
+			* sin( utils::degToRad( mGlWidget->mCamera.rotX ) );
+		mGlWidget->mCamera.centerY = sin( utils::degToRad( mGlWidget->mCamera.rotY ) );
+		mGlWidget->mCamera.centerZ = cos( utils::degToRad( mGlWidget->mCamera.rotX ) )
+			- fabs( sin( utils::degToRad( mGlWidget->mCamera.rotY ) ) )
+			* cos( utils::degToRad( mGlWidget->mCamera.rotX ) );
+
+		mMouseLastX = e->x();
+		mMouseLastY = e->y();
+	}
+}
+
+
+void Window::mousePressEvent( QMouseEvent *e ) {
+	if( e->buttons() == Qt::LeftButton ) {
+		mMouseLastX = e->x();
+		mMouseLastY = e->y();
 	}
 }
 

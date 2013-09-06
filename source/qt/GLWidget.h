@@ -7,6 +7,7 @@
 
 
 typedef struct {
+	int rotX, rotY;
 	float eyeX, eyeY, eyeZ;
 	float centerX, centerY, centerZ;
 	float upX, upY, upZ;
@@ -18,9 +19,10 @@ class GLWidget : public QGLWidget {
 	Q_OBJECT
 
 	public:
+		camera_t mCamera;
+
 		GLWidget( QWidget *parent = 0 );
 		~GLWidget();
-
 		void cameraMoveBackward();
 		void cameraMoveForward();
 		void cameraMoveLeft();
@@ -41,7 +43,6 @@ class GLWidget : public QGLWidget {
 	private:
 		uint mFrameCount;
 		uint mPreviousTime;
-		camera_t mCamera;
 		std::vector<tinyobj::shape_t> mLoadedShapes;
 		QTimer *mTimer;
 

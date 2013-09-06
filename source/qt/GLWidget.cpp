@@ -8,6 +8,7 @@
 
 #include "../config.h"
 #include "../tinyobjloader/tiny_obj_loader.h"
+#include "../utils.h"
 #include "Window.h"
 #include "GLWidget.h"
 
@@ -23,14 +24,14 @@ GLWidget::GLWidget( QWidget *parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers
 	mCamera.eyeX = 0.0f;
 	mCamera.eyeY = 0.8f;
 	mCamera.eyeZ = 3.0f;
-
 	mCamera.centerX =  0.0f;
 	mCamera.centerY =  0.8f;
 	mCamera.centerZ = -1.0f;
-
 	mCamera.upX = 0.0f;
 	mCamera.upY = 1.0f;
 	mCamera.upZ = 0.0f;
+	mCamera.rotX = 0;
+	mCamera.rotY = 0;
 
 	mLoadedShapes = GLWidget::loadModel();
 
@@ -62,26 +63,32 @@ void GLWidget::calculateFPS() {
 
 
 void GLWidget::cameraMoveBackward() {
-	mCamera.eyeX -= 0.2f;
-	mCamera.centerX -= 0.2f;
+	float speed = 1.0f;
+	mCamera.eyeX += sin( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * speed;
+	mCamera.eyeY -= sin( utils::degToRad( mCamera.rotY ) ) * speed;
+	mCamera.eyeZ -= cos( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * speed;
 }
 
 
 void GLWidget::cameraMoveForward() {
-	mCamera.eyeX += 0.2f;
-	mCamera.centerX += 0.2f;
+	float speed = 1.0f;
+	mCamera.eyeX -= sin( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * speed;
+	mCamera.eyeY += sin( utils::degToRad( mCamera.rotY ) ) * speed;
+	mCamera.eyeZ += cos( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * speed;
 }
 
 
 void GLWidget::cameraMoveLeft() {
-	mCamera.eyeZ -= 0.2f;
-	mCamera.centerZ -= 0.2f;
+	float speed = 1.0f;
+	mCamera.eyeX += cos( utils::degToRad( mCamera.rotX ) ) * speed;
+	mCamera.eyeZ += sin( utils::degToRad( mCamera.rotX ) ) * speed;
 }
 
 
 void GLWidget::cameraMoveRight() {
-	mCamera.eyeZ += 0.2f;
-	mCamera.centerZ += 0.2f;
+	float speed = 1.0f;
+	mCamera.eyeX -= cos( utils::degToRad( mCamera.rotX ) ) * speed;
+	mCamera.eyeZ -= sin( utils::degToRad( mCamera.rotX ) ) * speed;
 }
 
 
@@ -178,7 +185,7 @@ void GLWidget::paintGL() {
 	glPushMatrix();
 	gluLookAt(
 		mCamera.eyeX, mCamera.eyeY, mCamera.eyeZ,
-		mCamera.centerX, mCamera.centerY, mCamera.centerZ,
+		mCamera.eyeX + mCamera.centerX, mCamera.eyeY + mCamera.centerY, mCamera.eyeZ + mCamera.centerZ,
 		mCamera.upX, mCamera.upY, mCamera.upZ
 	);
 	this->drawAxis();
