@@ -14,13 +14,15 @@ class GLWidget : public QGLWidget {
 		GLWidget( QWidget *parent = 0 );
 		~GLWidget();
 
-		void calculateFPS();
-		std::vector<tinyobj::shape_t> loadModel();
 		QSize minimumSizeHint() const;
 		QSize sizeHint() const;
 
 	protected:
+		void calculateFPS();
+		void drawAxis();
+		void drawScene();
 		void initializeGL();
+		std::vector<tinyobj::shape_t> loadModel();
 		void paintGL();
 		void resizeGL( int width, int height );
 
