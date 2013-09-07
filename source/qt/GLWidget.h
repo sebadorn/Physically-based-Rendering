@@ -28,6 +28,7 @@ class GLWidget : public QGLWidget {
 		void cameraMoveLeft();
 		void cameraMoveRight();
 		void cameraMoveUp();
+		void cameraReset();
 		bool isRendering();
 		QSize minimumSizeHint() const;
 		QSize sizeHint() const;

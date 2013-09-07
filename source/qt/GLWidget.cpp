@@ -28,17 +28,7 @@ GLWidget::GLWidget( QWidget *parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers
 	mFrameCount = 0;
 	mPreviousTime = 0;
 
-	mCamera.eyeX = 1.0f;
-	mCamera.eyeY = 0.0f;
-	mCamera.eyeZ = 1.0f;
-	mCamera.centerX = 0.0f;
-	mCamera.centerY = 0.0f;
-	mCamera.centerZ = 0.0f;
-	mCamera.upX = 0.0f;
-	mCamera.upY = 1.0f;
-	mCamera.upZ = 0.0f;
-	mCamera.rotX = 0.0f;
-	mCamera.rotY = 0.0f;
+	this->cameraReset();
 
 	CL *cl = new CL();
 
@@ -108,6 +98,24 @@ void GLWidget::cameraMoveRight() {
  */
 void GLWidget::cameraMoveUp() {
 	mCamera.eyeY += CAM_MOVE_SPEED;
+}
+
+
+/**
+ * Reset the camera position and rotation.
+ */
+void GLWidget::cameraReset() {
+	mCamera.eyeX = 1.0f;
+	mCamera.eyeY = 0.0f;
+	mCamera.eyeZ = 1.0f;
+	mCamera.centerX = 0.0f;
+	mCamera.centerY = 0.0f;
+	mCamera.centerZ = 0.0f;
+	mCamera.upX = 0.0f;
+	mCamera.upY = 1.0f;
+	mCamera.upZ = 0.0f;
+	mCamera.rotX = 0.0f;
+	mCamera.rotY = 0.0f;
 }
 
 
@@ -192,13 +200,12 @@ bool GLWidget::isRendering() {
 
 /**
  * Load an OBJ model and its materials.
- * @param  {const char*}              File path and name.
- * @return {vector<tinyobj::shape_t>} The loaded model.
+ * @param  {string}                   filepath Path to the OBJ and MTL file.
+ * @param  {string}                   filename Name of the OBJ file, including extension.
+ * @return {vector<tinyobj::shape_t>}          The loaded model.
  */
 std::vector<tinyobj::shape_t> GLWidget::loadModel( std::string filepath, std::string filename ) {
-	// std::string inputfile = "resources/models/cornell-box/CornellBox-Glossy.obj";
 	std::vector<tinyobj::shape_t> shapes;
-
 	std::string err = tinyobj::LoadObj( shapes, ( filepath + filename ).c_str(), filepath.c_str() );
 
 	if( !err.empty() ) {

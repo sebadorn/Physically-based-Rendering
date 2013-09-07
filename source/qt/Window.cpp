@@ -112,6 +112,10 @@ void Window::keyPressEvent( QKeyEvent *e ) {
 			mGlWidget->cameraMoveDown();
 			break;
 
+		case Qt::Key_R:
+			mGlWidget->cameraReset();
+			break;
+
 		default:
 			QWidget::keyPressEvent( e );
 

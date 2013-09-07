@@ -1,6 +1,5 @@
-#include <iostream>
 #include <CL/cl.hpp>
-#include <vector>
+#include <iostream>
 
 #include "CL.h"
 
