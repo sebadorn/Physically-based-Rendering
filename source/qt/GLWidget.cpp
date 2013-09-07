@@ -6,6 +6,7 @@
 #include <iostream>
 #include <unistd.h>
 
+#include "../CL.h"
 #include "../tinyobjloader/tiny_obj_loader.h"
 #include "../utils.h"
 #include "Window.h"
@@ -38,6 +39,8 @@ GLWidget::GLWidget( QWidget *parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers
 	mCamera.upZ = 0.0f;
 	mCamera.rotX = 0.0f;
 	mCamera.rotY = 0.0f;
+
+	CL *cl = new CL();
 
 	mLoadedShapes = GLWidget::loadModel( "resources/models/cornell-box/", "CornellBox-Glossy.obj" );
 
@@ -202,6 +205,8 @@ std::vector<tinyobj::shape_t> GLWidget::loadModel( std::string filepath, std::st
 		std::cerr << err << std::endl;
 		exit( 1 );
 	}
+
+	std::cout << "* [GLWidget] Model \"" << filename << "\" loaded." << std::endl;
 
 	return shapes;
 }

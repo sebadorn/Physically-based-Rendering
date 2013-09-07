@@ -1,6 +1,7 @@
 cmake_minimum_required( VERSION 2.8 )
 project( PBR )
 set( TRUNK ${PROJECT_SOURCE_DIR}/source )
+set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake_modules/" )
 
 file( GLOB SOURCES_CPP ${TRUNK}/*.cpp ${TRUNK}/qt/*.cpp ${TRUNK}/tinyobjloader/*.cpp )
 file( GLOB HEADERS_QT ${TRUNK}/qt/*.h )
@@ -14,6 +15,12 @@ set( LIBRARIES ${LIBRARIES} ${OPENGL_LIBRARIES} )
 find_package( GLUT REQUIRED )
 include_directories( ${GLUT_INCLUDE_DIRS} )
 set( LIBRARIES ${LIBRARIES} ${GLUT_LIBRARIES} )
+
+
+# OpenCL
+find_package( OpenCL REQUIRED )
+include_directories( ${OPENCL_INCLUDE_DIRS} )
+set( LIBRARIES ${LIBRARIES} ${OPENCL_LIBRARIES} )
 
 
 # Qt4
