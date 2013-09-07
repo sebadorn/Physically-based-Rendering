@@ -24,10 +24,13 @@ class Window : public QWidget {
 		void mouseMoveEvent( QMouseEvent *e );
 		void mousePressEvent( QMouseEvent *e );
 
+	protected slots:
+		void importFile();
+
 	private:
 		int mMouseLastX;
 		int mMouseLastY;
-		GLWidget *mGlWidget;
+		GLWidget *mGLWidget;
 		QStatusBar *mStatusBar;
 
 };

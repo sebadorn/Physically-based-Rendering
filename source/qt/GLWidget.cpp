@@ -25,14 +25,11 @@
  * @param {QWidget*} parent Parent QWidget this QWidget is contained in.
  */
 GLWidget::GLWidget( QWidget *parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers ), parent ) {
+	CL *mCl = new CL();
+
 	mFrameCount = 0;
 	mPreviousTime = 0;
-
 	this->cameraReset();
-
-	CL *cl = new CL();
-
-	mLoadedShapes = GLWidget::loadModel( "resources/models/cornell-box/", "CornellBox-Glossy.obj" );
 
 	mTimer = new QTimer( this );
 	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
@@ -43,7 +40,7 @@ GLWidget::GLWidget( QWidget *parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers
  * Destructor.
  */
 GLWidget::~GLWidget() {
-	mTimer->stop();
+	this->stopRendering();
 }
 
 
@@ -185,7 +182,7 @@ void GLWidget::initializeGL() {
 	glEnable( GL_MULTISAMPLE );
 	glEnable( GL_LINE_SMOOTH );
 
-	mTimer->start( RENDER_INTERVAL );
+	this->startRendering();
 }
 
 
@@ -194,28 +191,28 @@ void GLWidget::initializeGL() {
  * @return {bool} True, if is rendering, false otherwise.
  */
 bool GLWidget::isRendering() {
-	return mTimer->isActive();
+	return ( mDoRendering && mTimer->isActive() );
 }
 
 
 /**
  * Load an OBJ model and its materials.
- * @param  {string}                   filepath Path to the OBJ and MTL file.
- * @param  {string}                   filename Name of the OBJ file, including extension.
- * @return {vector<tinyobj::shape_t>}          The loaded model.
+ * @param {string} filepath Path to the OBJ and MTL file.
+ * @param {string} filename Name of the OBJ file, including extension.
  */
-std::vector<tinyobj::shape_t> GLWidget::loadModel( std::string filepath, std::string filename ) {
+void GLWidget::loadModel( std::string filepath, std::string filename ) {
 	std::vector<tinyobj::shape_t> shapes;
 	std::string err = tinyobj::LoadObj( shapes, ( filepath + filename ).c_str(), filepath.c_str() );
 
 	if( !err.empty() ) {
-		std::cerr << err << std::endl;
+		std::cerr << "* [GLWidget] " << err << std::endl;
 		exit( 1 );
 	}
 
 	std::cout << "* [GLWidget] Model \"" << filename << "\" loaded." << std::endl;
 
-	return shapes;
+	mLoadedShapes = shapes;
+	this->startRendering();
 }
 
 
@@ -232,6 +229,10 @@ QSize GLWidget::minimumSizeHint() const {
  * Draw the scene.
  */
 void GLWidget::paintGL() {
+	if( !mDoRendering ) {
+		return;
+	}
+
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 
@@ -280,8 +281,8 @@ void GLWidget::showFPS() {
 		mPreviousTime = currentTime;
 		mFrameCount = 0;
 
-		char statusText[20];
-		snprintf( statusText, 20, "%.2f FPS", fps );
+		char statusText[40];
+		snprintf( statusText, 40, "%.2f FPS (%d\u00D7%dpx)", fps, width(), height() );
 		( (Window*) parentWidget() )->updateStatus( statusText );
 	}
 }
@@ -293,6 +294,25 @@ void GLWidget::showFPS() {
  */
 QSize GLWidget::sizeHint() const {
 	return QSize( 1000, 600 );
+}
+
+
+/**
+ * Start or resume rendering.
+ */
+void GLWidget::startRendering() {
+	mDoRendering = true;
+	mTimer->start( RENDER_INTERVAL );
+}
+
+
+/**
+ * Stop rendering.
+ */
+void GLWidget::stopRendering() {
+	mDoRendering = false;
+	mTimer->stop();
+	( (Window*) parentWidget() )->updateStatus( "Stopped." );
 }
 
 
