@@ -2,9 +2,9 @@
 #include <QtOpenGL>
 #include <GL/glut.h>
 
+#include <cmath>
 #include <iostream>
 #include <unistd.h>
-#include <assert.h>
 
 #include "../config.h"
 #include "../tinyobjloader/tiny_obj_loader.h"
@@ -21,17 +21,17 @@ GLWidget::GLWidget( QWidget *parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers
 	mFrameCount = 0;
 	mPreviousTime = 0;
 
-	mCamera.eyeX = 0.0f;
-	mCamera.eyeY = 0.8f;
-	mCamera.eyeZ = 3.0f;
-	mCamera.centerX =  0.0f;
-	mCamera.centerY =  0.8f;
-	mCamera.centerZ = -1.0f;
+	mCamera.eyeX = 1.0f;
+	mCamera.eyeY = 0.0f;
+	mCamera.eyeZ = 1.0f;
+	mCamera.centerX = 0.0f;
+	mCamera.centerY = 0.0f;
+	mCamera.centerZ = 0.0f;
 	mCamera.upX = 0.0f;
 	mCamera.upY = 1.0f;
 	mCamera.upZ = 0.0f;
-	mCamera.rotX = 0;
-	mCamera.rotY = 0;
+	mCamera.rotX = 0.0f;
+	mCamera.rotY = 0.0f;
 
 	mLoadedShapes = GLWidget::loadModel();
 
@@ -185,7 +185,7 @@ void GLWidget::paintGL() {
 	glPushMatrix();
 	gluLookAt(
 		mCamera.eyeX, mCamera.eyeY, mCamera.eyeZ,
-		mCamera.eyeX + mCamera.centerX, mCamera.eyeY + mCamera.centerY, mCamera.eyeZ + mCamera.centerZ,
+		mCamera.eyeX - mCamera.centerX, mCamera.eyeY + mCamera.centerY, mCamera.eyeZ + mCamera.centerZ,
 		mCamera.upX, mCamera.upY, mCamera.upZ
 	);
 	this->drawAxis();
@@ -210,4 +210,59 @@ void GLWidget::resizeGL( int width, int height ) {
 
 QSize GLWidget::sizeHint() const {
 	return QSize( 1000, 600 );
+}
+
+
+void GLWidget::updateCamera( int moveX, int moveY ) {
+	mCamera.rotX -= moveX;
+	mCamera.rotY += moveY;
+
+	if( mCamera.rotX >= 360.0f ) {
+		mCamera.rotX = 0.0f;
+	}
+	else if( mCamera.rotX < 0.0f ) {
+		mCamera.rotX = 360.0f;
+	}
+
+	if( mCamera.rotY > 90 ) {
+		mCamera.rotY = 90.0f;
+	}
+	else if( mCamera.rotY < -90.0f ) {
+		mCamera.rotY = -90.0f;
+	}
+
+	mCamera.centerX = sin( utils::degToRad( mCamera.rotX ) )
+		- fabs( sin( utils::degToRad( mCamera.rotY ) ) )
+		* sin( utils::degToRad( mCamera.rotX ) );
+	mCamera.centerY = sin( utils::degToRad( mCamera.rotY ) );
+	mCamera.centerZ = cos( utils::degToRad( mCamera.rotX ) )
+		- fabs( sin( utils::degToRad( mCamera.rotY ) ) )
+		* cos( utils::degToRad( mCamera.rotX ) );
+
+	if( mCamera.centerY == 1.0f ) {
+		mCamera.upX = sin( utils::degToRad( mCamera.rotX ) );
+	}
+	else if( mCamera.centerY == -1.0f ) {
+		mCamera.upX = -sin( utils::degToRad( mCamera.rotX ) );
+	}
+	else {
+		mCamera.upX = 0.0f;
+	}
+
+	if( mCamera.centerY == 1.0f || mCamera.centerY == -1.0f ) {
+		mCamera.upY = 0.0f;
+	}
+	else {
+		mCamera.upY = 1.0f;
+	}
+
+	if( mCamera.centerY == 1.0f ) {
+		mCamera.upZ = -cos( utils::degToRad( mCamera.rotX ) );
+	}
+	else if( mCamera.centerY == -1.0f ) {
+		mCamera.upZ = cos( utils::degToRad( mCamera.rotX ) );
+	}
+	else {
+		mCamera.upZ = 0.0f;
+	}
 }

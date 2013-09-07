@@ -4,7 +4,6 @@
 #include <QSizePolicy>
 
 #include "../config.h"
-#include "../utils.h"
 #include "GLWidget.h"
 #include "Window.h"
 
@@ -80,30 +79,7 @@ void Window::mouseMoveEvent( QMouseEvent *e ) {
 		int diffX = mMouseLastX - e->x();
 		int diffY = mMouseLastY - e->y();
 
-		mGlWidget->mCamera.rotX += diffX;
-		mGlWidget->mCamera.rotY += diffY;
-
-		if( mGlWidget->mCamera.rotX >= 360 ) {
-			mGlWidget->mCamera.rotX = 0;
-		}
-		else if( mGlWidget->mCamera.rotX < 0 ) {
-			mGlWidget->mCamera.rotX = 360;
-		}
-
-		if( mGlWidget->mCamera.rotY > 90 ) {
-			mGlWidget->mCamera.rotY = 90;
-		}
-		else if( mGlWidget->mCamera.rotY < -90 ) {
-			mGlWidget->mCamera.rotY = -90;
-		}
-
-		mGlWidget->mCamera.centerX = sin( utils::degToRad( mGlWidget->mCamera.rotX ) )
-			- fabs( sin( utils::degToRad( mGlWidget->mCamera.rotY ) ) )
-			* sin( utils::degToRad( mGlWidget->mCamera.rotX ) );
-		mGlWidget->mCamera.centerY = sin( utils::degToRad( mGlWidget->mCamera.rotY ) );
-		mGlWidget->mCamera.centerZ = cos( utils::degToRad( mGlWidget->mCamera.rotX ) )
-			- fabs( sin( utils::degToRad( mGlWidget->mCamera.rotY ) ) )
-			* cos( utils::degToRad( mGlWidget->mCamera.rotX ) );
+		mGlWidget->updateCamera( diffX, diffY );
 
 		mMouseLastX = e->x();
 		mMouseLastY = e->y();

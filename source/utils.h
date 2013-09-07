@@ -6,7 +6,7 @@
 
 namespace utils {
 
-	inline float degToRad( int deg ) {
+	inline float degToRad( float deg ) {
 		return ( deg * PI / 180.0f );
 	}
 
