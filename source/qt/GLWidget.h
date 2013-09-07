@@ -2,6 +2,7 @@
 #define GLWIDGET_H
 
 #include <QGLWidget>
+#include <unistd.h>
 
 #include "../tinyobjloader/tiny_obj_loader.h"
 
@@ -22,22 +23,24 @@ class GLWidget : public QGLWidget {
 		GLWidget( QWidget *parent = 0 );
 		~GLWidget();
 		void cameraMoveBackward();
+		void cameraMoveDown();
 		void cameraMoveForward();
 		void cameraMoveLeft();
 		void cameraMoveRight();
+		void cameraMoveUp();
 		bool isRendering();
 		QSize minimumSizeHint() const;
 		QSize sizeHint() const;
-		void updateCamera( int moveX, int moveY );
+		void updateCameraRot( int moveX, int moveY );
 
 	protected:
-		void calculateFPS();
 		void drawAxis();
 		void drawScene();
 		void initializeGL();
-		std::vector<tinyobj::shape_t> loadModel();
+		std::vector<tinyobj::shape_t> loadModel( std::string filepath, std::string filename );
 		void paintGL();
 		void resizeGL( int width, int height );
+		void showFPS();
 
 	private:
 		uint mFrameCount;

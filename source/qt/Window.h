@@ -17,6 +17,9 @@ class Window : public QWidget {
 		void updateStatus( const char *msg );
 
 	protected:
+		QBoxLayout* createLayout();
+		QMenuBar* createMenuBar();
+		QStatusBar* createStatusBar();
 		void keyPressEvent( QKeyEvent *e );
 		void mouseMoveEvent( QMouseEvent *e );
 		void mousePressEvent( QMouseEvent *e );

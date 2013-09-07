@@ -6,7 +6,6 @@
 #include <iostream>
 #include <unistd.h>
 
-#include "../config.h"
 #include "../tinyobjloader/tiny_obj_loader.h"
 #include "../utils.h"
 #include "Window.h"
@@ -16,7 +15,14 @@
 #define GL_MULTISAMPLE 0x809D
 #endif
 
+#define CAM_MOVE_SPEED 0.5f
+#define RENDER_INTERVAL 16.666f
 
+
+/**
+ * Constructor.
+ * @param {QWidget*} parent Parent QWidget this QWidget is contained in.
+ */
 GLWidget::GLWidget( QWidget *parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers ), parent ) {
 	mFrameCount = 0;
 	mPreviousTime = 0;
@@ -33,65 +39,78 @@ GLWidget::GLWidget( QWidget *parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers
 	mCamera.rotX = 0.0f;
 	mCamera.rotY = 0.0f;
 
-	mLoadedShapes = GLWidget::loadModel();
+	mLoadedShapes = GLWidget::loadModel( "resources/models/cornell-box/", "CornellBox-Glossy.obj" );
 
 	mTimer = new QTimer( this );
 	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
 }
 
 
+/**
+ * Destructor.
+ */
 GLWidget::~GLWidget() {
 	mTimer->stop();
 }
 
 
-void GLWidget::calculateFPS() {
-	mFrameCount++;
-
-	uint currentTime = glutGet( GLUT_ELAPSED_TIME );
-	uint timeInterval = currentTime - mPreviousTime;
-
-	if( timeInterval > 1000 ) {
-		float fps = (float) mFrameCount / (float) timeInterval * 1000.0f;
-		mPreviousTime = currentTime;
-		mFrameCount = 0;
-		char statusText[20];
-		snprintf( statusText, 20, "%.2f FPS", fps );
-		( (Window*) parentWidget() )->updateStatus( statusText );
-	}
-}
-
-
+/**
+ * Move the camera position backward.
+ */
 void GLWidget::cameraMoveBackward() {
-	float speed = 1.0f;
-	mCamera.eyeX += sin( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * speed;
-	mCamera.eyeY -= sin( utils::degToRad( mCamera.rotY ) ) * speed;
-	mCamera.eyeZ -= cos( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * speed;
+	mCamera.eyeX += sin( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
+	mCamera.eyeY -= sin( utils::degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
+	mCamera.eyeZ -= cos( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
 }
 
 
+/**
+ * Move the camera position downward.
+ */
+void GLWidget::cameraMoveDown() {
+	mCamera.eyeY -= CAM_MOVE_SPEED;
+}
+
+
+/**
+ * Move the camera position forward.
+ */
 void GLWidget::cameraMoveForward() {
-	float speed = 1.0f;
-	mCamera.eyeX -= sin( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * speed;
-	mCamera.eyeY += sin( utils::degToRad( mCamera.rotY ) ) * speed;
-	mCamera.eyeZ += cos( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * speed;
+	mCamera.eyeX -= sin( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
+	mCamera.eyeY += sin( utils::degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
+	mCamera.eyeZ += cos( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
 }
 
 
+/**
+ * Move the camera position to the left.
+ */
 void GLWidget::cameraMoveLeft() {
-	float speed = 1.0f;
-	mCamera.eyeX += cos( utils::degToRad( mCamera.rotX ) ) * speed;
-	mCamera.eyeZ += sin( utils::degToRad( mCamera.rotX ) ) * speed;
+	mCamera.eyeX += cos( utils::degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
+	mCamera.eyeZ += sin( utils::degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
 }
 
 
+/**
+ * Move the camera position to the right.
+ */
 void GLWidget::cameraMoveRight() {
-	float speed = 1.0f;
-	mCamera.eyeX -= cos( utils::degToRad( mCamera.rotX ) ) * speed;
-	mCamera.eyeZ -= sin( utils::degToRad( mCamera.rotX ) ) * speed;
+	mCamera.eyeX -= cos( utils::degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
+	mCamera.eyeZ -= sin( utils::degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
 }
 
 
+/**
+ * Move the camera position upward.
+ */
+void GLWidget::cameraMoveUp() {
+	mCamera.eyeY += CAM_MOVE_SPEED;
+}
+
+
+/**
+ * Draw an axis.
+ */
 void GLWidget::drawAxis() {
 	glBegin( GL_LINES );
 	glColor3d( 255, 0, 0 );
@@ -109,6 +128,9 @@ void GLWidget::drawAxis() {
 }
 
 
+/**
+ * Draw the main objects of the scene.
+ */
 void GLWidget::drawScene() {
 	glEnableClientState( GL_VERTEX_ARRAY );
 	// glEnableClientState( GL_TEXTURE_COORD_ARRAY );
@@ -142,6 +164,9 @@ void GLWidget::drawScene() {
 }
 
 
+/**
+ * Initialize OpenGL and start rendering.
+ */
 void GLWidget::initializeGL() {
 	glClearColor( 0.9f, 0.9f, 0.9f, 0.0f );
 
@@ -149,20 +174,29 @@ void GLWidget::initializeGL() {
 	glEnable( GL_MULTISAMPLE );
 	glEnable( GL_LINE_SMOOTH );
 
-	mTimer->start( CFG_GL_TIMER );
+	mTimer->start( RENDER_INTERVAL );
 }
 
 
+/**
+ * Check, if QGLWidget is currently rendering.
+ * @return {bool} True, if is rendering, false otherwise.
+ */
 bool GLWidget::isRendering() {
 	return mTimer->isActive();
 }
 
 
-std::vector<tinyobj::shape_t> GLWidget::loadModel() {
-	std::string inputfile = "resources/models/cornell-box/CornellBox-Glossy.obj";
+/**
+ * Load an OBJ model and its materials.
+ * @param  {const char*}              File path and name.
+ * @return {vector<tinyobj::shape_t>} The loaded model.
+ */
+std::vector<tinyobj::shape_t> GLWidget::loadModel( std::string filepath, std::string filename ) {
+	// std::string inputfile = "resources/models/cornell-box/CornellBox-Glossy.obj";
 	std::vector<tinyobj::shape_t> shapes;
 
-	std::string err = tinyobj::LoadObj( shapes, inputfile.c_str(), "resources/models/cornell-box/" );
+	std::string err = tinyobj::LoadObj( shapes, ( filepath + filename ).c_str(), filepath.c_str() );
 
 	if( !err.empty() ) {
 		std::cerr << err << std::endl;
@@ -173,11 +207,18 @@ std::vector<tinyobj::shape_t> GLWidget::loadModel() {
 }
 
 
+/**
+ * Set a minimum width and height for the QWidget.
+ * @return {QSize} Minimum width and height.
+ */
 QSize GLWidget::minimumSizeHint() const {
 	return QSize( 50, 50 );
 }
 
 
+/**
+ * Draw the scene.
+ */
 void GLWidget::paintGL() {
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
@@ -192,10 +233,15 @@ void GLWidget::paintGL() {
 	this->drawScene();
 	glPopMatrix();
 
-	this->calculateFPS();
+	this->showFPS();
 }
 
 
+/**
+ * Handle resizing of the QWidget by updating the viewport and perspective.
+ * @param width  {int} width  New width of the QWidget.
+ * @param height {int} height New height of the QWidget.
+ */
 void GLWidget::resizeGL( int width, int height ) {
 	glViewport( 0, 0, width, height );
 
@@ -208,12 +254,42 @@ void GLWidget::resizeGL( int width, int height ) {
 }
 
 
+/**
+ * Calculate the current framerate and show it in the status bar.
+ */
+void GLWidget::showFPS() {
+	mFrameCount++;
+
+	uint currentTime = glutGet( GLUT_ELAPSED_TIME );
+	uint timeInterval = currentTime - mPreviousTime;
+
+	if( timeInterval > 1000 ) {
+		float fps = mFrameCount / (float) timeInterval * 1000.0f;
+		mPreviousTime = currentTime;
+		mFrameCount = 0;
+
+		char statusText[20];
+		snprintf( statusText, 20, "%.2f FPS", fps );
+		( (Window*) parentWidget() )->updateStatus( statusText );
+	}
+}
+
+
+/**
+ * Set size of the QWidget.
+ * @return {QSize} Width and height of the QWidget.
+ */
 QSize GLWidget::sizeHint() const {
 	return QSize( 1000, 600 );
 }
 
 
-void GLWidget::updateCamera( int moveX, int moveY ) {
+/**
+ * Update the viewing direction of the camera, triggered by mouse movement.
+ * @param moveX {int} moveX Movement (of the mouse) in 2D X direction.
+ * @param moveY {int} moveY Movement (of the mouse) in 2D Y direction.
+ */
+void GLWidget::updateCameraRot( int moveX, int moveY ) {
 	mCamera.rotX -= moveX;
 	mCamera.rotY += moveY;
 
