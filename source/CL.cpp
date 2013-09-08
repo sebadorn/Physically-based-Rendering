@@ -39,6 +39,8 @@ cl_device_id CL::getDefaultDevice() {
 
 	std::cout << "* [OpenCL] Using device " << value << std::endl;
 
+	free( value );
+
 	return devices[0];
 }
 
@@ -68,6 +70,8 @@ cl_platform_id CL::getDefaultPlatform() {
 	clGetPlatformInfo( platforms[0], CL_PLATFORM_NAME, valueSize, value, NULL );
 
 	std::cout << "* [OpenCL] Using platform " << value << std::endl;
+
+	free( value );
 
 	return platforms[0];
 }

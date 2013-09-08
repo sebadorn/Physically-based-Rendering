@@ -4,7 +4,7 @@
 #include "source/qt/Window.h"
 
 
-int main( int argc, char *argv[] ) {
+int main( int argc, char* argv[] ) {
 	setlocale( LC_ALL, "C" );
 
 	QApplication app( argc, argv );

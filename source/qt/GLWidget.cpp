@@ -24,8 +24,8 @@
  * Constructor.
  * @param {QWidget*} parent Parent QWidget this QWidget is contained in.
  */
-GLWidget::GLWidget( QWidget *parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers ), parent ) {
-	CL *mCl = new CL();
+GLWidget::GLWidget( QWidget* parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers ), parent ) {
+	CL* mCl = new CL();
 
 	mFrameCount = 0;
 	mPreviousTime = 0;
@@ -142,7 +142,7 @@ void GLWidget::drawAxis() {
 void GLWidget::drawScene() {
 	glEnableClientState( GL_VERTEX_ARRAY );
 	// glEnableClientState( GL_TEXTURE_COORD_ARRAY );
-	glEnableClientState( GL_NORMAL_ARRAY );
+	// glEnableClientState( GL_NORMAL_ARRAY );
 	glEnableClientState( GL_COLOR_ARRAY );
 
 	for( uint i = 0; i < mLoadedShapes.size(); i++ ) {
@@ -154,7 +154,7 @@ void GLWidget::drawScene() {
 		}
 
 		glVertexPointer( 3, GL_FLOAT, 0, &mLoadedShapes[i].mesh.positions[0] );
-		glNormalPointer( GL_FLOAT, 0, &mLoadedShapes[i].mesh.normals[0] );
+		// glNormalPointer( GL_FLOAT, 0, &mLoadedShapes[i].mesh.normals[0] );
 		glColorPointer( 3, GL_FLOAT, 0, colors );
 
 		glDrawElements(
@@ -166,7 +166,7 @@ void GLWidget::drawScene() {
 	}
 
 	glDisableClientState( GL_COLOR_ARRAY );
-	glDisableClientState( GL_NORMAL_ARRAY );
+	// glDisableClientState( GL_NORMAL_ARRAY );
 	// glDisableClientState( GL_TEXTURE_COORD_ARRAY );
 	glDisableClientState( GL_VERTEX_ARRAY );
 }

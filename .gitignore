@@ -1,6 +1,6 @@
 # directories
 CMakeFiles/*
-ignore/*
+resources/*
 
 # files
 *.cxx

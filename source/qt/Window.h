@@ -20,9 +20,9 @@ class Window : public QWidget {
 		QBoxLayout* createLayout();
 		QMenuBar* createMenuBar();
 		QStatusBar* createStatusBar();
-		void keyPressEvent( QKeyEvent *e );
-		void mouseMoveEvent( QMouseEvent *e );
-		void mousePressEvent( QMouseEvent *e );
+		void keyPressEvent( QKeyEvent* e );
+		void mouseMoveEvent( QMouseEvent* e );
+		void mousePressEvent( QMouseEvent* e );
 
 	protected slots:
 		void importFile();
@@ -30,8 +30,8 @@ class Window : public QWidget {
 	private:
 		int mMouseLastX;
 		int mMouseLastY;
-		GLWidget *mGLWidget;
-		QStatusBar *mStatusBar;
+		GLWidget* mGLWidget;
+		QStatusBar* mStatusBar;
 
 };
 
