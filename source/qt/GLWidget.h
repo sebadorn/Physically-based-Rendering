@@ -21,7 +21,7 @@ class GLWidget : public QGLWidget {
 	Q_OBJECT
 
 	public:
-		GLWidget( QWidget *parent = 0 );
+		GLWidget( QWidget *parent );
 		~GLWidget();
 		void cameraMoveBackward();
 		void cameraMoveDown();
@@ -52,8 +52,8 @@ class GLWidget : public QGLWidget {
 		uint mPreviousTime;
 		camera_t mCamera;
 		std::vector<tinyobj::shape_t> mLoadedShapes;
-		QTimer *mTimer;
-		CL *mCl;
+		QTimer* mTimer;
+		CL* mCl;
 
 };
 
