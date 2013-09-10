@@ -143,19 +143,19 @@ void GLWidget::drawScene() {
 	glEnableClientState( GL_VERTEX_ARRAY );
 	// glEnableClientState( GL_TEXTURE_COORD_ARRAY );
 	// glEnableClientState( GL_NORMAL_ARRAY );
-	glEnableClientState( GL_COLOR_ARRAY );
+	// glEnableClientState( GL_COLOR_ARRAY );
 
 	for( uint i = 0; i < mLoadedShapes.size(); i++ ) {
-		float colors[mLoadedShapes[i].mesh.positions.size()];
-		for( uint j = 0; j < sizeof( colors ) / sizeof( *colors ); j += 3 ) {
-			colors[j] = mLoadedShapes[i].material.ambient[0];
-			colors[j+1] = mLoadedShapes[i].material.ambient[1];
-			colors[j+2] = mLoadedShapes[i].material.ambient[2];
-		}
+		// float colors[mLoadedShapes[i].mesh.positions.size()];
+		// for( uint j = 0; j < sizeof( colors ) / sizeof( *colors ); j += 3 ) {
+		// 	colors[j] = mLoadedShapes[i].material.ambient[0];
+		// 	colors[j+1] = mLoadedShapes[i].material.ambient[1];
+		// 	colors[j+2] = mLoadedShapes[i].material.ambient[2];
+		// }
 
 		glVertexPointer( 3, GL_FLOAT, 0, &mLoadedShapes[i].mesh.positions[0] );
 		// glNormalPointer( GL_FLOAT, 0, &mLoadedShapes[i].mesh.normals[0] );
-		glColorPointer( 3, GL_FLOAT, 0, colors );
+		// glColorPointer( 3, GL_FLOAT, 0, colors );
 
 		glDrawElements(
 			GL_TRIANGLES,
@@ -165,7 +165,7 @@ void GLWidget::drawScene() {
 		);
 	}
 
-	glDisableClientState( GL_COLOR_ARRAY );
+	// glDisableClientState( GL_COLOR_ARRAY );
 	// glDisableClientState( GL_NORMAL_ARRAY );
 	// glDisableClientState( GL_TEXTURE_COORD_ARRAY );
 	glDisableClientState( GL_VERTEX_ARRAY );
@@ -191,8 +191,16 @@ void GLWidget::initializeGL() {
  * Load and compile the shader.
  */
 void GLWidget::initShader() {
-	glewInit();
+	GLenum err = glewInit();
 
+	if( err != GLEW_OK ) {
+		std::cerr << "* [GLEW] Init failed: " << glewGetErrorString( err ) << std::endl;
+		exit( 1 );
+	}
+
+	std::cout << "* [GLEW] Using version " << glewGetString( GLEW_VERSION ) << std::endl;
+
+	mGLProgram = glCreateProgram();
 	std::string shaderString = utils::loadFileAsString( "source/shader/test.glsl" );
 	const GLchar* shaderSource = shaderString.c_str();
 	const GLint shaderLength = shaderString.size();
@@ -200,6 +208,10 @@ void GLWidget::initShader() {
 
 	glShaderSource( fragmentShader, 1, &shaderSource, &shaderLength );
 	glCompileShader( fragmentShader );
+	glAttachShader( mGLProgram, fragmentShader );
+	glLinkProgram( mGLProgram );
+
+	glUseProgram( mGLProgram );
 }
 
 
@@ -259,6 +271,7 @@ void GLWidget::paintGL() {
 		mCamera.eyeX - mCamera.centerX, mCamera.eyeY + mCamera.centerY, mCamera.eyeZ + mCamera.centerZ,
 		mCamera.upX, mCamera.upY, mCamera.upZ
 	);
+
 	this->drawAxis();
 	this->drawScene();
 	glPopMatrix();

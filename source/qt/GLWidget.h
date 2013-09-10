@@ -51,6 +51,7 @@ class GLWidget : public QGLWidget {
 		bool mDoRendering;
 		uint mFrameCount;
 		uint mPreviousTime;
+		GLuint mGLProgram;
 		camera_t mCamera;
 		std::vector<tinyobj::shape_t> mLoadedShapes;
 		QTimer* mTimer;
