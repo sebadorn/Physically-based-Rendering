@@ -16,6 +16,10 @@ find_package( GLUT REQUIRED )
 include_directories( ${GLUT_INCLUDE_DIRS} )
 set( LIBRARIES ${LIBRARIES} ${GLUT_LIBRARIES} )
 
+find_package( GLEW REQUIRED )
+include_directories( ${GLEW_INCLUDE_DIRS} )
+set( LIBRARIES ${LIBRARIES} ${GLEW_LIBRARIES} )
+
 
 # OpenCL
 find_package( OpenCL REQUIRED )

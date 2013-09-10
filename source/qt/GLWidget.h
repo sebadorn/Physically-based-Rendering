@@ -42,6 +42,7 @@ class GLWidget : public QGLWidget {
 		void drawAxis();
 		void drawScene();
 		void initializeGL();
+		void initShader();
 		void paintGL();
 		void resizeGL( int width, int height );
 		void showFPS();

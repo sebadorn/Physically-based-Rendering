@@ -8,6 +8,7 @@
 #include "Window.h"
 
 #define WINDOW_TITLE "Physically-based Renderer"
+#define IMPORT_PATH "/home/seba/programming/Physically-based Rendering/resources/models/"
 
 
 /**
@@ -76,9 +77,7 @@ void Window::importFile() {
 	mGLWidget->stopRendering();
 
 	QString fileDialogResult = QFileDialog::getOpenFileName(
-		this, tr( "Import file" ),
-		"/home/seba/programming/Physically-based Rendering/resources/",
-		tr( "OBJ model (*.obj);;All files (*.*)" )
+		this, tr( "Import file" ), IMPORT_PATH, tr( "OBJ model (*.obj);;All files (*.*)" )
 	);
 
 	std::string filePath = fileDialogResult.toStdString();

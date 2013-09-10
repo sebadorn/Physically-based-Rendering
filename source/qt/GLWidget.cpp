@@ -1,5 +1,5 @@
 #include <QtGui>
-#include <QtOpenGL>
+#include <GL/glew.h>
 #include <GL/glut.h>
 
 #include <cmath>
@@ -182,7 +182,24 @@ void GLWidget::initializeGL() {
 	glEnable( GL_MULTISAMPLE );
 	glEnable( GL_LINE_SMOOTH );
 
+	this->initShader();
 	this->startRendering();
+}
+
+
+/**
+ * Load and compile the shader.
+ */
+void GLWidget::initShader() {
+	glewInit();
+
+	std::string shaderString = utils::loadFileAsString( "source/shader/test.glsl" );
+	const GLchar* shaderSource = shaderString.c_str();
+	const GLint shaderLength = shaderString.size();
+	GLuint fragmentShader = glCreateShader( GL_FRAGMENT_SHADER );
+
+	glShaderSource( fragmentShader, 1, &shaderSource, &shaderLength );
+	glCompileShader( fragmentShader );
 }
 
 
@@ -252,8 +269,8 @@ void GLWidget::paintGL() {
 
 /**
  * Handle resizing of the QWidget by updating the viewport and perspective.
- * @param width  {int} width  New width of the QWidget.
- * @param height {int} height New height of the QWidget.
+ * @param {int} width  New width of the QWidget.
+ * @param {int} height New height of the QWidget.
  */
 void GLWidget::resizeGL( int width, int height ) {
 	glViewport( 0, 0, width, height );

@@ -14,7 +14,7 @@ class Window : public QWidget {
 
 	public:
 		Window();
-		void updateStatus( const char *msg );
+		void updateStatus( const char* msg );
 
 	protected:
 		QBoxLayout* createLayout();
