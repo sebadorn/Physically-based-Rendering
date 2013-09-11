@@ -143,48 +143,30 @@ void GLWidget::drawAxis() {
 void GLWidget::drawScene() {
 	glEnableClientState( GL_VERTEX_ARRAY );
 	// glEnableClientState( GL_TEXTURE_COORD_ARRAY );
-	glEnableClientState( GL_NORMAL_ARRAY );
-	// glEnableClientState( GL_COLOR_ARRAY );
 
 	for( uint i = 0; i < mLoadedShapes.size(); i++ ) {
-		// float colors[mLoadedShapes[i].mesh.positions.size()];
-		// for( uint j = 0; j < sizeof( colors ) / sizeof( *colors ); j += 3 ) {
-		// 	colors[j] = mLoadedShapes[i].material.ambient[0];
-		// 	colors[j+1] = mLoadedShapes[i].material.ambient[1];
-		// 	colors[j+2] = mLoadedShapes[i].material.ambient[2];
-		// }
+		tinyobj::mesh_t* shapeMesh = &mLoadedShapes[i].mesh;
+		tinyobj::material_t* shapeMtl = &mLoadedShapes[i].material;
 
-		glVertexPointer( 3, GL_FLOAT, 0, &mLoadedShapes[i].mesh.positions[0] );
-		glNormalPointer( GL_FLOAT, 0, &mLoadedShapes[i].mesh.normals[0] );
-		// glColorPointer( 3, GL_FLOAT, 0, colors );
+		glVertexPointer( 3, GL_FLOAT, 0, &shapeMesh->positions[0] );
 
-		float* ambientV = mLoadedShapes[i].material.ambient;
-		float* diffuseV = mLoadedShapes[i].material.diffuse;
-		float* specularV = mLoadedShapes[i].material.specular;
+		if( shapeMesh->normals.size() > 0 ) {
+			glNormalPointer( GL_FLOAT, 0, &shapeMesh->normals[0] );
+			glEnableClientState( GL_NORMAL_ARRAY );
+		}
 
-		float ambient[4] = { ambientV[0], ambientV[1], ambientV[2], 1.0 };
-		float diffuse[4] = { diffuseV[0], diffuseV[1], diffuseV[2], 1.0 };
-		float specular[4] = { specularV[0], specularV[1], specularV[2], 1.0 };
+		float ambient[4] = { shapeMtl->ambient[0], shapeMtl->ambient[1], shapeMtl->ambient[2], 1.0 };
+		float diffuse[4] = { shapeMtl->diffuse[0], shapeMtl->diffuse[1], shapeMtl->diffuse[2], 1.0 };
+		float specular[4] = { shapeMtl->specular[0], shapeMtl->specular[1], shapeMtl->specular[2], 1.0 };
 
-		glUniform4f( glGetUniformLocation( mGLProgram, "ambient" ), ambient[0], ambient[1], ambient[2], ambient[3] );
-		glUniform4f( glGetUniformLocation( mGLProgram, "diffuse" ), diffuse[0], diffuse[1], diffuse[2], diffuse[3] );
-		glUniform4f( glGetUniformLocation( mGLProgram, "specular" ), specular[0], specular[1], specular[2], specular[3] );
+		glUniform4fv( glGetUniformLocation( mGLProgram, "ambient" ), 1, ambient );
+		glUniform4fv( glGetUniformLocation( mGLProgram, "diffuse" ), 1, diffuse );
+		glUniform4fv( glGetUniformLocation( mGLProgram, "specular" ), 1, specular );
 
-		// glMaterialfv( GL_FRONT_AND_BACK, GL_AMBIENT, ambient );
-		// glMaterialfv( GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse );
-		// glMaterialfv( GL_FRONT_AND_BACK, GL_SPECULAR, specular );
-		// glMaterialf( GL_FRONT_AND_BACK, GL_SHININESS, 60.0f );
-
-		glDrawElements(
-			GL_TRIANGLES,
-			mLoadedShapes[i].mesh.indices.size(),
-			GL_UNSIGNED_INT,
-			&mLoadedShapes[i].mesh.indices[0]
-		);
+		glDrawElements( GL_TRIANGLES, shapeMesh->indices.size(), GL_UNSIGNED_INT, &shapeMesh->indices[0] );
+		glDisableClientState( GL_NORMAL_ARRAY );
 	}
 
-	// glDisableClientState( GL_COLOR_ARRAY );
-	glDisableClientState( GL_NORMAL_ARRAY );
 	// glDisableClientState( GL_TEXTURE_COORD_ARRAY );
 	glDisableClientState( GL_VERTEX_ARRAY );
 }
