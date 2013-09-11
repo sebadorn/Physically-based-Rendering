@@ -18,6 +18,7 @@
 
 #define CAM_MOVE_SPEED 0.5f
 #define RENDER_INTERVAL 16.666f
+#define SHADER "phong_"
 
 
 /**
@@ -142,7 +143,7 @@ void GLWidget::drawAxis() {
 void GLWidget::drawScene() {
 	glEnableClientState( GL_VERTEX_ARRAY );
 	// glEnableClientState( GL_TEXTURE_COORD_ARRAY );
-	// glEnableClientState( GL_NORMAL_ARRAY );
+	glEnableClientState( GL_NORMAL_ARRAY );
 	// glEnableClientState( GL_COLOR_ARRAY );
 
 	for( uint i = 0; i < mLoadedShapes.size(); i++ ) {
@@ -154,8 +155,25 @@ void GLWidget::drawScene() {
 		// }
 
 		glVertexPointer( 3, GL_FLOAT, 0, &mLoadedShapes[i].mesh.positions[0] );
-		// glNormalPointer( GL_FLOAT, 0, &mLoadedShapes[i].mesh.normals[0] );
+		glNormalPointer( GL_FLOAT, 0, &mLoadedShapes[i].mesh.normals[0] );
 		// glColorPointer( 3, GL_FLOAT, 0, colors );
+
+		float* ambientV = mLoadedShapes[i].material.ambient;
+		float* diffuseV = mLoadedShapes[i].material.diffuse;
+		float* specularV = mLoadedShapes[i].material.specular;
+
+		float ambient[4] = { ambientV[0], ambientV[1], ambientV[2], 1.0 };
+		float diffuse[4] = { diffuseV[0], diffuseV[1], diffuseV[2], 1.0 };
+		float specular[4] = { specularV[0], specularV[1], specularV[2], 1.0 };
+
+		glUniform4f( glGetUniformLocation( mGLProgram, "ambient" ), ambient[0], ambient[1], ambient[2], ambient[3] );
+		glUniform4f( glGetUniformLocation( mGLProgram, "diffuse" ), diffuse[0], diffuse[1], diffuse[2], diffuse[3] );
+		glUniform4f( glGetUniformLocation( mGLProgram, "specular" ), specular[0], specular[1], specular[2], specular[3] );
+
+		// glMaterialfv( GL_FRONT_AND_BACK, GL_AMBIENT, ambient );
+		// glMaterialfv( GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse );
+		// glMaterialfv( GL_FRONT_AND_BACK, GL_SPECULAR, specular );
+		// glMaterialf( GL_FRONT_AND_BACK, GL_SHININESS, 60.0f );
 
 		glDrawElements(
 			GL_TRIANGLES,
@@ -166,7 +184,7 @@ void GLWidget::drawScene() {
 	}
 
 	// glDisableClientState( GL_COLOR_ARRAY );
-	// glDisableClientState( GL_NORMAL_ARRAY );
+	glDisableClientState( GL_NORMAL_ARRAY );
 	// glDisableClientState( GL_TEXTURE_COORD_ARRAY );
 	glDisableClientState( GL_VERTEX_ARRAY );
 }
@@ -200,17 +218,30 @@ void GLWidget::initShader() {
 
 	std::cout << "* [GLEW] Using version " << glewGetString( GLEW_VERSION ) << std::endl;
 
+	std::string shaderString;
+
 	mGLProgram = glCreateProgram();
-	std::string shaderString = utils::loadFileAsString( "source/shader/test.glsl" );
-	const GLchar* shaderSource = shaderString.c_str();
-	const GLint shaderLength = shaderString.size();
+	GLuint vertexShader = glCreateShader( GL_VERTEX_SHADER );
 	GLuint fragmentShader = glCreateShader( GL_FRAGMENT_SHADER );
 
-	glShaderSource( fragmentShader, 1, &shaderSource, &shaderLength );
+	std::string path = "source/shader/";
+	path.append( SHADER );
+
+	shaderString = utils::loadFileAsString( ( path + "vertex.glsl" ).c_str() );
+	const GLchar* shaderSourceVertex = shaderString.c_str();
+	const GLint shaderLengthVertex = shaderString.size();
+	glShaderSource( vertexShader, 1, &shaderSourceVertex, &shaderLengthVertex );
+	glCompileShader( vertexShader );
+	glAttachShader( mGLProgram, vertexShader );
+
+	shaderString = utils::loadFileAsString( ( path + "fragment.glsl" ).c_str() );
+	const GLchar* shaderSourceFragment = shaderString.c_str();
+	const GLint shaderLengthFragment = shaderString.size();
+	glShaderSource( fragmentShader, 1, &shaderSourceFragment, &shaderLengthFragment );
 	glCompileShader( fragmentShader );
 	glAttachShader( mGLProgram, fragmentShader );
-	glLinkProgram( mGLProgram );
 
+	glLinkProgram( mGLProgram );
 	glUseProgram( mGLProgram );
 }
 
