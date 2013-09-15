@@ -16,6 +16,7 @@ find_package( GLUT REQUIRED )
 include_directories( ${GLUT_INCLUDE_DIRS} )
 set( LIBRARIES ${LIBRARIES} ${GLUT_LIBRARIES} )
 
+set( GLEW_FIND_QUIETLY 1 )
 find_package( GLEW REQUIRED )
 include_directories( ${GLEW_INCLUDE_DIRS} )
 set( LIBRARIES ${LIBRARIES} ${GLEW_LIBRARIES} )
@@ -35,6 +36,12 @@ include_directories( ${QT_INCLUDE_DIR} )
 include_directories( ${QT_QTOPENGL_INCLUDE_DIR} )
 qt4_wrap_cpp( SOURCES_MOC ${HEADERS_QT} )
 set( LIBRARIES ${LIBRARIES} ${QT_LIBRARIES} ${QT_QTOPENGL_LIBRARIES} )
+
+
+# ASSIMP
+find_package( ASSIMP REQUIRED )
+include_directories( ${ASSIMP_INCLUDE_DIRS} )
+set( LIBRARIES ${LIBRARIES} ${ASSIMP_LIBRARIES} )
 
 
 add_executable( ${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/main.cpp ${SOURCES_CPP} ${SOURCES_MOC} )
