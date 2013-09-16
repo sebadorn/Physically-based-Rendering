@@ -256,20 +256,16 @@ bool GLWidget::isRendering() {
 void GLWidget::loadModel( std::string filepath, std::string filename ) {
 	const uint flags = aiProcess_JoinIdenticalVertices |
 	                   aiProcess_Triangulate |
-	                   aiProcess_GenNormals |
+	                   aiProcess_GenSmoothNormals |
 	                   aiProcess_SortByPType |
-	                   aiProcess_FindInvalidData |
-	                   aiProcess_FindDegenerates |
 	                   aiProcess_OptimizeMeshes |
+	                   aiProcess_OptimizeGraph |
 	                   aiProcess_SplitLargeMeshes;
 	// Doc: http://assimp.sourceforge.net/lib_html/postprocess_8h.html
 	// more: aiProcess_GenSmoothNormals |
-	//       aiProcess_SplitLargeMeshes |
 	//       aiProcess_FixInfacingNormals |
 	//       aiProcess_FindDegenerates |
-	//       aiProcess_FindInvalidData |
-	//       aiProcess_OptimizeMeshes |
-	//       aiProcess_OptimizeGraph
+	//       aiProcess_FindInvalidData
 	mScene = mImporter.ReadFile( filepath + filename, flags );
 
 	if( !mScene ) {
