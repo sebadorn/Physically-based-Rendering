@@ -176,9 +176,13 @@ void GLWidget::drawScene() {
 		float diffuse[4] = { aiDiffuse[0], aiDiffuse[1], aiDiffuse[2], aiDiffuse[3] };
 		float specular[4] = { aiSpecular[0], aiSpecular[1], aiSpecular[2], aiSpecular[3] };
 
+		float shininess = 0.0f;
+		material->Get( AI_MATKEY_SHININESS, shininess );
+
 		glUniform4fv( glGetUniformLocation( mGLProgram, "ambient" ), 1, ambient );
 		glUniform4fv( glGetUniformLocation( mGLProgram, "diffuse" ), 1, diffuse );
 		glUniform4fv( glGetUniformLocation( mGLProgram, "specular" ), 1, specular );
+		glUniform1f( glGetUniformLocation( mGLProgram, "shininess" ), shininess );
 
 		glDrawElements( GL_TRIANGLES, mMeshFacesData[i].size(), GL_UNSIGNED_INT, &(mMeshFacesData[i])[0] );
 		glDisableClientState( GL_NORMAL_ARRAY );
@@ -256,7 +260,7 @@ bool GLWidget::isRendering() {
 void GLWidget::loadModel( std::string filepath, std::string filename ) {
 	const uint flags = aiProcess_JoinIdenticalVertices |
 	                   aiProcess_Triangulate |
-	                   aiProcess_GenSmoothNormals |
+	                   aiProcess_GenNormals |
 	                   aiProcess_SortByPType |
 	                   aiProcess_OptimizeMeshes |
 	                   aiProcess_OptimizeGraph |
