@@ -1,11 +1,12 @@
 #ifndef GLWIDGET_H
 #define GLWIDGET_H
 
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
 #include <QGLWidget>
 #include <unistd.h>
 
 #include "../CL.h"
-#include "../tinyobjloader/tiny_obj_loader.h"
 
 
 typedef struct {
@@ -53,7 +54,9 @@ class GLWidget : public QGLWidget {
 		uint mPreviousTime;
 		GLuint mGLProgram;
 		camera_t mCamera;
-		std::vector<tinyobj::shape_t> mLoadedShapes;
+		const aiScene* mScene;
+		Assimp::Importer mImporter;
+		std::vector< std::vector<uint> > mMeshFacesData;
 		QTimer* mTimer;
 		CL* mCl;
 

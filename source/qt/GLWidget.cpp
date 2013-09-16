@@ -1,13 +1,12 @@
-#include <QtGui>
+#include <assimp/postprocess.h>
+#include <cmath>
 #include <GL/glew.h>
 #include <GL/glut.h>
-
-#include <cmath>
 #include <iostream>
+#include <QtGui>
 #include <unistd.h>
 
 #include "../CL.h"
-#include "../tinyobjloader/tiny_obj_loader.h"
 #include "../utils.h"
 #include "Window.h"
 #include "GLWidget.h"
@@ -27,13 +26,18 @@
  */
 GLWidget::GLWidget( QWidget* parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers ), parent ) {
 	CL* mCl = new CL();
+	Assimp::Importer mImporter;
 
+	mScene = NULL;
+	mDoRendering = false;
 	mFrameCount = 0;
 	mPreviousTime = 0;
 	this->cameraReset();
 
 	mTimer = new QTimer( this );
 	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
+
+	this->startRendering();
 }
 
 
@@ -141,29 +145,42 @@ void GLWidget::drawAxis() {
  * Draw the main objects of the scene.
  */
 void GLWidget::drawScene() {
+	if( mScene == NULL ) {
+		return;
+	}
+
 	glEnableClientState( GL_VERTEX_ARRAY );
 	// glEnableClientState( GL_TEXTURE_COORD_ARRAY );
 
-	for( uint i = 0; i < mLoadedShapes.size(); i++ ) {
-		tinyobj::mesh_t* shapeMesh = &mLoadedShapes[i].mesh;
-		tinyobj::material_t* shapeMtl = &mLoadedShapes[i].material;
+	for( uint i = 0; i < mScene->mNumMeshes; i++ ) {
+		aiMesh* mesh = mScene->mMeshes[i];
+		aiMaterial* material = mScene->mMaterials[mesh->mMaterialIndex];
 
-		glVertexPointer( 3, GL_FLOAT, 0, &shapeMesh->positions[0] );
+		glVertexPointer( 3, GL_FLOAT, 0, &mesh->mVertices[0] );
 
-		if( shapeMesh->normals.size() > 0 ) {
-			glNormalPointer( GL_FLOAT, 0, &shapeMesh->normals[0] );
+		if( mesh->mNormals->Length() > 0 ) {
+			glNormalPointer( GL_FLOAT, 0, &mesh->mNormals[0] );
 			glEnableClientState( GL_NORMAL_ARRAY );
 		}
 
-		float ambient[4] = { shapeMtl->ambient[0], shapeMtl->ambient[1], shapeMtl->ambient[2], 1.0 };
-		float diffuse[4] = { shapeMtl->diffuse[0], shapeMtl->diffuse[1], shapeMtl->diffuse[2], 1.0 };
-		float specular[4] = { shapeMtl->specular[0], shapeMtl->specular[1], shapeMtl->specular[2], 1.0 };
+		aiColor4D aiAmbient( 0.0f, 0.0f, 0.0f, 1.0f );
+		material->Get( AI_MATKEY_COLOR_AMBIENT, aiAmbient );
+
+		aiColor4D aiDiffuse( 0.0f, 0.0f, 0.0f, 1.0f );
+		material->Get( AI_MATKEY_COLOR_DIFFUSE, aiDiffuse );
+
+		aiColor4D aiSpecular( 0.0f, 0.0f, 0.0f, 1.0f );
+		material->Get( AI_MATKEY_COLOR_SPECULAR, aiSpecular );
+
+		float ambient[4] = { aiAmbient[0], aiAmbient[1], aiAmbient[2], aiAmbient[3] };
+		float diffuse[4] = { aiDiffuse[0], aiDiffuse[1], aiDiffuse[2], aiDiffuse[3] };
+		float specular[4] = { aiSpecular[0], aiSpecular[1], aiSpecular[2], aiSpecular[3] };
 
 		glUniform4fv( glGetUniformLocation( mGLProgram, "ambient" ), 1, ambient );
 		glUniform4fv( glGetUniformLocation( mGLProgram, "diffuse" ), 1, diffuse );
 		glUniform4fv( glGetUniformLocation( mGLProgram, "specular" ), 1, specular );
 
-		glDrawElements( GL_TRIANGLES, shapeMesh->indices.size(), GL_UNSIGNED_INT, &shapeMesh->indices[0] );
+		glDrawElements( GL_TRIANGLES, mMeshFacesData[i].size(), GL_UNSIGNED_INT, &(mMeshFacesData[i])[0] );
 		glDisableClientState( GL_NORMAL_ARRAY );
 	}
 
@@ -183,7 +200,6 @@ void GLWidget::initializeGL() {
 	glEnable( GL_LINE_SMOOTH );
 
 	this->initShader();
-	this->startRendering();
 }
 
 
@@ -237,23 +253,46 @@ bool GLWidget::isRendering() {
 }
 
 
-/**
- * Load an OBJ model and its materials.
- * @param {string} filepath Path to the OBJ and MTL file.
- * @param {string} filename Name of the OBJ file, including extension.
- */
 void GLWidget::loadModel( std::string filepath, std::string filename ) {
-	std::vector<tinyobj::shape_t> shapes;
-	std::string err = tinyobj::LoadObj( shapes, ( filepath + filename ).c_str(), filepath.c_str() );
+	const uint flags = aiProcess_JoinIdenticalVertices |
+	                   aiProcess_Triangulate |
+	                   aiProcess_GenNormals |
+	                   aiProcess_SortByPType |
+	                   aiProcess_FindInvalidData |
+	                   aiProcess_FindDegenerates |
+	                   aiProcess_OptimizeMeshes |
+	                   aiProcess_SplitLargeMeshes;
+	// Doc: http://assimp.sourceforge.net/lib_html/postprocess_8h.html
+	// more: aiProcess_GenSmoothNormals |
+	//       aiProcess_SplitLargeMeshes |
+	//       aiProcess_FixInfacingNormals |
+	//       aiProcess_FindDegenerates |
+	//       aiProcess_FindInvalidData |
+	//       aiProcess_OptimizeMeshes |
+	//       aiProcess_OptimizeGraph
+	mScene = mImporter.ReadFile( filepath + filename, flags );
 
-	if( !err.empty() ) {
-		std::cerr << "* [GLWidget] " << err << std::endl;
+	if( !mScene ) {
+		std::cerr << "* [GLWidget] Error importing model: " << mImporter.GetErrorString() << std::endl;
 		exit( 1 );
 	}
 
-	std::cout << "* [GLWidget] Model \"" << filename << "\" loaded." << std::endl;
+	mMeshFacesData.clear();
 
-	mLoadedShapes = shapes;
+	for( uint i = 0; i < mScene->mNumMeshes; i++ ) {
+		aiMesh* mesh = mScene->mMeshes[i];
+		mMeshFacesData.push_back( std::vector<uint>( mesh->mNumFaces * 3 ) );
+
+		for( uint j = 0; j < mesh->mNumFaces; j++ ) {
+			const aiFace* face = &mesh->mFaces[j];
+			mMeshFacesData[i].push_back( face->mIndices[0] );
+			mMeshFacesData[i].push_back( face->mIndices[1] );
+			mMeshFacesData[i].push_back( face->mIndices[2] );
+		}
+	}
+
+	std::cout << "* [GLWidget] Imported model \"" << filename << "\" of " << mScene->mNumMeshes << " meshes." << std::endl;
+
 	this->startRendering();
 }
 
@@ -344,8 +383,10 @@ QSize GLWidget::sizeHint() const {
  * Start or resume rendering.
  */
 void GLWidget::startRendering() {
-	mDoRendering = true;
-	mTimer->start( RENDER_INTERVAL );
+	if( !mDoRendering ) {
+		mDoRendering = true;
+		mTimer->start( RENDER_INTERVAL );
+	}
 }
 
 
@@ -353,9 +394,11 @@ void GLWidget::startRendering() {
  * Stop rendering.
  */
 void GLWidget::stopRendering() {
-	mDoRendering = false;
-	mTimer->stop();
-	( (Window*) parentWidget() )->updateStatus( "Stopped." );
+	if( mDoRendering ) {
+		mDoRendering = false;
+		mTimer->stop();
+		( (Window*) parentWidget() )->updateStatus( "Stopped." );
+	}
 }
 
 
