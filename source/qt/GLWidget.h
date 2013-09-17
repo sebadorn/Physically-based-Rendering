@@ -53,6 +53,10 @@ class GLWidget : public QGLWidget {
 		uint mFrameCount;
 		uint mPreviousTime;
 		GLuint mGLProgram;
+		std::vector<GLuint> mVertexBuffers;
+		std::vector<GLuint> mVertexCount;
+		std::vector<GLuint> mIndexBuffers;
+		std::vector<GLuint> mIndexCount;
 		camera_t mCamera;
 		const aiScene* mScene;
 		Assimp::Importer mImporter;

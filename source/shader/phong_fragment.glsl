@@ -1,25 +1,31 @@
-uniform vec4 ambient;
-uniform vec4 diffuse;
-uniform vec4 specular;
-uniform float shininess;
+#version 330 core
 
-varying vec3 N;
-varying vec3 v;
+// uniform vec4 ambient;
+// uniform vec4 diffuse;
+// uniform vec4 specular;
+// uniform float shininess;
+
+// varying vec3 N;
+// varying vec3 v;
+
+out vec3 color;
 
 
 void main( void ) {
-	vec4 diffuseV;
-	vec4 specV;
-	vec4 ambientV;
-	vec4 light = vec4( 0.0f, 40.0f, 0.0f, 0.0f );
+	// vec4 diffuseV;
+	// vec4 specV;
+	// vec4 ambientV;
+	// vec4 light = vec4( 0.0f, 40.0f, 0.0f, 0.0f );
 
-	vec3 L = normalize( light - v );
-	vec3 E = normalize( -v );
-	vec3 R = normalize( reflect( -L, N ) );
+	// vec3 L = normalize( light - v );
+	// vec3 E = normalize( -v );
+	// vec3 R = normalize( reflect( -L, N ) );
 
-	ambientV = ambient;
-	diffuseV = clamp( diffuse * max( dot( N, L ), 0.0 ), 0.0, 1.0 ) ;
-	specV = clamp ( specular * pow( max( dot( R, E ), 0.0 ), 0.3 * shininess ), 0.0, 1.0 );
+	// ambientV = ambient;
+	// diffuseV = clamp( diffuse * max( dot( N, L ), 0.0 ), 0.0, 1.0 ) ;
+	// specV = clamp ( specular * pow( max( dot( R, E ), 0.0 ), 0.3 * shininess ), 0.0, 1.0 );
 
-	gl_FragColor = ambientV + diffuseV + specV;
+	// gl_FragColor = ambientV + diffuseV + specV;
+
+	color = vec3( 1, 0, 0 );
 }
