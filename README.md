@@ -1,3 +1,4 @@
-== Notes
+## ToDo
 
-* Textures.
+* Textures
+* OpenGL 3.2
