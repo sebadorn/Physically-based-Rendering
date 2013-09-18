@@ -123,6 +123,20 @@ glm::vec3 Camera::getEye_glmVec3() {
 
 
 /**
+ * Return the eye coordinates.
+ * @return {std::vector<float>} Eye coordinates.
+ */
+std::vector<float> Camera::getEye() {
+	std::vector<float> eye;
+	eye.push_back( mCamera.eyeX );
+	eye.push_back( mCamera.eyeY );
+	eye.push_back( mCamera.eyeZ );
+
+	return eye;
+}
+
+
+/**
  * Return the up coordinates as GLM 3D vector.
  * @return {glm::vec3} Up coordinates.
  */

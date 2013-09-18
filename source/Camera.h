@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <glm/glm.hpp>
+#include <vector>
 
 #include "qt/GLWidget.h"
 #include "utils.h"
@@ -34,6 +35,7 @@ class Camera {
 		void cameraReset();
 		glm::vec3 getAdjustedCenter_glmVec3();
 		glm::vec3 getCenter_glmVec3();
+		std::vector<float> getEye();
 		glm::vec3 getEye_glmVec3();
 		glm::vec3 getUp_glmVec3();
 		void updateCameraRot( int moveX, int moveY );

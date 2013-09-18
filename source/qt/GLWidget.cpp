@@ -47,13 +47,17 @@ void GLWidget::calculateMatrices() {
 	if( !mDoRendering ) {
 		return;
 	}
+
 	mViewMatrix = glm::lookAt(
 		mCamera->getEye_glmVec3(),
 		mCamera->getAdjustedCenter_glmVec3(),
 		mCamera->getUp_glmVec3()
 	);
 	mModelMatrix = glm::mat4( 1.0f );
-	mNormalMatrix = glm::mat3( mViewMatrix * mModelMatrix );
+	mModelViewMatrix = mViewMatrix * mModelMatrix;
+	// mNormalMatrix = glm::inverseTranspose( glm::mat3( mModelViewMatrix ) );
+	// If no scaling is involved:
+	mNormalMatrix = glm::mat3( mModelViewMatrix );
 	mModelViewProjectionMatrix = mProjectionMatrix * mViewMatrix * mModelMatrix;
 }
 
@@ -367,13 +371,17 @@ void GLWidget::paintGL() {
 
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
+	vector<float> lightPosition = mCamera->getEye();
+
 	GLuint matrixMVP = glGetUniformLocation( mGLProgram, "mModelViewProjectionMatrix" );
-	GLuint matrixModel = glGetUniformLocation( mGLProgram, "mModelMatrix" );
+	GLuint matrixModelView = glGetUniformLocation( mGLProgram, "mModelViewMatrix" );
 	GLuint matrixNormal = glGetUniformLocation( mGLProgram, "mNormalMatrix" );
+	GLuint light0 = glGetUniformLocation( mGLProgram, "lightPosition" );
 
 	glUniformMatrix4fv( matrixMVP, 1, GL_FALSE, &mModelViewProjectionMatrix[0][0] );
-	glUniformMatrix4fv( matrixModel, 1, GL_FALSE, &mModelMatrix[0][0] );
+	glUniformMatrix4fv( matrixModelView, 1, GL_FALSE, &mModelViewMatrix[0][0] );
 	glUniformMatrix3fv( matrixNormal, 1, GL_FALSE, &mNormalMatrix[0][0] );
+	glUniform3fv( light0, 3, &lightPosition[0] );
 
 	this->drawScene();
 	this->showFPS();

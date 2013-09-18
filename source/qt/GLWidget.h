@@ -8,6 +8,7 @@
 #include <GL/glut.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 #include <sstream>
 #include <QGLWidget>
 #include <unistd.h>
@@ -73,6 +74,7 @@ class GLWidget : public QGLWidget {
 		std::vector<GLuint> mVA;
 		glm::mat3 mNormalMatrix;
 		glm::mat4 mModelMatrix;
+		glm::mat4 mModelViewMatrix;
 		glm::mat4 mModelViewProjectionMatrix;
 		glm::mat4 mProjectionMatrix;
 		glm::mat4 mViewMatrix;

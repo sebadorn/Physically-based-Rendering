@@ -1,6 +1,12 @@
 #version 330 core
 
 
+uniform mat4 mModelViewProjectionMatrix;
+uniform mat4 mModelViewMatrix;
+uniform mat3 mNormalMatrix;
+
+uniform vec3 lightPosition;
+
 layout( location = 0 ) in vec3 vertexPosition_modelSpace;
 layout( location = 1 ) in vec3 vertexNormal_modelSpace;
 layout( location = 2 ) in vec3 colorAmbient;
@@ -13,10 +19,7 @@ out vec3 specular;
 
 out vec3 vertexPosition_cameraSpace;
 out vec3 vertexNormal_cameraSpace;
-
-uniform mat4 mModelViewProjectionMatrix;
-uniform mat4 mModelMatrix;
-uniform mat3 mNormalMatrix;
+out vec3 light0;
 
 
 void main( void ) {
@@ -26,6 +29,8 @@ void main( void ) {
 	diffuse = colorDiffuse;
 	specular = colorSpecular;
 
-	vertexPosition_cameraSpace = mat3( mModelMatrix ) * vertexPosition_modelSpace;
+	vertexPosition_cameraSpace = mat3( mModelViewMatrix ) * vertexPosition_modelSpace;
 	vertexNormal_cameraSpace = normalize( mNormalMatrix * vertexNormal_modelSpace );
+
+	light0 = lightPosition;
 }

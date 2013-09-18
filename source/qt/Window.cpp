@@ -42,7 +42,7 @@ QBoxLayout* Window::createLayout() {
  * @return {QMenuBar*} The menu bar.
  */
 QMenuBar* Window::createMenuBar() {
-	QAction* actionImport = new QAction( tr( "&Import" ), this );
+	QAction* actionImport = new QAction( tr( "&Import model..." ), this );
 	actionImport->setStatusTip( tr( "Import a model." ) );
 	connect( actionImport, SIGNAL( triggered() ), this, SLOT( importFile() ) );
 
