@@ -25,6 +25,9 @@
 #define RENDER_INTERVAL 16.666f
 
 
+class Camera;
+
+
 class GLWidget : public QGLWidget {
 
 	Q_OBJECT
@@ -32,6 +35,7 @@ class GLWidget : public QGLWidget {
 	public:
 		GLWidget( QWidget* parent );
 		~GLWidget();
+		void cameraUpdate();
 		bool isRendering();
 		void loadModel( std::string filepath, std::string filename );
 		QSize minimumSizeHint() const;
@@ -42,6 +46,7 @@ class GLWidget : public QGLWidget {
 		Camera* mCamera;
 
 	protected:
+		void calculateMatrices();
 		void createBufferColors( GLuint* buffer, aiMesh* mesh );
 		void createBufferIndices( aiMesh* mesh );
 		void createBufferNormals( GLuint* buffer, aiMesh* mesh );
@@ -66,6 +71,11 @@ class GLWidget : public QGLWidget {
 
 		std::vector<GLuint> mIndexCount;
 		std::vector<GLuint> mVA;
+		glm::mat3 mNormalMatrix;
+		glm::mat4 mModelMatrix;
+		glm::mat4 mModelViewProjectionMatrix;
+		glm::mat4 mProjectionMatrix;
+		glm::mat4 mViewMatrix;
 		Assimp::Importer mImporter;
 
 };

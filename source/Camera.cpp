@@ -6,7 +6,8 @@ using namespace utils;
 /**
  * Constructor.
  */
-Camera::Camera() {
+Camera::Camera( GLWidget* parent ) {
+	mParent = parent;
 	this->cameraReset();
 }
 
@@ -18,6 +19,7 @@ void Camera::cameraMoveBackward() {
 	mCamera.eyeX += sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
 	mCamera.eyeY -= sin( degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
 	mCamera.eyeZ -= cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
+	mParent->cameraUpdate();
 }
 
 
@@ -26,6 +28,7 @@ void Camera::cameraMoveBackward() {
  */
 void Camera::cameraMoveDown() {
 	mCamera.eyeY -= CAM_MOVE_SPEED;
+	mParent->cameraUpdate();
 }
 
 
@@ -36,6 +39,7 @@ void Camera::cameraMoveForward() {
 	mCamera.eyeX -= sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
 	mCamera.eyeY += sin( degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
 	mCamera.eyeZ += cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
+	mParent->cameraUpdate();
 }
 
 
@@ -45,6 +49,7 @@ void Camera::cameraMoveForward() {
 void Camera::cameraMoveLeft() {
 	mCamera.eyeX += cos( degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
 	mCamera.eyeZ += sin( degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
+	mParent->cameraUpdate();
 }
 
 
@@ -54,6 +59,7 @@ void Camera::cameraMoveLeft() {
 void Camera::cameraMoveRight() {
 	mCamera.eyeX -= cos( degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
 	mCamera.eyeZ -= sin( degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
+	mParent->cameraUpdate();
 }
 
 
@@ -62,6 +68,7 @@ void Camera::cameraMoveRight() {
  */
 void Camera::cameraMoveUp() {
 	mCamera.eyeY += CAM_MOVE_SPEED;
+	mParent->cameraUpdate();
 }
 
 
@@ -80,6 +87,7 @@ void Camera::cameraReset() {
 	mCamera.upZ = 0.0f;
 	mCamera.rotX = 0.0f;
 	mCamera.rotY = 0.0f;
+	mParent->cameraUpdate();
 }
 
 
@@ -180,4 +188,6 @@ void Camera::updateCameraRot( int moveX, int moveY ) {
 	else {
 		mCamera.upZ = 0.0f;
 	}
+
+	mParent->cameraUpdate();
 }

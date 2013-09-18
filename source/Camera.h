@@ -4,6 +4,7 @@
 #include <cmath>
 #include <glm/glm.hpp>
 
+#include "qt/GLWidget.h"
 #include "utils.h"
 
 #define CAM_MOVE_SPEED 0.5f
@@ -17,10 +18,13 @@ typedef struct {
 } camera_t;
 
 
+class GLWidget;
+
+
 class Camera {
 
 	public:
-		Camera();
+		Camera( GLWidget* parent );
 		void cameraMoveBackward();
 		void cameraMoveDown();
 		void cameraMoveForward();
@@ -35,6 +39,7 @@ class Camera {
 		void updateCameraRot( int moveX, int moveY );
 
 	private:
+		GLWidget* mParent;
 		camera_t mCamera;
 
 };

@@ -1,5 +1,11 @@
 #include "GLWidget.h"
 
+#define WIDTH 1000.0f
+#define HEIGHT 600.0f
+#define FOV 70.0f
+#define ZNEAR 0.1f
+#define ZFAR 400.0f
+
 using namespace std;
 
 
@@ -11,11 +17,13 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	CL* mCl = new CL();
 	Assimp::Importer mImporter;
 
+	mProjectionMatrix = glm::perspective( FOV, WIDTH / HEIGHT, ZNEAR, ZFAR );
+
 	mScene = NULL;
 	mDoRendering = false;
 	mFrameCount = 0;
 	mPreviousTime = 0;
-	mCamera = new Camera();
+	mCamera = new Camera( this );
 
 	mTimer = new QTimer( this );
 	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
@@ -29,6 +37,158 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
  */
 GLWidget::~GLWidget() {
 	this->stopRendering();
+}
+
+
+/**
+ * Calculate the matrices for view, model, model-view-projection and normals.
+ */
+void GLWidget::calculateMatrices() {
+	if( !mDoRendering ) {
+		return;
+	}
+	mViewMatrix = glm::lookAt(
+		mCamera->getEye_glmVec3(),
+		mCamera->getAdjustedCenter_glmVec3(),
+		mCamera->getUp_glmVec3()
+	);
+	mModelMatrix = glm::mat4( 1.0f );
+	mNormalMatrix = glm::mat3( mViewMatrix * mModelMatrix );
+	mModelViewProjectionMatrix = mProjectionMatrix * mViewMatrix * mModelMatrix;
+}
+
+
+/**
+ * The camera has changed. Handle it.
+ */
+void GLWidget::cameraUpdate() {
+	this->calculateMatrices();
+}
+
+
+/**
+ * Create and fill a buffer with color data.
+ * @param {GLuint*} buffers ID of the buffer.
+ * @param {aiMesh*} mesh    The mesh.
+ */
+void GLWidget::createBufferColors( GLuint* buffers, aiMesh* mesh ) {
+	aiMaterial* material = mScene->mMaterials[mesh->mMaterialIndex];
+
+
+	// Ambient
+
+	aiColor3D aiAmbient;
+	material->Get( AI_MATKEY_COLOR_AMBIENT, aiAmbient );
+
+	GLfloat ambient[mesh->mNumVertices * 3];
+
+	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
+		ambient[j * 3] = aiAmbient[0];
+		ambient[j * 3 + 1] = aiAmbient[1];
+		ambient[j * 3 + 2] = aiAmbient[2];
+	}
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffers[2] );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( ambient ), ambient, GL_STATIC_DRAW );
+	glVertexAttribPointer( 2, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+
+
+	// Diffuse
+
+	aiColor3D aiDiffuse;
+	material->Get( AI_MATKEY_COLOR_DIFFUSE, aiDiffuse );
+
+	GLfloat diffuse[mesh->mNumVertices * 3];
+
+	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
+		diffuse[j * 3] = aiDiffuse[0];
+		diffuse[j * 3 + 1] = aiDiffuse[1];
+		diffuse[j * 3 + 2] = aiDiffuse[2];
+	}
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffers[3] );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( diffuse ), diffuse, GL_STATIC_DRAW );
+	glVertexAttribPointer( 3, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+
+
+	// Specular
+
+	aiColor3D aiSpecular;
+	material->Get( AI_MATKEY_COLOR_SPECULAR, aiSpecular );
+
+	GLfloat specular[mesh->mNumVertices * 3];
+
+	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
+		specular[j * 3] = aiSpecular[0];
+		specular[j * 3 + 1] = aiSpecular[1];
+		specular[j * 3 + 2] = aiSpecular[2];
+	}
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffers[4] );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( specular ), specular, GL_STATIC_DRAW );
+	glVertexAttribPointer( 4, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+}
+
+
+/**
+ * Create and fill a buffer with index data.
+ * @param {aiMesh*} mesh The mesh.
+ */
+void GLWidget::createBufferIndices( aiMesh* mesh ) {
+	uint indices[mesh->mNumFaces * 3];
+	mIndexCount.push_back( mesh->mNumFaces * 3 );
+
+	for( uint j = 0; j < mesh->mNumFaces; j++ ) {
+		const aiFace* face = &mesh->mFaces[j];
+		indices[j * 3] = face->mIndices[0];
+		indices[j * 3 + 1] = face->mIndices[1];
+		indices[j * 3 + 2] = face->mIndices[2];
+	}
+
+	GLuint indexBuffer;
+	glGenBuffers( 1, &indexBuffer );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
+}
+
+
+/**
+ * Create and fill a buffer with vertex normal data.
+ * @param {GLuint*} buffers ID of the buffer.
+ * @param {aiMesh*} mesh    The mesh.
+ */
+void GLWidget::createBufferNormals( GLuint* buffers, aiMesh* mesh ) {
+	GLfloat normals[mesh->mNumVertices * 3];
+
+	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
+		normals[j * 3] = mesh->mNormals[j].x;
+		normals[j * 3 + 1] = mesh->mNormals[j].y;
+		normals[j * 3 + 2] = mesh->mNormals[j].z;
+	}
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffers[1] );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( normals ), normals, GL_STATIC_DRAW );
+	glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+}
+
+
+/**
+ * Create and fill a buffer with vertex data.
+ * @param {GLuint*} buffer ID of the buffer.
+ * @param {aiMesh*} mesh   The mesh.
+ */
+void GLWidget::createBufferVertices( GLuint* buffers, aiMesh* mesh ) {
+	GLfloat vertices[mesh->mNumVertices * 3];
+
+	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
+		vertices[j * 3] = mesh->mVertices[j].x;
+		vertices[j * 3 + 1] = mesh->mVertices[j].y;
+		vertices[j * 3 + 2] = mesh->mVertices[j].z;
+	}
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffers[0] );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+	glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
 }
 
 
@@ -189,132 +349,6 @@ void GLWidget::loadShader( GLuint shader, string path ) {
 
 
 /**
- * Create and fill a buffer with color data.
- * @param {GLuint*} buffers ID of the buffer.
- * @param {aiMesh*} mesh    The mesh.
- */
-void GLWidget::createBufferColors( GLuint* buffers, aiMesh* mesh ) {
-	aiMaterial* material = mScene->mMaterials[mesh->mMaterialIndex];
-
-
-	// Ambient
-
-	aiColor3D aiAmbient;
-	material->Get( AI_MATKEY_COLOR_AMBIENT, aiAmbient );
-
-	GLfloat ambient[mesh->mNumVertices * 3];
-
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		ambient[j * 3] = aiAmbient[0];
-		ambient[j * 3 + 1] = aiAmbient[1];
-		ambient[j * 3 + 2] = aiAmbient[2];
-	}
-
-	glBindBuffer( GL_ARRAY_BUFFER, buffers[2] );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( ambient ), ambient, GL_STATIC_DRAW );
-	glVertexAttribPointer( 2, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-
-
-	// Diffuse
-
-	aiColor3D aiDiffuse;
-	material->Get( AI_MATKEY_COLOR_DIFFUSE, aiDiffuse );
-
-	GLfloat diffuse[mesh->mNumVertices * 3];
-
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		diffuse[j * 3] = aiDiffuse[0];
-		diffuse[j * 3 + 1] = aiDiffuse[1];
-		diffuse[j * 3 + 2] = aiDiffuse[2];
-	}
-
-	glBindBuffer( GL_ARRAY_BUFFER, buffers[3] );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( diffuse ), diffuse, GL_STATIC_DRAW );
-	glVertexAttribPointer( 3, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-
-
-	// Specular
-
-	aiColor3D aiSpecular;
-	material->Get( AI_MATKEY_COLOR_SPECULAR, aiSpecular );
-
-	GLfloat specular[mesh->mNumVertices * 3];
-
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		specular[j * 3] = aiSpecular[0];
-		specular[j * 3 + 1] = aiSpecular[1];
-		specular[j * 3 + 2] = aiSpecular[2];
-	}
-
-	glBindBuffer( GL_ARRAY_BUFFER, buffers[4] );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( specular ), specular, GL_STATIC_DRAW );
-	glVertexAttribPointer( 4, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-}
-
-
-/**
- * Create and fill a buffer with index data.
- * @param {aiMesh*} mesh The mesh.
- */
-void GLWidget::createBufferIndices( aiMesh* mesh ) {
-	uint indices[mesh->mNumFaces * 3];
-	mIndexCount.push_back( mesh->mNumFaces * 3 );
-
-	for( uint j = 0; j < mesh->mNumFaces; j++ ) {
-		const aiFace* face = &mesh->mFaces[j];
-		indices[j * 3] = face->mIndices[0];
-		indices[j * 3 + 1] = face->mIndices[1];
-		indices[j * 3 + 2] = face->mIndices[2];
-	}
-
-	GLuint indexBuffer;
-	glGenBuffers( 1, &indexBuffer );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
-	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
-}
-
-
-/**
- * Create and fill a buffer with vertex normal data.
- * @param {GLuint*} buffers ID of the buffer.
- * @param {aiMesh*} mesh    The mesh.
- */
-void GLWidget::createBufferNormals( GLuint* buffers, aiMesh* mesh ) {
-	GLfloat normals[mesh->mNumVertices * 3];
-
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		normals[j * 3] = mesh->mNormals[j].x;
-		normals[j * 3 + 1] = mesh->mNormals[j].y;
-		normals[j * 3 + 2] = mesh->mNormals[j].z;
-	}
-
-	glBindBuffer( GL_ARRAY_BUFFER, buffers[1] );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( normals ), normals, GL_STATIC_DRAW );
-	glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-}
-
-
-/**
- * Create and fill a buffer with vertex data.
- * @param {GLuint*} buffer ID of the buffer.
- * @param {aiMesh*} mesh   The mesh.
- */
-void GLWidget::createBufferVertices( GLuint* buffers, aiMesh* mesh ) {
-	GLfloat vertices[mesh->mNumVertices * 3];
-
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		vertices[j * 3] = mesh->mVertices[j].x;
-		vertices[j * 3 + 1] = mesh->mVertices[j].y;
-		vertices[j * 3 + 2] = mesh->mVertices[j].z;
-	}
-
-	glBindBuffer( GL_ARRAY_BUFFER, buffers[0] );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
-	glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-}
-
-
-/**
  * Set a minimum width and height for the QWidget.
  * @return {QSize} Minimum width and height.
  */
@@ -333,26 +367,13 @@ void GLWidget::paintGL() {
 
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-	glm::mat4 viewMatrix = glm::lookAt(
-		mCamera->getEye_glmVec3(),
-		mCamera->getAdjustedCenter_glmVec3(),
-		mCamera->getUp_glmVec3()
-	);
-	glm::mat4 projectionMatrix = glm::perspective(
-		50.0f, 1000.0f / 600.0f, 0.1f, 400.0f
-	);
-	glm::mat4 modelMatrix = glm::mat4( 1.0f );
-	glm::mat3 normalMatrix = glm::mat3( viewMatrix * modelMatrix );
+	GLuint matrixMVP = glGetUniformLocation( mGLProgram, "mModelViewProjectionMatrix" );
+	GLuint matrixModel = glGetUniformLocation( mGLProgram, "mModelMatrix" );
+	GLuint matrixNormal = glGetUniformLocation( mGLProgram, "mNormalMatrix" );
 
-	GLuint matrixView = glGetUniformLocation( mGLProgram, "viewMatrix" );
-	GLuint matrixProjection = glGetUniformLocation( mGLProgram, "projectionMatrix" );
-	GLuint matrixModel = glGetUniformLocation( mGLProgram, "modelMatrix" );
-	GLuint matrixNormal = glGetUniformLocation( mGLProgram, "normalMatrix" );
-
-	glUniformMatrix4fv( matrixView, 1, GL_FALSE, &viewMatrix[0][0] );
-	glUniformMatrix4fv( matrixProjection, 1, GL_FALSE, &projectionMatrix[0][0] );
-	glUniformMatrix4fv( matrixModel, 1, GL_FALSE, &modelMatrix[0][0] );
-	glUniformMatrix3fv( matrixNormal, 1, GL_FALSE, &normalMatrix[0][0] );
+	glUniformMatrix4fv( matrixMVP, 1, GL_FALSE, &mModelViewProjectionMatrix[0][0] );
+	glUniformMatrix4fv( matrixModel, 1, GL_FALSE, &mModelMatrix[0][0] );
+	glUniformMatrix3fv( matrixNormal, 1, GL_FALSE, &mNormalMatrix[0][0] );
 
 	this->drawScene();
 	this->showFPS();
@@ -366,6 +387,8 @@ void GLWidget::paintGL() {
  */
 void GLWidget::resizeGL( int width, int height ) {
 	glViewport( 0, 0, width, height );
+	mProjectionMatrix = glm::perspective( FOV, width / (float) height, ZNEAR, ZFAR );
+	this->calculateMatrices();
 }
 
 
@@ -395,7 +418,7 @@ void GLWidget::showFPS() {
  * @return {QSize} Width and height of the QWidget.
  */
 QSize GLWidget::sizeHint() const {
-	return QSize( 1000, 600 );
+	return QSize( WIDTH, HEIGHT );
 }
 
 

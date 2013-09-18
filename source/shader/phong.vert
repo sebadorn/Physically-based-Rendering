@@ -14,20 +14,18 @@ out vec3 specular;
 out vec3 vertexPosition_cameraSpace;
 out vec3 vertexNormal_cameraSpace;
 
-uniform mat4 viewMatrix;
-uniform mat4 projectionMatrix;
-uniform mat4 modelMatrix;
-uniform mat3 normalMatrix;
+uniform mat4 mModelViewProjectionMatrix;
+uniform mat4 mModelMatrix;
+uniform mat3 mNormalMatrix;
 
 
 void main( void ) {
-	mat4 pvm = projectionMatrix * viewMatrix * modelMatrix;
-	gl_Position = pvm * vec4( vertexPosition_modelSpace, 1 );
+	gl_Position = mModelViewProjectionMatrix * vec4( vertexPosition_modelSpace, 1 );
 
 	ambient = colorAmbient;
 	diffuse = colorDiffuse;
 	specular = colorSpecular;
 
-	vertexPosition_cameraSpace = mat3( modelMatrix ) * vertexPosition_modelSpace;
-	vertexNormal_cameraSpace = normalize( normalMatrix * vertexNormal_modelSpace );
+	vertexPosition_cameraSpace = mat3( mModelMatrix ) * vertexPosition_modelSpace;
+	vertexNormal_cameraSpace = normalize( mNormalMatrix * vertexNormal_modelSpace );
 }
