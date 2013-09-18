@@ -21,6 +21,10 @@ find_package( GLEW REQUIRED )
 include_directories( ${GLEW_INCLUDE_DIRS} )
 set( LIBRARIES ${LIBRARIES} ${GLEW_LIBRARIES} )
 
+find_package( GLM REQUIRED )
+include_directories( ${GLM_INCLUDE_DIRS} )
+# set( LIBRARIES ${LIBRARIES} ${GLM_LIBRARIES} )
+
 
 # OpenCL
 find_package( OpenCL REQUIRED )

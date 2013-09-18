@@ -2,6 +2,8 @@
 #include <cmath>
 #include <GL/glew.h>
 #include <GL/glut.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <QtGui>
 #include <unistd.h>
@@ -197,16 +199,17 @@ void GLWidget::drawScene() {
 	// glDisableClientState( GL_VERTEX_ARRAY );
 
 
-	glEnableVertexAttribArray( 0 );
-
-	for( uint i = 0; i < mVertexBuffers.size(); i++ ) {
-		glBindBuffer( GL_ARRAY_BUFFER, mVertexBuffers[i] );
-		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mIndexBuffers[i] );
+	for( uint i = 0; i < mVA.size(); i++ ) {
+		glBindVertexArray( mVA[i] );
+		glEnableVertexAttribArray( 0 );
+		glEnableVertexAttribArray( 1 );
 		glDrawElements( GL_TRIANGLES, mIndexCount[i], GL_UNSIGNED_INT, 0 );
+		glBindVertexArray( 0 );
 	}
 
-	glDisableVertexAttribArray( 0 );
+	// glBindBuffer( GL_ARRAY_BUFFER, mVertexBuffers[0] );
+	// glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	// glDrawArrays( GL_TRIANGLES, 0, mVertexCount[0] );
 }
 
 
@@ -301,24 +304,25 @@ void GLWidget::loadModel( std::string filepath, std::string filename ) {
 	}
 
 
-	mVertexBuffers = std::vector<GLuint>();
-	mVertexCount = std::vector<GLuint>();
-	mIndexBuffers = std::vector<GLuint>();
+	mVA = std::vector<GLuint>();
 	mIndexCount = std::vector<GLuint>();
-
-	GLuint vertexArrayID;
-	glGenVertexArrays( 1, &vertexArrayID );
-	glBindVertexArray( vertexArrayID );
-
 
 	for( uint i = 0; i < mScene->mNumMeshes; i++ ) {
 		aiMesh* mesh = mScene->mMeshes[i];
+		aiMaterial* material = mScene->mMaterials[mesh->mMaterialIndex];
+
+		GLuint vertexArrayID;
+		glGenVertexArrays( 1, &vertexArrayID );
+		glBindVertexArray( vertexArrayID );
+		mVA.push_back( vertexArrayID );
+
+		GLuint buffers[2];
+		glGenBuffers( 2, &buffers[0] );
 
 
 		// Vertices
 
-		float vertices[mesh->mNumVertices * 3];
-		mVertexCount.push_back( mesh->mNumVertices * 3 );
+		GLfloat vertices[mesh->mNumVertices * 3];
 
 		for( uint j = 0; j < mesh->mNumVertices; j++ ) {
 			vertices[j * 3] = mesh->mVertices[j].x;
@@ -326,19 +330,32 @@ void GLWidget::loadModel( std::string filepath, std::string filename ) {
 			vertices[j * 3 + 2] = mesh->mVertices[j].z;
 		}
 
-		GLuint vertexBuffer;
-		glGenBuffers( 1, &vertexBuffer );
-		glBindBuffer( GL_ARRAY_BUFFER, vertexBuffer );
+		glBindBuffer( GL_ARRAY_BUFFER, buffers[0] );
 		glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
 		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-		glEnableVertexAttribArray( 0 );
-		glBindBuffer( GL_ARRAY_BUFFER, vertexBuffer );
-		mVertexBuffers.push_back( vertexBuffer );
+
+
+		// Color
+
+		aiColor3D aiAmbient;
+		material->Get( AI_MATKEY_COLOR_AMBIENT, aiAmbient );
+
+		GLfloat ambient[mesh->mNumVertices * 3];
+
+		for( uint j = 0; j < mesh->mNumVertices; j++ ) {
+			ambient[j * 3] = aiAmbient[0];
+			ambient[j * 3 + 1] = aiAmbient[1];
+			ambient[j * 3 + 2] = aiAmbient[2];
+		}
+
+		glBindBuffer( GL_ARRAY_BUFFER, buffers[1] );
+		glBufferData( GL_ARRAY_BUFFER, sizeof( ambient ), ambient, GL_STATIC_DRAW );
+		glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 0, 0 );
 
 
 		// Indices
 
-		float indices[mesh->mNumFaces * 3];
+		uint indices[mesh->mNumFaces * 3];
 		mIndexCount.push_back( mesh->mNumFaces * 3 );
 
 		for( uint j = 0; j < mesh->mNumFaces; j++ ) {
@@ -352,8 +369,9 @@ void GLWidget::loadModel( std::string filepath, std::string filename ) {
 		glGenBuffers( 1, &indexBuffer );
 		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
 		glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
-		mIndexBuffers.push_back( indexBuffer );
 	}
+
+	glBindVertexArray( 0 );
 
 
 	std::cout << "* [GLWidget] Imported model \"" << filename << "\" of " << mScene->mNumMeshes << " meshes." << std::endl;
@@ -379,18 +397,30 @@ void GLWidget::paintGL() {
 	}
 
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-	// glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 
-	// glPushMatrix();
 	// gluLookAt(
 	// 	mCamera.eyeX, mCamera.eyeY, mCamera.eyeZ,
 	// 	mCamera.eyeX - mCamera.centerX, mCamera.eyeY + mCamera.centerY, mCamera.eyeZ + mCamera.centerZ,
 	// 	mCamera.upX, mCamera.upY, mCamera.upZ
 	// );
 
+	glm::mat4 cameraMatrix = glm::lookAt(
+		glm::vec3( mCamera.eyeX, mCamera.eyeY, mCamera.eyeZ ),
+		glm::vec3( mCamera.eyeX - mCamera.centerX, mCamera.eyeY + mCamera.centerY, mCamera.eyeZ + mCamera.centerZ ),
+		glm::vec3( mCamera.upX, mCamera.upY, mCamera.upZ )
+	);
+	glm::mat4 projectionMatrix = glm::perspective(
+		50.0f, 1000.0f / 600.0f, 0.1f, 400.0f
+	);
+	glm::mat4 modelMatrix = glm::mat4( 1.0f );
+	glm::mat4 modelViewProjection = projectionMatrix * cameraMatrix * modelMatrix;
+
+	GLuint matrixID = glGetUniformLocation( mGLProgram, "modelViewProjection" );
+	glUniformMatrix4fv( matrixID, 1, GL_FALSE, &modelViewProjection[0][0] );
+
 	// this->drawAxis();
 	this->drawScene();
-	// glPopMatrix();
 
 	this->showFPS();
 }
@@ -404,12 +434,12 @@ void GLWidget::paintGL() {
 void GLWidget::resizeGL( int width, int height ) {
 	glViewport( 0, 0, width, height );
 
-	glMatrixMode( GL_PROJECTION );
-	glLoadIdentity();
-	gluPerspective( 50, width / (float) height, 0.1, 2000 );
+	// glMatrixMode( GL_PROJECTION );
+	// glLoadIdentity();
+	// gluPerspective( 50, width / (float) height, 0.1, 2000 );
 
-	glMatrixMode( GL_MODELVIEW );
-	glLoadIdentity();
+	// glMatrixMode( GL_MODELVIEW );
+	// glLoadIdentity();
 }
 
 

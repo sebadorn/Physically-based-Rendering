@@ -8,6 +8,8 @@
 // varying vec3 N;
 // varying vec3 v;
 
+in vec3 fragmentColor;
+
 out vec3 color;
 
 
@@ -27,5 +29,6 @@ void main( void ) {
 
 	// gl_FragColor = ambientV + diffuseV + specV;
 
-	color = vec3( 1, 0, 0 );
+	color = fragmentColor;
+	// color = vec3( 1.0f, 0.0f, 0.0f );
 }
