@@ -2,6 +2,9 @@
 #define CL_H
 
 #include <CL/cl.hpp>
+#include <iostream>
+
+#include "Logger.h"
 
 
 class CL {

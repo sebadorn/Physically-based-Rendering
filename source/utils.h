@@ -24,7 +24,7 @@ namespace utils {
 	 * @param  {const char*} filename Path to and name of the file.
 	 * @return {std::string}          File content as string.
 	 */
-	std::string loadFileAsString( const char* filename ) {
+	inline std::string loadFileAsString( const char* filename ) {
 		std::ifstream ifile( filename );
 		std::string content;
 

@@ -1,10 +1,3 @@
-#include <iostream>
-#include <cmath>
-#include <QtGui>
-#include <QSizePolicy>
-#include <string>
-
-#include "GLWidget.h"
 #include "Window.h"
 
 #define WINDOW_TITLE "Physically-based Renderer"
@@ -83,7 +76,7 @@ void Window::importFile() {
 	std::string filePath = fileDialogResult.toStdString();
 
 	if( filePath.empty() ) {
-		std::cout << "* Nothing imported." << std::endl;
+		Logger::logInfo( "Nothing imported." );
 		return;
 	}
 
@@ -121,31 +114,31 @@ void Window::keyPressEvent( QKeyEvent* e ) {
 	switch( e->key() ) {
 
 		case Qt::Key_W:
-			mGLWidget->cameraMoveForward();
+			mGLWidget->mCamera->cameraMoveForward();
 			break;
 
 		case Qt::Key_S:
-			mGLWidget->cameraMoveBackward();
+			mGLWidget->mCamera->cameraMoveBackward();
 			break;
 
 		case Qt::Key_A:
-			mGLWidget->cameraMoveLeft();
+			mGLWidget->mCamera->cameraMoveLeft();
 			break;
 
 		case Qt::Key_D:
-			mGLWidget->cameraMoveRight();
+			mGLWidget->mCamera->cameraMoveRight();
 			break;
 
 		case Qt::Key_Q:
-			mGLWidget->cameraMoveUp();
+			mGLWidget->mCamera->cameraMoveUp();
 			break;
 
 		case Qt::Key_E:
-			mGLWidget->cameraMoveDown();
+			mGLWidget->mCamera->cameraMoveDown();
 			break;
 
 		case Qt::Key_R:
-			mGLWidget->cameraReset();
+			mGLWidget->mCamera->cameraReset();
 			break;
 
 		default:
@@ -164,7 +157,7 @@ void Window::mouseMoveEvent( QMouseEvent* e ) {
 		int diffX = mMouseLastX - e->x();
 		int diffY = mMouseLastY - e->y();
 
-		mGLWidget->updateCameraRot( diffX, diffY );
+		mGLWidget->mCamera->updateCameraRot( diffX, diffY );
 
 		mMouseLastX = e->x();
 		mMouseLastY = e->y();

@@ -2,19 +2,27 @@
 #define GLWIDGET_H
 
 #include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <GL/glew.h>
+#include <GL/glut.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <sstream>
 #include <QGLWidget>
 #include <unistd.h>
 
+#include "../Camera.h"
 #include "../CL.h"
+#include "../Logger.h"
+#include "../utils.h"
+#include "Window.h"
 
+#ifndef GL_MULTISAMPLE
+	#define GL_MULTISAMPLE 0x809D
+#endif
 
-typedef struct {
-	float eyeX, eyeY, eyeZ;
-	float centerX, centerY, centerZ;
-	float upX, upY, upZ;
-	float rotX, rotY;
-} camera_t;
+#define RENDER_INTERVAL 16.666f
 
 
 class GLWidget : public QGLWidget {
@@ -24,30 +32,24 @@ class GLWidget : public QGLWidget {
 	public:
 		GLWidget( QWidget* parent );
 		~GLWidget();
-		void cameraMoveBackward();
-		void cameraMoveDown();
-		void cameraMoveForward();
-		void cameraMoveLeft();
-		void cameraMoveRight();
-		void cameraMoveUp();
-		void cameraReset();
 		bool isRendering();
 		void loadModel( std::string filepath, std::string filename );
 		QSize minimumSizeHint() const;
 		QSize sizeHint() const;
 		void startRendering();
 		void stopRendering();
-		void updateCameraRot( int moveX, int moveY );
+
+		Camera* mCamera;
 
 	protected:
 		void createBufferColors( GLuint* buffer, aiMesh* mesh );
 		void createBufferIndices( aiMesh* mesh );
 		void createBufferNormals( GLuint* buffer, aiMesh* mesh );
 		void createBufferVertices( GLuint* buffer, aiMesh* mesh );
-		void drawAxis();
 		void drawScene();
 		void initializeGL();
-		void initShader();
+		void initShaders();
+		void loadShader( GLuint shader, std::string path );
 		void paintGL();
 		void resizeGL( int width, int height );
 		void showFPS();
@@ -58,14 +60,13 @@ class GLWidget : public QGLWidget {
 		uint mPreviousTime;
 		GLuint mGLProgram;
 
+		const aiScene* mScene;
+		CL* mCl;
+		QTimer* mTimer;
+
 		std::vector<GLuint> mIndexCount;
 		std::vector<GLuint> mVA;
-
-		camera_t mCamera;
-		const aiScene* mScene;
 		Assimp::Importer mImporter;
-		QTimer* mTimer;
-		CL* mCl;
 
 };
 

@@ -15,7 +15,7 @@ void main( void ) {
 	vec3 diffuseV;
 	vec3 specV;
 	vec3 ambientV;
-	vec3 light = vec3( 0.0f, 40.0f, 0.0f );
+	vec3 light = vec3( 10.0f, 60.0f, 10.0f );
 	float shininess = 60.0f;
 
 	vec3 L = normalize( light - vertexPosition_cameraSpace );

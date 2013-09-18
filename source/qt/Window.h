@@ -2,7 +2,10 @@
 #define WINDOW_H
 
 #include <QtGui>
-#include <QWidget>
+#include <string>
+
+#include "../Logger.h"
+#include "GLWidget.h"
 
 
 class GLWidget;

@@ -1,37 +1,13 @@
-#include <assimp/postprocess.h>
-#include <cmath>
-#include <GL/glew.h>
-#include <GL/glut.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <iostream>
-#include <QtGui>
-#include <unistd.h>
-
-#include "../CL.h"
-#include "../utils.h"
-#include "Window.h"
 #include "GLWidget.h"
 
-#ifndef GL_MULTISAMPLE
-#define GL_MULTISAMPLE 0x809D
-#endif
-
-#define CAM_MOVE_SPEED 0.5f
-#define RENDER_INTERVAL 16.666f
-#define SHADER "phong_"
+using namespace std;
 
 
 /**
  * Constructor.
  * @param {QWidget*} parent Parent QWidget this QWidget is contained in.
  */
-GLWidget::GLWidget( QWidget* parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers ), parent ) {
-	QGLFormat format( QGL::SampleBuffers );
-	format.setVersion( 3, 2 );
-	format.setProfile( QGLFormat::CoreProfile );
-	QGLWidget( format, parent );
-
+GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	CL* mCl = new CL();
 	Assimp::Importer mImporter;
 
@@ -39,7 +15,7 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers
 	mDoRendering = false;
 	mFrameCount = 0;
 	mPreviousTime = 0;
-	this->cameraReset();
+	mCamera = new Camera();
 
 	mTimer = new QTimer( this );
 	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
@@ -53,98 +29,6 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( QGLFormat( QGL::SampleBuffers
  */
 GLWidget::~GLWidget() {
 	this->stopRendering();
-}
-
-
-/**
- * Move the camera position backward.
- */
-void GLWidget::cameraMoveBackward() {
-	mCamera.eyeX += sin( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
-	mCamera.eyeY -= sin( utils::degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
-	mCamera.eyeZ -= cos( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
-}
-
-
-/**
- * Move the camera position downward.
- */
-void GLWidget::cameraMoveDown() {
-	mCamera.eyeY -= CAM_MOVE_SPEED;
-}
-
-
-/**
- * Move the camera position forward.
- */
-void GLWidget::cameraMoveForward() {
-	mCamera.eyeX -= sin( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
-	mCamera.eyeY += sin( utils::degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
-	mCamera.eyeZ += cos( utils::degToRad( mCamera.rotX ) ) * cos( utils::degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
-}
-
-
-/**
- * Move the camera position to the left.
- */
-void GLWidget::cameraMoveLeft() {
-	mCamera.eyeX += cos( utils::degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
-	mCamera.eyeZ += sin( utils::degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
-}
-
-
-/**
- * Move the camera position to the right.
- */
-void GLWidget::cameraMoveRight() {
-	mCamera.eyeX -= cos( utils::degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
-	mCamera.eyeZ -= sin( utils::degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
-}
-
-
-/**
- * Move the camera position upward.
- */
-void GLWidget::cameraMoveUp() {
-	mCamera.eyeY += CAM_MOVE_SPEED;
-}
-
-
-/**
- * Reset the camera position and rotation.
- */
-void GLWidget::cameraReset() {
-	mCamera.eyeX = 1.0f;
-	mCamera.eyeY = 0.0f;
-	mCamera.eyeZ = 1.0f;
-	mCamera.centerX = 0.0f;
-	mCamera.centerY = 0.0f;
-	mCamera.centerZ = 0.0f;
-	mCamera.upX = 0.0f;
-	mCamera.upY = 1.0f;
-	mCamera.upZ = 0.0f;
-	mCamera.rotX = 0.0f;
-	mCamera.rotY = 0.0f;
-}
-
-
-/**
- * Draw an axis.
- */
-void GLWidget::drawAxis() {
-	glBegin( GL_LINES );
-	glColor3d( 255, 0, 0 );
-	glVertex3f( 0, 0, 0 );
-	glVertex3f( 500, 0, 0 );
-
-	glColor3d( 0, 255, 0 );
-	glVertex3f( 0, 0, 0 );
-	glVertex3f( 0, 500, 0 );
-
-	glColor3d( 0, 0, 255 );
-	glVertex3f( 0, 0, 0 );
-	glVertex3f( 0, 0, 500 );
-	glEnd();
 }
 
 
@@ -179,63 +63,31 @@ void GLWidget::initializeGL() {
 	glEnable( GL_MULTISAMPLE );
 	glEnable( GL_LINE_SMOOTH );
 
-	this->initShader();
+	this->initShaders();
+
+	Logger::logInfo( string( "[OpenGL] Version " ).append( (char*) glGetString( GL_VERSION ) ) );
+	Logger::logInfo( string( "[OpenGL] GLSL " ).append( (char*) glGetString( GL_SHADING_LANGUAGE_VERSION ) ) );
 }
 
 
 /**
  * Load and compile the shader.
  */
-void GLWidget::initShader() {
+void GLWidget::initShaders() {
 	GLenum err = glewInit();
 
 	if( err != GLEW_OK ) {
-		std::cerr << "* [GLEW] Init failed: " << glewGetErrorString( err ) << std::endl;
+		Logger::logError( string( "[GLEW] Init failed: " ).append( (char*) glewGetErrorString( err ) ) );
 		exit( 1 );
 	}
-
-	std::cout << "* [GLEW] Using version " << glewGetString( GLEW_VERSION ) << std::endl;
-
-	std::string shaderString;
+	Logger::logInfo( string( "[GLEW] Version " ).append( (char*) glewGetString( GLEW_VERSION ) ) );
 
 	mGLProgram = glCreateProgram();
 	GLuint vertexShader = glCreateShader( GL_VERTEX_SHADER );
 	GLuint fragmentShader = glCreateShader( GL_FRAGMENT_SHADER );
 
-	std::string path = "source/shader/";
-	path.append( SHADER );
-
-	shaderString = utils::loadFileAsString( ( path + "vertex.glsl" ).c_str() );
-	const GLchar* shaderSourceVertex = shaderString.c_str();
-	const GLint shaderLengthVertex = shaderString.size();
-	glShaderSource( vertexShader, 1, &shaderSourceVertex, &shaderLengthVertex );
-	glCompileShader( vertexShader );
-
-	GLint status;
-	char logBuffer[1000];
-	glGetShaderiv( vertexShader, GL_COMPILE_STATUS, &status );
-	if( status != GL_TRUE ) {
-		glGetShaderInfoLog( vertexShader, 1000, 0, logBuffer );
-		std::cerr << "* [Vertex shader]" << std::endl;
-		std::cerr << logBuffer << std::endl;
-	}
-
-	glAttachShader( mGLProgram, vertexShader );
-
-	shaderString = utils::loadFileAsString( ( path + "fragment.glsl" ).c_str() );
-	const GLchar* shaderSourceFragment = shaderString.c_str();
-	const GLint shaderLengthFragment = shaderString.size();
-	glShaderSource( fragmentShader, 1, &shaderSourceFragment, &shaderLengthFragment );
-	glCompileShader( fragmentShader );
-
-	glGetShaderiv( fragmentShader, GL_COMPILE_STATUS, &status );
-	if( status != GL_TRUE ) {
-		glGetShaderInfoLog( fragmentShader, 1000, 0, logBuffer );
-		std::cerr << "* [Fragment shader]" << std::endl;
-		std::cerr << logBuffer << std::endl;
-	}
-
-	glAttachShader( mGLProgram, fragmentShader );
+	this->loadShader( vertexShader, "source/shader/phong.vert" );
+	this->loadShader( fragmentShader, "source/shader/phong.frag" );
 
 	glLinkProgram( mGLProgram );
 	glUseProgram( mGLProgram );
@@ -253,10 +105,10 @@ bool GLWidget::isRendering() {
 
 /**
  * Load 3D model.
- * @param {std::string} filepath Path to the file, without file name.
- * @param {std::string} filename Name of the file.
+ * @param {string} filepath Path to the file, without file name.
+ * @param {string} filename Name of the file.
  */
-void GLWidget::loadModel( std::string filepath, std::string filename ) {
+void GLWidget::loadModel( string filepath, string filename ) {
 	const uint flags = aiProcess_JoinIdenticalVertices |
 	                   aiProcess_Triangulate |
 	                   aiProcess_GenNormals |
@@ -273,13 +125,13 @@ void GLWidget::loadModel( std::string filepath, std::string filename ) {
 	mScene = mImporter.ReadFile( filepath + filename, flags );
 
 	if( !mScene ) {
-		std::cerr << "* [GLWidget] Error importing model: " << mImporter.GetErrorString() << std::endl;
+		Logger::logError( string( "[GLWidget] Import: " ).append( mImporter.GetErrorString() ) );
 		exit( 1 );
 	}
 
 
-	mVA = std::vector<GLuint>();
-	mIndexCount = std::vector<GLuint>();
+	mVA = vector<GLuint>();
+	mIndexCount = vector<GLuint>();
 
 	for( uint i = 0; i < mScene->mNumMeshes; i++ ) {
 		aiMesh* mesh = mScene->mMeshes[i];
@@ -301,8 +153,38 @@ void GLWidget::loadModel( std::string filepath, std::string filename ) {
 	glBindVertexArray( 0 );
 
 
-	std::cout << "* [GLWidget] Imported model \"" << filename << "\" of " << mScene->mNumMeshes << " meshes." << std::endl;
+	stringstream sstm;
+	sstm << "[GLWidget] Imported model \"" << filename << "\" of " << mScene->mNumMeshes << " meshes.";
+	Logger::logInfo( sstm.str() );
+
 	this->startRendering();
+}
+
+
+/**
+ * Load a GLSL shader and attach it to the program.
+ * @param {GLuint}     shader ID of the shader.
+ * @param {std:string} path   File path and name.
+ */
+void GLWidget::loadShader( GLuint shader, string path ) {
+	string shaderString = utils::loadFileAsString( path.c_str() );
+	const GLchar* shaderSource = shaderString.c_str();
+	const GLint shaderLength = shaderString.size();
+
+	glShaderSource( shader, 1, &shaderSource, &shaderLength );
+	glCompileShader( shader );
+
+	GLint status;
+	char logBuffer[1000];
+	glGetShaderiv( shader, GL_COMPILE_STATUS, &status );
+
+	if( status != GL_TRUE ) {
+		glGetShaderInfoLog( shader, 1000, 0, logBuffer );
+		Logger::logError( string( "[Shader]\n" ).append( logBuffer ) );
+		exit( 1 );
+	}
+
+	glAttachShader( mGLProgram, shader );
 }
 
 
@@ -452,9 +334,9 @@ void GLWidget::paintGL() {
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	glm::mat4 viewMatrix = glm::lookAt(
-		glm::vec3( mCamera.eyeX, mCamera.eyeY, mCamera.eyeZ ),
-		glm::vec3( mCamera.eyeX - mCamera.centerX, mCamera.eyeY + mCamera.centerY, mCamera.eyeZ + mCamera.centerZ ),
-		glm::vec3( mCamera.upX, mCamera.upY, mCamera.upZ )
+		mCamera->getEye_glmVec3(),
+		mCamera->getAdjustedCenter_glmVec3(),
+		mCamera->getUp_glmVec3()
 	);
 	glm::mat4 projectionMatrix = glm::perspective(
 		50.0f, 1000.0f / 600.0f, 0.1f, 400.0f
@@ -472,7 +354,6 @@ void GLWidget::paintGL() {
 	glUniformMatrix4fv( matrixModel, 1, GL_FALSE, &modelMatrix[0][0] );
 	glUniformMatrix3fv( matrixNormal, 1, GL_FALSE, &normalMatrix[0][0] );
 
-	// this->drawAxis();
 	this->drawScene();
 	this->showFPS();
 }
@@ -537,65 +418,5 @@ void GLWidget::stopRendering() {
 		mDoRendering = false;
 		mTimer->stop();
 		( (Window*) parentWidget() )->updateStatus( "Stopped." );
-	}
-}
-
-
-/**
- * Update the viewing direction of the camera, triggered by mouse movement.
- * @param moveX {int} moveX Movement (of the mouse) in 2D X direction.
- * @param moveY {int} moveY Movement (of the mouse) in 2D Y direction.
- */
-void GLWidget::updateCameraRot( int moveX, int moveY ) {
-	mCamera.rotX -= moveX;
-	mCamera.rotY += moveY;
-
-	if( mCamera.rotX >= 360.0f ) {
-		mCamera.rotX = 0.0f;
-	}
-	else if( mCamera.rotX < 0.0f ) {
-		mCamera.rotX = 360.0f;
-	}
-
-	if( mCamera.rotY > 90 ) {
-		mCamera.rotY = 90.0f;
-	}
-	else if( mCamera.rotY < -90.0f ) {
-		mCamera.rotY = -90.0f;
-	}
-
-	mCamera.centerX = sin( utils::degToRad( mCamera.rotX ) )
-		- fabs( sin( utils::degToRad( mCamera.rotY ) ) )
-		* sin( utils::degToRad( mCamera.rotX ) );
-	mCamera.centerY = sin( utils::degToRad( mCamera.rotY ) );
-	mCamera.centerZ = cos( utils::degToRad( mCamera.rotX ) )
-		- fabs( sin( utils::degToRad( mCamera.rotY ) ) )
-		* cos( utils::degToRad( mCamera.rotX ) );
-
-	if( mCamera.centerY == 1.0f ) {
-		mCamera.upX = sin( utils::degToRad( mCamera.rotX ) );
-	}
-	else if( mCamera.centerY == -1.0f ) {
-		mCamera.upX = -sin( utils::degToRad( mCamera.rotX ) );
-	}
-	else {
-		mCamera.upX = 0.0f;
-	}
-
-	if( mCamera.centerY == 1.0f || mCamera.centerY == -1.0f ) {
-		mCamera.upY = 0.0f;
-	}
-	else {
-		mCamera.upY = 1.0f;
-	}
-
-	if( mCamera.centerY == 1.0f ) {
-		mCamera.upZ = -cos( utils::degToRad( mCamera.rotX ) );
-	}
-	else if( mCamera.centerY == -1.0f ) {
-		mCamera.upZ = cos( utils::degToRad( mCamera.rotX ) );
-	}
-	else {
-		mCamera.upZ = 0.0f;
 	}
 }

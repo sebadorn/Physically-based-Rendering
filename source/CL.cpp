@@ -1,7 +1,6 @@
-#include <CL/cl.hpp>
-#include <iostream>
-
 #include "CL.h"
+
+using namespace std;
 
 
 /**
@@ -26,7 +25,7 @@ cl_device_id CL::getDefaultDevice() {
 	clGetDeviceIDs( mPlatform, CL_DEVICE_TYPE_ALL, 0, NULL, &deviceCount );
 
 	if( deviceCount < 1 ) {
-		std::cerr << "* [OpenCL] No devices found." << std::endl;
+		Logger::logError( "[OpenCL] No devices found." );
 		exit( 1 );
 	}
 
@@ -37,8 +36,7 @@ cl_device_id CL::getDefaultDevice() {
 	value = (char*) malloc( valueSize );
 	clGetDeviceInfo( devices[0], CL_DEVICE_NAME, valueSize, value, NULL );
 
-	std::cout << "* [OpenCL] Using device " << value << std::endl;
-
+	Logger::logInfo( string( "[OpenCL] Using device " ) + string( value ) );
 	free( value );
 
 	return devices[0];
@@ -58,7 +56,7 @@ cl_platform_id CL::getDefaultPlatform() {
 	clGetPlatformIDs( 0, NULL, &platformCount );
 
 	if( platformCount < 0 ) {
-		std::cerr << "* [OpenCL] No platforms found." << std::endl;
+		Logger::logError( "[OpenCL] No platforms found." );
 		exit( 1 );
 	}
 
@@ -69,8 +67,7 @@ cl_platform_id CL::getDefaultPlatform() {
 	value = (char*) malloc( valueSize );
 	clGetPlatformInfo( platforms[0], CL_PLATFORM_NAME, valueSize, value, NULL );
 
-	std::cout << "* [OpenCL] Using platform " << value << std::endl;
-
+	Logger::logInfo( string( "[OpenCL] Using platform " ) + string( value ) );
 	free( value );
 
 	return platforms[0];
