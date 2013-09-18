@@ -40,6 +40,10 @@ class GLWidget : public QGLWidget {
 		void updateCameraRot( int moveX, int moveY );
 
 	protected:
+		void createBufferColors( GLuint* buffer, aiMesh* mesh );
+		void createBufferIndices( aiMesh* mesh );
+		void createBufferNormals( GLuint* buffer, aiMesh* mesh );
+		void createBufferVertices( GLuint* buffer, aiMesh* mesh );
 		void drawAxis();
 		void drawScene();
 		void initializeGL();
@@ -60,7 +64,6 @@ class GLWidget : public QGLWidget {
 		camera_t mCamera;
 		const aiScene* mScene;
 		Assimp::Importer mImporter;
-		std::vector< std::vector<uint> > mMeshFacesData;
 		QTimer* mTimer;
 		CL* mCl;
 

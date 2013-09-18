@@ -156,60 +156,16 @@ void GLWidget::drawScene() {
 		return;
 	}
 
-	// glEnableClientState( GL_VERTEX_ARRAY );
-	// glEnableClientState( GL_TEXTURE_COORD_ARRAY );
-
-	// for( uint i = 0; i < mScene->mNumMeshes; i++ ) {
-	// 	aiMesh* mesh = mScene->mMeshes[i];
-	// 	aiMaterial* material = mScene->mMaterials[mesh->mMaterialIndex];
-
-	// 	glVertexPointer( 3, GL_FLOAT, 0, &mesh->mVertices[0] );
-
-	// 	if( mesh->mNormals->Length() > 0 ) {
-	// 		glNormalPointer( GL_FLOAT, 0, &mesh->mNormals[0] );
-	// 		glEnableClientState( GL_NORMAL_ARRAY );
-	// 	}
-
-	// 	aiColor4D aiAmbient( 0.0f, 0.0f, 0.0f, 1.0f );
-	// 	material->Get( AI_MATKEY_COLOR_AMBIENT, aiAmbient );
-
-	// 	aiColor4D aiDiffuse( 0.0f, 0.0f, 0.0f, 1.0f );
-	// 	material->Get( AI_MATKEY_COLOR_DIFFUSE, aiDiffuse );
-
-	// 	aiColor4D aiSpecular( 0.0f, 0.0f, 0.0f, 1.0f );
-	// 	material->Get( AI_MATKEY_COLOR_SPECULAR, aiSpecular );
-
-	// 	float ambient[4] = { aiAmbient[0], aiAmbient[1], aiAmbient[2], aiAmbient[3] };
-	// 	float diffuse[4] = { aiDiffuse[0], aiDiffuse[1], aiDiffuse[2], aiDiffuse[3] };
-	// 	float specular[4] = { aiSpecular[0], aiSpecular[1], aiSpecular[2], aiSpecular[3] };
-
-	// 	float shininess = 0.0f;
-	// 	material->Get( AI_MATKEY_SHININESS, shininess );
-
-	// 	glUniform4fv( glGetUniformLocation( mGLProgram, "ambient" ), 1, ambient );
-	// 	glUniform4fv( glGetUniformLocation( mGLProgram, "diffuse" ), 1, diffuse );
-	// 	glUniform4fv( glGetUniformLocation( mGLProgram, "specular" ), 1, specular );
-	// 	glUniform1f( glGetUniformLocation( mGLProgram, "shininess" ), shininess );
-
-	// 	glDrawElements( GL_TRIANGLES, mMeshFacesData[i].size(), GL_UNSIGNED_INT, &(mMeshFacesData[i])[0] );
-	// 	glDisableClientState( GL_NORMAL_ARRAY );
-	// }
-
-	// glDisableClientState( GL_TEXTURE_COORD_ARRAY );
-	// glDisableClientState( GL_VERTEX_ARRAY );
-
-
 	for( uint i = 0; i < mVA.size(); i++ ) {
 		glBindVertexArray( mVA[i] );
-		glEnableVertexAttribArray( 0 );
-		glEnableVertexAttribArray( 1 );
+		glEnableVertexAttribArray( 0 ); // Vertices
+		glEnableVertexAttribArray( 1 ); // Normals
+		glEnableVertexAttribArray( 2 ); // Color: Ambient
+		glEnableVertexAttribArray( 3 ); // Color: Diffuse
+		glEnableVertexAttribArray( 4 ); // Color: Specular
 		glDrawElements( GL_TRIANGLES, mIndexCount[i], GL_UNSIGNED_INT, 0 );
 		glBindVertexArray( 0 );
 	}
-
-	// glBindBuffer( GL_ARRAY_BUFFER, mVertexBuffers[0] );
-	// glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-	// glDrawArrays( GL_TRIANGLES, 0, mVertexCount[0] );
 }
 
 
@@ -254,6 +210,16 @@ void GLWidget::initShader() {
 	const GLint shaderLengthVertex = shaderString.size();
 	glShaderSource( vertexShader, 1, &shaderSourceVertex, &shaderLengthVertex );
 	glCompileShader( vertexShader );
+
+	GLint status;
+	char logBuffer[1000];
+	glGetShaderiv( vertexShader, GL_COMPILE_STATUS, &status );
+	if( status != GL_TRUE ) {
+		glGetShaderInfoLog( vertexShader, 1000, 0, logBuffer );
+		std::cerr << "* [Vertex shader]" << std::endl;
+		std::cerr << logBuffer << std::endl;
+	}
+
 	glAttachShader( mGLProgram, vertexShader );
 
 	shaderString = utils::loadFileAsString( ( path + "fragment.glsl" ).c_str() );
@@ -261,6 +227,14 @@ void GLWidget::initShader() {
 	const GLint shaderLengthFragment = shaderString.size();
 	glShaderSource( fragmentShader, 1, &shaderSourceFragment, &shaderLengthFragment );
 	glCompileShader( fragmentShader );
+
+	glGetShaderiv( fragmentShader, GL_COMPILE_STATUS, &status );
+	if( status != GL_TRUE ) {
+		glGetShaderInfoLog( fragmentShader, 1000, 0, logBuffer );
+		std::cerr << "* [Fragment shader]" << std::endl;
+		std::cerr << logBuffer << std::endl;
+	}
+
 	glAttachShader( mGLProgram, fragmentShader );
 
 	glLinkProgram( mGLProgram );
@@ -309,66 +283,19 @@ void GLWidget::loadModel( std::string filepath, std::string filename ) {
 
 	for( uint i = 0; i < mScene->mNumMeshes; i++ ) {
 		aiMesh* mesh = mScene->mMeshes[i];
-		aiMaterial* material = mScene->mMaterials[mesh->mMaterialIndex];
 
 		GLuint vertexArrayID;
 		glGenVertexArrays( 1, &vertexArrayID );
 		glBindVertexArray( vertexArrayID );
 		mVA.push_back( vertexArrayID );
 
-		GLuint buffers[2];
-		glGenBuffers( 2, &buffers[0] );
+		GLuint buffers[5];
+		glGenBuffers( 5, &buffers[0] );
 
-
-		// Vertices
-
-		GLfloat vertices[mesh->mNumVertices * 3];
-
-		for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-			vertices[j * 3] = mesh->mVertices[j].x;
-			vertices[j * 3 + 1] = mesh->mVertices[j].y;
-			vertices[j * 3 + 2] = mesh->mVertices[j].z;
-		}
-
-		glBindBuffer( GL_ARRAY_BUFFER, buffers[0] );
-		glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
-		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-
-
-		// Color
-
-		aiColor3D aiAmbient;
-		material->Get( AI_MATKEY_COLOR_AMBIENT, aiAmbient );
-
-		GLfloat ambient[mesh->mNumVertices * 3];
-
-		for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-			ambient[j * 3] = aiAmbient[0];
-			ambient[j * 3 + 1] = aiAmbient[1];
-			ambient[j * 3 + 2] = aiAmbient[2];
-		}
-
-		glBindBuffer( GL_ARRAY_BUFFER, buffers[1] );
-		glBufferData( GL_ARRAY_BUFFER, sizeof( ambient ), ambient, GL_STATIC_DRAW );
-		glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-
-
-		// Indices
-
-		uint indices[mesh->mNumFaces * 3];
-		mIndexCount.push_back( mesh->mNumFaces * 3 );
-
-		for( uint j = 0; j < mesh->mNumFaces; j++ ) {
-			const aiFace* face = &mesh->mFaces[j];
-			indices[j * 3] = face->mIndices[0];
-			indices[j * 3 + 1] = face->mIndices[1];
-			indices[j * 3 + 2] = face->mIndices[2];
-		}
-
-		GLuint indexBuffer;
-		glGenBuffers( 1, &indexBuffer );
-		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
-		glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
+		this->createBufferVertices( buffers, mesh );
+		this->createBufferNormals( buffers, mesh );
+		this->createBufferColors( buffers, mesh );
+		this->createBufferIndices( mesh );
 	}
 
 	glBindVertexArray( 0 );
@@ -376,6 +303,132 @@ void GLWidget::loadModel( std::string filepath, std::string filename ) {
 
 	std::cout << "* [GLWidget] Imported model \"" << filename << "\" of " << mScene->mNumMeshes << " meshes." << std::endl;
 	this->startRendering();
+}
+
+
+/**
+ * Create and fill a buffer with color data.
+ * @param {GLuint*} buffers ID of the buffer.
+ * @param {aiMesh*} mesh    The mesh.
+ */
+void GLWidget::createBufferColors( GLuint* buffers, aiMesh* mesh ) {
+	aiMaterial* material = mScene->mMaterials[mesh->mMaterialIndex];
+
+
+	// Ambient
+
+	aiColor3D aiAmbient;
+	material->Get( AI_MATKEY_COLOR_AMBIENT, aiAmbient );
+
+	GLfloat ambient[mesh->mNumVertices * 3];
+
+	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
+		ambient[j * 3] = aiAmbient[0];
+		ambient[j * 3 + 1] = aiAmbient[1];
+		ambient[j * 3 + 2] = aiAmbient[2];
+	}
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffers[2] );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( ambient ), ambient, GL_STATIC_DRAW );
+	glVertexAttribPointer( 2, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+
+
+	// Diffuse
+
+	aiColor3D aiDiffuse;
+	material->Get( AI_MATKEY_COLOR_DIFFUSE, aiDiffuse );
+
+	GLfloat diffuse[mesh->mNumVertices * 3];
+
+	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
+		diffuse[j * 3] = aiDiffuse[0];
+		diffuse[j * 3 + 1] = aiDiffuse[1];
+		diffuse[j * 3 + 2] = aiDiffuse[2];
+	}
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffers[3] );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( diffuse ), diffuse, GL_STATIC_DRAW );
+	glVertexAttribPointer( 3, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+
+
+	// Specular
+
+	aiColor3D aiSpecular;
+	material->Get( AI_MATKEY_COLOR_SPECULAR, aiSpecular );
+
+	GLfloat specular[mesh->mNumVertices * 3];
+
+	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
+		specular[j * 3] = aiSpecular[0];
+		specular[j * 3 + 1] = aiSpecular[1];
+		specular[j * 3 + 2] = aiSpecular[2];
+	}
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffers[4] );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( specular ), specular, GL_STATIC_DRAW );
+	glVertexAttribPointer( 4, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+}
+
+
+/**
+ * Create and fill a buffer with index data.
+ * @param {aiMesh*} mesh The mesh.
+ */
+void GLWidget::createBufferIndices( aiMesh* mesh ) {
+	uint indices[mesh->mNumFaces * 3];
+	mIndexCount.push_back( mesh->mNumFaces * 3 );
+
+	for( uint j = 0; j < mesh->mNumFaces; j++ ) {
+		const aiFace* face = &mesh->mFaces[j];
+		indices[j * 3] = face->mIndices[0];
+		indices[j * 3 + 1] = face->mIndices[1];
+		indices[j * 3 + 2] = face->mIndices[2];
+	}
+
+	GLuint indexBuffer;
+	glGenBuffers( 1, &indexBuffer );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
+}
+
+
+/**
+ * Create and fill a buffer with vertex normal data.
+ * @param {GLuint*} buffers ID of the buffer.
+ * @param {aiMesh*} mesh    The mesh.
+ */
+void GLWidget::createBufferNormals( GLuint* buffers, aiMesh* mesh ) {
+	GLfloat normals[mesh->mNumVertices * 3];
+
+	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
+		normals[j * 3] = mesh->mNormals[j].x;
+		normals[j * 3 + 1] = mesh->mNormals[j].y;
+		normals[j * 3 + 2] = mesh->mNormals[j].z;
+	}
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffers[1] );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( normals ), normals, GL_STATIC_DRAW );
+	glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+}
+
+
+/**
+ * Create and fill a buffer with vertex data.
+ * @param {GLuint*} buffer ID of the buffer.
+ * @param {aiMesh*} mesh   The mesh.
+ */
+void GLWidget::createBufferVertices( GLuint* buffers, aiMesh* mesh ) {
+	GLfloat vertices[mesh->mNumVertices * 3];
+
+	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
+		vertices[j * 3] = mesh->mVertices[j].x;
+		vertices[j * 3 + 1] = mesh->mVertices[j].y;
+		vertices[j * 3 + 2] = mesh->mVertices[j].z;
+	}
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffers[0] );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+	glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
 }
 
 
@@ -397,15 +450,8 @@ void GLWidget::paintGL() {
 	}
 
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 
-	// gluLookAt(
-	// 	mCamera.eyeX, mCamera.eyeY, mCamera.eyeZ,
-	// 	mCamera.eyeX - mCamera.centerX, mCamera.eyeY + mCamera.centerY, mCamera.eyeZ + mCamera.centerZ,
-	// 	mCamera.upX, mCamera.upY, mCamera.upZ
-	// );
-
-	glm::mat4 cameraMatrix = glm::lookAt(
+	glm::mat4 viewMatrix = glm::lookAt(
 		glm::vec3( mCamera.eyeX, mCamera.eyeY, mCamera.eyeZ ),
 		glm::vec3( mCamera.eyeX - mCamera.centerX, mCamera.eyeY + mCamera.centerY, mCamera.eyeZ + mCamera.centerZ ),
 		glm::vec3( mCamera.upX, mCamera.upY, mCamera.upZ )
@@ -414,14 +460,20 @@ void GLWidget::paintGL() {
 		50.0f, 1000.0f / 600.0f, 0.1f, 400.0f
 	);
 	glm::mat4 modelMatrix = glm::mat4( 1.0f );
-	glm::mat4 modelViewProjection = projectionMatrix * cameraMatrix * modelMatrix;
+	glm::mat3 normalMatrix = glm::mat3( viewMatrix * modelMatrix );
 
-	GLuint matrixID = glGetUniformLocation( mGLProgram, "modelViewProjection" );
-	glUniformMatrix4fv( matrixID, 1, GL_FALSE, &modelViewProjection[0][0] );
+	GLuint matrixView = glGetUniformLocation( mGLProgram, "viewMatrix" );
+	GLuint matrixProjection = glGetUniformLocation( mGLProgram, "projectionMatrix" );
+	GLuint matrixModel = glGetUniformLocation( mGLProgram, "modelMatrix" );
+	GLuint matrixNormal = glGetUniformLocation( mGLProgram, "normalMatrix" );
+
+	glUniformMatrix4fv( matrixView, 1, GL_FALSE, &viewMatrix[0][0] );
+	glUniformMatrix4fv( matrixProjection, 1, GL_FALSE, &projectionMatrix[0][0] );
+	glUniformMatrix4fv( matrixModel, 1, GL_FALSE, &modelMatrix[0][0] );
+	glUniformMatrix3fv( matrixNormal, 1, GL_FALSE, &normalMatrix[0][0] );
 
 	// this->drawAxis();
 	this->drawScene();
-
 	this->showFPS();
 }
 
@@ -433,13 +485,6 @@ void GLWidget::paintGL() {
  */
 void GLWidget::resizeGL( int width, int height ) {
 	glViewport( 0, 0, width, height );
-
-	// glMatrixMode( GL_PROJECTION );
-	// glLoadIdentity();
-	// gluPerspective( 50, width / (float) height, 0.1, 2000 );
-
-	// glMatrixMode( GL_MODELVIEW );
-	// glLoadIdentity();
 }
 
 
