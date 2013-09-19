@@ -20,6 +20,7 @@ out vec3 specular;
 
 out vec3 vertexPosition_cameraSpace;
 out vec3 vertexNormal_cameraSpace;
+
 out vec3 light0;
 
 
