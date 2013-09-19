@@ -40,17 +40,15 @@ void ModelLoader::createBufferColorsAmbient( aiMesh* mesh, aiMaterial* material,
 
 	GLfloat ambient[mesh->mNumVertices * 3];
 
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		ambient[j * 3] = aiAmbient[0];
-		ambient[j * 3 + 1] = aiAmbient[1];
-		ambient[j * 3 + 2] = aiAmbient[2];
+	for( uint i = 0; i < mesh->mNumVertices; i++ ) {
+		ambient[i * 3] = aiAmbient[0];
+		ambient[i * 3 + 1] = aiAmbient[1];
+		ambient[i * 3 + 2] = aiAmbient[2];
 	}
 
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( ambient ), ambient, GL_STATIC_DRAW );
 	glVertexAttribPointer( bufferIndex, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-
-	mBufferIndices.color_ambient = bufferIndex;
 }
 
 
@@ -67,17 +65,15 @@ void ModelLoader::createBufferColorsDiffuse( aiMesh* mesh, aiMaterial* material,
 
 	GLfloat diffuse[mesh->mNumVertices * 3];
 
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		diffuse[j * 3] = aiDiffuse[0];
-		diffuse[j * 3 + 1] = aiDiffuse[1];
-		diffuse[j * 3 + 2] = aiDiffuse[2];
+	for( uint i = 0; i < mesh->mNumVertices; i++ ) {
+		diffuse[i * 3] = aiDiffuse[0];
+		diffuse[i * 3 + 1] = aiDiffuse[1];
+		diffuse[i * 3 + 2] = aiDiffuse[2];
 	}
 
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( diffuse ), diffuse, GL_STATIC_DRAW );
 	glVertexAttribPointer( bufferIndex, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-
-	mBufferIndices.color_diffuse = bufferIndex;
 }
 
 
@@ -94,17 +90,15 @@ void ModelLoader::createBufferColorsSpecular( aiMesh* mesh, aiMaterial* material
 
 	GLfloat specular[mesh->mNumVertices * 3];
 
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		specular[j * 3] = aiSpecular[0];
-		specular[j * 3 + 1] = aiSpecular[1];
-		specular[j * 3 + 2] = aiSpecular[2];
+	for( uint i = 0; i < mesh->mNumVertices; i++ ) {
+		specular[i * 3] = aiSpecular[0];
+		specular[i * 3 + 1] = aiSpecular[1];
+		specular[i * 3 + 2] = aiSpecular[2];
 	}
 
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( specular ), specular, GL_STATIC_DRAW );
 	glVertexAttribPointer( bufferIndex, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-
-	mBufferIndices.color_specular = bufferIndex;
 }
 
 
@@ -115,11 +109,11 @@ void ModelLoader::createBufferColorsSpecular( aiMesh* mesh, aiMaterial* material
 void ModelLoader::createBufferIndices( aiMesh* mesh ) {
 	uint indices[mesh->mNumFaces * 3];
 
-	for( uint j = 0; j < mesh->mNumFaces; j++ ) {
-		const aiFace* face = &mesh->mFaces[j];
-		indices[j * 3] = face->mIndices[0];
-		indices[j * 3 + 1] = face->mIndices[1];
-		indices[j * 3 + 2] = face->mIndices[2];
+	for( uint i = 0; i < mesh->mNumFaces; i++ ) {
+		const aiFace* face = &mesh->mFaces[i];
+		indices[i * 3] = face->mIndices[0];
+		indices[i * 3 + 1] = face->mIndices[1];
+		indices[i * 3 + 2] = face->mIndices[2];
 	}
 
 	GLuint indexBuffer;
@@ -140,17 +134,35 @@ void ModelLoader::createBufferIndices( aiMesh* mesh ) {
 void ModelLoader::createBufferNormals( aiMesh* mesh, GLuint buffer, GLuint bufferIndex ) {
 	GLfloat normals[mesh->mNumVertices * 3];
 
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		normals[j * 3] = mesh->mNormals[j].x;
-		normals[j * 3 + 1] = mesh->mNormals[j].y;
-		normals[j * 3 + 2] = mesh->mNormals[j].z;
+	for( uint i = 0; i < mesh->mNumVertices; i++ ) {
+		normals[i * 3] = mesh->mNormals[i].x;
+		normals[i * 3 + 1] = mesh->mNormals[i].y;
+		normals[i * 3 + 2] = mesh->mNormals[i].z;
 	}
 
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( normals ), normals, GL_STATIC_DRAW );
 	glVertexAttribPointer( bufferIndex, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+}
 
-	mBufferIndices.normals = bufferIndex;
+
+/**
+ * Create and fill a buffer with texture data.
+ * @param {aiMesh*} mesh        The mesh.
+ * @param {GLuint*} buffer      ID of the buffer.
+ * @param {GLuint}  bufferIndex Index of the buffer.
+ */
+void ModelLoader::createBufferTextures( aiMesh* mesh, GLuint buffer, GLuint bufferIndex ) {
+	GLfloat textures[mesh->mNumVertices * 2];
+
+	for( uint i = 0; i < mesh->mNumVertices; i++ ) {
+		textures[i * 2] = mesh->mTextureCoords[0][i].x;
+		textures[i * 2 + 1] = mesh->mTextureCoords[0][i].y;
+	}
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffer );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( textures ), textures, GL_STATIC_DRAW );
+	glVertexAttribPointer( bufferIndex, 2, GL_FLOAT, GL_FALSE, 0, 0 );
 }
 
 
@@ -172,16 +184,14 @@ void ModelLoader::createBufferVertices( aiMesh* mesh, GLuint buffer, GLuint buff
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
 	glVertexAttribPointer( bufferIndex, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-
-	mBufferIndices.vertices = bufferIndex;
 }
 
 
 /**
  * Get the indices of the created buffers.
- * @return {bufferindices_t} Struct with fields for each created buffer.
+ * @return {vector<bufferindices_t>} Vector of structs with fields for each created buffer.
  */
-bufferindices_t ModelLoader::getBufferIndices() {
+vector<bufferindices_t> ModelLoader::getBufferIndices() {
 	return mBufferIndices;
 }
 
@@ -202,43 +212,71 @@ vector<GLuint> ModelLoader::getNumIndices() {
  * @return {std::vector<GLuint>}          Vector of all generated vertex array IDs.
  */
 vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filename ) {
-	const aiScene* scene = mImporter.ReadFile( filepath + filename, mAssimpFlags );
+	Assimp::Importer importer;
+	const aiScene* scene = importer.ReadFile( filepath + filename, mAssimpFlags );
 
 	if( !scene ) {
-		Logger::logError( string( "[ModelLoader] Import: " ).append( mImporter.GetErrorString() ) );
+		Logger::logError( string( "[ModelLoader] Import: " ).append( importer.GetErrorString() ) );
 		exit( 1 );
 	}
 
+	GLuint genBuffers = 5;
+
 	vector<GLuint> vectorArrayIDs = vector<GLuint>();
 	mNumIndices = vector<GLuint>();
+	mBufferIndices = vector<bufferindices_t>();
 
 	for( uint i = 0; i < scene->mNumMeshes; i++ ) {
 		aiMesh* mesh = scene->mMeshes[i];
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+		bufferindices_t bi;
 
 		GLuint vertexArrayID;
+		GLuint bufferIndex = -1;
+		GLuint buffers[genBuffers];
+
 		glGenVertexArrays( 1, &vertexArrayID );
 		glBindVertexArray( vertexArrayID );
 		vectorArrayIDs.push_back( vertexArrayID );
 
-		GLuint buffers[5];
-		glGenBuffers( 5, &buffers[0] );
-		GLuint bufferIndex = -1;
+		glGenBuffers( genBuffers, &buffers[0] );
 
-		this->createBufferVertices( mesh, buffers[0], ++bufferIndex );
-		this->createBufferNormals( mesh, buffers[1], ++bufferIndex );
-		this->createBufferColorsAmbient( mesh, material, buffers[2], ++bufferIndex );
-		this->createBufferColorsDiffuse( mesh, material, buffers[3], ++bufferIndex );
-		this->createBufferColorsSpecular( mesh, material, buffers[4], ++bufferIndex );
+		bi.vertices = ++bufferIndex;
+		this->createBufferVertices( mesh, buffers[0], bi.vertices );
+
+		bi.normals = ++bufferIndex;
+		this->createBufferNormals( mesh, buffers[1], bi.normals );
+
+		bi.color_ambient = ++bufferIndex;
+		this->createBufferColorsAmbient( mesh, material, buffers[2], bi.color_ambient );
+
+		bi.color_diffuse = ++bufferIndex;
+		this->createBufferColorsDiffuse( mesh, material, buffers[3], bi.color_diffuse );
+
+		bi.color_specular = ++bufferIndex;
+		this->createBufferColorsSpecular( mesh, material, buffers[4], bi.color_specular );
+
+		if( mesh->HasTextureCoords( 0 ) ) {
+			bi.textures = ++bufferIndex;
+			this->createBufferTextures( mesh, buffers[5], bi.textures );
+			bi.hasTexture = true;
+		}
+		else {
+			bi.hasTexture = false;
+		}
+
 		this->createBufferIndices( mesh );
+
+		mBufferIndices.push_back( bi );
 	}
 
 	glBindVertexArray( 0 );
 
-
 	stringstream sstm;
 	sstm << "[ModelLoader] Imported model \"" << filename << "\" of " << scene->mNumMeshes << " meshes.";
 	Logger::logInfo( sstm.str() );
+
+	importer.FreeScene();
 
 	return vectorArrayIDs;
 }

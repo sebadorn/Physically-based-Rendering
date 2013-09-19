@@ -12,6 +12,7 @@ layout( location = 1 ) in vec3 vertexNormal_modelSpace;
 layout( location = 2 ) in vec3 colorAmbient;
 layout( location = 3 ) in vec3 colorDiffuse;
 layout( location = 4 ) in vec3 colorSpecular;
+layout( location = 5 ) in vec2 texture;
 
 out vec3 ambient;
 out vec3 diffuse;

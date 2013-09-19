@@ -64,7 +64,7 @@ class GLWidget : public QGLWidget {
 		GLuint mPreviousTime;
 		CL* mCl;
 		QTimer* mTimer;
-		bufferindices_t mBufferIndices;
+		std::vector<bufferindices_t> mBufferIndices;
 		std::vector<GLuint> mNumIndices;
 		std::vector<GLuint> mVA;
 		glm::mat3 mNormalMatrix;

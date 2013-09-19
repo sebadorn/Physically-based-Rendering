@@ -17,8 +17,10 @@ typedef struct {
 	GLuint color_ambient;
 	GLuint color_diffuse;
 	GLuint color_specular;
+	GLuint textures;
 	GLuint normals;
 	GLuint vertices;
+	bool hasTexture;
 } bufferindices_t;
 
 
@@ -27,7 +29,7 @@ class ModelLoader {
 	public:
 		ModelLoader();
 		ModelLoader( uint assimpFlags );
-		bufferindices_t getBufferIndices();
+		std::vector<bufferindices_t> getBufferIndices();
 		std::vector<GLuint> getNumIndices();
 		std::vector<GLuint> loadModelIntoBuffers( std::string filepath, std::string filename );
 
@@ -37,13 +39,13 @@ class ModelLoader {
 		void createBufferColorsSpecular( aiMesh* mesh, aiMaterial* material, GLuint buffer, GLuint bufferIndex );
 		void createBufferIndices( aiMesh* mesh );
 		void createBufferNormals( aiMesh* mesh, GLuint buffer, GLuint bufferIndex );
+		void createBufferTextures( aiMesh* mesh, GLuint buffer, GLuint bufferIndex );
 		void createBufferVertices( aiMesh* mesh, GLuint buffer, GLuint bufferIndex );
 
 	private:
-		std::vector<GLuint> mNumIndices;
 		uint mAssimpFlags;
-		bufferindices_t mBufferIndices;
-		Assimp::Importer mImporter;
+		std::vector<GLuint> mNumIndices;
+		std::vector<bufferindices_t> mBufferIndices;
 
 };
 

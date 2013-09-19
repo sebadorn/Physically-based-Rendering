@@ -72,11 +72,14 @@ void GLWidget::cameraUpdate() {
 void GLWidget::drawScene() {
 	for( uint i = 0; i < mVA.size(); i++ ) {
 		glBindVertexArray( mVA[i] );
-		glEnableVertexAttribArray( mBufferIndices.vertices );
-		glEnableVertexAttribArray( mBufferIndices.normals );
-		glEnableVertexAttribArray( mBufferIndices.color_ambient );
-		glEnableVertexAttribArray( mBufferIndices.color_diffuse );
-		glEnableVertexAttribArray( mBufferIndices.color_specular );
+		glEnableVertexAttribArray( mBufferIndices[i].vertices );
+		glEnableVertexAttribArray( mBufferIndices[i].normals );
+		glEnableVertexAttribArray( mBufferIndices[i].color_ambient );
+		glEnableVertexAttribArray( mBufferIndices[i].color_diffuse );
+		glEnableVertexAttribArray( mBufferIndices[i].color_specular );
+		if( mBufferIndices[i].hasTexture ) {
+			glEnableVertexAttribArray( mBufferIndices[i].textures );
+		}
 		glDrawElements( GL_TRIANGLES, mNumIndices[i], GL_UNSIGNED_INT, 0 );
 		glBindVertexArray( 0 );
 	}
