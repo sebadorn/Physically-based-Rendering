@@ -1,11 +1,5 @@
 #include "GLWidget.h"
 
-#define WIDTH 1000.0f
-#define HEIGHT 600.0f
-#define FOV 70.0f
-#define ZNEAR 0.1f
-#define ZFAR 400.0f
-
 using namespace std;
 
 
@@ -15,11 +9,9 @@ using namespace std;
  */
 GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	CL* mCl = new CL();
-	Assimp::Importer mImporter;
 
 	mProjectionMatrix = glm::perspective( FOV, WIDTH / HEIGHT, ZNEAR, ZFAR );
 
-	mScene = NULL;
 	mDoRendering = false;
 	mFrameCount = 0;
 	mPreviousTime = 0;
@@ -53,11 +45,15 @@ void GLWidget::calculateMatrices() {
 		mCamera->getAdjustedCenter_glmVec3(),
 		mCamera->getUp_glmVec3()
 	);
+
 	mModelMatrix = glm::mat4( 1.0f );
+
 	mModelViewMatrix = mViewMatrix * mModelMatrix;
+
 	// mNormalMatrix = glm::inverseTranspose( glm::mat3( mModelViewMatrix ) );
 	// If no scaling is involved:
 	mNormalMatrix = glm::mat3( mModelViewMatrix );
+
 	mModelViewProjectionMatrix = mProjectionMatrix * mViewMatrix * mModelMatrix;
 }
 
@@ -71,147 +67,17 @@ void GLWidget::cameraUpdate() {
 
 
 /**
- * Create and fill a buffer with color data.
- * @param {GLuint*} buffers ID of the buffer.
- * @param {aiMesh*} mesh    The mesh.
- */
-void GLWidget::createBufferColors( GLuint* buffers, aiMesh* mesh ) {
-	aiMaterial* material = mScene->mMaterials[mesh->mMaterialIndex];
-
-
-	// Ambient
-
-	aiColor3D aiAmbient;
-	material->Get( AI_MATKEY_COLOR_AMBIENT, aiAmbient );
-
-	GLfloat ambient[mesh->mNumVertices * 3];
-
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		ambient[j * 3] = aiAmbient[0];
-		ambient[j * 3 + 1] = aiAmbient[1];
-		ambient[j * 3 + 2] = aiAmbient[2];
-	}
-
-	glBindBuffer( GL_ARRAY_BUFFER, buffers[2] );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( ambient ), ambient, GL_STATIC_DRAW );
-	glVertexAttribPointer( 2, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-
-
-	// Diffuse
-
-	aiColor3D aiDiffuse;
-	material->Get( AI_MATKEY_COLOR_DIFFUSE, aiDiffuse );
-
-	GLfloat diffuse[mesh->mNumVertices * 3];
-
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		diffuse[j * 3] = aiDiffuse[0];
-		diffuse[j * 3 + 1] = aiDiffuse[1];
-		diffuse[j * 3 + 2] = aiDiffuse[2];
-	}
-
-	glBindBuffer( GL_ARRAY_BUFFER, buffers[3] );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( diffuse ), diffuse, GL_STATIC_DRAW );
-	glVertexAttribPointer( 3, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-
-
-	// Specular
-
-	aiColor3D aiSpecular;
-	material->Get( AI_MATKEY_COLOR_SPECULAR, aiSpecular );
-
-	GLfloat specular[mesh->mNumVertices * 3];
-
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		specular[j * 3] = aiSpecular[0];
-		specular[j * 3 + 1] = aiSpecular[1];
-		specular[j * 3 + 2] = aiSpecular[2];
-	}
-
-	glBindBuffer( GL_ARRAY_BUFFER, buffers[4] );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( specular ), specular, GL_STATIC_DRAW );
-	glVertexAttribPointer( 4, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-}
-
-
-/**
- * Create and fill a buffer with index data.
- * @param {aiMesh*} mesh The mesh.
- */
-void GLWidget::createBufferIndices( aiMesh* mesh ) {
-	uint indices[mesh->mNumFaces * 3];
-	mIndexCount.push_back( mesh->mNumFaces * 3 );
-
-	for( uint j = 0; j < mesh->mNumFaces; j++ ) {
-		const aiFace* face = &mesh->mFaces[j];
-		indices[j * 3] = face->mIndices[0];
-		indices[j * 3 + 1] = face->mIndices[1];
-		indices[j * 3 + 2] = face->mIndices[2];
-	}
-
-	GLuint indexBuffer;
-	glGenBuffers( 1, &indexBuffer );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
-	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
-}
-
-
-/**
- * Create and fill a buffer with vertex normal data.
- * @param {GLuint*} buffers ID of the buffer.
- * @param {aiMesh*} mesh    The mesh.
- */
-void GLWidget::createBufferNormals( GLuint* buffers, aiMesh* mesh ) {
-	GLfloat normals[mesh->mNumVertices * 3];
-
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		normals[j * 3] = mesh->mNormals[j].x;
-		normals[j * 3 + 1] = mesh->mNormals[j].y;
-		normals[j * 3 + 2] = mesh->mNormals[j].z;
-	}
-
-	glBindBuffer( GL_ARRAY_BUFFER, buffers[1] );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( normals ), normals, GL_STATIC_DRAW );
-	glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-}
-
-
-/**
- * Create and fill a buffer with vertex data.
- * @param {GLuint*} buffer ID of the buffer.
- * @param {aiMesh*} mesh   The mesh.
- */
-void GLWidget::createBufferVertices( GLuint* buffers, aiMesh* mesh ) {
-	GLfloat vertices[mesh->mNumVertices * 3];
-
-	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
-		vertices[j * 3] = mesh->mVertices[j].x;
-		vertices[j * 3 + 1] = mesh->mVertices[j].y;
-		vertices[j * 3 + 2] = mesh->mVertices[j].z;
-	}
-
-	glBindBuffer( GL_ARRAY_BUFFER, buffers[0] );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
-	glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-}
-
-
-/**
  * Draw the main objects of the scene.
  */
 void GLWidget::drawScene() {
-	if( mScene == NULL ) {
-		return;
-	}
-
 	for( uint i = 0; i < mVA.size(); i++ ) {
 		glBindVertexArray( mVA[i] );
-		glEnableVertexAttribArray( 0 ); // Vertices
-		glEnableVertexAttribArray( 1 ); // Normals
-		glEnableVertexAttribArray( 2 ); // Color: Ambient
-		glEnableVertexAttribArray( 3 ); // Color: Diffuse
-		glEnableVertexAttribArray( 4 ); // Color: Specular
-		glDrawElements( GL_TRIANGLES, mIndexCount[i], GL_UNSIGNED_INT, 0 );
+		glEnableVertexAttribArray( mBufferIndices.vertices );
+		glEnableVertexAttribArray( mBufferIndices.normals );
+		glEnableVertexAttribArray( mBufferIndices.color_ambient );
+		glEnableVertexAttribArray( mBufferIndices.color_diffuse );
+		glEnableVertexAttribArray( mBufferIndices.color_specular );
+		glDrawElements( GL_TRIANGLES, mNumIndices[i], GL_UNSIGNED_INT, 0 );
 		glBindVertexArray( 0 );
 	}
 }
@@ -268,58 +134,16 @@ bool GLWidget::isRendering() {
 
 
 /**
- * Load 3D model.
+ * Load 3D model and start rendering it.
  * @param {string} filepath Path to the file, without file name.
  * @param {string} filename Name of the file.
  */
 void GLWidget::loadModel( string filepath, string filename ) {
-	const uint flags = aiProcess_JoinIdenticalVertices |
-	                   aiProcess_Triangulate |
-	                   aiProcess_GenNormals |
-	                   aiProcess_SortByPType |
-	                   aiProcess_OptimizeMeshes |
-	                   aiProcess_OptimizeGraph |
-	                   aiProcess_SplitLargeMeshes;
-	// Doc: http://assimp.sourceforge.net/lib_html/postprocess_8h.html
-	// more: aiProcess_GenSmoothNormals |
-	//       aiProcess_FixInfacingNormals |
-	//       aiProcess_FindDegenerates |
-	//       aiProcess_FindInvalidData
+	ModelLoader* ml = new ModelLoader();
 
-	mScene = mImporter.ReadFile( filepath + filename, flags );
-
-	if( !mScene ) {
-		Logger::logError( string( "[GLWidget] Import: " ).append( mImporter.GetErrorString() ) );
-		exit( 1 );
-	}
-
-
-	mVA = vector<GLuint>();
-	mIndexCount = vector<GLuint>();
-
-	for( uint i = 0; i < mScene->mNumMeshes; i++ ) {
-		aiMesh* mesh = mScene->mMeshes[i];
-
-		GLuint vertexArrayID;
-		glGenVertexArrays( 1, &vertexArrayID );
-		glBindVertexArray( vertexArrayID );
-		mVA.push_back( vertexArrayID );
-
-		GLuint buffers[5];
-		glGenBuffers( 5, &buffers[0] );
-
-		this->createBufferVertices( buffers, mesh );
-		this->createBufferNormals( buffers, mesh );
-		this->createBufferColors( buffers, mesh );
-		this->createBufferIndices( mesh );
-	}
-
-	glBindVertexArray( 0 );
-
-
-	stringstream sstm;
-	sstm << "[GLWidget] Imported model \"" << filename << "\" of " << mScene->mNumMeshes << " meshes.";
-	Logger::logInfo( sstm.str() );
+	mVA = ml->loadModelIntoBuffers( filepath, filename );
+	mBufferIndices = ml->getBufferIndices();
+	mNumIndices = ml->getNumIndices();
 
 	this->startRendering();
 }
@@ -406,8 +230,8 @@ void GLWidget::resizeGL( int width, int height ) {
 void GLWidget::showFPS() {
 	mFrameCount++;
 
-	uint currentTime = glutGet( GLUT_ELAPSED_TIME );
-	uint timeInterval = currentTime - mPreviousTime;
+	GLuint currentTime = glutGet( GLUT_ELAPSED_TIME );
+	GLuint timeInterval = currentTime - mPreviousTime;
 
 	if( timeInterval > 1000 ) {
 		float fps = mFrameCount / (float) timeInterval * 1000.0f;

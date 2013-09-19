@@ -1,27 +1,28 @@
 #ifndef GLWIDGET_H
 #define GLWIDGET_H
 
-#include <assimp/Importer.hpp>
-#include <assimp/postprocess.h>
-#include <assimp/scene.h>
 #include <GL/glew.h>
-#include <GL/glut.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
-#include <sstream>
 #include <QGLWidget>
-#include <unistd.h>
 
 #include "../Camera.h"
 #include "../CL.h"
 #include "../Logger.h"
+#include "../ModelLoader.h"
 #include "../utils.h"
 #include "Window.h"
 
 #ifndef GL_MULTISAMPLE
 	#define GL_MULTISAMPLE 0x809D
 #endif
+
+#define WIDTH 1000.0f
+#define HEIGHT 600.0f
+#define FOV 70.0f
+#define ZNEAR 0.1f
+#define ZFAR 400.0f
 
 #define RENDER_INTERVAL 16.666f
 
@@ -48,10 +49,6 @@ class GLWidget : public QGLWidget {
 
 	protected:
 		void calculateMatrices();
-		void createBufferColors( GLuint* buffer, aiMesh* mesh );
-		void createBufferIndices( aiMesh* mesh );
-		void createBufferNormals( GLuint* buffer, aiMesh* mesh );
-		void createBufferVertices( GLuint* buffer, aiMesh* mesh );
 		void drawScene();
 		void initializeGL();
 		void initShaders();
@@ -62,15 +59,13 @@ class GLWidget : public QGLWidget {
 
 	private:
 		bool mDoRendering;
-		uint mFrameCount;
-		uint mPreviousTime;
+		GLuint mFrameCount;
 		GLuint mGLProgram;
-
-		const aiScene* mScene;
+		GLuint mPreviousTime;
 		CL* mCl;
 		QTimer* mTimer;
-
-		std::vector<GLuint> mIndexCount;
+		bufferindices_t mBufferIndices;
+		std::vector<GLuint> mNumIndices;
 		std::vector<GLuint> mVA;
 		glm::mat3 mNormalMatrix;
 		glm::mat4 mModelMatrix;
@@ -78,7 +73,6 @@ class GLWidget : public QGLWidget {
 		glm::mat4 mModelViewProjectionMatrix;
 		glm::mat4 mProjectionMatrix;
 		glm::mat4 mViewMatrix;
-		Assimp::Importer mImporter;
 
 };
 

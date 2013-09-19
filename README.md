@@ -1,5 +1,5 @@
 ## ToDo
 
 * Textures
-* OpenGL 3.2
-* GLEW still needed?
+* Shininess
+* Move light with camera eye
