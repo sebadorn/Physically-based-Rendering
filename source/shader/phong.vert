@@ -6,6 +6,7 @@ uniform mat4 mModelViewMatrix;
 uniform mat3 mNormalMatrix;
 
 uniform vec3 lightPosition;
+uniform float useTexture_vert;
 
 layout( location = 0 ) in vec3 vertexPosition_modelSpace;
 layout( location = 1 ) in vec3 vertexNormal_modelSpace;
@@ -23,10 +24,11 @@ out vec3 vertexNormal_cameraSpace;
 
 out vec2 texCoord;
 out vec3 light0;
+out float useTexture;
 
 
 void main( void ) {
-	gl_Position = mModelViewProjectionMatrix * vec4( vertexPosition_modelSpace, 1 );
+	gl_Position = mModelViewProjectionMatrix * vec4( vertexPosition_modelSpace, 1.0f );
 
 	ambient = colorAmbient;
 	diffuse = colorDiffuse;
@@ -37,4 +39,5 @@ void main( void ) {
 
 	texCoord = texture;
 	light0 = lightPosition;
+	useTexture = useTexture_vert;
 }

@@ -220,16 +220,13 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 		exit( 1 );
 	}
 
-	GLuint genBuffers = 5;
+	GLuint genBuffers = 6;
 
 	vector<GLuint> vectorArrayIDs = vector<GLuint>();
 	mNumIndices = vector<GLuint>();
 	mTextureIDs = map<GLuint, GLuint>();
 
-	// for( uint i = 0; i < scene->mNumMeshes; i++ ) {
-	uint i = 1;
-	while( i < 3 ) {
-		i++;
+	for( uint i = 0; i < scene->mNumMeshes; i++ ) {
 		aiMesh* mesh = scene->mMeshes[i];
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
@@ -264,9 +261,9 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 			bool texLoadSuccess = true;
 
 			try {
-				textureID = this->loadTexture( material, filepath );
+				textureID = this->loadTexture( filepath, material, mesh->mMaterialIndex );
 			}
-			catch( ... ) {
+			catch( int exception ) {
 				texLoadSuccess = false;
 			}
 
@@ -296,11 +293,12 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 
 /**
  * Load texture file.
- * @param  {aiMaterial*} material Material of the mesh.
- * @param  {std::string} filepath Path to the textures.
- * @return {GLuint}               ID of the created texture.
+ * @param  {std::string} filepath      Path to the textures.
+ * @param  {aiMaterial*} material      Material of the mesh.
+ * @param  {int}         materialIndex Index of the material.
+ * @return {GLuint}                    ID of the created texture.
  */
-GLuint ModelLoader::loadTexture( aiMaterial* material, string filepath ) {
+GLuint ModelLoader::loadTexture( string filepath, aiMaterial* material, int materialIndex ) {
 	ilInit();
 
 	int textureIndex = 0;
@@ -308,7 +306,10 @@ GLuint ModelLoader::loadTexture( aiMaterial* material, string filepath ) {
 	aiReturn textureFound = material->GetTexture( aiTextureType_DIFFUSE, textureIndex, &path );
 
 	if( textureFound != AI_SUCCESS ) {
-		throw;
+		char msg[60];
+		snprintf( msg, 60, "[ModelLoader] No diffuse texture found in material %d.", materialIndex );
+		Logger::logDebug( msg );
+		throw 0;
 	}
 
 	ILuint imageID;

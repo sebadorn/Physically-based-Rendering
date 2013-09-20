@@ -70,24 +70,21 @@ void GLWidget::cameraUpdate() {
  * Draw the main objects of the scene.
  */
 void GLWidget::drawScene() {
-	// for( GLuint i = 0; i < mVA.size(); i++ ) {
-	// 	if( mTextureIDs.count( mVA[i] ) > 0 ) {
-	// 		glBindTexture( GL_TEXTURE_2D, mTextureIDs[mVA[i]] );
-	// 	}
-	// 	else {
-	// 		glBindTexture( GL_TEXTURE_2D, 0 );
-	// 	}
-	// 	glBindVertexArray( mVA[i] );
-	// 	glDrawElements( GL_TRIANGLES, mNumIndices[i], GL_UNSIGNED_INT, 0 );
-	// }
+	for( GLuint i = 0; i < mVA.size(); i++ ) {
+		GLfloat useTexture = 1.0f;
+		if( mTextureIDs.count( mVA[i] ) > 0 ) {
+			glBindTexture( GL_TEXTURE_2D, mTextureIDs[mVA[i]] );
+		}
+		else {
+			glBindTexture( GL_TEXTURE_2D, 0 );
+			useTexture = 0.0f;
+		}
 
-	if( mVA.size() < 1 ) {
-		return;
+		glUniform1f( glGetUniformLocation( mGLProgram, "useTexture_vert" ), useTexture );
+
+		glBindVertexArray( mVA[i] );
+		glDrawElements( GL_TRIANGLES, mNumIndices[i], GL_UNSIGNED_INT, 0 );
 	}
-
-	glBindTexture( GL_TEXTURE_2D, mTextureIDs[mVA[0]] );
-	glBindVertexArray( mVA[0] );
-	glDrawElements( GL_TRIANGLES, mNumIndices[0], GL_UNSIGNED_INT, 0 );
 
 	glBindVertexArray( 0 );
 }

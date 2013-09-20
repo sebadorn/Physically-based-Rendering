@@ -10,6 +10,7 @@ in vec3 vertexNormal_cameraSpace;
 
 in vec2 texCoord;
 in vec3 light0;
+in float useTexture;
 
 out vec3 color;
 
@@ -27,11 +28,11 @@ void main( void ) {
 	vec3 R = normalize( reflect( -L, vertexNormal_cameraSpace ) );
 
 	ambientV = ambient;
-	diffuseV = clamp( diffuse * max( dot( vertexNormal_cameraSpace, L ), 0.0 ), 0.0, 1.0 ) ;
-	specV = clamp( specular * pow( max( dot( R, E ), 0.0 ), 0.3 * shininess ), 0.0, 1.0 );
+	diffuseV = clamp( diffuse * max( dot( vertexNormal_cameraSpace, L ), 0.0f ), 0.0f, 1.0f ) ;
+	specV = clamp( specular * pow( max( dot( R, E ), 0.0f ), 0.3f * shininess ), 0.0f, 1.0f );
 
-	vec3 lightColor = ambientV + diffuseV + specV;
-	vec3 texColor = texture( texUnit, texCoord ).rgb;
+	vec3 lightColor = ( ambientV + diffuseV + specV ) * ( 1.0f - useTexture );
+	vec3 texColor = texture( texUnit, texCoord ).rgb * useTexture;
 
-	color = texColor;
+	color = lightColor + texColor;
 }

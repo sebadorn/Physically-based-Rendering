@@ -39,7 +39,7 @@ class ModelLoader {
 		void createBufferNormals( aiMesh* mesh, GLuint buffer, GLuint bufferIndex );
 		void createBufferTextures( aiMesh* mesh, GLuint buffer, GLuint bufferIndex );
 		void createBufferVertices( aiMesh* mesh, GLuint buffer, GLuint bufferIndex );
-		GLuint loadTexture( aiMaterial* material, std::string filepath );
+		GLuint loadTexture( std::string filepath, aiMaterial* material, int materialIndex );
 
 	private:
 		uint mAssimpFlags;

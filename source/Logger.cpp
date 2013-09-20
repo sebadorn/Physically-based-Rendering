@@ -7,7 +7,7 @@
  */
 void Logger::logDebug( const char* msg ) {
 	if( !DO_LOG ) { return; }
-	std::cout << "* " << msg << std::endl;
+	std::cout << "\033[36m" << "* " << msg << "\033[0m" << std::endl;
 }
 
 
