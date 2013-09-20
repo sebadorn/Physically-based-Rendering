@@ -45,6 +45,7 @@ class ModelLoader {
 		uint mAssimpFlags;
 		std::vector<GLuint> mNumIndices;
 		std::map<GLuint, GLuint> mTextureIDs;
+		std::map<std::string, GLuint> mFileToTextureID;
 
 };
 

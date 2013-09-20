@@ -97,8 +97,6 @@ void GLWidget::initializeGL() {
 	glClearColor( 0.9f, 0.9f, 0.9f, 0.0f );
 
 	glEnable( GL_DEPTH_TEST );
-	glEnable( GL_MULTISAMPLE );
-	glEnable( GL_LINE_SMOOTH );
 
 	this->initShaders();
 

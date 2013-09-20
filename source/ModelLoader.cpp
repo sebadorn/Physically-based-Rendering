@@ -312,6 +312,12 @@ GLuint ModelLoader::loadTexture( string filepath, aiMaterial* material, int mate
 		throw 0;
 	}
 
+	// No need to load the file again, we already did that.
+	if( mFileToTextureID.count( path.data ) > 0 ) {
+		return mFileToTextureID[path.data];
+	}
+
+
 	ILuint imageID;
 	ilGenImages( 1, &imageID );
 
@@ -330,17 +336,24 @@ GLuint ModelLoader::loadTexture( string filepath, aiMaterial* material, int mate
 
 		glBindTexture( GL_TEXTURE_2D, textureID );
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
 		glTexImage2D(
 			GL_TEXTURE_2D, 0, GL_RGBA,
 			ilGetInteger( IL_IMAGE_WIDTH ), ilGetInteger( IL_IMAGE_HEIGHT ), 0,
 			GL_RGBA, GL_UNSIGNED_BYTE, ilGetData()
 		);
+		glGenerateMipmap( GL_TEXTURE_2D );
 
 		glBindTexture( GL_TEXTURE_2D, 0 );
+		mFileToTextureID[path.data] = textureID;
 	}
 
 	ilDeleteImages( 1, &imageID );
+
+	if( !success ) {
+		Logger::logError( string( "[ModelLoader] Failed to load texture file " ).append( path.data ) );
+		throw 1;
+	}
 
 	return textureID;
 }
