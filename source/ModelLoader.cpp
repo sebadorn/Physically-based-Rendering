@@ -32,9 +32,8 @@ ModelLoader::ModelLoader( uint assimpFlags ) {
  * @param {aiMesh*}     mesh        The mesh.
  * @param {aiMaterial*} material    The material of the mesh.
  * @param {GLuint*}     buffer      ID of the buffer.
- * @param {GLuint}      bufferIndex Index of the buffer.
  */
-void ModelLoader::createBufferColorsAmbient( aiMesh* mesh, aiMaterial* material, GLuint buffer, GLuint bufferIndex ) {
+void ModelLoader::createBufferColorsAmbient( aiMesh* mesh, aiMaterial* material, GLuint buffer ) {
 	aiColor3D aiAmbient;
 	material->Get( AI_MATKEY_COLOR_AMBIENT, aiAmbient );
 
@@ -48,7 +47,8 @@ void ModelLoader::createBufferColorsAmbient( aiMesh* mesh, aiMaterial* material,
 
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( ambient ), ambient, GL_STATIC_DRAW );
-	glVertexAttribPointer( bufferIndex, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glVertexAttribPointer( ML_BUFFINDEX_AMBIENT, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glEnableVertexAttribArray( ML_BUFFINDEX_AMBIENT );
 }
 
 
@@ -57,9 +57,8 @@ void ModelLoader::createBufferColorsAmbient( aiMesh* mesh, aiMaterial* material,
  * @param {aiMesh*}     mesh        The mesh.
  * @param {aiMaterial*} material    The material of the mesh.
  * @param {GLuint*}     buffer      ID of the buffer.
- * @param {GLuint}      bufferIndex Index of the buffer.
  */
-void ModelLoader::createBufferColorsDiffuse( aiMesh* mesh, aiMaterial* material, GLuint buffer, GLuint bufferIndex ) {
+void ModelLoader::createBufferColorsDiffuse( aiMesh* mesh, aiMaterial* material, GLuint buffer ) {
 	aiColor3D aiDiffuse;
 	material->Get( AI_MATKEY_COLOR_DIFFUSE, aiDiffuse );
 
@@ -73,7 +72,28 @@ void ModelLoader::createBufferColorsDiffuse( aiMesh* mesh, aiMaterial* material,
 
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( diffuse ), diffuse, GL_STATIC_DRAW );
-	glVertexAttribPointer( bufferIndex, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glVertexAttribPointer( ML_BUFFINDEX_DIFFUSE, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glEnableVertexAttribArray( ML_BUFFINDEX_DIFFUSE );
+}
+
+
+/**
+ * Create and fill a buffer with shininess data.
+ * @param {aiMesh*}     mesh        The mesh.
+ * @param {aiMaterial*} material    The material of the mesh.
+ * @param {GLuint*}     buffer      ID of the buffer.
+ */
+void ModelLoader::createBufferColorsShininess( aiMesh* mesh, aiMaterial* material, GLuint buffer ) {
+	float aiShininess;
+	material->Get( AI_MATKEY_SHININESS_STRENGTH, aiShininess );
+
+	GLfloat shininess[mesh->mNumVertices];
+	fill_n( shininess, mesh->mNumVertices, aiShininess );
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffer );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( shininess ), shininess, GL_STATIC_DRAW );
+	glVertexAttribPointer( ML_BUFFINDEX_SHININESS, 1, GL_FLOAT, GL_FALSE, 0, 0 );
+	glEnableVertexAttribArray( ML_BUFFINDEX_SHININESS );
 }
 
 
@@ -82,9 +102,8 @@ void ModelLoader::createBufferColorsDiffuse( aiMesh* mesh, aiMaterial* material,
  * @param {aiMesh*}     mesh        The mesh.
  * @param {aiMaterial*} material    The material of the mesh.
  * @param {GLuint*}     buffer      ID of the buffer.
- * @param {GLuint}      bufferIndex Index of the buffer.
  */
-void ModelLoader::createBufferColorsSpecular( aiMesh* mesh, aiMaterial* material, GLuint buffer, GLuint bufferIndex ) {
+void ModelLoader::createBufferColorsSpecular( aiMesh* mesh, aiMaterial* material, GLuint buffer ) {
 	aiColor3D aiSpecular;
 	material->Get( AI_MATKEY_COLOR_SPECULAR, aiSpecular );
 
@@ -98,7 +117,8 @@ void ModelLoader::createBufferColorsSpecular( aiMesh* mesh, aiMaterial* material
 
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( specular ), specular, GL_STATIC_DRAW );
-	glVertexAttribPointer( bufferIndex, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glVertexAttribPointer( ML_BUFFINDEX_SPECULAR, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glEnableVertexAttribArray( ML_BUFFINDEX_SPECULAR );
 }
 
 
@@ -116,9 +136,8 @@ void ModelLoader::createBufferIndices( aiMesh* mesh ) {
 		indices[i * 3 + 2] = face->mIndices[2];
 	}
 
-	GLuint indexBuffer;
-	glGenBuffers( 1, &indexBuffer );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
+	glGenBuffers( 1, &mIndexBuffer );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mIndexBuffer );
 	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
 
 	mNumIndices.push_back( mesh->mNumFaces * 3 );
@@ -129,9 +148,8 @@ void ModelLoader::createBufferIndices( aiMesh* mesh ) {
  * Create and fill a buffer with vertex normal data.
  * @param {aiMesh*} mesh        The mesh.
  * @param {GLuint*} buffer      ID of the buffer.
- * @param {GLuint}  bufferIndex Index of the buffer.
  */
-void ModelLoader::createBufferNormals( aiMesh* mesh, GLuint buffer, GLuint bufferIndex ) {
+void ModelLoader::createBufferNormals( aiMesh* mesh, GLuint buffer ) {
 	GLfloat normals[mesh->mNumVertices * 3];
 
 	for( uint i = 0; i < mesh->mNumVertices; i++ ) {
@@ -142,7 +160,8 @@ void ModelLoader::createBufferNormals( aiMesh* mesh, GLuint buffer, GLuint buffe
 
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( normals ), normals, GL_STATIC_DRAW );
-	glVertexAttribPointer( bufferIndex, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glVertexAttribPointer( ML_BUFFINDEX_NORMALS, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glEnableVertexAttribArray( ML_BUFFINDEX_NORMALS );
 }
 
 
@@ -150,9 +169,8 @@ void ModelLoader::createBufferNormals( aiMesh* mesh, GLuint buffer, GLuint buffe
  * Create and fill a buffer with texture data.
  * @param {aiMesh*} mesh        The mesh.
  * @param {GLuint*} buffer      ID of the buffer.
- * @param {GLuint}  bufferIndex Index of the buffer.
  */
-void ModelLoader::createBufferTextures( aiMesh* mesh, GLuint buffer, GLuint bufferIndex ) {
+void ModelLoader::createBufferTextures( aiMesh* mesh, GLuint buffer ) {
 	GLfloat textures[mesh->mNumVertices * 2];
 
 	for( uint i = 0; i < mesh->mNumVertices; i++ ) {
@@ -162,7 +180,8 @@ void ModelLoader::createBufferTextures( aiMesh* mesh, GLuint buffer, GLuint buff
 
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( textures ), textures, GL_STATIC_DRAW );
-	glVertexAttribPointer( bufferIndex, 2, GL_FLOAT, GL_FALSE, 0, 0 );
+	glVertexAttribPointer( ML_BUFFINDEX_TEXTURES, 2, GL_FLOAT, GL_FALSE, 0, 0 );
+	glEnableVertexAttribArray( ML_BUFFINDEX_TEXTURES );
 }
 
 
@@ -170,9 +189,8 @@ void ModelLoader::createBufferTextures( aiMesh* mesh, GLuint buffer, GLuint buff
  * Create and fill a buffer with vertex data.
  * @param {aiMesh*} mesh        The mesh.
  * @param {GLuint*} buffer      ID of the buffer.
- * @param {GLuint}  bufferIndex Index of the buffer.
  */
-void ModelLoader::createBufferVertices( aiMesh* mesh, GLuint buffer, GLuint bufferIndex ) {
+void ModelLoader::createBufferVertices( aiMesh* mesh, GLuint buffer ) {
 	GLfloat vertices[mesh->mNumVertices * 3];
 
 	for( uint j = 0; j < mesh->mNumVertices; j++ ) {
@@ -183,7 +201,17 @@ void ModelLoader::createBufferVertices( aiMesh* mesh, GLuint buffer, GLuint buff
 
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
-	glVertexAttribPointer( bufferIndex, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glVertexAttribPointer( ML_BUFFINDEX_VERTICES, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glEnableVertexAttribArray( ML_BUFFINDEX_VERTICES );
+}
+
+
+/**
+ * Get the ID of the index buffer.
+ * @return {GLuint} ID of the index buffer.
+ */
+GLuint ModelLoader::getIndexBuffer() {
+	return mIndexBuffer;
 }
 
 
@@ -220,7 +248,8 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 		exit( 1 );
 	}
 
-	GLuint genBuffers = 6;
+
+	GLuint genNumBuffers = 7;
 
 	vector<GLuint> vectorArrayIDs = vector<GLuint>();
 	mNumIndices = vector<GLuint>();
@@ -231,30 +260,24 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
 		GLuint vertexArrayID;
-		GLuint buffers[genBuffers];
+		GLuint buffers[genNumBuffers];
 
 		glGenVertexArrays( 1, &vertexArrayID );
 		glBindVertexArray( vertexArrayID );
 		vectorArrayIDs.push_back( vertexArrayID );
 
-		glGenBuffers( genBuffers, &buffers[0] );
+		glGenBuffers( genNumBuffers, &buffers[0] );
 
-		this->createBufferVertices( mesh, buffers[0], ML_BUFFINDEX_VERTICES );
-		glEnableVertexAttribArray( ML_BUFFINDEX_VERTICES );
+		this->createBufferVertices( mesh, buffers[0] );
 
 		if( mesh->HasNormals() ) {
-			this->createBufferNormals( mesh, buffers[1], ML_BUFFINDEX_NORMALS );
-			glEnableVertexAttribArray( ML_BUFFINDEX_NORMALS );
+			this->createBufferNormals( mesh, buffers[1] );
 		}
 
-		this->createBufferColorsAmbient( mesh, material, buffers[2], ML_BUFFINDEX_AMBIENT );
-		glEnableVertexAttribArray( ML_BUFFINDEX_AMBIENT );
-
-		this->createBufferColorsDiffuse( mesh, material, buffers[3], ML_BUFFINDEX_DIFFUSE );
-		glEnableVertexAttribArray( ML_BUFFINDEX_DIFFUSE );
-
-		this->createBufferColorsSpecular( mesh, material, buffers[4], ML_BUFFINDEX_SPECULAR );
-		glEnableVertexAttribArray( ML_BUFFINDEX_SPECULAR );
+		this->createBufferColorsAmbient( mesh, material, buffers[2] );
+		this->createBufferColorsDiffuse( mesh, material, buffers[3] );
+		this->createBufferColorsSpecular( mesh, material, buffers[4] );
+		this->createBufferColorsShininess( mesh, material, buffers[5] );
 
 		if( mesh->HasTextureCoords( 0 ) ) {
 			GLuint textureID;
@@ -269,8 +292,7 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 
 			if( texLoadSuccess ) {
 				mTextureIDs[vertexArrayID] = textureID;
-				this->createBufferTextures( mesh, buffers[5], ML_BUFFINDEX_TEXTURES );
-				glEnableVertexAttribArray( ML_BUFFINDEX_TEXTURES );
+				this->createBufferTextures( mesh, buffers[6] );
 			}
 		}
 

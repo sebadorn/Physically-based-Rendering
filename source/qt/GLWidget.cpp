@@ -97,6 +97,7 @@ void GLWidget::initializeGL() {
 	glClearColor( 0.9f, 0.9f, 0.9f, 0.0f );
 
 	glEnable( GL_DEPTH_TEST );
+	glEnable( GL_MULTISAMPLE );
 
 	this->initShaders();
 
@@ -144,12 +145,21 @@ bool GLWidget::isRendering() {
  * @param {string} filename Name of the file.
  */
 void GLWidget::loadModel( string filepath, string filename ) {
+	// Delete old vertex array buffers
+	if( mVA.size() > 0 ) {
+		glDeleteBuffers( mVA.size(), &mVA[0] );
+		glDeleteBuffers( 1, &mIndexBuffer );
+	}
+
+	// Import new model and create new vertex array buffers
 	ModelLoader* ml = new ModelLoader();
 
 	mVA = ml->loadModelIntoBuffers( filepath, filename );
+	mIndexBuffer = ml->getIndexBuffer();
 	mNumIndices = ml->getNumIndices();
 	mTextureIDs = ml->getTextureIDs();
 
+	// Ready
 	this->startRendering();
 }
 

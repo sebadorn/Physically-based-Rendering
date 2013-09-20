@@ -4,6 +4,7 @@
 in vec3 ambient;
 in vec3 diffuse;
 in vec3 specular;
+in float shininess;
 
 in vec3 vertexPosition_cameraSpace;
 in vec3 vertexNormal_cameraSpace;
@@ -21,7 +22,6 @@ void main( void ) {
 	vec3 diffuseV;
 	vec3 specV;
 	vec3 ambientV;
-	float shininess = 60.0f;
 
 	vec3 L = normalize( light0 - vertexPosition_cameraSpace );
 	vec3 E = normalize( -vertexPosition_cameraSpace );

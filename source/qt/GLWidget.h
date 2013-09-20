@@ -64,6 +64,7 @@ class GLWidget : public QGLWidget {
 		bool mDoRendering;
 		GLuint mFrameCount;
 		GLuint mGLProgram;
+		GLuint mIndexBuffer;
 		GLuint mPreviousTime;
 		CL* mCl;
 		QTimer* mTimer;
