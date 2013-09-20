@@ -70,19 +70,26 @@ void GLWidget::cameraUpdate() {
  * Draw the main objects of the scene.
  */
 void GLWidget::drawScene() {
-	for( uint i = 0; i < mVA.size(); i++ ) {
-		glBindVertexArray( mVA[i] );
-		glEnableVertexAttribArray( mBufferIndices[i].vertices );
-		glEnableVertexAttribArray( mBufferIndices[i].normals );
-		glEnableVertexAttribArray( mBufferIndices[i].color_ambient );
-		glEnableVertexAttribArray( mBufferIndices[i].color_diffuse );
-		glEnableVertexAttribArray( mBufferIndices[i].color_specular );
-		if( mBufferIndices[i].hasTexture ) {
-			glEnableVertexAttribArray( mBufferIndices[i].textures );
-		}
-		glDrawElements( GL_TRIANGLES, mNumIndices[i], GL_UNSIGNED_INT, 0 );
-		glBindVertexArray( 0 );
+	// for( GLuint i = 0; i < mVA.size(); i++ ) {
+	// 	if( mTextureIDs.count( mVA[i] ) > 0 ) {
+	// 		glBindTexture( GL_TEXTURE_2D, mTextureIDs[mVA[i]] );
+	// 	}
+	// 	else {
+	// 		glBindTexture( GL_TEXTURE_2D, 0 );
+	// 	}
+	// 	glBindVertexArray( mVA[i] );
+	// 	glDrawElements( GL_TRIANGLES, mNumIndices[i], GL_UNSIGNED_INT, 0 );
+	// }
+
+	if( mVA.size() < 1 ) {
+		return;
 	}
+
+	glBindTexture( GL_TEXTURE_2D, mTextureIDs[mVA[0]] );
+	glBindVertexArray( mVA[0] );
+	glDrawElements( GL_TRIANGLES, mNumIndices[0], GL_UNSIGNED_INT, 0 );
+
+	glBindVertexArray( 0 );
 }
 
 
@@ -145,8 +152,8 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	ModelLoader* ml = new ModelLoader();
 
 	mVA = ml->loadModelIntoBuffers( filepath, filename );
-	mBufferIndices = ml->getBufferIndices();
 	mNumIndices = ml->getNumIndices();
+	mTextureIDs = ml->getTextureIDs();
 
 	this->startRendering();
 }

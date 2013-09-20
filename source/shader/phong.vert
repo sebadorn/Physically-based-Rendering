@@ -21,6 +21,7 @@ out vec3 specular;
 out vec3 vertexPosition_cameraSpace;
 out vec3 vertexNormal_cameraSpace;
 
+out vec2 texCoord;
 out vec3 light0;
 
 
@@ -34,5 +35,6 @@ void main( void ) {
 	vertexPosition_cameraSpace = mat3( mModelViewMatrix ) * vertexPosition_modelSpace;
 	vertexNormal_cameraSpace = normalize( mNormalMatrix * vertexNormal_modelSpace );
 
+	texCoord = texture;
 	light0 = lightPosition;
 }

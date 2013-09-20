@@ -1,10 +1,13 @@
 #ifndef GLWIDGET_H
 #define GLWIDGET_H
 
+#include <algorithm>
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
+#include <map>
+#include <vector>
 #include <QGLWidget>
 
 #include "../Camera.h"
@@ -64,8 +67,8 @@ class GLWidget : public QGLWidget {
 		GLuint mPreviousTime;
 		CL* mCl;
 		QTimer* mTimer;
-		std::vector<bufferindices_t> mBufferIndices;
 		std::vector<GLuint> mNumIndices;
+		std::map<GLuint, GLuint> mTextureIDs;
 		std::vector<GLuint> mVA;
 		glm::mat3 mNormalMatrix;
 		glm::mat4 mModelMatrix;

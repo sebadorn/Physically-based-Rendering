@@ -23,7 +23,6 @@ set( LIBRARIES ${LIBRARIES} ${GLEW_LIBRARIES} )
 
 find_package( GLM REQUIRED )
 include_directories( ${GLM_INCLUDE_DIRS} )
-# set( LIBRARIES ${LIBRARIES} ${GLM_LIBRARIES} )
 
 
 # OpenCL
@@ -46,6 +45,12 @@ set( LIBRARIES ${LIBRARIES} ${QT_LIBRARIES} ${QT_QTOPENGL_LIBRARIES} )
 find_package( ASSIMP REQUIRED )
 include_directories( ${ASSIMP_INCLUDE_DIRS} )
 set( LIBRARIES ${LIBRARIES} ${ASSIMP_LIBRARIES} )
+
+
+# DEVIL
+find_package( DEVIL REQUIRED )
+include_directories( ${IL_INCLUDE_DIR} )
+set( LIBRARIES ${LIBRARIES} ${IL_LIBRARIES} )
 
 
 add_executable( ${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/main.cpp ${SOURCES_CPP} ${SOURCES_MOC} )

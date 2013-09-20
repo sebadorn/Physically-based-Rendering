@@ -1,27 +1,25 @@
 #ifndef MODELLOADER_H
 #define MODELLOADER_H
 
+#include <algorithm>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <GL/glew.h>
 #include <GL/glut.h>
-#include <sstream>
+#include <IL/il.h>
+#include <map>
 #include <string>
 #include <vector>
 
 #include "Logger.h"
 
-
-typedef struct {
-	GLuint color_ambient;
-	GLuint color_diffuse;
-	GLuint color_specular;
-	GLuint textures;
-	GLuint normals;
-	GLuint vertices;
-	bool hasTexture;
-} bufferindices_t;
+#define ML_BUFFINDEX_VERTICES 0
+#define ML_BUFFINDEX_NORMALS 1
+#define ML_BUFFINDEX_AMBIENT 2
+#define ML_BUFFINDEX_DIFFUSE 3
+#define ML_BUFFINDEX_SPECULAR 4
+#define ML_BUFFINDEX_TEXTURES 5
 
 
 class ModelLoader {
@@ -29,8 +27,8 @@ class ModelLoader {
 	public:
 		ModelLoader();
 		ModelLoader( uint assimpFlags );
-		std::vector<bufferindices_t> getBufferIndices();
 		std::vector<GLuint> getNumIndices();
+		std::map<GLuint, GLuint> getTextureIDs();
 		std::vector<GLuint> loadModelIntoBuffers( std::string filepath, std::string filename );
 
 	protected:
@@ -41,11 +39,12 @@ class ModelLoader {
 		void createBufferNormals( aiMesh* mesh, GLuint buffer, GLuint bufferIndex );
 		void createBufferTextures( aiMesh* mesh, GLuint buffer, GLuint bufferIndex );
 		void createBufferVertices( aiMesh* mesh, GLuint buffer, GLuint bufferIndex );
+		GLuint loadTexture( aiMaterial* material, std::string filepath );
 
 	private:
 		uint mAssimpFlags;
 		std::vector<GLuint> mNumIndices;
-		std::vector<bufferindices_t> mBufferIndices;
+		std::map<GLuint, GLuint> mTextureIDs;
 
 };
 

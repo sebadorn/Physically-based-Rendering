@@ -188,20 +188,20 @@ void ModelLoader::createBufferVertices( aiMesh* mesh, GLuint buffer, GLuint buff
 
 
 /**
- * Get the indices of the created buffers.
- * @return {vector<bufferindices_t>} Vector of structs with fields for each created buffer.
- */
-vector<bufferindices_t> ModelLoader::getBufferIndices() {
-	return mBufferIndices;
-}
-
-
-/**
  * Get a list of the number of indices per mesh.
  * @return {std::vector<GLuint>} Vector of number of indices for each mesh.
  */
 vector<GLuint> ModelLoader::getNumIndices() {
 	return mNumIndices;
+}
+
+
+/**
+ * Get the texture ID for each vector array ID.
+ * @return {std::map<GLuint, GLuint>}
+ */
+map<GLuint, GLuint> ModelLoader::getTextureIDs() {
+	return mTextureIDs;
 }
 
 
@@ -224,15 +224,16 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 
 	vector<GLuint> vectorArrayIDs = vector<GLuint>();
 	mNumIndices = vector<GLuint>();
-	mBufferIndices = vector<bufferindices_t>();
+	mTextureIDs = map<GLuint, GLuint>();
 
-	for( uint i = 0; i < scene->mNumMeshes; i++ ) {
+	// for( uint i = 0; i < scene->mNumMeshes; i++ ) {
+	uint i = 1;
+	while( i < 3 ) {
+		i++;
 		aiMesh* mesh = scene->mMeshes[i];
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-		bufferindices_t bi;
 
 		GLuint vertexArrayID;
-		GLuint bufferIndex = -1;
 		GLuint buffers[genBuffers];
 
 		glGenVertexArrays( 1, &vertexArrayID );
@@ -241,42 +242,104 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 
 		glGenBuffers( genBuffers, &buffers[0] );
 
-		bi.vertices = ++bufferIndex;
-		this->createBufferVertices( mesh, buffers[0], bi.vertices );
+		this->createBufferVertices( mesh, buffers[0], ML_BUFFINDEX_VERTICES );
+		glEnableVertexAttribArray( ML_BUFFINDEX_VERTICES );
 
-		bi.normals = ++bufferIndex;
-		this->createBufferNormals( mesh, buffers[1], bi.normals );
+		if( mesh->HasNormals() ) {
+			this->createBufferNormals( mesh, buffers[1], ML_BUFFINDEX_NORMALS );
+			glEnableVertexAttribArray( ML_BUFFINDEX_NORMALS );
+		}
 
-		bi.color_ambient = ++bufferIndex;
-		this->createBufferColorsAmbient( mesh, material, buffers[2], bi.color_ambient );
+		this->createBufferColorsAmbient( mesh, material, buffers[2], ML_BUFFINDEX_AMBIENT );
+		glEnableVertexAttribArray( ML_BUFFINDEX_AMBIENT );
 
-		bi.color_diffuse = ++bufferIndex;
-		this->createBufferColorsDiffuse( mesh, material, buffers[3], bi.color_diffuse );
+		this->createBufferColorsDiffuse( mesh, material, buffers[3], ML_BUFFINDEX_DIFFUSE );
+		glEnableVertexAttribArray( ML_BUFFINDEX_DIFFUSE );
 
-		bi.color_specular = ++bufferIndex;
-		this->createBufferColorsSpecular( mesh, material, buffers[4], bi.color_specular );
+		this->createBufferColorsSpecular( mesh, material, buffers[4], ML_BUFFINDEX_SPECULAR );
+		glEnableVertexAttribArray( ML_BUFFINDEX_SPECULAR );
 
 		if( mesh->HasTextureCoords( 0 ) ) {
-			bi.textures = ++bufferIndex;
-			this->createBufferTextures( mesh, buffers[5], bi.textures );
-			bi.hasTexture = true;
-		}
-		else {
-			bi.hasTexture = false;
+			GLuint textureID;
+			bool texLoadSuccess = true;
+
+			try {
+				textureID = this->loadTexture( material, filepath );
+			}
+			catch( ... ) {
+				texLoadSuccess = false;
+			}
+
+			if( texLoadSuccess ) {
+				mTextureIDs[vertexArrayID] = textureID;
+				this->createBufferTextures( mesh, buffers[5], ML_BUFFINDEX_TEXTURES );
+				glEnableVertexAttribArray( ML_BUFFINDEX_TEXTURES );
+			}
 		}
 
 		this->createBufferIndices( mesh );
-
-		mBufferIndices.push_back( bi );
 	}
 
 	glBindVertexArray( 0 );
-
-	stringstream sstm;
-	sstm << "[ModelLoader] Imported model \"" << filename << "\" of " << scene->mNumMeshes << " meshes.";
-	Logger::logInfo( sstm.str() );
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
 
 	importer.FreeScene();
 
+	char msg[120];
+	snprintf( msg, 120, "[ModelLoader] Imported model \"%s\" of %d meshes.", filename.c_str(), scene->mNumMeshes );
+	Logger::logInfo( msg );
+
 	return vectorArrayIDs;
+}
+
+
+/**
+ * Load texture file.
+ * @param  {aiMaterial*} material Material of the mesh.
+ * @param  {std::string} filepath Path to the textures.
+ * @return {GLuint}               ID of the created texture.
+ */
+GLuint ModelLoader::loadTexture( aiMaterial* material, string filepath ) {
+	ilInit();
+
+	int textureIndex = 0;
+	aiString path;
+	aiReturn textureFound = material->GetTexture( aiTextureType_DIFFUSE, textureIndex, &path );
+
+	if( textureFound != AI_SUCCESS ) {
+		throw;
+	}
+
+	ILuint imageID;
+	ilGenImages( 1, &imageID );
+
+	GLuint textureID;
+	glGenTextures( 1, &textureID );
+
+	ilBindImage( imageID );
+	ilEnable( IL_ORIGIN_SET );
+	ilOriginFunc( IL_ORIGIN_LOWER_LEFT );
+
+	string filename = filepath.append( path.data );
+	ILboolean success = ilLoadImage( (ILstring) filename.c_str() );
+
+	if( success ) {
+		ilConvertImage( IL_RGBA, IL_UNSIGNED_BYTE );
+
+		glBindTexture( GL_TEXTURE_2D, textureID );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+		glTexImage2D(
+			GL_TEXTURE_2D, 0, GL_RGBA,
+			ilGetInteger( IL_IMAGE_WIDTH ), ilGetInteger( IL_IMAGE_HEIGHT ), 0,
+			GL_RGBA, GL_UNSIGNED_BYTE, ilGetData()
+		);
+
+		glBindTexture( GL_TEXTURE_2D, 0 );
+	}
+
+	ilDeleteImages( 1, &imageID );
+
+	return textureID;
 }
