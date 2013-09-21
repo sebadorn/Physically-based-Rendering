@@ -67,6 +67,24 @@ void GLWidget::cameraUpdate() {
 
 
 /**
+ * Delete data (buffers, textures) of the old model.
+ */
+void GLWidget::deleteOldModel() {
+	// Delete old vertex array buffers
+	if( mVA.size() > 0 ) {
+		glDeleteBuffers( mVA.size(), &mVA[0] );
+		glDeleteBuffers( 1, &mIndexBuffer );
+
+		map<GLuint, GLuint>::iterator texIter = mTextureIDs.begin();
+		while( texIter != mTextureIDs.end() ) {
+			glDeleteTextures( 1, &((*texIter).second) );
+			texIter++;
+		}
+	}
+}
+
+
+/**
  * Draw the main objects of the scene.
  */
 void GLWidget::drawScene() {
@@ -97,7 +115,11 @@ void GLWidget::initializeGL() {
 	glClearColor( 0.9f, 0.9f, 0.9f, 0.0f );
 
 	glEnable( GL_DEPTH_TEST );
+	glEnable( GL_ALPHA_TEST );
+	glAlphaFunc( GL_ALWAYS, 0.0f );
 	glEnable( GL_MULTISAMPLE );
+	glEnable( GL_BLEND );
+	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
 	this->initShaders();
 
@@ -145,19 +167,8 @@ bool GLWidget::isRendering() {
  * @param {string} filename Name of the file.
  */
 void GLWidget::loadModel( string filepath, string filename ) {
-	// Delete old vertex array buffers
-	if( mVA.size() > 0 ) {
-		glDeleteBuffers( mVA.size(), &mVA[0] );
-		glDeleteBuffers( 1, &mIndexBuffer );
+	this->deleteOldModel();
 
-		map<GLuint, GLuint>::iterator texIter = mTextureIDs.begin();
-		while( texIter != mTextureIDs.end() ) {
-			glDeleteTextures( 1, &((*texIter).second) );
-			texIter++;
-		}
-	}
-
-	// Import new model and create new vertex array buffers
 	ModelLoader* ml = new ModelLoader();
 
 	mVA = ml->loadModelIntoBuffers( filepath, filename );
@@ -184,10 +195,10 @@ void GLWidget::loadShader( GLuint shader, string path ) {
 	glCompileShader( shader );
 
 	GLint status;
-	char logBuffer[1000];
 	glGetShaderiv( shader, GL_COMPILE_STATUS, &status );
 
 	if( status != GL_TRUE ) {
+		char logBuffer[1000];
 		glGetShaderInfoLog( shader, 1000, 0, logBuffer );
 		Logger::logError( string( "[Shader]\n" ).append( logBuffer ) );
 		exit( 1 );

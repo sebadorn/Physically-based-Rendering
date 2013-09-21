@@ -52,6 +52,7 @@ class GLWidget : public QGLWidget {
 
 	protected:
 		void calculateMatrices();
+		void deleteOldModel();
 		void drawScene();
 		void initializeGL();
 		void initShaders();

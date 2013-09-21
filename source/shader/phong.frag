@@ -13,14 +13,14 @@ in vec2 texCoord;
 in vec3 light0;
 in float useTexture;
 
-out vec3 color;
+out vec4 color;
 
 uniform sampler2D texUnit;
 
 
 void main( void ) {
 	vec3 diffuseV;
-	vec3 specV;
+	vec3 specularV;
 	vec3 ambientV;
 
 	vec3 L = normalize( light0 - vertexPosition_cameraSpace );
@@ -29,10 +29,11 @@ void main( void ) {
 
 	ambientV = ambient;
 	diffuseV = clamp( diffuse * max( dot( vertexNormal_cameraSpace, L ), 0.0f ), 0.0f, 1.0f ) ;
-	specV = clamp( specular * pow( max( dot( R, E ), 0.0f ), 0.3f * shininess ), 0.0f, 1.0f );
+	specularV = clamp( specular * pow( max( dot( R, E ), 0.0f ), 0.3f * shininess ), 0.0f, 1.0f );
 
-	vec3 lightColor = ( ambientV + diffuseV + specV ) * ( 1.0f - useTexture );
-	vec3 texColor = texture( texUnit, texCoord ).rgb * useTexture;
+	vec4 lightColor = vec4( ( ambientV + diffuseV + specularV ) * ( 1.0f - useTexture ), 1.0f );
+	vec4 texColor = texture( texUnit, texCoord ).rgba * useTexture;
 
-	color = lightColor + texColor;
+	// color = vec4( lightColor + texColor, 1.0f );
+	color = texColor;
 }

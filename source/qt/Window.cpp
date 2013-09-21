@@ -76,7 +76,6 @@ void Window::importFile() {
 	std::string filePath = fileDialogResult.toStdString();
 
 	if( filePath.empty() ) {
-		Logger::logInfo( "Nothing imported." );
 		return;
 	}
 

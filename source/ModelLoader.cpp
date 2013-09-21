@@ -29,9 +29,9 @@ ModelLoader::ModelLoader( uint assimpFlags ) {
 
 /**
  * Create and fill a buffer with ambient color data.
- * @param {aiMesh*}     mesh        The mesh.
- * @param {aiMaterial*} material    The material of the mesh.
- * @param {GLuint*}     buffer      ID of the buffer.
+ * @param {aiMesh*}     mesh     The mesh.
+ * @param {aiMaterial*} material The material of the mesh.
+ * @param {GLuint*}     buffer   ID of the buffer.
  */
 void ModelLoader::createBufferColorsAmbient( aiMesh* mesh, aiMaterial* material, GLuint buffer ) {
 	aiColor3D aiAmbient;
@@ -54,9 +54,9 @@ void ModelLoader::createBufferColorsAmbient( aiMesh* mesh, aiMaterial* material,
 
 /**
  * Create and fill a buffer with diffuse color data.
- * @param {aiMesh*}     mesh        The mesh.
- * @param {aiMaterial*} material    The material of the mesh.
- * @param {GLuint*}     buffer      ID of the buffer.
+ * @param {aiMesh*}     mesh     The mesh.
+ * @param {aiMaterial*} material The material of the mesh.
+ * @param {GLuint*}     buffer   ID of the buffer.
  */
 void ModelLoader::createBufferColorsDiffuse( aiMesh* mesh, aiMaterial* material, GLuint buffer ) {
 	aiColor3D aiDiffuse;
@@ -79,13 +79,13 @@ void ModelLoader::createBufferColorsDiffuse( aiMesh* mesh, aiMaterial* material,
 
 /**
  * Create and fill a buffer with shininess data.
- * @param {aiMesh*}     mesh        The mesh.
- * @param {aiMaterial*} material    The material of the mesh.
- * @param {GLuint*}     buffer      ID of the buffer.
+ * @param {aiMesh*}     mesh     The mesh.
+ * @param {aiMaterial*} material The material of the mesh.
+ * @param {GLuint*}     buffer   ID of the buffer.
  */
 void ModelLoader::createBufferColorsShininess( aiMesh* mesh, aiMaterial* material, GLuint buffer ) {
 	float aiShininess;
-	material->Get( AI_MATKEY_SHININESS_STRENGTH, aiShininess );
+	material->Get( AI_MATKEY_SHININESS, aiShininess );
 
 	GLfloat shininess[mesh->mNumVertices];
 	fill_n( shininess, mesh->mNumVertices, aiShininess );
@@ -99,9 +99,9 @@ void ModelLoader::createBufferColorsShininess( aiMesh* mesh, aiMaterial* materia
 
 /**
  * Create and fill a buffer with specular color data.
- * @param {aiMesh*}     mesh        The mesh.
- * @param {aiMaterial*} material    The material of the mesh.
- * @param {GLuint*}     buffer      ID of the buffer.
+ * @param {aiMesh*}     mesh     The mesh.
+ * @param {aiMaterial*} material The material of the mesh.
+ * @param {GLuint*}     buffer   ID of the buffer.
  */
 void ModelLoader::createBufferColorsSpecular( aiMesh* mesh, aiMaterial* material, GLuint buffer ) {
 	aiColor3D aiSpecular;
@@ -146,8 +146,8 @@ void ModelLoader::createBufferIndices( aiMesh* mesh ) {
 
 /**
  * Create and fill a buffer with vertex normal data.
- * @param {aiMesh*} mesh        The mesh.
- * @param {GLuint*} buffer      ID of the buffer.
+ * @param {aiMesh*} mesh   The mesh.
+ * @param {GLuint*} buffer ID of the buffer.
  */
 void ModelLoader::createBufferNormals( aiMesh* mesh, GLuint buffer ) {
 	GLfloat normals[mesh->mNumVertices * 3];
@@ -167,8 +167,8 @@ void ModelLoader::createBufferNormals( aiMesh* mesh, GLuint buffer ) {
 
 /**
  * Create and fill a buffer with texture data.
- * @param {aiMesh*} mesh        The mesh.
- * @param {GLuint*} buffer      ID of the buffer.
+ * @param {aiMesh*} mesh   The mesh.
+ * @param {GLuint*} buffer ID of the buffer.
  */
 void ModelLoader::createBufferTextures( aiMesh* mesh, GLuint buffer ) {
 	GLfloat textures[mesh->mNumVertices * 2];
@@ -187,8 +187,8 @@ void ModelLoader::createBufferTextures( aiMesh* mesh, GLuint buffer ) {
 
 /**
  * Create and fill a buffer with vertex data.
- * @param {aiMesh*} mesh        The mesh.
- * @param {GLuint*} buffer      ID of the buffer.
+ * @param {aiMesh*} mesh   The mesh.
+ * @param {GLuint*} buffer ID of the buffer.
  */
 void ModelLoader::createBufferVertices( aiMesh* mesh, GLuint buffer ) {
 	GLfloat vertices[mesh->mNumVertices * 3];
@@ -249,8 +249,6 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 	}
 
 
-	GLuint genNumBuffers = 7;
-
 	vector<GLuint> vectorArrayIDs = vector<GLuint>();
 	mNumIndices = vector<GLuint>();
 	mTextureIDs = map<GLuint, GLuint>();
@@ -260,13 +258,13 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
 		GLuint vertexArrayID;
-		GLuint buffers[genNumBuffers];
+		GLuint buffers[ML_NUM_BUFFERS];
 
 		glGenVertexArrays( 1, &vertexArrayID );
 		glBindVertexArray( vertexArrayID );
 		vectorArrayIDs.push_back( vertexArrayID );
 
-		glGenBuffers( genNumBuffers, &buffers[0] );
+		glGenBuffers( ML_NUM_BUFFERS, &buffers[0] );
 
 		this->createBufferVertices( mesh, buffers[0] );
 
@@ -368,6 +366,8 @@ GLuint ModelLoader::loadTexture( string filepath, aiMaterial* material, int mate
 
 		glBindTexture( GL_TEXTURE_2D, 0 );
 		mFileToTextureID[path.data] = textureID;
+
+		Logger::logDebug( string( "[ModelLoader] Loaded texture " ).append( path.data ) );
 	}
 
 	ilDeleteImages( 1, &imageID );

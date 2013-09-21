@@ -36,7 +36,7 @@ cl_device_id CL::getDefaultDevice() {
 	value = (char*) malloc( valueSize );
 	clGetDeviceInfo( devices[0], CL_DEVICE_NAME, valueSize, value, NULL );
 
-	Logger::logInfo( string( "[OpenCL] Using device " ) + string( value ) );
+	Logger::logInfo( string( "[OpenCL] Using device " ).append( value ) );
 	free( value );
 
 	return devices[0];
@@ -67,7 +67,7 @@ cl_platform_id CL::getDefaultPlatform() {
 	value = (char*) malloc( valueSize );
 	clGetPlatformInfo( platforms[0], CL_PLATFORM_NAME, valueSize, value, NULL );
 
-	Logger::logInfo( string( "[OpenCL] Using platform " ) + string( value ) );
+	Logger::logInfo( string( "[OpenCL] Using platform " ).append( value ) );
 	free( value );
 
 	return platforms[0];

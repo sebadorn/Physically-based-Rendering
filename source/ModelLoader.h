@@ -14,6 +14,8 @@
 
 #include "Logger.h"
 
+#define ML_NUM_BUFFERS 7
+
 #define ML_BUFFINDEX_VERTICES 0
 #define ML_BUFFINDEX_NORMALS 1
 #define ML_BUFFINDEX_AMBIENT 2
