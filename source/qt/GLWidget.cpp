@@ -149,6 +149,12 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	if( mVA.size() > 0 ) {
 		glDeleteBuffers( mVA.size(), &mVA[0] );
 		glDeleteBuffers( 1, &mIndexBuffer );
+
+		map<GLuint, GLuint>::iterator texIter = mTextureIDs.begin();
+		while( texIter != mTextureIDs.end() ) {
+			glDeleteTextures( 1, &((*texIter).second) );
+			texIter++;
+		}
 	}
 
 	// Import new model and create new vertex array buffers
