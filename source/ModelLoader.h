@@ -14,7 +14,7 @@
 
 #include "Logger.h"
 
-#define ML_NUM_BUFFERS 7
+#define ML_NUM_BUFFERS 8
 
 #define ML_BUFFINDEX_VERTICES 0
 #define ML_BUFFINDEX_NORMALS 1
@@ -22,7 +22,8 @@
 #define ML_BUFFINDEX_DIFFUSE 3
 #define ML_BUFFINDEX_SPECULAR 4
 #define ML_BUFFINDEX_SHININESS 5
-#define ML_BUFFINDEX_TEXTURES 6
+#define ML_BUFFINDEX_OPACITY 6
+#define ML_BUFFINDEX_TEXTURES 7
 
 
 class ModelLoader {
@@ -42,6 +43,7 @@ class ModelLoader {
 		void createBufferColorsSpecular( aiMesh* mesh, aiMaterial* material, GLuint buffer );
 		void createBufferIndices( aiMesh* mesh );
 		void createBufferNormals( aiMesh* mesh, GLuint buffer );
+		void createBufferOpacity( aiMesh* mesh, aiMaterial* material, GLuint buffer );
 		void createBufferTextures( aiMesh* mesh, GLuint buffer );
 		void createBufferVertices( aiMesh* mesh, GLuint buffer );
 		GLuint loadTexture( std::string filepath, aiMaterial* material, int materialIndex );

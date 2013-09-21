@@ -5,6 +5,7 @@ in vec3 ambient;
 in vec3 diffuse;
 in vec3 specular;
 in float shininess;
+in float opacity;
 
 in vec3 vertexPosition_cameraSpace;
 in vec3 vertexNormal_cameraSpace;
@@ -34,6 +35,6 @@ void main( void ) {
 	vec4 lightColor = vec4( ( ambientV + diffuseV + specularV ) * ( 1.0f - useTexture ), 1.0f );
 	vec4 texColor = texture( texUnit, texCoord ).rgba * useTexture;
 
-	// color = vec4( lightColor + texColor, 1.0f );
-	color = texColor;
+	color = lightColor + texColor;
+	// color = texColor;
 }

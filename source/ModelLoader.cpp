@@ -166,6 +166,26 @@ void ModelLoader::createBufferNormals( aiMesh* mesh, GLuint buffer ) {
 
 
 /**
+ * Create and fill a buffer with opacity data.
+ * @param {aiMesh*}     mesh     The mesh.
+ * @param {aiMaterial*} material The material of the mesh.
+ * @param {GLuint*}     buffer   ID of the buffer.
+ */
+void ModelLoader::createBufferOpacity( aiMesh* mesh, aiMaterial* material, GLuint buffer ) {
+	GLfloat aiOpacity;
+	material->Get( AI_MATKEY_OPACITY, aiOpacity );
+
+	GLfloat opacity[mesh->mNumVertices];
+	fill_n( opacity, mesh->mNumVertices, aiOpacity );
+
+	glBindBuffer( GL_ARRAY_BUFFER, buffer );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( opacity ), opacity, GL_STATIC_DRAW );
+	glVertexAttribPointer( ML_BUFFINDEX_OPACITY, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glEnableVertexAttribArray( ML_BUFFINDEX_OPACITY );
+}
+
+
+/**
  * Create and fill a buffer with texture data.
  * @param {aiMesh*} mesh   The mesh.
  * @param {GLuint*} buffer ID of the buffer.
@@ -276,6 +296,7 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 		this->createBufferColorsDiffuse( mesh, material, buffers[3] );
 		this->createBufferColorsSpecular( mesh, material, buffers[4] );
 		this->createBufferColorsShininess( mesh, material, buffers[5] );
+		this->createBufferOpacity( mesh, material, buffers[6] );
 
 		if( mesh->HasTextureCoords( 0 ) ) {
 			GLuint textureID;
@@ -290,7 +311,7 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 
 			if( texLoadSuccess ) {
 				mTextureIDs[vertexArrayID] = textureID;
-				this->createBufferTextures( mesh, buffers[6] );
+				this->createBufferTextures( mesh, buffers[7] );
 			}
 		}
 
