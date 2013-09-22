@@ -1,6 +1,6 @@
 ## ToDo
 
-* `Improve` Opacity
+* `Improve` Multiple light sources
 
 * `Feature` Fullscreen
 * `Feature` Config file that gets read at start

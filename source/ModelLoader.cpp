@@ -84,7 +84,7 @@ void ModelLoader::createBufferColorsDiffuse( aiMesh* mesh, aiMaterial* material,
  * @param {GLuint*}     buffer   ID of the buffer.
  */
 void ModelLoader::createBufferColorsShininess( aiMesh* mesh, aiMaterial* material, GLuint buffer ) {
-	float aiShininess;
+	GLfloat aiShininess;
 	material->Get( AI_MATKEY_SHININESS, aiShininess );
 
 	GLfloat shininess[mesh->mNumVertices];
@@ -127,7 +127,7 @@ void ModelLoader::createBufferColorsSpecular( aiMesh* mesh, aiMaterial* material
  * @param {aiMesh*} mesh The mesh.
  */
 void ModelLoader::createBufferIndices( aiMesh* mesh ) {
-	uint indices[mesh->mNumFaces * 3];
+	GLuint indices[mesh->mNumFaces * 3];
 
 	for( uint i = 0; i < mesh->mNumFaces; i++ ) {
 		const aiFace* face = &mesh->mFaces[i];
@@ -180,7 +180,7 @@ void ModelLoader::createBufferOpacity( aiMesh* mesh, aiMaterial* material, GLuin
 
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( opacity ), opacity, GL_STATIC_DRAW );
-	glVertexAttribPointer( ML_BUFFINDEX_OPACITY, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glVertexAttribPointer( ML_BUFFINDEX_OPACITY, 1, GL_FLOAT, GL_FALSE, 0, 0 );
 	glEnableVertexAttribArray( ML_BUFFINDEX_OPACITY );
 }
 
