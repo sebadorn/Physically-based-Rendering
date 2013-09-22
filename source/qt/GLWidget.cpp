@@ -50,9 +50,9 @@ void GLWidget::calculateMatrices() {
 
 	mModelViewMatrix = mViewMatrix * mModelMatrix;
 
-	// mNormalMatrix = glm::inverseTranspose( glm::mat3( mModelViewMatrix ) );
+	mNormalMatrix = glm::inverseTranspose( glm::mat3( mModelMatrix ) );
 	// If no scaling is involved:
-	mNormalMatrix = glm::mat3( mModelViewMatrix );
+	// mNormalMatrix = glm::mat3( mModelMatrix );
 
 	mModelViewProjectionMatrix = mProjectionMatrix * mViewMatrix * mModelMatrix;
 }
@@ -115,6 +115,7 @@ void GLWidget::initializeGL() {
 	glClearColor( 0.9f, 0.9f, 0.9f, 0.0f );
 
 	glEnable( GL_DEPTH_TEST );
+	glEnable( GL_CULL_FACE );
 	glEnable( GL_ALPHA_TEST );
 	glAlphaFunc( GL_ALWAYS, 0.0f );
 	glEnable( GL_MULTISAMPLE );
@@ -227,17 +228,21 @@ void GLWidget::paintGL() {
 
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-	vector<float> lightPosition = mCamera->getEye();
+	vector<float> cameraPosition = mCamera->getEye();
 
-	GLuint matrixMVP = glGetUniformLocation( mGLProgram, "mModelViewProjectionMatrix" );
-	GLuint matrixModelView = glGetUniformLocation( mGLProgram, "mModelViewMatrix" );
-	GLuint matrixNormal = glGetUniformLocation( mGLProgram, "mNormalMatrix" );
-	GLuint light0 = glGetUniformLocation( mGLProgram, "lightPosition" );
+	GLuint matrixMVP = glGetUniformLocation( mGLProgram, "modelViewProjectionMatrix" );
+	GLuint matrixModelView = glGetUniformLocation( mGLProgram, "modelViewMatrix" );
+	GLuint matrixModel = glGetUniformLocation( mGLProgram, "modelMatrix" );
+	GLuint matrixView = glGetUniformLocation( mGLProgram, "viewMatrix" );
+	GLuint matrixNormal = glGetUniformLocation( mGLProgram, "normalMatrix" );
+	GLuint cameraEye = glGetUniformLocation( mGLProgram, "cameraPosition" );
 
 	glUniformMatrix4fv( matrixMVP, 1, GL_FALSE, &mModelViewProjectionMatrix[0][0] );
 	glUniformMatrix4fv( matrixModelView, 1, GL_FALSE, &mModelViewMatrix[0][0] );
+	glUniformMatrix4fv( matrixModel, 1, GL_FALSE, &mModelMatrix[0][0] );
+	glUniformMatrix4fv( matrixView, 1, GL_FALSE, &mViewMatrix[0][0] );
 	glUniformMatrix3fv( matrixNormal, 1, GL_FALSE, &mNormalMatrix[0][0] );
-	glUniform3fv( light0, 3, &lightPosition[0] );
+	glUniform3fv( cameraEye, 3, &cameraPosition[0] );
 
 	this->drawScene();
 	this->showFPS();
