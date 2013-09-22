@@ -4,8 +4,7 @@
 #include <iostream>
 #include <string>
 
-// Enable (1) or disable (0) logging.
-#define DO_LOG 1
+#include "Cfg.h"
 
 
 class Logger {

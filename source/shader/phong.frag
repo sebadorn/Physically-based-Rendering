@@ -18,5 +18,12 @@ void main( void ) {
 			+ vec4( 1.0 ) * ( 1.0 - useTexture );
 
 	color = vec4( diffuse, 1.0 ) * texColor + vec4( specular, 1.0 );
-	color.a = opacity;
+
+	// Workaround. Opacity/alpha of material colors and textures should be handled seperately.
+	if( texColor.a < 1.0 ) {
+		color.a = texColor.a;
+	}
+	else {
+		color.a = opacity;
+	}
 }

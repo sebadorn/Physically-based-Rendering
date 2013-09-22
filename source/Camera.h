@@ -5,10 +5,9 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+#include "Cfg.h"
 #include "qt/GLWidget.h"
 #include "utils.h"
-
-#define CAM_MOVE_SPEED 0.5f
 
 
 typedef struct {
@@ -41,6 +40,7 @@ class Camera {
 		void updateCameraRot( int moveX, int moveY );
 
 	private:
+		float mCameraSpeed;
 		GLWidget* mParent;
 		camera_t mCamera;
 

@@ -10,7 +10,12 @@ using namespace std;
 GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	CL* mCl = new CL();
 
-	mProjectionMatrix = glm::perspective( FOV, WIDTH / HEIGHT, ZNEAR, ZFAR );
+	mProjectionMatrix = glm::perspective(
+		Cfg::get().value<float>( Cfg::PERS_FOV ),
+		Cfg::get().value<float>( Cfg::WINDOW_WIDTH ) / Cfg::get().value<float>( Cfg::WINDOW_HEIGHT ),
+		Cfg::get().value<float>( Cfg::PERS_ZNEAR ),
+		Cfg::get().value<float>( Cfg::PERS_ZFAR )
+	);
 
 	mDoRendering = false;
 	mFrameCount = 0;
@@ -146,8 +151,11 @@ void GLWidget::initShaders() {
 	GLuint vertexShader = glCreateShader( GL_VERTEX_SHADER );
 	GLuint fragmentShader = glCreateShader( GL_FRAGMENT_SHADER );
 
-	this->loadShader( vertexShader, "source/shader/phong.vert" );
-	this->loadShader( fragmentShader, "source/shader/phong.frag" );
+	string shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
+	shaderPath.append( Cfg::get().value<string>( Cfg::SHADER_NAME ) );
+
+	this->loadShader( vertexShader, shaderPath + string( ".vert" ) );
+	this->loadShader( fragmentShader, shaderPath +string( ".frag" ) );
 
 	glLinkProgram( mGLProgram );
 	glUseProgram( mGLProgram );
@@ -257,7 +265,12 @@ void GLWidget::paintGL() {
  */
 void GLWidget::resizeGL( int width, int height ) {
 	glViewport( 0, 0, width, height );
-	mProjectionMatrix = glm::perspective( FOV, width / (float) height, ZNEAR, ZFAR );
+	mProjectionMatrix = glm::perspective(
+		Cfg::get().value<float>( Cfg::PERS_FOV ),
+		width / (float) height,
+		Cfg::get().value<float>( Cfg::PERS_ZNEAR ),
+		Cfg::get().value<float>( Cfg::PERS_ZFAR )
+	);
 	this->calculateMatrices();
 }
 
@@ -288,7 +301,10 @@ void GLWidget::showFPS() {
  * @return {QSize} Width and height of the QWidget.
  */
 QSize GLWidget::sizeHint() const {
-	return QSize( WIDTH, HEIGHT );
+	return QSize(
+		Cfg::get().value<uint>( Cfg::WINDOW_WIDTH ),
+		Cfg::get().value<uint>( Cfg::WINDOW_HEIGHT )
+	);
 }
 
 
@@ -298,7 +314,8 @@ QSize GLWidget::sizeHint() const {
 void GLWidget::startRendering() {
 	if( !mDoRendering ) {
 		mDoRendering = true;
-		mTimer->start( RENDER_INTERVAL );
+		float fps = Cfg::get().value<float>( Cfg::RENDER_INTERVAL );
+		mTimer->start( fps );
 	}
 }
 

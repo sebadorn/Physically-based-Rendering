@@ -12,6 +12,7 @@
 
 #include "../Camera.h"
 #include "../CL.h"
+#include "../Cfg.h"
 #include "../Logger.h"
 #include "../ModelLoader.h"
 #include "../utils.h"
@@ -20,14 +21,6 @@
 #ifndef GL_MULTISAMPLE
 	#define GL_MULTISAMPLE 0x809D
 #endif
-
-#define WIDTH 1000.0f
-#define HEIGHT 600.0f
-#define FOV 70.0f
-#define ZNEAR 0.1f
-#define ZFAR 400.0f
-
-#define RENDER_INTERVAL 16.666f
 
 
 class Camera;

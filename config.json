@@ -1,0 +1,28 @@
+{
+
+	"camera": {
+		"speed": 0.5
+	},
+
+	"logging": true,
+
+	"render": {
+		"interval": 16.666,
+		"perspective": {
+			"fov": 70.0,
+			"zfar": 400.0,
+			"znear": 0.1
+		}
+	},
+
+	"shader": {
+		"name": "phong",
+		"path": "source/shader/"
+	},
+
+	"window": {
+		"height": 600,
+		"width": 1000
+	}
+
+}

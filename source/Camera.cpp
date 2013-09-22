@@ -8,6 +8,7 @@ using namespace utils;
  */
 Camera::Camera( GLWidget* parent ) {
 	mParent = parent;
+	mCameraSpeed = Cfg::get().value<float>( Cfg::CAM_SPEED );
 	this->cameraReset();
 }
 
@@ -16,9 +17,9 @@ Camera::Camera( GLWidget* parent ) {
  * Move the camera position backward.
  */
 void Camera::cameraMoveBackward() {
-	mCamera.eyeX += sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
-	mCamera.eyeY -= sin( degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
-	mCamera.eyeZ -= cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
+	mCamera.eyeX += sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeY -= sin( degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeZ -= cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
 	mParent->cameraUpdate();
 }
 
@@ -27,7 +28,7 @@ void Camera::cameraMoveBackward() {
  * Move the camera position downward.
  */
 void Camera::cameraMoveDown() {
-	mCamera.eyeY -= CAM_MOVE_SPEED;
+	mCamera.eyeY -= mCameraSpeed;
 	mParent->cameraUpdate();
 }
 
@@ -36,9 +37,9 @@ void Camera::cameraMoveDown() {
  * Move the camera position forward.
  */
 void Camera::cameraMoveForward() {
-	mCamera.eyeX -= sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
-	mCamera.eyeY += sin( degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
-	mCamera.eyeZ += cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * CAM_MOVE_SPEED;
+	mCamera.eyeX -= sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeY += sin( degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeZ += cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
 	mParent->cameraUpdate();
 }
 
@@ -47,8 +48,8 @@ void Camera::cameraMoveForward() {
  * Move the camera position to the left.
  */
 void Camera::cameraMoveLeft() {
-	mCamera.eyeX += cos( degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
-	mCamera.eyeZ += sin( degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
+	mCamera.eyeX += cos( degToRad( mCamera.rotX ) ) * mCameraSpeed;
+	mCamera.eyeZ += sin( degToRad( mCamera.rotX ) ) * mCameraSpeed;
 	mParent->cameraUpdate();
 }
 
@@ -57,8 +58,8 @@ void Camera::cameraMoveLeft() {
  * Move the camera position to the right.
  */
 void Camera::cameraMoveRight() {
-	mCamera.eyeX -= cos( degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
-	mCamera.eyeZ -= sin( degToRad( mCamera.rotX ) ) * CAM_MOVE_SPEED;
+	mCamera.eyeX -= cos( degToRad( mCamera.rotX ) ) * mCameraSpeed;
+	mCamera.eyeZ -= sin( degToRad( mCamera.rotX ) ) * mCameraSpeed;
 	mParent->cameraUpdate();
 }
 
@@ -67,7 +68,7 @@ void Camera::cameraMoveRight() {
  * Move the camera position upward.
  */
 void Camera::cameraMoveUp() {
-	mCamera.eyeY += CAM_MOVE_SPEED;
+	mCamera.eyeY += mCameraSpeed;
 	mParent->cameraUpdate();
 }
 

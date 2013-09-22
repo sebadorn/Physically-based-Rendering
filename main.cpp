@@ -1,11 +1,14 @@
 #include <QApplication>
 #include <QDesktopWidget>
 
+#include "source/Cfg.h"
 #include "source/qt/Window.h"
 
 
 int main( int argc, char* argv[] ) {
 	setlocale( LC_ALL, "C" );
+
+	Cfg::get().loadConfigFile( "config.json" );
 
 	QApplication app( argc, argv );
 	Window window;
