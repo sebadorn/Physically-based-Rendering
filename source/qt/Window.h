@@ -26,6 +26,7 @@ class Window : public QWidget {
 		void keyPressEvent( QKeyEvent* e );
 		void mouseMoveEvent( QMouseEvent* e );
 		void mousePressEvent( QMouseEvent* e );
+		void toggleFullscreen();
 
 	protected slots:
 		void importFile();
@@ -34,6 +35,7 @@ class Window : public QWidget {
 		int mMouseLastX;
 		int mMouseLastY;
 		GLWidget* mGLWidget;
+		QMenuBar* mMenuBar;
 		QStatusBar* mStatusBar;
 
 };

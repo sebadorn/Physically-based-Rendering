@@ -15,6 +15,7 @@ Window::Window() {
 
 	mGLWidget = new GLWidget( this );
 	mStatusBar = this->createStatusBar();
+	mMenuBar = this->createMenuBar();
 
 	this->setLayout( this->createLayout() );
 	this->setWindowTitle( tr( WINDOW_TITLE ) );
@@ -29,7 +30,7 @@ QBoxLayout* Window::createLayout() {
 	QVBoxLayout* mainLayout = new QVBoxLayout();
 	mainLayout->setSpacing( 0 );
 	mainLayout->setMargin( 0 );
-	mainLayout->addWidget( this->createMenuBar() );
+	mainLayout->addWidget( mMenuBar );
 	mainLayout->addWidget( mGLWidget );
 	mainLayout->addWidget( mStatusBar );
 
@@ -140,6 +141,10 @@ void Window::keyPressEvent( QKeyEvent* e ) {
 			mGLWidget->mCamera->cameraReset();
 			break;
 
+		case Qt::Key_F11:
+			this->toggleFullscreen();
+			break;
+
 		default:
 			QWidget::keyPressEvent( e );
 
@@ -172,6 +177,21 @@ void Window::mousePressEvent( QMouseEvent* e ) {
 	if( e->buttons() == Qt::LeftButton ) {
 		mMouseLastX = e->x();
 		mMouseLastY = e->y();
+	}
+}
+
+
+/**
+ * Toggle between fullscreen and normal window mode.
+ */
+void Window::toggleFullscreen() {
+	if( this->isFullScreen() ) {
+		this->showNormal();
+		mMenuBar->show();
+	}
+	else {
+		mMenuBar->hide();
+		this->showFullScreen();
 	}
 }
 

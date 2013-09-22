@@ -1,7 +1,9 @@
 ## ToDo
 
 * `Improve` Multiple light sources
-* `Feature` Fullscreen
+* `Feature` Anti-Aliasing
+* `Feature` Define light sources in MTL or other seperate file
+* `Bug` Minecraft models look just wrong (heavy lighting issues)
 
 
 ## Libraries/headers
