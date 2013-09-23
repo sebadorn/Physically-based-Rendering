@@ -10,6 +10,7 @@ using namespace std;
 GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	CL* mCl = new CL();
 
+	mModelMatrix = glm::mat4( 1.0f );
 	mProjectionMatrix = glm::perspective(
 		Cfg::get().value<float>( Cfg::PERS_FOV ),
 		Cfg::get().value<float>( Cfg::WINDOW_WIDTH ) / Cfg::get().value<float>( Cfg::WINDOW_HEIGHT ),
@@ -51,13 +52,12 @@ void GLWidget::calculateMatrices() {
 		mCamera->getUp_glmVec3()
 	);
 
-	mModelMatrix = glm::mat4( 1.0f );
+	// mModelMatrix = glm::mat4( 1.0f );
 
-	mModelViewMatrix = mViewMatrix * mModelMatrix;
-
-	mNormalMatrix = glm::inverseTranspose( glm::mat3( mModelMatrix ) );
 	// If no scaling is involved:
-	// mNormalMatrix = glm::mat3( mModelMatrix );
+	mNormalMatrix = glm::mat3( mModelMatrix );
+	// else:
+	// mNormalMatrix = glm::inverseTranspose( glm::mat3( mModelMatrix ) );
 
 	mModelViewProjectionMatrix = mProjectionMatrix * mViewMatrix * mModelMatrix;
 }
@@ -86,30 +86,6 @@ void GLWidget::deleteOldModel() {
 			texIter++;
 		}
 	}
-}
-
-
-/**
- * Draw the main objects of the scene.
- */
-void GLWidget::drawScene() {
-	for( GLuint i = 0; i < mVA.size(); i++ ) {
-		GLfloat useTexture = 1.0f;
-		if( mTextureIDs.count( mVA[i] ) > 0 ) {
-			glBindTexture( GL_TEXTURE_2D, mTextureIDs[mVA[i]] );
-		}
-		else {
-			glBindTexture( GL_TEXTURE_2D, 0 );
-			useTexture = 0.0f;
-		}
-
-		glUniform1f( glGetUniformLocation( mGLProgram, "useTexture_vert" ), useTexture );
-
-		glBindVertexArray( mVA[i] );
-		glDrawElements( GL_TRIANGLES, mNumIndices[i], GL_UNSIGNED_INT, 0 );
-	}
-
-	glBindVertexArray( 0 );
 }
 
 
@@ -181,10 +157,11 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 	ModelLoader* ml = new ModelLoader();
 
-	mVA = ml->loadModelIntoBuffers( filepath, filename );
+	mVA = ml->loadModel( filepath, filename );
 	mIndexBuffer = ml->getIndexBuffer();
 	mNumIndices = ml->getNumIndices();
 	mTextureIDs = ml->getTextureIDs();
+	mLights = ml->getLights();
 
 	// Ready
 	this->startRendering();
@@ -237,24 +214,75 @@ void GLWidget::paintGL() {
 
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-	vector<float> cameraPosition = mCamera->getEye();
 
-	GLuint matrixMVP = glGetUniformLocation( mGLProgram, "modelViewProjectionMatrix" );
-	GLuint matrixModelView = glGetUniformLocation( mGLProgram, "modelViewMatrix" );
-	GLuint matrixModel = glGetUniformLocation( mGLProgram, "modelMatrix" );
-	GLuint matrixView = glGetUniformLocation( mGLProgram, "viewMatrix" );
-	GLuint matrixNormal = glGetUniformLocation( mGLProgram, "normalMatrix" );
-	GLuint cameraEye = glGetUniformLocation( mGLProgram, "cameraPosition" );
+	glUniformMatrix4fv(
+		glGetUniformLocation( mGLProgram, "modelViewProjectionMatrix" ), 1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
+	);
+	glUniformMatrix4fv(
+		glGetUniformLocation( mGLProgram, "modelMatrix" ), 1, GL_FALSE, &mModelMatrix[0][0]
+	);
+	glUniformMatrix4fv(
+		glGetUniformLocation( mGLProgram, "viewMatrix" ), 1, GL_FALSE, &mViewMatrix[0][0]
+	);
+	glUniformMatrix3fv(
+		glGetUniformLocation( mGLProgram, "normalMatrix" ), 1, GL_FALSE, &mNormalMatrix[0][0]
+	);
+	glUniform3fv(
+		glGetUniformLocation( mGLProgram, "cameraPosition" ), 3, &(mCamera->getEye())[0]
+	);
 
-	glUniformMatrix4fv( matrixMVP, 1, GL_FALSE, &mModelViewProjectionMatrix[0][0] );
-	glUniformMatrix4fv( matrixModelView, 1, GL_FALSE, &mModelViewMatrix[0][0] );
-	glUniformMatrix4fv( matrixModel, 1, GL_FALSE, &mModelMatrix[0][0] );
-	glUniformMatrix4fv( matrixView, 1, GL_FALSE, &mViewMatrix[0][0] );
-	glUniformMatrix3fv( matrixNormal, 1, GL_FALSE, &mNormalMatrix[0][0] );
-	glUniform3fv( cameraEye, 3, &cameraPosition[0] );
 
-	this->drawScene();
+	// Light(s)
+
+	glUniform1i( glGetUniformLocation( mGLProgram, "numLights" ), mLights.size() );
+	char lightName1[20];
+	char lightName2[20];
+
+	for( uint i = 0; i < mLights.size(); i++ ) {
+		snprintf( lightName1, 20, "light%uData1", i );
+		snprintf( lightName2, 20, "light%uData2", i );
+
+		float lightData1[16] = {
+			mLights[i].position[0], mLights[i].position[1], mLights[i].position[2], mLights[i].position[3],
+			mLights[i].diffuse[0], mLights[i].diffuse[1], mLights[i].diffuse[2], mLights[i].diffuse[3],
+			mLights[i].specular[0], mLights[i].specular[1], mLights[i].specular[2], mLights[i].specular[3],
+			mLights[i].constantAttenuation, mLights[i].linearAttenuation, mLights[i].quadraticAttenuation, mLights[i].spotCutoff
+		};
+		float lightData2[4] = {
+			mLights[i].spotExponent, mLights[i].spotDirection[0], mLights[i].spotDirection[1], mLights[i].spotDirection[2]
+		};
+
+		glUniformMatrix4fv( glGetUniformLocation( mGLProgram, lightName1 ), 1, GL_FALSE, &lightData1[0] );
+		glUniform4fv( glGetUniformLocation( mGLProgram, lightName2 ), 1, &lightData2[0] );
+	}
+
+
+	this->paintScene();
 	this->showFPS();
+}
+
+
+/**
+ * Draw the main objects of the scene.
+ */
+void GLWidget::paintScene() {
+	for( GLuint i = 0; i < mVA.size(); i++ ) {
+		GLfloat useTexture = 1.0f;
+		if( mTextureIDs.find( mVA[i] ) != mTextureIDs.end() ) {
+			glBindTexture( GL_TEXTURE_2D, mTextureIDs[mVA[i]] );
+		}
+		else {
+			glBindTexture( GL_TEXTURE_2D, 0 );
+			useTexture = 0.0f;
+		}
+
+		glUniform1f( glGetUniformLocation( mGLProgram, "useTexture_vert" ), useTexture );
+
+		glBindVertexArray( mVA[i] );
+		glDrawElements( GL_TRIANGLES, mNumIndices[i], GL_UNSIGNED_INT, 0 );
+	}
+
+	glBindVertexArray( 0 );
 }
 
 

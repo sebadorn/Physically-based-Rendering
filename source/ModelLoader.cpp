@@ -1,6 +1,7 @@
 #include "ModelLoader.h"
 
 using namespace std;
+using namespace boost::property_tree;
 
 
 /**
@@ -236,6 +237,15 @@ GLuint ModelLoader::getIndexBuffer() {
 
 
 /**
+ * Get a list of the lights in the scene.
+ * @return {std::vector<light_t>} Vector of the lights.
+ */
+vector<light_t> ModelLoader::getLights() {
+	return mLights;
+}
+
+
+/**
  * Get a list of the number of indices per mesh.
  * @return {std::vector<GLuint>} Vector of number of indices for each mesh.
  */
@@ -254,12 +264,67 @@ map<GLuint, GLuint> ModelLoader::getTextureIDs() {
 
 
 /**
+ * Load (custom-defined) lights of the scene.
+ * @param {std::string} filepath Path to the file.
+ * @param {std::string} filename Name of the OBJ file it belongs to.
+ */
+void ModelLoader::loadLights( string filepath, string filename ) {
+	string lightsfile = filepath + filename.replace( filename.rfind( ".obj" ), 4, ".light" );
+
+	// Does lights file exist?
+	ifstream f( lightsfile.c_str() );
+	if( !f.good() ) {
+		f.close();
+		return;
+	}
+	f.close();
+
+	ptree lightPropTree;
+	json_parser::read_json( filepath + filename, lightPropTree );
+
+	ptree::const_iterator end = lightPropTree.end();
+
+	for( ptree::const_iterator iter = lightPropTree.begin(); iter != end; iter++ ) {
+		light_t lightx;
+
+		lightx.position[0] = (*iter).second.get<float>( "position.x" );
+		lightx.position[1] = (*iter).second.get<float>( "position.y" );
+		lightx.position[2] = (*iter).second.get<float>( "position.z" );
+		lightx.position[3] = (*iter).second.get<float>( "position.w" );
+
+		lightx.diffuse[0] = (*iter).second.get<float>( "diffuse.r" );
+		lightx.diffuse[1] = (*iter).second.get<float>( "diffuse.g" );
+		lightx.diffuse[2] = (*iter).second.get<float>( "diffuse.b" );
+		lightx.diffuse[3] = (*iter).second.get<float>( "diffuse.a" );
+
+		lightx.specular[0] = (*iter).second.get<float>( "specular.r" );
+		lightx.specular[1] = (*iter).second.get<float>( "specular.g" );
+		lightx.specular[2] = (*iter).second.get<float>( "specular.b" );
+		lightx.specular[3] = (*iter).second.get<float>( "specular.a" );
+
+		lightx.constantAttenuation = (*iter).second.get<float>( "attenuation.constant" );
+		lightx.linearAttenuation = (*iter).second.get<float>( "attenuation.linear" );
+		lightx.quadraticAttenuation = (*iter).second.get<float>( "attenuation.quadratic" );
+
+		lightx.spotCutoff = (*iter).second.get<float>( "spotlight.cutoff" );
+		lightx.spotExponent = (*iter).second.get<float>( "spotlight.exponent" );
+
+		lightx.spotDirection[0] = (*iter).second.get<float>( "spotlight.direction.x" );
+		lightx.spotDirection[1] = (*iter).second.get<float>( "spotlight.direction.y" );
+		lightx.spotDirection[2] = (*iter).second.get<float>( "spotlight.direction.z" );
+
+		mLights.push_back( lightx );
+	}
+}
+
+
+/**
  * Load 3D model.
  * @param  {string}              filepath Path to the file, without file name.
  * @param  {string}              filename Name of the file.
  * @return {std::vector<GLuint>}          Vector of all generated vertex array IDs.
  */
-vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filename ) {
+vector<GLuint> ModelLoader::loadModel( string filepath, string filename ) {
 	Assimp::Importer importer;
 	const aiScene* scene = importer.ReadFile( filepath + filename, mAssimpFlags );
 
@@ -322,11 +387,13 @@ vector<GLuint> ModelLoader::loadModelIntoBuffers( string filepath, string filena
 	glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
 
-	importer.FreeScene();
+	this->loadLights( filepath, filename );
 
 	char msg[120];
 	snprintf( msg, 120, "[ModelLoader] Imported model \"%s\" of %d meshes.", filename.c_str(), scene->mNumMeshes );
 	Logger::logInfo( msg );
+
+	importer.FreeScene();
 
 	return vectorArrayIDs;
 }

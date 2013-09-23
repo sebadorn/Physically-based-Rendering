@@ -46,11 +46,11 @@ class GLWidget : public QGLWidget {
 	protected:
 		void calculateMatrices();
 		void deleteOldModel();
-		void drawScene();
 		void initializeGL();
 		void initShaders();
 		void loadShader( GLuint shader, std::string path );
 		void paintGL();
+		void paintScene();
 		void resizeGL( int width, int height );
 		void showFPS();
 
@@ -62,12 +62,12 @@ class GLWidget : public QGLWidget {
 		GLuint mPreviousTime;
 		CL* mCl;
 		QTimer* mTimer;
+		std::vector<light_t> mLights;
 		std::vector<GLuint> mNumIndices;
 		std::map<GLuint, GLuint> mTextureIDs;
 		std::vector<GLuint> mVA;
 		glm::mat3 mNormalMatrix;
 		glm::mat4 mModelMatrix;
-		glm::mat4 mModelViewMatrix;
 		glm::mat4 mModelViewProjectionMatrix;
 		glm::mat4 mProjectionMatrix;
 		glm::mat4 mViewMatrix;
