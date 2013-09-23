@@ -93,7 +93,7 @@ void GLWidget::deleteOldModel() {
  * Initialize OpenGL and start rendering.
  */
 void GLWidget::initializeGL() {
-	glClearColor( 0.9f, 0.9f, 0.9f, 0.0f );
+	glClearColor( 0.1f, 0.1f, 0.2f, 0.0f );
 
 	glEnable( GL_DEPTH_TEST );
 	glEnable( GL_MULTISAMPLE );
