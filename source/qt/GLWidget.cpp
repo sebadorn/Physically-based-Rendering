@@ -22,6 +22,7 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mFrameCount = 0;
 	mPreviousTime = 0;
 	mCamera = new Camera( this );
+	mSelectedLight = -1;
 
 	mTimer = new QTimer( this );
 	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
@@ -205,6 +206,79 @@ QSize GLWidget::minimumSizeHint() const {
 
 
 /**
+ * Move the camera or if selected a light.
+ * @param {const int} key Key code.
+ */
+void GLWidget::moveCamera( const int key ) {
+	if( !this->isRendering() ) {
+		return;
+	}
+
+	switch( key ) {
+
+		case Qt::Key_W:
+			if( mSelectedLight == -1 ) {
+				mCamera->cameraMoveForward();
+			}
+			else {
+				mLights[mSelectedLight].position[0] += 0.5f;
+			}
+			break;
+
+		case Qt::Key_S:
+			if( mSelectedLight == -1 ) {
+				mCamera->cameraMoveBackward();
+			}
+			else {
+				mLights[mSelectedLight].position[0] -= 0.5f;
+			}
+			break;
+
+		case Qt::Key_A:
+			if( mSelectedLight == -1 ) {
+				mCamera->cameraMoveLeft();
+			}
+			else {
+				mLights[mSelectedLight].position[2] += 0.5f;
+			}
+			break;
+
+		case Qt::Key_D:
+			if( mSelectedLight == -1 ) {
+				mCamera->cameraMoveRight();
+			}
+			else {
+				mLights[mSelectedLight].position[2] -= 0.5f;
+			}
+			break;
+
+		case Qt::Key_Q:
+			if( mSelectedLight == -1 ) {
+				mCamera->cameraMoveUp();
+			}
+			else {
+				mLights[mSelectedLight].position[1] += 0.5f;
+			}
+			break;
+
+		case Qt::Key_E:
+			if( mSelectedLight == -1 ) {
+				mCamera->cameraMoveDown();
+			}
+			else {
+				mLights[mSelectedLight].position[1] -= 0.5f;
+			}
+			break;
+
+		case Qt::Key_R:
+			mCamera->cameraReset();
+			break;
+
+	}
+}
+
+
+/**
  * Draw the scene.
  */
 void GLWidget::paintGL() {
@@ -337,6 +411,26 @@ QSize GLWidget::sizeHint() const {
 
 
 /**
+ * Select the next light in the list.
+ */
+void GLWidget::selectNextLight() {
+	if( mSelectedLight > -1 ) {
+		mSelectedLight = ( mSelectedLight + 1 ) % mLights.size();
+	}
+}
+
+
+/**
+ * Select the previous light in the list.
+ */
+void GLWidget::selectPreviousLight() {
+	if( mSelectedLight > -1 ) {
+		mSelectedLight = ( mSelectedLight == 0 ) ? mLights.size() - 1 : mSelectedLight - 1;
+	}
+}
+
+
+/**
  * Start or resume rendering.
  */
 void GLWidget::startRendering() {
@@ -356,5 +450,20 @@ void GLWidget::stopRendering() {
 		mDoRendering = false;
 		mTimer->stop();
 		( (Window*) parentWidget() )->updateStatus( "Stopped." );
+	}
+}
+
+
+/**
+ * Switch between controlling the camera and the lights.
+ */
+void GLWidget::toggleLightControl() {
+	if( mSelectedLight == -1 ) {
+		if( mLights.size() > 0 ) {
+			mSelectedLight = 0;
+		}
+	}
+	else {
+		mSelectedLight = -1;
 	}
 }

@@ -37,9 +37,13 @@ class GLWidget : public QGLWidget {
 		bool isRendering();
 		void loadModel( std::string filepath, std::string filename );
 		QSize minimumSizeHint() const;
+		void moveCamera( const int key );
 		QSize sizeHint() const;
+		void selectNextLight();
+		void selectPreviousLight();
 		void startRendering();
 		void stopRendering();
+		void toggleLightControl();
 
 		Camera* mCamera;
 
@@ -56,6 +60,7 @@ class GLWidget : public QGLWidget {
 
 	private:
 		bool mDoRendering;
+		int mSelectedLight;
 		GLuint mFrameCount;
 		GLuint mGLProgram;
 		GLuint mIndexBuffer;

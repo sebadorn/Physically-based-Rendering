@@ -13,3 +13,10 @@
 * libqt4-dev
 * libglm-dev
 * opencl-headers
+
+
+## Build and execute
+
+    cmake -DCMAKE_BUILD_TYPE=Release CMakeLists.txt
+    make
+    ./PBR

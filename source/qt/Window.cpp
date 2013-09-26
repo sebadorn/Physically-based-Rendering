@@ -106,39 +106,28 @@ QStatusBar* Window::createStatusBar() {
  * @param e {QKeyEvent*} e Key event triggered by pressing a key.
  */
 void Window::keyPressEvent( QKeyEvent* e ) {
-	if( !mGLWidget->isRendering() ) {
-		QWidget::keyPressEvent( e );
-		return;
-	}
-
 	switch( e->key() ) {
 
 		case Qt::Key_W:
-			mGLWidget->mCamera->cameraMoveForward();
-			break;
-
 		case Qt::Key_S:
-			mGLWidget->mCamera->cameraMoveBackward();
-			break;
-
 		case Qt::Key_A:
-			mGLWidget->mCamera->cameraMoveLeft();
-			break;
-
 		case Qt::Key_D:
-			mGLWidget->mCamera->cameraMoveRight();
-			break;
-
 		case Qt::Key_Q:
-			mGLWidget->mCamera->cameraMoveUp();
-			break;
-
 		case Qt::Key_E:
-			mGLWidget->mCamera->cameraMoveDown();
+		case Qt::Key_R:
+			mGLWidget->moveCamera( e->key() );
 			break;
 
-		case Qt::Key_R:
-			mGLWidget->mCamera->cameraReset();
+		case Qt::Key_L:
+			mGLWidget->toggleLightControl();
+			break;
+
+		case Qt::Key_Plus:
+			mGLWidget->selectNextLight();
+			break;
+
+		case Qt::Key_Minus:
+			mGLWidget->selectPreviousLight();
 			break;
 
 		case Qt::Key_F11:
