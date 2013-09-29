@@ -2,6 +2,8 @@
 #define GLWIDGET_H
 
 #include <algorithm>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <ctime>
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -50,6 +52,8 @@ class GLWidget : public QGLWidget {
 	protected:
 		void calculateMatrices();
 		void deleteOldModel();
+		glm::vec3 getEyeRay( glm::mat4 matrix, float x, float y );
+		glm::mat4 getJitterMatrix( glm::vec3 v );
 		void initializeGL();
 		void initShaders();
 		void loadShader( GLuint shader, std::string path );
@@ -65,6 +69,7 @@ class GLWidget : public QGLWidget {
 		GLuint mGLProgram;
 		GLuint mIndexBuffer;
 		GLuint mPreviousTime;
+		GLuint mSampleCount;
 		CL* mCl;
 		QTimer* mTimer;
 		std::vector<light_t> mLights;
@@ -76,6 +81,7 @@ class GLWidget : public QGLWidget {
 		glm::mat4 mModelViewProjectionMatrix;
 		glm::mat4 mProjectionMatrix;
 		glm::mat4 mViewMatrix;
+		boost::posix_time::ptime mTimeSinceStart;
 
 };
 

@@ -6,10 +6,10 @@ in vec3 specular;
 in float opacity;
 
 in vec2 texCoord;
-in float useTexture;
 
 out vec4 color;
 
+uniform float useTexture;
 uniform sampler2D texUnit;
 
 

@@ -9,8 +9,6 @@ uniform mat4 light0Data1, light1Data1, light2Data1, light3Data1, light4Data1, li
 uniform vec4 light0Data2, light1Data2, light2Data2, light3Data2, light4Data2, light5Data2;
 uniform int numLights;
 
-uniform float useTexture_vert;
-
 // Vertex
 layout( location = 0 ) in vec3 vertexPosition_modelSpace;
 layout( location = 1 ) in vec3 vertexNormal_modelSpace;
@@ -27,7 +25,6 @@ layout( location = 7 ) in vec2 texture_in;
 out vec3 diffuse, specular;
 out vec2 texCoord;
 out float opacity;
-out float useTexture;
 
 
 struct lightSource {
@@ -187,5 +184,4 @@ void main( void ) {
 	texCoord = texture_in;
 	diffuse = ambientLighting + diffuseReflection;
 	specular = specularReflection;
-	useTexture = useTexture_vert;
 }
