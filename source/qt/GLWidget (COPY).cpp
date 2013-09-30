@@ -8,8 +8,6 @@ using namespace std;
  * @param {QWidget*} parent Parent QWidget this QWidget is contained in.
  */
 GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
-	srand( (unsigned) time( 0 ) );
-
 	CL* mCl = new CL();
 
 	mModelMatrix = glm::mat4( 1.0f );
@@ -24,13 +22,10 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mFrameCount = 0;
 	mPreviousTime = 0;
 	mCamera = new Camera( this );
-	mSampleCount = 0;
 	mSelectedLight = -1;
 
 	mTimer = new QTimer( this );
 	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
-
-	mTimeSinceStart = boost::posix_time::microsec_clock::local_time();
 
 	this->startRendering();
 }
@@ -51,8 +46,6 @@ void GLWidget::calculateMatrices() {
 	if( !mDoRendering ) {
 		return;
 	}
-
-	mSampleCount = 0;
 
 	mViewMatrix = glm::lookAt(
 		mCamera->getEye_glmVec3(),
@@ -97,14 +90,6 @@ void GLWidget::deleteOldModel() {
 }
 
 
-glm::vec3 GLWidget::getEyeRay( glm::mat4 matrix, float x, float y ) {
-	glm::vec4 tmp = matrix * glm::vec4( x, y, 0.0f, 1.0f );
-	glm::vec3 result( tmp[0] / tmp[3], tmp[1] / tmp[3], tmp[2] / tmp[3] );
-
-	return result - mCamera->getEye_glmVec3();
-}
-
-
 /**
  * Initialize OpenGL and start rendering.
  */
@@ -119,18 +104,6 @@ void GLWidget::initializeGL() {
 
 	glEnable( GL_BLEND );
 	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-
-	glGenFramebuffers( 1, &mFramebuffer );
-
-	mTargetTextures = vector<GLuint>( 2 );
-	glGenTextures( 2, &mTargetTextures[0] );
-	for( int i = 0; i < 2; i++ ) {
-		glBindTexture( GL_TEXTURE_2D, mTargetTextures[i] );
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-		glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, 512, 512, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL );
-	}
-	glBindTexture( GL_TEXTURE_2D, 0 );
 
 	this->initShaders();
 
@@ -329,7 +302,7 @@ void GLWidget::paintGL() {
 		glGetUniformLocation( mGLProgram, "normalMatrix" ), 1, GL_FALSE, &mNormalMatrix[0][0]
 	);
 	glUniform3fv(
-		glGetUniformLocation( mGLProgram, "eye" ), 3, &(mCamera->getEye())[0]
+		glGetUniformLocation( mGLProgram, "cameraPosition" ), 3, &(mCamera->getEye())[0]
 	);
 
 
@@ -358,40 +331,8 @@ void GLWidget::paintGL() {
 	}
 
 
-	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
-	glUniform1f( glGetUniformLocation( mGLProgram, "timeSinceStart" ), msdiff.total_milliseconds() * 0.001 );
-
-
-	glm::vec3 v = glm::vec3( rand() / (float) RAND_MAX * 2.0f - 1.0f, rand() / (float) RAND_MAX * 2.0f - 1.0f, 0.0f );
-	glm::mat4 jitter = this->getJitterMatrix( v ) * ( 1.0f / 512.0f );
-
-	glm::vec3 ray00 = this->getEyeRay( jitter, -1.0f, -1.0f );
-	glm::vec3 ray01 = this->getEyeRay( jitter, -1.0f, +1.0f );
-	glm::vec3 ray10 = this->getEyeRay( jitter, +1.0f, -1.0f );
-	glm::vec3 ray11 = this->getEyeRay( jitter, +1.0f, +1.0f );
-	glUniform3fv( glGetUniformLocation( mGLProgram, "ray00" ), 1, &ray00[0] );
-	glUniform3fv( glGetUniformLocation( mGLProgram, "ray01" ), 1, &ray01[0] );
-	glUniform3fv( glGetUniformLocation( mGLProgram, "ray10" ), 1, &ray10[0] );
-	glUniform3fv( glGetUniformLocation( mGLProgram, "ray11" ), 1, &ray11[0] );
-
-	glUniform1f( glGetUniformLocation( mGLProgram, "textureWeight" ), mSampleCount / (float) ( mSampleCount + 1 ) );
-
-	reverse( mTargetTextures.begin(), mTargetTextures.end() );
-	mSampleCount++;
-
 	this->paintScene();
 	this->showFPS();
-}
-
-
-glm::mat4 GLWidget::getJitterMatrix( glm::vec3 v ) {
-	glm::mat4 jitter = glm::mat4( 1.0f );
-
-	jitter[0][3] = v[0];
-	jitter[1][3] = v[1];
-	jitter[2][3] = v[2];
-
-	return glm::inverse( jitter * mModelViewProjectionMatrix );
 }
 
 
@@ -399,30 +340,22 @@ glm::mat4 GLWidget::getJitterMatrix( glm::vec3 v ) {
  * Draw the main objects of the scene.
  */
 void GLWidget::paintScene() {
-	// for( GLuint i = 0; i < mVA.size(); i++ ) {
-	// 	GLfloat useTexture = 1.0f;
-	// 	if( mTextureIDs.find( mVA[i] ) != mTextureIDs.end() ) {
-	// 		glBindTexture( GL_TEXTURE_2D, mTextureIDs[mVA[i]] );
-	// 	}
-	// 	else {
-	// 		glBindTexture( GL_TEXTURE_2D, 0 );
-	// 		useTexture = 0.0f;
-	// 	}
+	for( GLuint i = 0; i < mVA.size(); i++ ) {
+		GLfloat useTexture = 1.0f;
+		if( mTextureIDs.find( mVA[i] ) != mTextureIDs.end() ) {
+			glBindTexture( GL_TEXTURE_2D, mTextureIDs[mVA[i]] );
+		}
+		else {
+			glBindTexture( GL_TEXTURE_2D, 0 );
+			useTexture = 0.0f;
+		}
 
-	// 	glUniform1f( glGetUniformLocation( mGLProgram, "useTexture" ), useTexture );
+		glUniform1f( glGetUniformLocation( mGLProgram, "useTexture" ), useTexture );
 
-	// 	glBindVertexArray( mVA[i] );
-	// 	glDrawElements( GL_TRIANGLES, mNumIndices[i], GL_UNSIGNED_INT, 0 );
-	// }
+		glBindVertexArray( mVA[i] );
+		glDrawElements( GL_TRIANGLES, mNumIndices[i], GL_UNSIGNED_INT, 0 );
+	}
 
-	// glBindVertexArray( 0 );
-
-	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
-	glBindVertexArray( mVA[0] );
-	glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
-	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTextures[1], 0 );
-	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
-	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 	glBindVertexArray( 0 );
 }
 
