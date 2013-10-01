@@ -105,6 +105,17 @@ glm::vec3 GLWidget::getEyeRay( glm::mat4 matrix, float x, float y ) {
 }
 
 
+glm::mat4 GLWidget::getJitterMatrix( glm::vec3 v ) {
+	glm::mat4 jitter = glm::mat4( 1.0f );
+
+	jitter[0][3] = v[0];
+	jitter[1][3] = v[1];
+	jitter[2][3] = v[2];
+
+	return glm::inverse( jitter * mModelViewProjectionMatrix );
+}
+
+
 /**
  * Initialize OpenGL and start rendering.
  */
@@ -185,11 +196,14 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 	ModelLoader* ml = new ModelLoader();
 
-	mVA = ml->loadModel( filepath, filename );
-	mIndexBuffer = ml->getIndexBuffer();
-	mNumIndices = ml->getNumIndices();
-	mTextureIDs = ml->getTextureIDs();
-	mLights = ml->getLights();
+	ml->loadModel( filepath, filename );
+	// mIndexBuffer = ml->getIndexBuffer();
+	// mNumIndices = ml->getNumIndices();
+	// mTextureIDs = ml->getTextureIDs();
+	// mLights = ml->getLights();
+	mIndices = ml->mIndices;
+	mVertices = ml->mVertices;
+	mNormals = ml->mNormals;
 
 	// Ready
 	this->startRendering();
@@ -203,6 +217,9 @@ void GLWidget::loadModel( string filepath, string filename ) {
  */
 void GLWidget::loadShader( GLuint shader, string path ) {
 	string shaderString = utils::loadFileAsString( path.c_str() );
+
+	shaderString.replace(); // TODO
+
 	const GLchar* shaderSource = shaderString.c_str();
 	const GLint shaderLength = shaderString.size();
 
@@ -244,57 +261,33 @@ void GLWidget::moveCamera( const int key ) {
 	switch( key ) {
 
 		case Qt::Key_W:
-			if( mSelectedLight == -1 ) {
-				mCamera->cameraMoveForward();
-			}
-			else {
-				mLights[mSelectedLight].position[0] += 0.5f;
-			}
+			if( mSelectedLight == -1 ) { mCamera->cameraMoveForward(); }
+			else { mLights[mSelectedLight].position[0] += 0.5f; }
 			break;
 
 		case Qt::Key_S:
-			if( mSelectedLight == -1 ) {
-				mCamera->cameraMoveBackward();
-			}
-			else {
-				mLights[mSelectedLight].position[0] -= 0.5f;
-			}
+			if( mSelectedLight == -1 ) { mCamera->cameraMoveBackward(); }
+			else { mLights[mSelectedLight].position[0] -= 0.5f; }
 			break;
 
 		case Qt::Key_A:
-			if( mSelectedLight == -1 ) {
-				mCamera->cameraMoveLeft();
-			}
-			else {
-				mLights[mSelectedLight].position[2] += 0.5f;
-			}
+			if( mSelectedLight == -1 ) { mCamera->cameraMoveLeft(); }
+			else { mLights[mSelectedLight].position[2] += 0.5f; }
 			break;
 
 		case Qt::Key_D:
-			if( mSelectedLight == -1 ) {
-				mCamera->cameraMoveRight();
-			}
-			else {
-				mLights[mSelectedLight].position[2] -= 0.5f;
-			}
+			if( mSelectedLight == -1 ) { mCamera->cameraMoveRight(); }
+			else { mLights[mSelectedLight].position[2] -= 0.5f; }
 			break;
 
 		case Qt::Key_Q:
-			if( mSelectedLight == -1 ) {
-				mCamera->cameraMoveUp();
-			}
-			else {
-				mLights[mSelectedLight].position[1] += 0.5f;
-			}
+			if( mSelectedLight == -1 ) { mCamera->cameraMoveUp(); }
+			else { mLights[mSelectedLight].position[1] += 0.5f; }
 			break;
 
 		case Qt::Key_E:
-			if( mSelectedLight == -1 ) {
-				mCamera->cameraMoveDown();
-			}
-			else {
-				mLights[mSelectedLight].position[1] -= 0.5f;
-			}
+			if( mSelectedLight == -1 ) { mCamera->cameraMoveDown(); }
+			else { mLights[mSelectedLight].position[1] -= 0.5f; }
 			break;
 
 		case Qt::Key_R:
@@ -333,29 +326,40 @@ void GLWidget::paintGL() {
 	);
 
 
+	glUniform3fv(
+		glGetUniformLocation( mGLProgram, "vertices" ), mVertices.size(), &mVertices[0]
+	);
+	glUniform3fv(
+		glGetUniformLocation( mGLProgram, "normals" ), mNormals.size(), &mNormals[0]
+	);
+	glUniform3iv(
+		glGetUniformLocation( mGLProgram, "indices" ), mIndices.size(), &mIndices[0]
+	);
+
+
 	// Light(s)
 
-	glUniform1i( glGetUniformLocation( mGLProgram, "numLights" ), mLights.size() );
-	char lightName1[20];
-	char lightName2[20];
+	// glUniform1i( glGetUniformLocation( mGLProgram, "numLights" ), mLights.size() );
+	// char lightName1[20];
+	// char lightName2[20];
 
-	for( uint i = 0; i < mLights.size(); i++ ) {
-		snprintf( lightName1, 20, "light%uData1", i );
-		snprintf( lightName2, 20, "light%uData2", i );
+	// for( uint i = 0; i < mLights.size(); i++ ) {
+	// 	snprintf( lightName1, 20, "light%uData1", i );
+	// 	snprintf( lightName2, 20, "light%uData2", i );
 
-		float lightData1[16] = {
-			mLights[i].position[0], mLights[i].position[1], mLights[i].position[2], mLights[i].position[3],
-			mLights[i].diffuse[0], mLights[i].diffuse[1], mLights[i].diffuse[2], mLights[i].diffuse[3],
-			mLights[i].specular[0], mLights[i].specular[1], mLights[i].specular[2], mLights[i].specular[3],
-			mLights[i].constantAttenuation, mLights[i].linearAttenuation, mLights[i].quadraticAttenuation, mLights[i].spotCutoff
-		};
-		float lightData2[4] = {
-			mLights[i].spotExponent, mLights[i].spotDirection[0], mLights[i].spotDirection[1], mLights[i].spotDirection[2]
-		};
+	// 	float lightData1[16] = {
+	// 		mLights[i].position[0], mLights[i].position[1], mLights[i].position[2], mLights[i].position[3],
+	// 		mLights[i].diffuse[0], mLights[i].diffuse[1], mLights[i].diffuse[2], mLights[i].diffuse[3],
+	// 		mLights[i].specular[0], mLights[i].specular[1], mLights[i].specular[2], mLights[i].specular[3],
+	// 		mLights[i].constantAttenuation, mLights[i].linearAttenuation, mLights[i].quadraticAttenuation, mLights[i].spotCutoff
+	// 	};
+	// 	float lightData2[4] = {
+	// 		mLights[i].spotExponent, mLights[i].spotDirection[0], mLights[i].spotDirection[1], mLights[i].spotDirection[2]
+	// 	};
 
-		glUniformMatrix4fv( glGetUniformLocation( mGLProgram, lightName1 ), 1, GL_FALSE, &lightData1[0] );
-		glUniform4fv( glGetUniformLocation( mGLProgram, lightName2 ), 1, &lightData2[0] );
-	}
+	// 	glUniformMatrix4fv( glGetUniformLocation( mGLProgram, lightName1 ), 1, GL_FALSE, &lightData1[0] );
+	// 	glUniform4fv( glGetUniformLocation( mGLProgram, lightName2 ), 1, &lightData2[0] );
+	// }
 
 
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
@@ -384,17 +388,6 @@ void GLWidget::paintGL() {
 }
 
 
-glm::mat4 GLWidget::getJitterMatrix( glm::vec3 v ) {
-	glm::mat4 jitter = glm::mat4( 1.0f );
-
-	jitter[0][3] = v[0];
-	jitter[1][3] = v[1];
-	jitter[2][3] = v[2];
-
-	return glm::inverse( jitter * mModelViewProjectionMatrix );
-}
-
-
 /**
  * Draw the main objects of the scene.
  */
@@ -418,12 +411,10 @@ void GLWidget::paintScene() {
 	// glBindVertexArray( 0 );
 
 	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
-	glBindVertexArray( mVA[0] );
 	glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
 	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTextures[1], 0 );
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
-	glBindVertexArray( 0 );
 }
 
 

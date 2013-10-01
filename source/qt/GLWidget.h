@@ -85,6 +85,10 @@ class GLWidget : public QGLWidget {
 		glm::mat4 mViewMatrix;
 		boost::posix_time::ptime mTimeSinceStart;
 
+		std::vector<GLfloat> mVertices;
+		std::vector<GLint> mIndices;
+		std::vector<GLfloat> mNormals;
+
 };
 
 #endif

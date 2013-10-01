@@ -51,7 +51,11 @@ class ModelLoader {
 		std::vector<light_t> getLights();
 		std::vector<GLuint> getNumIndices();
 		std::map<GLuint, GLuint> getTextureIDs();
-		std::vector<GLuint> loadModel( std::string filepath, std::string filename );
+		void loadModel( std::string filepath, std::string filename );
+
+		std::vector<GLfloat> mVertices;
+		std::vector<GLint> mIndices;
+		std::vector<GLfloat> mNormals;
 
 	protected:
 		void createBufferColorsAmbient( aiMesh* mesh, aiMaterial* material, GLuint buffer );

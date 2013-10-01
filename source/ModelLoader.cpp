@@ -324,7 +324,7 @@ void ModelLoader::loadLights( string filepath, string filename ) {
  * @param  {string}              filename Name of the file.
  * @return {std::vector<GLuint>}          Vector of all generated vertex array IDs.
  */
-vector<GLuint> ModelLoader::loadModel( string filepath, string filename ) {
+void ModelLoader::loadModel( string filepath, string filename ) {
 	Assimp::Importer importer;
 	const aiScene* scene = importer.ReadFile( filepath + filename, mAssimpFlags );
 
@@ -334,68 +334,81 @@ vector<GLuint> ModelLoader::loadModel( string filepath, string filename ) {
 	}
 
 
-	vector<GLuint> vectorArrayIDs = vector<GLuint>();
-	mNumIndices = vector<GLuint>();
-	mTextureIDs = map<GLuint, GLuint>();
+	// vector<GLuint> vectorArrayIDs = vector<GLuint>();
+	// mNumIndices = vector<GLuint>();
+	// mTextureIDs = map<GLuint, GLuint>();
+
+	// GLuint vertexArrayID;
+	// glGenVertexArrays( 1, &vertexArrayID );
+	// glBindVertexArray( vertexArrayID );
+
+	mIndices = vector<GLint>();
+	mVertices = vector<GLfloat>();
+	mNormals = vector<GLfloat>();
+
+	// GLuint buffers[3];
+	// glGenBuffers( 3, &buffers[0] );
 
 	for( uint i = 0; i < scene->mNumMeshes; i++ ) {
 		aiMesh* mesh = scene->mMeshes[i];
-		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+		// aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
-		GLuint vertexArrayID;
-		GLuint buffers[ML_NUM_BUFFERS];
-
-		glGenVertexArrays( 1, &vertexArrayID );
-		glBindVertexArray( vertexArrayID );
-		vectorArrayIDs.push_back( vertexArrayID );
-
-		glGenBuffers( ML_NUM_BUFFERS, &buffers[0] );
-
-		this->createBufferVertices( mesh, buffers[0] );
-
-		if( mesh->HasNormals() ) {
-			this->createBufferNormals( mesh, buffers[1] );
+		for( int j = 0; j < mesh->mNumFaces; j++ ) {
+			const aiFace* face = &mesh->mFaces[j];
+			mIndices.push_back( face->mIndices[0] );
+			mIndices.push_back( face->mIndices[1] );
+			mIndices.push_back( face->mIndices[2] );
 		}
 
-		this->createBufferColorsAmbient( mesh, material, buffers[2] );
-		this->createBufferColorsDiffuse( mesh, material, buffers[3] );
-		this->createBufferColorsSpecular( mesh, material, buffers[4] );
-		this->createBufferColorsShininess( mesh, material, buffers[5] );
-		this->createBufferOpacity( mesh, material, buffers[6] );
-
-		if( mesh->HasTextureCoords( 0 ) ) {
-			GLuint textureID;
-			bool texLoadSuccess = true;
-
-			try {
-				textureID = this->loadTexture( filepath, material, mesh->mMaterialIndex );
-			}
-			catch( int exception ) {
-				texLoadSuccess = false;
-			}
-
-			if( texLoadSuccess ) {
-				mTextureIDs[vertexArrayID] = textureID;
-				this->createBufferTextures( mesh, buffers[7] );
-			}
+		for( int j = 0; j < mesh->mNumVertices; j++ ) {
+			mVertices.push_back( mesh->mVertices[j].x );
+			mVertices.push_back( mesh->mVertices[j + 1].y );
+			mVertices.push_back( mesh->mVertices[j + 2].z );
 		}
 
-		this->createBufferIndices( mesh );
+		for( int j = 0; j < mesh->mNumVertices; j++ ) {
+			mNormals.push_back( mesh->mNormals[j].x );
+			mNormals.push_back( mesh->mNormals[j].y );
+			mNormals.push_back( mesh->mNormals[j].z );
+		}
+
+		// this->createBufferColorsAmbient( mesh, material, buffers[2] );
+		// this->createBufferColorsDiffuse( mesh, material, buffers[3] );
+		// this->createBufferColorsSpecular( mesh, material, buffers[4] );
+		// this->createBufferColorsShininess( mesh, material, buffers[5] );
+		// this->createBufferOpacity( mesh, material, buffers[6] );
+
+		// if( mesh->HasTextureCoords( 0 ) ) {
+		// 	GLuint textureID;
+		// 	bool texLoadSuccess = true;
+
+		// 	try {
+		// 		textureID = this->loadTexture( filepath, material, mesh->mMaterialIndex );
+		// 	}
+		// 	catch( int exception ) {
+		// 		texLoadSuccess = false;
+		// 	}
+
+		// 	if( texLoadSuccess ) {
+		// 		mTextureIDs[vertexArrayID] = textureID;
+		// 		this->createBufferTextures( mesh, buffers[7] );
+		// 	}
+		// }
+
+		// this->createBufferIndices( mesh );
 	}
 
-	glBindVertexArray( 0 );
-	glBindBuffer( GL_ARRAY_BUFFER, 0 );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
+	// glBindVertexArray( 0 );
+	// glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	// glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
 
-	this->loadLights( filepath, filename );
+	// this->loadLights( filepath, filename );
 
 	char msg[120];
 	snprintf( msg, 120, "[ModelLoader] Imported model \"%s\" of %d meshes.", filename.c_str(), scene->mNumMeshes );
 	Logger::logInfo( msg );
 
 	importer.FreeScene();
-
-	return vectorArrayIDs;
 }
 
 
