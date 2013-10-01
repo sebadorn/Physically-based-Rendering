@@ -17,7 +17,7 @@
 	},
 
 	"shader": {
-		"name": "phong",
+		"name": "pathtracing",
 		"path": "source/shader/"
 	},
 

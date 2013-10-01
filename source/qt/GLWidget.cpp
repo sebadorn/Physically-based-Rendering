@@ -120,7 +120,7 @@ glm::mat4 GLWidget::getJitterMatrix( glm::vec3 v ) {
  * Initialize OpenGL and start rendering.
  */
 void GLWidget::initializeGL() {
-	glClearColor( 0.1f, 0.1f, 0.2f, 0.0f );
+	glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
 
 	glEnable( GL_DEPTH_TEST );
 	glEnable( GL_MULTISAMPLE );
@@ -131,19 +131,25 @@ void GLWidget::initializeGL() {
 	glEnable( GL_BLEND );
 	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
-	glGenFramebuffers( 1, &mFramebuffer );
-
 	mTargetTextures = vector<GLuint>( 2 );
 	glGenTextures( 2, &mTargetTextures[0] );
+
 	for( int i = 0; i < 2; i++ ) {
 		glBindTexture( GL_TEXTURE_2D, mTargetTextures[i] );
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 		glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, 512, 512, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL );
 	}
+
 	glBindTexture( GL_TEXTURE_2D, 0 );
 
+	mShaderVert = 0;
+	mShaderFrag = 0;
+
 	this->initShaders();
+
+	glGenFramebuffers( 1, &mFramebuffer );
+	glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
 
 	Logger::logInfo( string( "[OpenGL] Version " ).append( (char*) glGetString( GL_VERSION ) ) );
 	Logger::logInfo( string( "[OpenGL] GLSL " ).append( (char*) glGetString( GL_SHADING_LANGUAGE_VERSION ) ) );
@@ -153,7 +159,7 @@ void GLWidget::initializeGL() {
 /**
  * Load and compile the shader.
  */
-void GLWidget::initShaders() {
+void GLWidget::initShaders() { // TODO: Rename
 	GLenum err = glewInit();
 
 	if( err != GLEW_OK ) {
@@ -161,19 +167,6 @@ void GLWidget::initShaders() {
 		exit( 1 );
 	}
 	Logger::logInfo( string( "[GLEW] Version " ).append( (char*) glewGetString( GLEW_VERSION ) ) );
-
-	mGLProgram = glCreateProgram();
-	GLuint vertexShader = glCreateShader( GL_VERTEX_SHADER );
-	GLuint fragmentShader = glCreateShader( GL_FRAGMENT_SHADER );
-
-	string shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
-	shaderPath.append( Cfg::get().value<string>( Cfg::SHADER_NAME ) );
-
-	this->loadShader( vertexShader, shaderPath + string( ".vert" ) );
-	this->loadShader( fragmentShader, shaderPath +string( ".frag" ) );
-
-	glLinkProgram( mGLProgram );
-	glUseProgram( mGLProgram );
 }
 
 
@@ -205,6 +198,30 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mVertices = ml->mVertices;
 	mNormals = ml->mNormals;
 
+
+	// Shaders
+	string shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
+	shaderPath.append( Cfg::get().value<string>( Cfg::SHADER_NAME ) );
+
+	glDeleteProgram( mGLProgram );
+
+	mGLProgram = glCreateProgram();
+	mShaderVert = glCreateShader( GL_VERTEX_SHADER );
+	mShaderFrag = glCreateShader( GL_FRAGMENT_SHADER );
+
+	this->loadShader( mShaderVert, shaderPath + string( ".vert" ) );
+	this->loadShader( mShaderFrag, shaderPath +string( ".frag" ) );
+
+	glLinkProgram( mGLProgram );
+	glUseProgram( mGLProgram );
+
+	glDetachShader( mGLProgram, mShaderVert );
+	glDeleteShader( mShaderVert );
+
+	glDetachShader( mGLProgram, mShaderFrag );
+	glDeleteShader( mShaderFrag );
+
+
 	// Ready
 	this->startRendering();
 }
@@ -218,7 +235,26 @@ void GLWidget::loadModel( string filepath, string filename ) {
 void GLWidget::loadShader( GLuint shader, string path ) {
 	string shaderString = utils::loadFileAsString( path.c_str() );
 
-	shaderString.replace(); // TODO
+	size_t posVertices = shaderString.find( "#NUM_VERTICES#" );
+	if( posVertices != string::npos ) {
+		char numVertices[20];
+		snprintf( numVertices, 20, "%lu", mVertices.size() );
+		shaderString.replace( posVertices, 14, numVertices );
+	}
+
+	size_t posNormals = shaderString.find( "#NUM_NORMALS#" );
+	if( posNormals != string::npos ) {
+		char numNormals[20];
+		snprintf( numNormals, 20, "%lu", mNormals.size() );
+		shaderString.replace( posNormals, 13, numNormals );
+	}
+
+	size_t posIndices = shaderString.find( "#NUM_INDICES#" );
+	if( posIndices != string::npos ) {
+		char numIndices[20];
+		snprintf( numIndices, 20, "%lu", mIndices.size() );
+		shaderString.replace( posIndices, 13, numIndices );
+	}
 
 	const GLchar* shaderSource = shaderString.c_str();
 	const GLint shaderLength = shaderString.size();
@@ -232,7 +268,7 @@ void GLWidget::loadShader( GLuint shader, string path ) {
 	if( status != GL_TRUE ) {
 		char logBuffer[1000];
 		glGetShaderInfoLog( shader, 1000, 0, logBuffer );
-		Logger::logError( string( "[Shader]\n" ).append( logBuffer ) );
+		Logger::logError( path + string( "\n" ).append( logBuffer ) );
 		exit( 1 );
 	}
 

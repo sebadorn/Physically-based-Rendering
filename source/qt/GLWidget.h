@@ -70,7 +70,6 @@ class GLWidget : public QGLWidget {
 		GLuint mIndexBuffer;
 		GLuint mPreviousTime;
 		GLuint mSampleCount;
-		GLuint mFramebuffer;
 		CL* mCl;
 		QTimer* mTimer;
 		std::vector<light_t> mLights;
@@ -88,6 +87,10 @@ class GLWidget : public QGLWidget {
 		std::vector<GLfloat> mVertices;
 		std::vector<GLint> mIndices;
 		std::vector<GLfloat> mNormals;
+
+		GLuint mFramebuffer;
+		GLuint mShaderVert;
+		GLuint mShaderFrag;
 
 };
 

@@ -3,8 +3,7 @@
 
 uniform vec3 eye;
 
-varying vec3 initialRay;
-
+uniform float timeSinceStart;
 uniform float textureWeight;
 // uniform float timeSinceStart;
 uniform sampler2D texUnit;
@@ -26,9 +25,11 @@ vec3 roomCubeMax = vec3( 1.0, 1.0, 1.0 );
 // uniform vec3 sphereCenter3;
 // uniform float sphereRadius3;
 
-uniform vec3 vertices[%NUM_VERTICES%];
-uniform vec3 normals[%NUM_NORMALS%];
-uniform vec3 indices[%NUM_INDICES%];
+uniform vec3 vertices[#NUM_VERTICES#];
+uniform vec3 normals[#NUM_NORMALS#];
+uniform vec3 indices[#NUM_INDICES#];
+
+in vec3 initialRay;
 
 out vec4 color;
 

@@ -2,10 +2,7 @@
 
 
 uniform mat4 modelViewProjectionMatrix;
-
 uniform vec3 eye, ray00, ray01, ray10, ray11;
-varying vec3 initialRay;
-
 
 // Vertex
 layout( location = 0 ) in vec3 vertexPosition_modelSpace;
@@ -18,6 +15,8 @@ layout( location = 0 ) in vec3 vertexPosition_modelSpace;
 // layout( location = 5 ) in float shininess_in;
 // layout( location = 6 ) in float opacity_in;
 // layout( location = 7 ) in vec2 texture_in;
+
+out vec3 initialRay;
 
 
 void main( void ) {
