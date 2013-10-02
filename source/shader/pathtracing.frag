@@ -195,7 +195,7 @@ vec3 calculateColor( vec3 origin, vec3 ray, vec3 light ) {
 
 		vec3 toLight = light - hit;
 		float diffuse = max( 0.0, dot( normalize( toLight ), normal ) );
-		float shadowIntensity = shadow( hit + normal * 0.0001, toLight ); // ?
+		float shadowIntensity = 1.0;//shadow( hit + normal * 0.0001, toLight ); // ?
 
 		colorMask *= surfaceColor;
 		accumulatedColor += colorMask * ( 0.5 * diffuse * shadowIntensity );

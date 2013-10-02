@@ -54,34 +54,43 @@ class GLWidget : public QGLWidget {
 		void deleteOldModel();
 		glm::vec3 getEyeRay( glm::mat4 matrix, float x, float y );
 		glm::mat4 getJitterMatrix( glm::vec3 v );
+		void initGlew();
 		void initializeGL();
 		void initShaders();
+		void initTargetTexture();
 		void loadShader( GLuint shader, std::string path );
 		void paintGL();
 		void paintScene();
 		void resizeGL( int width, int height );
+		std::string shaderReplacePlaceholders( std::string shaderString );
 		void showFPS();
 
 	private:
 		bool mDoRendering;
 		int mSelectedLight;
+
 		GLuint mFrameCount;
-		GLuint mGLProgram;
+		GLuint mGLProgramRender;
+		GLuint mGLProgramTracer;
 		GLuint mIndexBuffer;
 		GLuint mPreviousTime;
 		GLuint mSampleCount;
+
 		CL* mCl;
 		QTimer* mTimer;
+
 		std::vector<light_t> mLights;
 		std::vector<GLuint> mNumIndices;
 		std::map<GLuint, GLuint> mTextureIDs;
 		std::vector<GLuint> mVA;
 		std::vector<GLuint> mTargetTextures;
+
 		glm::mat3 mNormalMatrix;
 		glm::mat4 mModelMatrix;
 		glm::mat4 mModelViewProjectionMatrix;
 		glm::mat4 mProjectionMatrix;
 		glm::mat4 mViewMatrix;
+
 		boost::posix_time::ptime mTimeSinceStart;
 
 		std::vector<GLfloat> mVertices;
@@ -91,6 +100,8 @@ class GLWidget : public QGLWidget {
 		GLuint mFramebuffer;
 		GLuint mShaderVert;
 		GLuint mShaderFrag;
+		GLuint mVertexAttribute;
+		GLuint mVertexBuffer;
 
 };
 

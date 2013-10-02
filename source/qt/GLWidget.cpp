@@ -131,6 +131,70 @@ void GLWidget::initializeGL() {
 	glEnable( GL_BLEND );
 	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
+	this->initGlew();
+	this->initTargetTexture();
+
+	GLfloat vertices[8] = {
+		-1.0f, -1.0f,
+		-1.0f, +1.0f,
+		+1.0f, -1.0f,
+		+1.0f, +1.0f
+	};
+
+	glGenBuffers( 1, &mVertexBuffer );
+	glBindBuffer( GL_ARRAY_BUFFER, mVertexBuffer );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), &vertices, GL_STATIC_DRAW );
+
+	glGenFramebuffers( 1, &mFramebuffer );
+	glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
+
+	Logger::logInfo( string( "[OpenGL] Version " ).append( (char*) glGetString( GL_VERSION ) ) );
+	Logger::logInfo( string( "[OpenGL] GLSL " ).append( (char*) glGetString( GL_SHADING_LANGUAGE_VERSION ) ) );
+}
+
+
+void GLWidget::initGlew() {
+	GLenum err = glewInit();
+
+	if( err != GLEW_OK ) {
+		Logger::logError( string( "[GLEW] Init failed: " ).append( (char*) glewGetErrorString( err ) ) );
+		exit( 1 );
+	}
+	Logger::logInfo( string( "[GLEW] Version " ).append( (char*) glewGetString( GLEW_VERSION ) ) );
+}
+
+
+/**
+ * Load and compile the shader.
+ */
+void GLWidget::initShaders() {
+	string shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
+	shaderPath.append( Cfg::get().value<string>( Cfg::SHADER_NAME ) );
+
+	glDeleteProgram( mGLProgramTracer );
+
+	mGLProgramTracer = glCreateProgram();
+	mShaderVert = glCreateShader( GL_VERTEX_SHADER );
+	mShaderFrag = glCreateShader( GL_FRAGMENT_SHADER );
+
+	this->loadShader( mShaderVert, shaderPath + string( ".vert" ) );
+	this->loadShader( mShaderFrag, shaderPath +string( ".frag" ) );
+
+	glLinkProgram( mGLProgramTracer );
+	glUseProgram( mGLProgramTracer );
+
+	glDetachShader( mGLProgramTracer, mShaderVert );
+	glDeleteShader( mShaderVert );
+
+	glDetachShader( mGLProgramTracer, mShaderFrag );
+	glDeleteShader( mShaderFrag );
+
+	mVertexAttribute = glGetAttribLocation( mGLProgramTracer, "vertex" );
+	glEnableVertexAttribArray( mVertexAttribute );
+}
+
+
+void GLWidget::initTargetTexture() {
 	mTargetTextures = vector<GLuint>( 2 );
 	glGenTextures( 2, &mTargetTextures[0] );
 
@@ -142,31 +206,6 @@ void GLWidget::initializeGL() {
 	}
 
 	glBindTexture( GL_TEXTURE_2D, 0 );
-
-	mShaderVert = 0;
-	mShaderFrag = 0;
-
-	this->initShaders();
-
-	glGenFramebuffers( 1, &mFramebuffer );
-	glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
-
-	Logger::logInfo( string( "[OpenGL] Version " ).append( (char*) glGetString( GL_VERSION ) ) );
-	Logger::logInfo( string( "[OpenGL] GLSL " ).append( (char*) glGetString( GL_SHADING_LANGUAGE_VERSION ) ) );
-}
-
-
-/**
- * Load and compile the shader.
- */
-void GLWidget::initShaders() { // TODO: Rename
-	GLenum err = glewInit();
-
-	if( err != GLEW_OK ) {
-		Logger::logError( string( "[GLEW] Init failed: " ).append( (char*) glewGetErrorString( err ) ) );
-		exit( 1 );
-	}
-	Logger::logInfo( string( "[GLEW] Version " ).append( (char*) glewGetString( GLEW_VERSION ) ) );
 }
 
 
@@ -190,37 +229,12 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	ModelLoader* ml = new ModelLoader();
 
 	ml->loadModel( filepath, filename );
-	// mIndexBuffer = ml->getIndexBuffer();
-	// mNumIndices = ml->getNumIndices();
-	// mTextureIDs = ml->getTextureIDs();
-	// mLights = ml->getLights();
 	mIndices = ml->mIndices;
 	mVertices = ml->mVertices;
 	mNormals = ml->mNormals;
 
 
-	// Shaders
-	string shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
-	shaderPath.append( Cfg::get().value<string>( Cfg::SHADER_NAME ) );
-
-	glDeleteProgram( mGLProgram );
-
-	mGLProgram = glCreateProgram();
-	mShaderVert = glCreateShader( GL_VERTEX_SHADER );
-	mShaderFrag = glCreateShader( GL_FRAGMENT_SHADER );
-
-	this->loadShader( mShaderVert, shaderPath + string( ".vert" ) );
-	this->loadShader( mShaderFrag, shaderPath +string( ".frag" ) );
-
-	glLinkProgram( mGLProgram );
-	glUseProgram( mGLProgram );
-
-	glDetachShader( mGLProgram, mShaderVert );
-	glDeleteShader( mShaderVert );
-
-	glDetachShader( mGLProgram, mShaderFrag );
-	glDeleteShader( mShaderFrag );
-
+	this->initShaders();
 
 	// Ready
 	this->startRendering();
@@ -235,26 +249,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 void GLWidget::loadShader( GLuint shader, string path ) {
 	string shaderString = utils::loadFileAsString( path.c_str() );
 
-	size_t posVertices = shaderString.find( "#NUM_VERTICES#" );
-	if( posVertices != string::npos ) {
-		char numVertices[20];
-		snprintf( numVertices, 20, "%lu", mVertices.size() );
-		shaderString.replace( posVertices, 14, numVertices );
-	}
-
-	size_t posNormals = shaderString.find( "#NUM_NORMALS#" );
-	if( posNormals != string::npos ) {
-		char numNormals[20];
-		snprintf( numNormals, 20, "%lu", mNormals.size() );
-		shaderString.replace( posNormals, 13, numNormals );
-	}
-
-	size_t posIndices = shaderString.find( "#NUM_INDICES#" );
-	if( posIndices != string::npos ) {
-		char numIndices[20];
-		snprintf( numIndices, 20, "%lu", mIndices.size() );
-		shaderString.replace( posIndices, 13, numIndices );
-	}
+	shaderString = this->shaderReplacePlaceholders( shaderString );
 
 	const GLchar* shaderSource = shaderString.c_str();
 	const GLint shaderLength = shaderString.size();
@@ -272,7 +267,7 @@ void GLWidget::loadShader( GLuint shader, string path ) {
 		exit( 1 );
 	}
 
-	glAttachShader( mGLProgram, shader );
+	glAttachShader( mGLProgramTracer, shader );
 }
 
 
@@ -345,37 +340,37 @@ void GLWidget::paintGL() {
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 
-	glUniformMatrix4fv(
-		glGetUniformLocation( mGLProgram, "modelViewProjectionMatrix" ), 1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
-	);
-	glUniformMatrix4fv(
-		glGetUniformLocation( mGLProgram, "modelMatrix" ), 1, GL_FALSE, &mModelMatrix[0][0]
-	);
-	glUniformMatrix4fv(
-		glGetUniformLocation( mGLProgram, "viewMatrix" ), 1, GL_FALSE, &mViewMatrix[0][0]
-	);
-	glUniformMatrix3fv(
-		glGetUniformLocation( mGLProgram, "normalMatrix" ), 1, GL_FALSE, &mNormalMatrix[0][0]
-	);
+	// glUniformMatrix4fv(
+	// 	glGetUniformLocation( mGLProgramTracer, "modelViewProjectionMatrix" ), 1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
+	// );
+	// glUniformMatrix4fv(
+	// 	glGetUniformLocation( mGLProgramTracer, "modelMatrix" ), 1, GL_FALSE, &mModelMatrix[0][0]
+	// );
+	// glUniformMatrix4fv(
+	// 	glGetUniformLocation( mGLProgramTracer, "viewMatrix" ), 1, GL_FALSE, &mViewMatrix[0][0]
+	// );
+	// glUniformMatrix3fv(
+	// 	glGetUniformLocation( mGLProgramTracer, "normalMatrix" ), 1, GL_FALSE, &mNormalMatrix[0][0]
+	// );
 	glUniform3fv(
-		glGetUniformLocation( mGLProgram, "eye" ), 3, &(mCamera->getEye())[0]
+		glGetUniformLocation( mGLProgramTracer, "eye" ), 3, &(mCamera->getEye())[0]
 	);
 
 
 	glUniform3fv(
-		glGetUniformLocation( mGLProgram, "vertices" ), mVertices.size(), &mVertices[0]
+		glGetUniformLocation( mGLProgramTracer, "vertices" ), mVertices.size(), &mVertices[0]
 	);
 	glUniform3fv(
-		glGetUniformLocation( mGLProgram, "normals" ), mNormals.size(), &mNormals[0]
+		glGetUniformLocation( mGLProgramTracer, "normals" ), mNormals.size(), &mNormals[0]
 	);
 	glUniform3iv(
-		glGetUniformLocation( mGLProgram, "indices" ), mIndices.size(), &mIndices[0]
+		glGetUniformLocation( mGLProgramTracer, "indices" ), mIndices.size(), &mIndices[0]
 	);
 
 
 	// Light(s)
 
-	// glUniform1i( glGetUniformLocation( mGLProgram, "numLights" ), mLights.size() );
+	// glUniform1i( glGetUniformLocation( mGLProgramTracer, "numLights" ), mLights.size() );
 	// char lightName1[20];
 	// char lightName2[20];
 
@@ -393,31 +388,38 @@ void GLWidget::paintGL() {
 	// 		mLights[i].spotExponent, mLights[i].spotDirection[0], mLights[i].spotDirection[1], mLights[i].spotDirection[2]
 	// 	};
 
-	// 	glUniformMatrix4fv( glGetUniformLocation( mGLProgram, lightName1 ), 1, GL_FALSE, &lightData1[0] );
-	// 	glUniform4fv( glGetUniformLocation( mGLProgram, lightName2 ), 1, &lightData2[0] );
+	// 	glUniformMatrix4fv( glGetUniformLocation( mGLProgramTracer, lightName1 ), 1, GL_FALSE, &lightData1[0] );
+	// 	glUniform4fv( glGetUniformLocation( mGLProgramTracer, lightName2 ), 1, &lightData2[0] );
 	// }
 
 
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
-	glUniform1f( glGetUniformLocation( mGLProgram, "timeSinceStart" ), msdiff.total_milliseconds() * 0.001 );
+	glUniform1f(
+		glGetUniformLocation( mGLProgramTracer, "timeSinceStart" ), msdiff.total_milliseconds() * 0.001
+	);
 
 
-	glm::vec3 v = glm::vec3( rand() / (float) RAND_MAX * 2.0f - 1.0f, rand() / (float) RAND_MAX * 2.0f - 1.0f, 0.0f );
+	glm::vec3 v = glm::vec3(
+		rand() / (float) RAND_MAX * 2.0f - 1.0f,
+		rand() / (float) RAND_MAX * 2.0f - 1.0f,
+		0.0f
+	);
 	glm::mat4 jitter = this->getJitterMatrix( v ) * ( 1.0f / 512.0f );
 
 	glm::vec3 ray00 = this->getEyeRay( jitter, -1.0f, -1.0f );
 	glm::vec3 ray01 = this->getEyeRay( jitter, -1.0f, +1.0f );
 	glm::vec3 ray10 = this->getEyeRay( jitter, +1.0f, -1.0f );
 	glm::vec3 ray11 = this->getEyeRay( jitter, +1.0f, +1.0f );
-	glUniform3fv( glGetUniformLocation( mGLProgram, "ray00" ), 1, &ray00[0] );
-	glUniform3fv( glGetUniformLocation( mGLProgram, "ray01" ), 1, &ray01[0] );
-	glUniform3fv( glGetUniformLocation( mGLProgram, "ray10" ), 1, &ray10[0] );
-	glUniform3fv( glGetUniformLocation( mGLProgram, "ray11" ), 1, &ray11[0] );
 
-	glUniform1f( glGetUniformLocation( mGLProgram, "textureWeight" ), mSampleCount / (float) ( mSampleCount + 1 ) );
+	glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray00" ), 1, &ray00[0] );
+	glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray01" ), 1, &ray01[0] );
+	glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray10" ), 1, &ray10[0] );
+	glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray11" ), 1, &ray11[0] );
 
-	reverse( mTargetTextures.begin(), mTargetTextures.end() );
-	mSampleCount++;
+	glUniform1f(
+		glGetUniformLocation( mGLProgramTracer, "textureWeight" ), mSampleCount / (float) ( mSampleCount + 1 )
+	);
+
 
 	this->paintScene();
 	this->showFPS();
@@ -428,29 +430,18 @@ void GLWidget::paintGL() {
  * Draw the main objects of the scene.
  */
 void GLWidget::paintScene() {
-	// for( GLuint i = 0; i < mVA.size(); i++ ) {
-	// 	GLfloat useTexture = 1.0f;
-	// 	if( mTextureIDs.find( mVA[i] ) != mTextureIDs.end() ) {
-	// 		glBindTexture( GL_TEXTURE_2D, mTextureIDs[mVA[i]] );
-	// 	}
-	// 	else {
-	// 		glBindTexture( GL_TEXTURE_2D, 0 );
-	// 		useTexture = 0.0f;
-	// 	}
-
-	// 	glUniform1f( glGetUniformLocation( mGLProgram, "useTexture" ), useTexture );
-
-	// 	glBindVertexArray( mVA[i] );
-	// 	glDrawElements( GL_TRIANGLES, mNumIndices[i], GL_UNSIGNED_INT, 0 );
-	// }
-
-	// glBindVertexArray( 0 );
-
+	glUseProgram( mGLProgramTracer );
 	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
 	glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
 	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTextures[1], 0 );
+	glVertexAttribPointer( mVertexAttribute, 2, GL_FLOAT, false, 0, 0 );
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+	reverse( mTargetTextures.begin(), mTargetTextures.end() );
+	mSampleCount++;
+
+	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 }
 
 
@@ -521,6 +512,32 @@ void GLWidget::selectPreviousLight() {
 	if( mSelectedLight > -1 ) {
 		mSelectedLight = ( mSelectedLight == 0 ) ? mLights.size() - 1 : mSelectedLight - 1;
 	}
+}
+
+
+string GLWidget::shaderReplacePlaceholders( string shaderString ) {
+	size_t posVertices = shaderString.find( "#NUM_VERTICES#" );
+	if( posVertices != string::npos ) {
+		char numVertices[20];
+		snprintf( numVertices, 20, "%lu", mVertices.size() );
+		shaderString.replace( posVertices, 14, numVertices );
+	}
+
+	size_t posNormals = shaderString.find( "#NUM_NORMALS#" );
+	if( posNormals != string::npos ) {
+		char numNormals[20];
+		snprintf( numNormals, 20, "%lu", mNormals.size() );
+		shaderString.replace( posNormals, 13, numNormals );
+	}
+
+	size_t posIndices = shaderString.find( "#NUM_INDICES#" );
+	if( posIndices != string::npos ) {
+		char numIndices[20];
+		snprintf( numIndices, 20, "%lu", mIndices.size() );
+		shaderString.replace( posIndices, 13, numIndices );
+	}
+
+	return shaderString;
 }
 
 
