@@ -2,32 +2,19 @@
 
 
 uniform vec3 eye;
+uniform vec3 vertices[#NUM_VERTICES#];
+uniform vec3 normals[#NUM_NORMALS#];
+uniform ivec3 indices[#NUM_INDICES#];
 
 uniform float timeSinceStart;
 uniform float textureWeight;
-// uniform float timeSinceStart;
-uniform sampler2D texUnit;
 // uniform float glossiness;
 
-vec3 roomCubeMin = vec3( -1.0, -1.0, -1.0 );
-vec3 roomCubeMax = vec3( 1.0, 1.0, 1.0 );
+uniform sampler2D texUnit;
 
 // uniform mat4 light0Data1, light1Data1, light2Data1, light3Data1, light4Data1, light5Data1;
 // uniform vec4 light0Data2, light1Data2, light2Data2, light3Data2, light4Data2, light5Data2;
 // uniform int numLights;
-
-// uniform vec3 sphereCenter0;
-// uniform float sphereRadius0;
-// uniform vec3 sphereCenter1;
-// uniform float sphereRadius1;
-// uniform vec3 sphereCenter2;
-// uniform float sphereRadius2;
-// uniform vec3 sphereCenter3;
-// uniform float sphereRadius3;
-
-uniform vec3 vertices[#NUM_VERTICES#];
-uniform vec3 normals[#NUM_NORMALS#];
-uniform vec3 indices[#NUM_INDICES#];
 
 in vec3 initialRay;
 
@@ -138,28 +125,77 @@ vec3 uniformlyRandomVector( float seed ) {
 // }
 
 
+vec3 findIntersection( vec3 origin, vec3 ray ) {
+	// Workaround bugfix.
+	// Accessing the uniform arrays per index variable (i) just doesn't work.
+	// Using a copy, however, does.
+	ivec3 indicesCopy[indices.length()] = indices;
+	vec3 verticesCopy[vertices.length()] = vertices;
+	vec3 normalsCopy[normals.length()] = normals;
+
+	vec3 originCopy = origin;
+	vec3 rayCopy = ray;
+
+	vec3 a, b, c;
+	vec3 planeNormal;
+	float numerator, denumerator, r;
+
+	for( int i = 0; i < 1/*indicesCopy.length()*/; i++ ) {
+		a = verticesCopy[indicesCopy[i][0]];
+		b = verticesCopy[indicesCopy[i][1]];
+		c = verticesCopy[indicesCopy[i][2]];
+
+		// First test: Intersection with plane of triangle
+		planeNormal = normalize( cross( ( b - a ), ( c - a ) ) );
+		numerator = dot( planeNormal, a - originCopy );
+		denumerator = dot( planeNormal, rayCopy - originCopy );
+
+		if( int( denumerator ) == 0 ) {
+			continue;
+		}
+
+		r = numerator / denumerator;
+
+		if( int( r ) < 0 ) {
+			continue;
+		}
+
+		// Second test: Intersection with actual triangle
+		vec3 rPoint = originCopy + r * ( rayCopy - originCopy );
+		vec3 u = b - a,
+		     v = c - a,
+		     w = rPoint - a;
+
+		float uDotU = dot( u, u ),
+		      uDotV = dot( u, v ),
+		      vDotV = dot( v, v ),
+		      wDotV = dot( w, v ),
+		      wDotU = dot( w, u );
+		float d = uDotV * uDotV - uDotU * vDotV;
+		float s = ( uDotV * wDotV - vDotV * wDotU ) / d,
+		      t = ( uDotV * wDotU - uDotU * wDotV ) / d;
+
+		if( s >= 0 && t >= 0 ) {
+			return ( a + s * u + t * v );
+		}
+	}
+
+	return vec3( 10000.0 );
+}
+
+
 vec3 calculateColor( vec3 origin, vec3 ray, vec3 light ) {
 	vec3 colorMask = vec3( 1.0 );
 	vec3 accumulatedColor = vec3( 0.0 );
 
-	for( int bounce = 0; bounce < 5; bounce++ ) {
-		// vec2 tRoom = intersectCube( origin, ray, roomCubeMin, roomCubeMax );
-		// float tSphere0 = intersectSphere( origin, ray, sphereCenter0, sphereRadius0 );
-		// float tSphere1 = intersectSphere( origin, ray, sphereCenter1, sphereRadius1 );
-		// float tSphere2 = intersectSphere( origin, ray, sphereCenter2, sphereRadius2 );
-		// float tSphere3 = intersectSphere( origin, ray, sphereCenter3, sphereRadius3 );
+	for( int bounce = 0; bounce < 3; bounce++ ) {
+		vec3 hit = findIntersection( origin, ray );
 
-		// TODO: Intersection of ray with object(s)
-		float t = 10000.0;
+		if( hit == vec3( 10000.0 ) ) { // No hit, ray lost in the nothingness
+			break;
+		}
 
-		// if( tRoom.x < tRoom.y ) t = tRoom.y;
-		// if( tSphere0 < t ) t = tSphere0;
-		// if( tSphere1 < t ) t = tSphere1;
-		// if( tSphere2 < t ) t = tSphere2;
-		// if( tSphere3 < t ) t = tSphere3;
-
-		vec3 hit = origin + ray * t;
-		vec3 surfaceColor = vec3( 0.75 ); // Nope.
+		vec3 surfaceColor = vec3( 0.75 );
 		float specularHighlight = 0.0;
 		vec3 normal;
 
@@ -186,16 +222,9 @@ vec3 calculateColor( vec3 origin, vec3 ray, vec3 light ) {
 		// 	ray = cosineWeightedDirection( timeSinceStart + float( bounce ), normal );
 		// }
 
-		if( t == 10000.0 ) { // No hit, ray lost in the nothingness
-			break;
-		}
-		else {
-			// TODO: New direction for ray
-		}
-
 		vec3 toLight = light - hit;
 		float diffuse = max( 0.0, dot( normalize( toLight ), normal ) );
-		float shadowIntensity = 1.0;//shadow( hit + normal * 0.0001, toLight ); // ?
+		float shadowIntensity = 1.0;//shadow( hit + normal * 0.0001, toLight ); // TODO
 
 		colorMask *= surfaceColor;
 		accumulatedColor += colorMask * ( 0.5 * diffuse * shadowIntensity );
@@ -215,5 +244,8 @@ void main() {
 	// NOT object texture! This is the rendered image up until now.
 	vec3 texture = texture2D( texUnit, gl_FragCoord.xy / 512.0 ).rgb;
 
-	color = vec4( mix( calculateColor( eye, initialRay, newLight ), texture, textureWeight ), 1.0 );
+	vec3 hit = findIntersection( eye, initialRay );
+
+	// color = vec4( mix( calculateColor( eye, initialRay, newLight ), texture, textureWeight ), 1.0 );
+	color = vec4( 0.6, 0.2, 0.8, 1.0 );
 }

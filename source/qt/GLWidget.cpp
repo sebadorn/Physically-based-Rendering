@@ -233,7 +233,6 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mVertices = ml->mVertices;
 	mNormals = ml->mNormals;
 
-
 	this->initShaders();
 
 	// Ready
@@ -358,13 +357,13 @@ void GLWidget::paintGL() {
 
 
 	glUniform3fv(
-		glGetUniformLocation( mGLProgramTracer, "vertices" ), mVertices.size(), &mVertices[0]
+		glGetUniformLocation( mGLProgramTracer, "vertices" ), mVertices.size() / 3, &mVertices[0]
 	);
-	glUniform3fv(
-		glGetUniformLocation( mGLProgramTracer, "normals" ), mNormals.size(), &mNormals[0]
-	);
+	// glUniform3fv(
+	// 	glGetUniformLocation( mGLProgramTracer, "normals" ), mNormals.size() / 3, &mNormals[0]
+	// );
 	glUniform3iv(
-		glGetUniformLocation( mGLProgramTracer, "indices" ), mIndices.size(), &mIndices[0]
+		glGetUniformLocation( mGLProgramTracer, "indices" ), mIndices.size() / 3, &mIndices[0]
 	);
 
 
@@ -430,7 +429,6 @@ void GLWidget::paintGL() {
  * Draw the main objects of the scene.
  */
 void GLWidget::paintScene() {
-	glUseProgram( mGLProgramTracer );
 	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
 	glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
 	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTextures[1], 0 );
@@ -519,21 +517,21 @@ string GLWidget::shaderReplacePlaceholders( string shaderString ) {
 	size_t posVertices = shaderString.find( "#NUM_VERTICES#" );
 	if( posVertices != string::npos ) {
 		char numVertices[20];
-		snprintf( numVertices, 20, "%lu", mVertices.size() );
+		snprintf( numVertices, 20, "%lu", mVertices.size() / 3 );
 		shaderString.replace( posVertices, 14, numVertices );
 	}
 
 	size_t posNormals = shaderString.find( "#NUM_NORMALS#" );
 	if( posNormals != string::npos ) {
 		char numNormals[20];
-		snprintf( numNormals, 20, "%lu", mNormals.size() );
+		snprintf( numNormals, 20, "%lu", mNormals.size() / 3 );
 		shaderString.replace( posNormals, 13, numNormals );
 	}
 
 	size_t posIndices = shaderString.find( "#NUM_INDICES#" );
 	if( posIndices != string::npos ) {
 		char numIndices[20];
-		snprintf( numIndices, 20, "%lu", mIndices.size() );
+		snprintf( numIndices, 20, "%lu", mIndices.size() / 3 );
 		shaderString.replace( posIndices, 13, numIndices );
 	}
 

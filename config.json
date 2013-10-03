@@ -4,7 +4,13 @@
 		"speed": 0.5
 	},
 
+	"import_path": "/home/seba/programming/Physically-based Rendering/resources/models/",
+
 	"logging": true,
+
+	"opencl": {
+		"program": "pathtracing.cl"
+	},
 
 	"render": {
 		// render every 16.666 ms ~ 60 FPS
@@ -23,6 +29,7 @@
 
 	"window": {
 		"height": 512,
+		"title": "Physically-based Renderer",
 		"width": 512
 	}
 

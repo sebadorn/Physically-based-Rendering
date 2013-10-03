@@ -4,6 +4,7 @@
 #include <QtGui>
 #include <string>
 
+#include "../Cfg.h"
 #include "../Logger.h"
 #include "GLWidget.h"
 

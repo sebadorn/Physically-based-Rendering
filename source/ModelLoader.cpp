@@ -362,8 +362,8 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 
 		for( int j = 0; j < mesh->mNumVertices; j++ ) {
 			mVertices.push_back( mesh->mVertices[j].x );
-			mVertices.push_back( mesh->mVertices[j + 1].y );
-			mVertices.push_back( mesh->mVertices[j + 2].z );
+			mVertices.push_back( mesh->mVertices[j].y );
+			mVertices.push_back( mesh->mVertices[j].z );
 		}
 
 		for( int j = 0; j < mesh->mNumVertices; j++ ) {

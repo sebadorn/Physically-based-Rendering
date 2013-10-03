@@ -1,8 +1,5 @@
 #include "Window.h"
 
-#define WINDOW_TITLE "Physically-based Renderer"
-#define IMPORT_PATH "/home/seba/programming/Physically-based Rendering/resources/models/"
-
 
 /**
  * Constructor.
@@ -18,7 +15,7 @@ Window::Window() {
 	mMenuBar = this->createMenuBar();
 
 	this->setLayout( this->createLayout() );
-	this->setWindowTitle( tr( WINDOW_TITLE ) );
+	this->setWindowTitle( tr( Cfg::get().value<std::string>( Cfg::WINDOW_TITLE ).c_str() ) );
 }
 
 
@@ -71,7 +68,10 @@ void Window::importFile() {
 	mGLWidget->stopRendering();
 
 	QString fileDialogResult = QFileDialog::getOpenFileName(
-		this, tr( "Import file" ), IMPORT_PATH, tr( "OBJ model (*.obj);;All files (*.*)" )
+		this,
+		tr( "Import file" ),
+		Cfg::get().value<std::string>( Cfg::IMPORT_PATH ).c_str(),
+		tr( "OBJ model (*.obj);;All files (*.*)" )
 	);
 
 	std::string filePath = fileDialogResult.toStdString();

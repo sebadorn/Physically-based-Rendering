@@ -1,7 +1,6 @@
 ## ToDo
 
 * `Feature` Anti-Aliasing
-* `Bug` Minecraft models look just wrong (heavy lighting issues)
 
 
 ## Libraries/headers
@@ -20,3 +19,8 @@
     cmake -DCMAKE_BUILD_TYPE=Release CMakeLists.txt
     make
     ./PBR
+
+
+## Annoyances
+
+* NVIDIA only supports OpenCL 1.1. OpenCL 1.2 support seems unlikely at the moment.
