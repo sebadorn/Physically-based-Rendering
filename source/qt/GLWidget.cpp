@@ -10,7 +10,8 @@ using namespace std;
 GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	srand( (unsigned) time( 0 ) );
 
-	CL* mCl = new CL();
+	CL* mCL = new CL();
+	mCL->createKernel( "findIntersections" );
 
 	mModelMatrix = glm::mat4( 1.0f );
 	mProjectionMatrix = glm::perspective(

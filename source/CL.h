@@ -15,11 +15,13 @@ class CL {
 	public:
 		CL();
 		~CL();
+		void createKernel( const char* functionName );
 		void loadProgram( std::string filepath );
 
 	protected:
 		void buildProgram();
 		bool checkError( cl_int err, const char* functionName );
+		const char* errorCodeToName( cl_int errorCode );
 		void getDefaultDevice();
 		void getDefaultPlatform();
 		void initCommandQueue();
