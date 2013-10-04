@@ -18,6 +18,7 @@ class CL {
 		void loadProgram( std::string filepath );
 
 	protected:
+		void buildProgram();
 		bool checkError( cl_int err, const char* functionName );
 		void getDefaultDevice();
 		void getDefaultPlatform();

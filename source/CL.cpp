@@ -12,6 +12,56 @@ CL::CL() {
 	this->initCommandQueue();
 
 	this->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
+
+
+	cl_int err;
+	mKernel = clCreateKernel( mProgram, "part1", &err );
+	this->checkError( err, "clCreateKernel" );
+
+
+	int num = 10;
+	float* a = new float[num];
+	float* b = new float[num];
+
+	for( int i = 0; i < num; i++ ) {
+		a[i] = 1.0f * i;
+		b[i] = 1.0f * i;
+	}
+
+	cl_mem cl_a = clCreateBuffer( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof( float ) * num, a, &err );
+	cl_mem cl_b = clCreateBuffer( mContext, CL_MEM_READ_ONLY, sizeof( float) * num, NULL, &err );
+	cl_mem cl_c = clCreateBuffer( mContext, CL_MEM_WRITE_ONLY, sizeof( float ) * num, NULL, &err );
+
+	cl_event event;
+	err = clEnqueueWriteBuffer( mCommandQueue, cl_b, CL_TRUE, 0, sizeof( float ) * num, b, 0, NULL , &event );
+	clReleaseEvent( event );
+	this->checkError( err, "clEnqueueWriteBuffer" );
+
+	err = clSetKernelArg( mKernel, 0, sizeof( cl_mem ), (void*) &cl_a );
+	err = clSetKernelArg( mKernel, 1, sizeof( cl_mem ), (void*) &cl_b );
+	err = clSetKernelArg( mKernel, 2, sizeof( cl_mem ), (void*) &cl_c );
+
+	clFinish( mCommandQueue );
+
+	delete [] a;
+	delete [] b;
+
+
+	size_t workgroupSize[1] = { num };
+	err = clEnqueueNDRangeKernel( mCommandQueue, mKernel, 1, NULL, workgroupSize, NULL, 0, NULL, &event );
+	clReleaseEvent( event );
+	this->checkError( err, "clEnqueueNDRangeKernel" );
+	clFinish( mCommandQueue );
+
+
+	float c_done[num];
+	err = clEnqueueReadBuffer( mCommandQueue, cl_c, CL_TRUE, 0, sizeof( float ) * num, &c_done, 0, NULL, &event );
+	clReleaseEvent( event );
+	this->checkError( err, "clEnqueueReadBuffer" );
+
+	for( int i = 0; i < num; i++ ) {
+		printf( "c_done[%d] = %g\n", i, c_done[i] );
+	}
 }
 
 
@@ -27,6 +77,32 @@ CL::~CL() {
 
 
 /**
+ * Build the CL program.
+ */
+void CL::buildProgram() {
+	cl_int err;
+
+	err = clBuildProgram( mProgram, 0, NULL, NULL, NULL, NULL );
+	this->checkError( err, "clBuildProgram" );
+
+	cl_build_status buildStatus;
+	err = clGetProgramBuildInfo( mProgram, mDevice, CL_PROGRAM_BUILD_STATUS, sizeof( cl_build_status ), &buildStatus, NULL );
+	this->checkError( err, "clGetProgramBuildInfo/BUILD_STATUS" );
+
+	size_t logSize;
+	err = clGetProgramBuildInfo( mProgram, mDevice, CL_PROGRAM_BUILD_LOG, 0, NULL, &logSize );
+	this->checkError( err, "clGetProgramBuildInfo/BUILD_LOG/size" );
+
+	char* buildLog;
+	err = clGetProgramBuildInfo( mProgram, mDevice, CL_PROGRAM_BUILD_LOG, logSize, buildLog, NULL );
+	this->checkError( err, "clGetProgramBuildInfo/BUILD_LOG/text" );
+
+	Logger::logDebug( "[OpenCL] Build log:" );
+	Logger::logDebug( buildLog );
+}
+
+
+/**
  * Check for an CL related error and log it.
  * @param  {cl_int}      err          Error code.
  * @param  {const char*} functionName Name of the function it occured in.
@@ -34,8 +110,8 @@ CL::~CL() {
  */
 bool CL::checkError( cl_int err, const char* functionName ) {
 	if( err != CL_SUCCESS ) {
-		char msg[60];
-		snprintf( msg, 60, "[OpenCL] %s error code %d", functionName, (int) err );
+		char msg[80];
+		snprintf( msg, 80, "[OpenCL] %s error code %d", functionName, (int) err );
 		Logger::logError( msg );
 
 		return false;
@@ -150,4 +226,6 @@ void CL::loadProgram( string filepath ) {
 	if( this->checkError( err, "clCreateProgramWithSource" ) ) {
 		Logger::logInfo( string( "[OpenCL] Loaded program " ).append( filepath ) );
 	}
+
+	this->buildProgram();
 }

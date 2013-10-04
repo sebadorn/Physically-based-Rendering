@@ -9,7 +9,7 @@
 	"logging": true,
 
 	"opencl": {
-		"program": "pathtracing.cl"
+		"program": "source/pathtracing.cl"
 	},
 
 	"render": {
