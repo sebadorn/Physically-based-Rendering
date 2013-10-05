@@ -124,6 +124,33 @@ bool CL::checkError( cl_int err, const char* functionName ) {
 }
 
 
+cl_mem CL::createBuffer( float object ) {
+	cl_int err;
+	cl_mem clBuffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof( object ), &object, &err );
+	this->checkError( err, "clCreateBuffer" );
+
+	return clBuffer;
+}
+
+
+cl_mem CL::createBuffer( float* object, size_t objectSize ) {
+	cl_int err;
+	cl_mem clBuffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, objectSize, object, &err );
+	this->checkError( err, "clCreateBuffer" );
+
+	return clBuffer;
+}
+
+
+cl_mem CL::createImage( imgData ) {
+	cl_int err;
+	cl::Image2D clImage = cl::Image2D( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, cl::ImageFormat( CL_R, CL_FLOAT ), 512, 512, 0, &imgData, &err );
+	this->checkError( err, "Image2D" );
+
+	return NULL;
+}
+
+
 /**
  * Create a kernel.
  * @param {const char*} functionName Name of the function to create kernel of.
@@ -336,4 +363,14 @@ const char* CL::errorCodeToName( cl_int errorCode ) {
 	const int index = -errorCode;
 
 	return ( index >= 0 && index < errorCount ) ? errorString[index] : "";
+}
+
+
+void CL::setKernelArgs( vector<cl_mem> buffers ) {
+	cl_int err;
+
+	for( uint i = 0; i < buffers.size(); i++ ) {
+		err = clSetKernelArg( mKernel, 0, sizeof( cl_mem ), (void*) &buffers[i] );
+		this->checkError( err, "clSetKernelArg" );
+	}
 }

@@ -10,8 +10,8 @@ using namespace std;
 GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	srand( (unsigned) time( 0 ) );
 
-	CL* mCL = new CL();
-	mCL->createKernel( "findIntersections" );
+	mCL = new CL();
+	mCL->createKernel( "pathTracing" );
 
 	mModelMatrix = glm::mat4( 1.0f );
 	mProjectionMatrix = glm::perspective(
@@ -394,9 +394,8 @@ void GLWidget::paintGL() {
 
 
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
-	glUniform1f(
-		glGetUniformLocation( mGLProgramTracer, "timeSinceStart" ), msdiff.total_milliseconds() * 0.001
-	);
+	float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
+	glUniform1f( glGetUniformLocation( mGLProgramTracer, "timeSinceStart" ), timeSinceStart );
 
 
 	glm::vec3 v = glm::vec3(
@@ -420,6 +419,32 @@ void GLWidget::paintGL() {
 		glGetUniformLocation( mGLProgramTracer, "textureWeight" ), mSampleCount / (float) ( mSampleCount + 1 )
 	);
 
+
+	if( mVertices.size() > 0 ) {
+		vector<GLfloat> eye = mCamera->getEye();
+		vector<cl_mem> clBuffers;
+		GLfloat textureWeight = mSampleCount / (float) ( mSampleCount + 1 );
+
+		clBuffers.push_back( mCL->createBuffer( mIndices, sizeof( GLuint ) * mIndices.size() ) );
+		clBuffers.push_back( mCL->createBuffer( mVertices, sizeof( GLfloat ) * mVertices.size() ) );
+		clBuffers.push_back( mCL->createBuffer( mNormals, sizeof( GLfloat ) * mNormals.size() ) );
+
+		clBuffers.push_back( mCL->createBuffer( eye, sizeof( GLfloat ) * eye.size() ) );
+		clBuffers.push_back( mCL->createBuffer( &ray00[0], sizeof( GLfloat ) * 3 ) );
+		clBuffers.push_back( mCL->createBuffer( &ray01[0], sizeof( GLfloat ) * 3 ) );
+		clBuffers.push_back( mCL->createBuffer( &ray10[0], sizeof( GLfloat ) * 3 ) );
+		clBuffers.push_back( mCL->createBuffer( &ray11[0], sizeof( GLfloat ) * 3 ) );
+
+		clBuffers.push_back( mCL->createBuffer( textureWeight ) );
+		clBuffers.push_back( mCL->createBuffer( timeSinceStart ) );
+
+		clBuffers.push_back( mCL->createImage() ); // TODO
+
+		//Buffer clResult = Buffer(context, CL_MEM_WRITE_ONLY, sizeof(float)*image->getWidth()*image->getHeight());
+
+		mCL->setKernelArgs( clBuffers );
+		exit( 1 ); // TODO: REMOVE
+	}
 
 	this->paintScene();
 	this->showFPS();

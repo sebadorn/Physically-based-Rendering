@@ -244,7 +244,7 @@ void main() {
 	// NOT object texture! This is the rendered image up until now.
 	vec3 texture = texture2D( texUnit, gl_FragCoord.xy / 512.0 ).rgb;
 
-	vec3 hit = findIntersection( eye, initialRay );
+	// vec3 hit = findIntersection( eye, initialRay );
 
 	// color = vec4( mix( calculateColor( eye, initialRay, newLight ), texture, textureWeight ), 1.0 );
 	color = vec4( 0.6, 0.2, 0.8, 1.0 );

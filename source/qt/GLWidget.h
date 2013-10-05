@@ -76,7 +76,7 @@ class GLWidget : public QGLWidget {
 		GLuint mPreviousTime;
 		GLuint mSampleCount;
 
-		CL* mCl;
+		CL* mCL;
 		QTimer* mTimer;
 
 		std::vector<light_t> mLights;
