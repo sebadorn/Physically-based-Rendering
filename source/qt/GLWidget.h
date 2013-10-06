@@ -103,6 +103,9 @@ class GLWidget : public QGLWidget {
 		GLuint mVertexAttribute;
 		GLuint mVertexBuffer;
 
+		std::vector<float> mTextureIn;
+		std::vector<float> mTextureOut;
+
 };
 
 #endif

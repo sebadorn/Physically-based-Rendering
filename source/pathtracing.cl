@@ -1,14 +1,11 @@
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
 
-inline float4 findIntersection( __global uint* indices, __global float* vertices, __global float* normals, __global float* rayIn, __global float* originIn ) {
+inline float4 findIntersection( float4 ray, float4 origin, __global uint* indices, __global float* vertices ) {
 	uint index;
 	float4 a, b, c;
 	float4 planeNormal;
 	float numerator, denumerator, r;
-
-	float4 ray = (float4)( rayIn[0], rayIn[1], rayIn[2], 1.0f );
-	float4 origin = (float4)( originIn[0], originIn[1], originIn[2], 1.0f );
 
 	uint numIndices = sizeof( indices ) / sizeof( indices[0] );
 
@@ -60,19 +57,19 @@ inline float4 findIntersection( __global uint* indices, __global float* vertices
 
 
 inline float random( float4 scale, float seed ) {
-	return fract( sin( dot( seed, scale ) ) * 43758.5453f + seed );
+	float i;
+	return fract( sin( dot( seed, scale ) ) * 43758.5453f + seed, &i );
 }
-
 
 
 inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 1.0f ), seed );
-	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f ), seed );
+	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 1.0f ), seed );
 	float r = sqrt( u );
 	float angle = 6.283185307179586f * v;
 	float4 sdir, tdir;
 
-	if( abs( normal.x ) < 0.5f ) {
+	if( fabs( normal.x ) < 0.5f ) {
 		sdir = cross( normal, (float4)( 1.0f, 0.0f, 0.0f, 1.0f ) );
 	}
 	else {
@@ -97,18 +94,19 @@ inline float4 uniformlyRandomDirection( float seed ) {
 
 
 inline float4 uniformlyRandomVector( float seed ) {
-	return uniformlyRandomDirection( seed ) * sqrt( random( (float4)( 36.7539f, 50.3658f, 306.2759f, 0.0f ), seed ) );
+	float rand = random( (float4)( 36.7539f, 50.3658f, 306.2759f, 0.0f ), seed );
+	return uniformlyRandomDirection( seed ) * sqrt( rand );
 }
 
 
-inline float4 calculateColor( float4 origin, float4 ray, float4 light ) {
+inline float4 calculateColor( float4 origin, float4 ray, float4 light, __global uint* indices, __global float* vertices ) {
 	float4 colorMask = (float4)( 1.0f );
 	float4 accumulatedColor = (float4)( 0.0f );
 
 	for( uint bounce = 0; bounce < 3; bounce++ ) {
-		float4 hit = findIntersection( origin, ray );
+		float4 hit = findIntersection( origin, ray, indices, vertices );
 
-		if( hit[0] == 10000.0f ) {
+		if( hit.x == 10000.0f ) {
 			break;
 		}
 
@@ -117,7 +115,7 @@ inline float4 calculateColor( float4 origin, float4 ray, float4 light ) {
 		float4 normal;
 
 		float4 toLight = light - hit;
-		toLight[3] = 0.0f;
+		toLight.w = 0.0f;
 		float diffuse = max( 0.0f, dot( normalize( toLight ), normal ) );
 		float shadowIntensity = 1.0f;
 
@@ -133,19 +131,32 @@ inline float4 calculateColor( float4 origin, float4 ray, float4 light ) {
 
 __kernel void pathTracing(
 		__global uint* indices, __global float* vertices, __global float* normals,
-		__global float* eye,
-		__global float* ray00, __global float* ray01, __global float* ray10, __global float* ray11,
+		__global float* eyeIn,
+		__global float* ray00In, __global float* ray01In, __global float* ray10In, __global float* ray11In,
 		float textureWeight, float timeSinceStart,
-		__read_only image2d_t image
+		__read_only image2d_t textureIn,
+		__write_only image2d_t textureOut
 	) {
 
-	vec2 percent = vertex.xy * 0.5 + 0.5; // TODO: vertex
+	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
+
+	float4 ray00 = (float4)( ray00In[0], ray00In[1], ray00In[2], 1.0f );
+	float4 ray01 = (float4)( ray01In[0], ray01In[1], ray01In[2], 1.0f );
+	float4 ray10 = (float4)( ray10In[0], ray10In[1], ray10In[2], 1.0f );
+	float4 ray11 = (float4)( ray11In[0], ray11In[1], ray11In[2], 1.0f );
+
+	float2 percent = convert_float2( pos ) * 0.5 + 0.5;
+
 	float4 initialRay = mix( mix( ray00, ray01, percent.y ), mix( ray10, ray11, percent.y ), percent.x );
+	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 1.0f );
 
 	float4 light = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
 	float4 newLight = light + uniformlyRandomVector( timeSinceStart - 53.0f ) * 0.1f;
-	float4 texture = texture2D( texUnit, gl_FragCoord.xy / 512.0f ).rgb; // TODO: texture
+	float4 texturePixel = read_imagef( textureIn, sampler, pos );
 
-	float4 color = mix( calculateColor( eye, initialRay, newLight ), texture, textureWeight );
-	color[3] = 1.0f;
+	float4 calculatedColor = calculateColor( eye, initialRay, newLight, indices, vertices );
+	float4 color = mix( calculatedColor, texturePixel, textureWeight );
+	color.w = 1.0f;
+
+	write_imagef( textureOut, pos, color );
 }

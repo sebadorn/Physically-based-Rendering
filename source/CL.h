@@ -2,7 +2,9 @@
 #define CL_H
 
 #include <CL/cl.hpp>
+#include <GL/gl.h>
 #include <iostream>
+#include <QGLWidget>
 #include <string>
 #include <vector>
 
@@ -14,7 +16,7 @@
 class CL {
 
 	public:
-		CL();
+		CL( QGLWidget* parent );
 		~CL();
 		cl_mem createBuffer( float object );
 		cl_mem createBuffer( float* object, size_t objectSize );
@@ -25,7 +27,10 @@ class CL {
 
 			return clBuffer;
 		}
+		// cl_mem createImageGL( GLuint textureID );
+		cl_mem createImage( size_t width, size_t height, float* data, cl_mem_flags flags );
 		void createKernel( const char* functionName );
+		void execute();
 		void loadProgram( std::string filepath );
 		void setKernelArgs( std::vector<cl_mem> buffers );
 
@@ -39,6 +44,8 @@ class CL {
 		void initContext( cl_device_id* devices );
 
 	private:
+		QGLWidget* mParent;
+		std::vector<cl_mem> mImages;
 		cl_command_queue mCommandQueue;
 		cl_context mContext;
 		cl_device_id mDevice;

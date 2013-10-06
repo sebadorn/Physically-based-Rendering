@@ -30,6 +30,9 @@ find_package( OpenCL REQUIRED )
 include_directories( ${OPENCL_INCLUDE_DIRS} )
 set( LIBRARIES ${LIBRARIES} ${OPENCL_LIBRARIES} )
 
+# Ignore deprecated OpenCL 1.1 headers warning
+add_definitions( -DCL_USE_DEPRECATED_OPENCL_1_1_APIS )
+
 
 # Qt4
 find_package( Qt4 REQUIRED )

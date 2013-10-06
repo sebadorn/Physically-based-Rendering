@@ -6,7 +6,9 @@ using namespace std;
 /**
  * Constructor.
  */
-CL::CL() {
+CL::CL( QGLWidget* parent ) {
+	mParent = parent;
+
 	mCommandQueue = NULL;
 	mContext = NULL;
 	mDevice = NULL;
@@ -142,13 +144,30 @@ cl_mem CL::createBuffer( float* object, size_t objectSize ) {
 }
 
 
-cl_mem CL::createImage( imgData ) {
+cl_mem CL::createImage( size_t width, size_t height, float* data, cl_mem_flags flags ) {
 	cl_int err;
-	cl::Image2D clImage = cl::Image2D( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, cl::ImageFormat( CL_R, CL_FLOAT ), 512, 512, 0, &imgData, &err );
-	this->checkError( err, "Image2D" );
+	cl_image_format format;
 
-	return NULL;
+	format.image_channel_order = CL_RGB;
+	format.image_channel_data_type = CL_FLOAT;
+
+	cl_mem image = clCreateImage2D( mContext, flags, &format, width, height, 0, data, &err );
+	this->checkError( err, "clCreateImage2D" );
+
+	return image;
 }
+
+
+// cl_mem CL::createImageGL( GLuint textureID ) {
+// 	cl_int err;
+// 	cl_mem targetTexture = clCreateFromGLTexture2D( mContext, CL_MEM_READ_WRITE, GL_TEXTURE_2D, 0, textureID, &err);
+// 	this->checkError( err, "clCreateFromGLTexture2D" );
+
+// 	clEnqueueAcquireGLObjects( mCommandQueue, 1, &targetTexture, 0, NULL, NULL );
+// 	mImages.push_back( targetTexture );
+
+// 	return targetTexture;
+// }
 
 
 /**
@@ -166,6 +185,23 @@ void CL::createKernel( const char* functionName ) {
 	if( !this->checkError( err, "clCreateKernel" ) ) {
 		exit( EXIT_FAILURE );
 	}
+}
+
+
+void CL::execute() {
+	cl_int err;
+
+	size_t threads[2] = { 512, 512 };
+	err = clEnqueueNDRangeKernel( mCommandQueue, mKernel, 2, NULL, threads, NULL, 0, NULL, NULL);
+	this->checkError( err, "clEnqueueNDRangeKernel" );
+
+	err = clEnqueueReleaseGLObjects( mCommandQueue, mImages.size(), &mImages[0], 0, NULL, NULL);
+	this->checkError( err, "clEnqueueReleaseGLObjects" );
+
+	clFlush( mCommandQueue );
+	clFinish( mCommandQueue );
+
+	mImages.clear();
 }
 
 
@@ -188,18 +224,32 @@ void CL::getDefaultDevice() {
 	devices = new cl_device_id[deviceCount];
 	clGetDeviceIDs( mPlatform, CL_DEVICE_TYPE_ALL, deviceCount, devices, NULL );
 
+
+	// Get device name
 	clGetDeviceInfo( devices[0], CL_DEVICE_NAME, 0, NULL, &valueSize );
 	value = (char*) malloc( valueSize );
 	clGetDeviceInfo( devices[0], CL_DEVICE_NAME, valueSize, value, NULL );
-
 	Logger::logInfo( string( "[OpenCL] Using device " ).append( value ) );
 	free( value );
 
 
+	// Check for needed gl_sharing extension
+	clGetDeviceInfo( devices[0], CL_DEVICE_EXTENSIONS, 0, NULL, &valueSize );
+	value = (char*) malloc( valueSize );
+	clGetDeviceInfo( devices[0], CL_DEVICE_EXTENSIONS, valueSize, value, NULL );
+	string extensions( value );
+	free( value );
+
+	if( extensions.find( "cl_khr_gl_sharing" ) == string::npos
+			&& extensions.find( "cl_APPLE_gl_sharing" ) == string::npos ) {
+		Logger::logError( "[OpenCL] Extension \"cl_khr_gl_sharing\" or \"cl_APPLE_gl_sharing\" not supported." );
+		Logger::logDebug( string( "[OpenCL] Supported extensions:\n" ) + extensions );
+		exit( EXIT_FAILURE );
+	}
+
+
 	this->initContext( devices );
-
 	mDevice = devices[0];
-
 	delete devices;
 }
 
@@ -242,7 +292,13 @@ void CL::getDefaultPlatform() {
  */
 void CL::initContext( cl_device_id* devices ) {
 	cl_int err;
-	mContext = clCreateContext( 0, 1, devices, NULL, NULL, &err );
+	cl_context_properties properties[] = {
+		// CL_GL_CONTEXT_KHR, (cl_context_properties) mParent->context(),
+		// CL_GLX_DISPLAY_KHR, (cl_context_properties) ???,
+		CL_CONTEXT_PLATFORM, (cl_context_properties) mPlatform,
+		0
+	};
+	mContext = clCreateContext( properties, 1, devices, NULL, NULL, &err );
 
 	if( !this->checkError( err, "clCreateContext" ) ) {
 		exit( EXIT_FAILURE );

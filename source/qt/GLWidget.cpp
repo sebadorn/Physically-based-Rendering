@@ -10,7 +10,7 @@ using namespace std;
 GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	srand( (unsigned) time( 0 ) );
 
-	mCL = new CL();
+	mCL = new CL( this );
 	mCL->createKernel( "pathTracing" );
 
 	mModelMatrix = glm::mat4( 1.0f );
@@ -196,17 +196,21 @@ void GLWidget::initShaders() {
 
 
 void GLWidget::initTargetTexture() {
-	mTargetTextures = vector<GLuint>( 2 );
-	glGenTextures( 2, &mTargetTextures[0] );
+	// mTargetTextures = vector<GLuint>( 2 );
+	// glGenTextures( 2, &mTargetTextures[0] );
 
-	for( int i = 0; i < 2; i++ ) {
-		glBindTexture( GL_TEXTURE_2D, mTargetTextures[i] );
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-		glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, 512, 512, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL );
-	}
+	// for( int i = 0; i < 2; i++ ) {
+	// 	glBindTexture( GL_TEXTURE_2D, mTargetTextures[i] );
+	// 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+	// 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+	// 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, 512, 512, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL );
+	// }
 
-	glBindTexture( GL_TEXTURE_2D, 0 );
+	// glBindTexture( GL_TEXTURE_2D, 0 );
+	// glFlush();
+
+	mTextureIn = vector<float>( 512 * 512 * 3 );
+	mTextureOut = vector<float>( 512 * 512 * 3 );
 }
 
 
@@ -234,7 +238,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mVertices = ml->mVertices;
 	mNormals = ml->mNormals;
 
-	this->initShaders();
+	// this->initShaders();
 
 	// Ready
 	this->startRendering();
@@ -352,20 +356,20 @@ void GLWidget::paintGL() {
 	// glUniformMatrix3fv(
 	// 	glGetUniformLocation( mGLProgramTracer, "normalMatrix" ), 1, GL_FALSE, &mNormalMatrix[0][0]
 	// );
-	glUniform3fv(
-		glGetUniformLocation( mGLProgramTracer, "eye" ), 3, &(mCamera->getEye())[0]
-	);
+	// glUniform3fv(
+	// 	glGetUniformLocation( mGLProgramTracer, "eye" ), 3, &(mCamera->getEye())[0]
+	// );
 
 
-	glUniform3fv(
-		glGetUniformLocation( mGLProgramTracer, "vertices" ), mVertices.size() / 3, &mVertices[0]
-	);
+	// glUniform3fv(
+	// 	glGetUniformLocation( mGLProgramTracer, "vertices" ), mVertices.size() / 3, &mVertices[0]
+	// );
 	// glUniform3fv(
 	// 	glGetUniformLocation( mGLProgramTracer, "normals" ), mNormals.size() / 3, &mNormals[0]
 	// );
-	glUniform3iv(
-		glGetUniformLocation( mGLProgramTracer, "indices" ), mIndices.size() / 3, &mIndices[0]
-	);
+	// glUniform3iv(
+	// 	glGetUniformLocation( mGLProgramTracer, "indices" ), mIndices.size() / 3, &mIndices[0]
+	// );
 
 
 	// Light(s)
@@ -395,7 +399,7 @@ void GLWidget::paintGL() {
 
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
 	float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
-	glUniform1f( glGetUniformLocation( mGLProgramTracer, "timeSinceStart" ), timeSinceStart );
+	// glUniform1f( glGetUniformLocation( mGLProgramTracer, "timeSinceStart" ), timeSinceStart );
 
 
 	glm::vec3 v = glm::vec3(
@@ -410,14 +414,14 @@ void GLWidget::paintGL() {
 	glm::vec3 ray10 = this->getEyeRay( jitter, +1.0f, -1.0f );
 	glm::vec3 ray11 = this->getEyeRay( jitter, +1.0f, +1.0f );
 
-	glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray00" ), 1, &ray00[0] );
-	glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray01" ), 1, &ray01[0] );
-	glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray10" ), 1, &ray10[0] );
-	glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray11" ), 1, &ray11[0] );
+	// glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray00" ), 1, &ray00[0] );
+	// glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray01" ), 1, &ray01[0] );
+	// glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray10" ), 1, &ray10[0] );
+	// glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray11" ), 1, &ray11[0] );
 
-	glUniform1f(
-		glGetUniformLocation( mGLProgramTracer, "textureWeight" ), mSampleCount / (float) ( mSampleCount + 1 )
-	);
+	// glUniform1f(
+	// 	glGetUniformLocation( mGLProgramTracer, "textureWeight" ), mSampleCount / (float) ( mSampleCount + 1 )
+	// );
 
 
 	if( mVertices.size() > 0 ) {
@@ -438,15 +442,18 @@ void GLWidget::paintGL() {
 		clBuffers.push_back( mCL->createBuffer( textureWeight ) );
 		clBuffers.push_back( mCL->createBuffer( timeSinceStart ) );
 
-		clBuffers.push_back( mCL->createImage() ); // TODO
+		size_t w = 512;
+		size_t h = 512;
 
-		//Buffer clResult = Buffer(context, CL_MEM_WRITE_ONLY, sizeof(float)*image->getWidth()*image->getHeight());
+		clBuffers.push_back( mCL->createImage( w, h, &mTextureIn[0], CL_MEM_READ_ONLY ) );
+		clBuffers.push_back( mCL->createImage( w, h, &mTextureOut[0], CL_MEM_WRITE_ONLY ) );
 
 		mCL->setKernelArgs( clBuffers );
-		exit( 1 ); // TODO: REMOVE
+		mCL->execute();
+
+		this->paintScene();
 	}
 
-	this->paintScene();
 	this->showFPS();
 }
 
