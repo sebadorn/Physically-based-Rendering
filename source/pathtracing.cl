@@ -133,12 +133,14 @@ __kernel void pathTracing(
 		__global uint* indices, __global float* vertices, __global float* normals,
 		__global float* eyeIn,
 		__global float* ray00In, __global float* ray01In, __global float* ray10In, __global float* ray11In,
-		float textureWeight, float timeSinceStart,
-		__read_only image2d_t textureIn,
-		__write_only image2d_t textureOut
+		__global float* compact,
+		__read_only image2d_t textureIn, __write_only image2d_t textureOut
 	) {
 
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
+
+	float textureWeight = compact[0];
+	float timeSinceStart = compact[1];
 
 	float4 ray00 = (float4)( ray00In[0], ray00In[1], ray00In[2], 1.0f );
 	float4 ray01 = (float4)( ray01In[0], ray01In[1], ray01In[2], 1.0f );

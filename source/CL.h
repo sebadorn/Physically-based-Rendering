@@ -16,7 +16,7 @@
 class CL {
 
 	public:
-		CL( QGLWidget* parent );
+		CL();
 		~CL();
 		cl_mem createBuffer( float object );
 		cl_mem createBuffer( float* object, size_t objectSize );
@@ -27,11 +27,13 @@ class CL {
 
 			return clBuffer;
 		}
-		// cl_mem createImageGL( GLuint textureID );
-		cl_mem createImage( size_t width, size_t height, float* data, cl_mem_flags flags );
+		cl_mem createImageReadOnly( size_t width, size_t height, float* data );
+		cl_mem createImageWriteOnly( size_t width, size_t height );
 		void createKernel( const char* functionName );
 		void execute();
+		void finish();
 		void loadProgram( std::string filepath );
+		void readImageOutput( size_t width, size_t height, float* outputTarget );
 		void setKernelArgs( std::vector<cl_mem> buffers );
 
 	protected:
@@ -44,14 +46,15 @@ class CL {
 		void initContext( cl_device_id* devices );
 
 	private:
-		QGLWidget* mParent;
-		std::vector<cl_mem> mImages;
 		cl_command_queue mCommandQueue;
 		cl_context mContext;
 		cl_device_id mDevice;
 		cl_kernel mKernel;
 		cl_platform_id mPlatform;
 		cl_program mProgram;
+		cl_mem mWriteImage;
+
+		std::vector<cl_event> mEvents;
 
 };
 

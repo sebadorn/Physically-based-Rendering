@@ -105,6 +105,8 @@ class GLWidget : public QGLWidget {
 
 		std::vector<float> mTextureIn;
 		std::vector<float> mTextureOut;
+		cl_mem mKernelArgTextureIn;
+		cl_mem mKernelArgTextureOut;
 
 };
 

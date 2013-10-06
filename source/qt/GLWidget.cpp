@@ -10,7 +10,9 @@ using namespace std;
 GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	srand( (unsigned) time( 0 ) );
 
-	mCL = new CL( this );
+	mCL = new CL();
+	this->initTargetTexture();
+	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
 	mCL->createKernel( "pathTracing" );
 
 	mModelMatrix = glm::mat4( 1.0f );
@@ -133,7 +135,7 @@ void GLWidget::initializeGL() {
 	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
 	this->initGlew();
-	this->initTargetTexture();
+	// this->initTargetTexture();
 
 	GLfloat vertices[8] = {
 		-1.0f, -1.0f,
@@ -196,21 +198,14 @@ void GLWidget::initShaders() {
 
 
 void GLWidget::initTargetTexture() {
-	// mTargetTextures = vector<GLuint>( 2 );
-	// glGenTextures( 2, &mTargetTextures[0] );
+	size_t w = 512;
+	size_t h = 512;
 
-	// for( int i = 0; i < 2; i++ ) {
-	// 	glBindTexture( GL_TEXTURE_2D, mTargetTextures[i] );
-	// 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-	// 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-	// 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, 512, 512, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL );
-	// }
+	mTextureIn = vector<float>( w * h * 4 );
+	mTextureOut = vector<float>( w * h * 4 );
 
-	// glBindTexture( GL_TEXTURE_2D, 0 );
-	// glFlush();
-
-	mTextureIn = vector<float>( 512 * 512 * 3 );
-	mTextureOut = vector<float>( 512 * 512 * 3 );
+	mKernelArgTextureIn = mCL->createImageReadOnly( w, h, &mTextureIn[0] );
+	mKernelArgTextureOut = mCL->createImageWriteOnly( w, h );
 }
 
 
@@ -344,37 +339,8 @@ void GLWidget::paintGL() {
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 
-	// glUniformMatrix4fv(
-	// 	glGetUniformLocation( mGLProgramTracer, "modelViewProjectionMatrix" ), 1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
-	// );
-	// glUniformMatrix4fv(
-	// 	glGetUniformLocation( mGLProgramTracer, "modelMatrix" ), 1, GL_FALSE, &mModelMatrix[0][0]
-	// );
-	// glUniformMatrix4fv(
-	// 	glGetUniformLocation( mGLProgramTracer, "viewMatrix" ), 1, GL_FALSE, &mViewMatrix[0][0]
-	// );
-	// glUniformMatrix3fv(
-	// 	glGetUniformLocation( mGLProgramTracer, "normalMatrix" ), 1, GL_FALSE, &mNormalMatrix[0][0]
-	// );
-	// glUniform3fv(
-	// 	glGetUniformLocation( mGLProgramTracer, "eye" ), 3, &(mCamera->getEye())[0]
-	// );
-
-
-	// glUniform3fv(
-	// 	glGetUniformLocation( mGLProgramTracer, "vertices" ), mVertices.size() / 3, &mVertices[0]
-	// );
-	// glUniform3fv(
-	// 	glGetUniformLocation( mGLProgramTracer, "normals" ), mNormals.size() / 3, &mNormals[0]
-	// );
-	// glUniform3iv(
-	// 	glGetUniformLocation( mGLProgramTracer, "indices" ), mIndices.size() / 3, &mIndices[0]
-	// );
-
-
 	// Light(s)
 
-	// glUniform1i( glGetUniformLocation( mGLProgramTracer, "numLights" ), mLights.size() );
 	// char lightName1[20];
 	// char lightName2[20];
 
@@ -391,15 +357,11 @@ void GLWidget::paintGL() {
 	// 	float lightData2[4] = {
 	// 		mLights[i].spotExponent, mLights[i].spotDirection[0], mLights[i].spotDirection[1], mLights[i].spotDirection[2]
 	// 	};
-
-	// 	glUniformMatrix4fv( glGetUniformLocation( mGLProgramTracer, lightName1 ), 1, GL_FALSE, &lightData1[0] );
-	// 	glUniform4fv( glGetUniformLocation( mGLProgramTracer, lightName2 ), 1, &lightData2[0] );
 	// }
 
 
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
 	float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
-	// glUniform1f( glGetUniformLocation( mGLProgramTracer, "timeSinceStart" ), timeSinceStart );
 
 
 	glm::vec3 v = glm::vec3(
@@ -414,20 +376,11 @@ void GLWidget::paintGL() {
 	glm::vec3 ray10 = this->getEyeRay( jitter, +1.0f, -1.0f );
 	glm::vec3 ray11 = this->getEyeRay( jitter, +1.0f, +1.0f );
 
-	// glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray00" ), 1, &ray00[0] );
-	// glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray01" ), 1, &ray01[0] );
-	// glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray10" ), 1, &ray10[0] );
-	// glUniform3fv( glGetUniformLocation( mGLProgramTracer, "ray11" ), 1, &ray11[0] );
-
-	// glUniform1f(
-	// 	glGetUniformLocation( mGLProgramTracer, "textureWeight" ), mSampleCount / (float) ( mSampleCount + 1 )
-	// );
-
 
 	if( mVertices.size() > 0 ) {
-		vector<GLfloat> eye = mCamera->getEye();
+		vector<float> eye = mCamera->getEye();
 		vector<cl_mem> clBuffers;
-		GLfloat textureWeight = mSampleCount / (float) ( mSampleCount + 1 );
+		cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 
 		clBuffers.push_back( mCL->createBuffer( mIndices, sizeof( GLuint ) * mIndices.size() ) );
 		clBuffers.push_back( mCL->createBuffer( mVertices, sizeof( GLfloat ) * mVertices.size() ) );
@@ -439,18 +392,20 @@ void GLWidget::paintGL() {
 		clBuffers.push_back( mCL->createBuffer( &ray10[0], sizeof( GLfloat ) * 3 ) );
 		clBuffers.push_back( mCL->createBuffer( &ray11[0], sizeof( GLfloat ) * 3 ) );
 
-		clBuffers.push_back( mCL->createBuffer( textureWeight ) );
-		clBuffers.push_back( mCL->createBuffer( timeSinceStart ) );
+		float compact[2] = { textureWeight, timeSinceStart };
+		clBuffers.push_back( mCL->createBuffer( compact, sizeof( float ) * 2 ) );
 
-		size_t w = 512;
-		size_t h = 512;
-
-		clBuffers.push_back( mCL->createImage( w, h, &mTextureIn[0], CL_MEM_READ_ONLY ) );
-		clBuffers.push_back( mCL->createImage( w, h, &mTextureOut[0], CL_MEM_WRITE_ONLY ) );
+		clBuffers.push_back( mKernelArgTextureIn );
+		clBuffers.push_back( mKernelArgTextureOut );
 
 		mCL->setKernelArgs( clBuffers );
 		mCL->execute();
 
+		float output[512 * 512 * 4];
+		mCL->readImageOutput( 512, 512, output );
+
+		mCL->finish();
+exit( 1 );
 		this->paintScene();
 	}
 

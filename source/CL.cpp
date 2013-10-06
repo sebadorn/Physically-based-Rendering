@@ -6,9 +6,7 @@ using namespace std;
 /**
  * Constructor.
  */
-CL::CL( QGLWidget* parent ) {
-	mParent = parent;
-
+CL::CL() {
 	mCommandQueue = NULL;
 	mContext = NULL;
 	mDevice = NULL;
@@ -19,53 +17,6 @@ CL::CL( QGLWidget* parent ) {
 	this->getDefaultPlatform();
 	this->getDefaultDevice();
 	this->initCommandQueue();
-
-	this->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
-
-	// cl_int err;
-	// int num = 10;
-	// float* a = new float[num];
-	// float* b = new float[num];
-
-	// for( int i = 0; i < num; i++ ) {
-	// 	a[i] = 1.0f * i;
-	// 	b[i] = 1.0f * i;
-	// }
-
-	// cl_mem cl_a = clCreateBuffer( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof( float ) * num, a, &err );
-	// cl_mem cl_b = clCreateBuffer( mContext, CL_MEM_READ_ONLY, sizeof( float) * num, NULL, &err );
-	// cl_mem cl_c = clCreateBuffer( mContext, CL_MEM_WRITE_ONLY, sizeof( float ) * num, NULL, &err );
-
-	// cl_event event;
-	// err = clEnqueueWriteBuffer( mCommandQueue, cl_b, CL_TRUE, 0, sizeof( float ) * num, b, 0, NULL , &event );
-	// clReleaseEvent( event );
-	// this->checkError( err, "clEnqueueWriteBuffer" );
-
-	// err = clSetKernelArg( mKernel, 0, sizeof( cl_mem ), (void*) &cl_a );
-	// err = clSetKernelArg( mKernel, 1, sizeof( cl_mem ), (void*) &cl_b );
-	// err = clSetKernelArg( mKernel, 2, sizeof( cl_mem ), (void*) &cl_c );
-
-	// clFinish( mCommandQueue );
-
-	// delete [] a;
-	// delete [] b;
-
-
-	// size_t workgroupSize[1] = { num };
-	// err = clEnqueueNDRangeKernel( mCommandQueue, mKernel, 1, NULL, workgroupSize, NULL, 0, NULL, &event );
-	// clReleaseEvent( event );
-	// this->checkError( err, "clEnqueueNDRangeKernel" );
-	// clFinish( mCommandQueue );
-
-
-	// float c_done[num];
-	// err = clEnqueueReadBuffer( mCommandQueue, cl_c, CL_TRUE, 0, sizeof( float ) * num, &c_done, 0, NULL, &event );
-	// clReleaseEvent( event );
-	// this->checkError( err, "clEnqueueReadBuffer" );
-
-	// for( int i = 0; i < num; i++ ) {
-	// 	printf( "c_done[%d] = %g\n", i, c_done[i] );
-	// }
 }
 
 
@@ -126,9 +77,9 @@ bool CL::checkError( cl_int err, const char* functionName ) {
 }
 
 
-cl_mem CL::createBuffer( float object ) {
+cl_mem CL::createBuffer( cl_float object ) {
 	cl_int err;
-	cl_mem clBuffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof( object ), &object, &err );
+	cl_mem clBuffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY, sizeof( cl_float ), &object, &err );
 	this->checkError( err, "clCreateBuffer" );
 
 	return clBuffer;
@@ -144,30 +95,41 @@ cl_mem CL::createBuffer( float* object, size_t objectSize ) {
 }
 
 
-cl_mem CL::createImage( size_t width, size_t height, float* data, cl_mem_flags flags ) {
+cl_mem CL::createImageReadOnly( size_t width, size_t height, float* data ) {
+	cl_int err;
+	cl_image_format format;
+
+	format.image_channel_order = CL_RGBA;
+	format.image_channel_data_type = CL_FLOAT;
+
+	cl_mem image = clCreateImage2D( mContext, CL_MEM_READ_ONLY, &format, width, height, 0, 0, &err );
+	this->checkError( err, "clCreateImage2D" );
+
+
+	size_t origin[] = { 0, 0, 0 }; // Defines the offset in pixels in the image from where to write.
+	size_t region[] = { width, height, 1 }; // Size of object to be transferred
+	cl_event event;
+
+	err = clEnqueueWriteImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, data, 0, NULL, &event );
+	this->checkError( err, "clEnqueueWriteImage" );
+	mEvents.push_back( event );
+
+	return image;
+}
+
+
+cl_mem CL::createImageWriteOnly( size_t width, size_t height ) {
 	cl_int err;
 	cl_image_format format;
 
 	format.image_channel_order = CL_RGB;
 	format.image_channel_data_type = CL_FLOAT;
 
-	cl_mem image = clCreateImage2D( mContext, flags, &format, width, height, 0, data, &err );
+	mWriteImage = clCreateImage2D( mContext, CL_MEM_WRITE_ONLY, &format, width, height, 0, 0, &err );
 	this->checkError( err, "clCreateImage2D" );
 
-	return image;
+	return mWriteImage;
 }
-
-
-// cl_mem CL::createImageGL( GLuint textureID ) {
-// 	cl_int err;
-// 	cl_mem targetTexture = clCreateFromGLTexture2D( mContext, CL_MEM_READ_WRITE, GL_TEXTURE_2D, 0, textureID, &err);
-// 	this->checkError( err, "clCreateFromGLTexture2D" );
-
-// 	clEnqueueAcquireGLObjects( mCommandQueue, 1, &targetTexture, 0, NULL, NULL );
-// 	mImages.push_back( targetTexture );
-
-// 	return targetTexture;
-// }
 
 
 /**
@@ -188,20 +150,87 @@ void CL::createKernel( const char* functionName ) {
 }
 
 
+/**
+ * Return a more readable name to a given error code number.
+ * Source: https://github.com/enjalot/adventures_in_opencl/blob/master/part1/util.cpp
+ * @param  {cl_int}      errorCode Error code.
+ * @return {const char*}           Error name.
+ */
+const char* CL::errorCodeToName( cl_int errorCode ) {
+	static const char* errorString[] = {
+		"CL_SUCCESS",
+		"CL_DEVICE_NOT_FOUND",
+		"CL_DEVICE_NOT_AVAILABLE",
+		"CL_COMPILER_NOT_AVAILABLE",
+		"CL_MEM_OBJECT_ALLOCATION_FAILURE",
+		"CL_OUT_OF_RESOURCES",
+		"CL_OUT_OF_HOST_MEMORY",
+		"CL_PROFILING_INFO_NOT_AVAILABLE",
+		"CL_MEM_COPY_OVERLAP",
+		"CL_IMAGE_FORMAT_MISMATCH",
+		"CL_IMAGE_FORMAT_NOT_SUPPORTED",
+		"CL_BUILD_PROGRAM_FAILURE",
+		"CL_MAP_FAILURE",
+		"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+		"CL_INVALID_VALUE",
+		"CL_INVALID_DEVICE_TYPE",
+		"CL_INVALID_PLATFORM",
+		"CL_INVALID_DEVICE",
+		"CL_INVALID_CONTEXT",
+		"CL_INVALID_QUEUE_PROPERTIES",
+		"CL_INVALID_COMMAND_QUEUE",
+		"CL_INVALID_HOST_PTR",
+		"CL_INVALID_MEM_OBJECT",
+		"CL_INVALID_IMAGE_FORMAT_DESCRIPTOR",
+		"CL_INVALID_IMAGE_SIZE",
+		"CL_INVALID_SAMPLER",
+		"CL_INVALID_BINARY",
+		"CL_INVALID_BUILD_OPTIONS",
+		"CL_INVALID_PROGRAM",
+		"CL_INVALID_PROGRAM_EXECUTABLE",
+		"CL_INVALID_KERNEL_NAME",
+		"CL_INVALID_KERNEL_DEFINITION",
+		"CL_INVALID_KERNEL",
+		"CL_INVALID_ARG_INDEX",
+		"CL_INVALID_ARG_VALUE",
+		"CL_INVALID_ARG_SIZE",
+		"CL_INVALID_KERNEL_ARGS",
+		"CL_INVALID_WORK_DIMENSION",
+		"CL_INVALID_WORK_GROUP_SIZE",
+		"CL_INVALID_WORK_ITEM_SIZE",
+		"CL_INVALID_GLOBAL_OFFSET",
+		"CL_INVALID_EVENT_WAIT_LIST",
+		"CL_INVALID_EVENT",
+		"CL_INVALID_OPERATION",
+		"CL_INVALID_GL_OBJECT",
+		"CL_INVALID_BUFFER_SIZE",
+		"CL_INVALID_MIP_LEVEL",
+		"CL_INVALID_GLOBAL_WORK_SIZE"
+	};
+
+	const int errorCount = sizeof( errorString ) / sizeof( errorString[0] );
+	const int index = -errorCode;
+
+	return ( index >= 0 && index < errorCount ) ? errorString[index] : "";
+}
+
+
 void CL::execute() {
 	cl_int err;
+	cl_event event;
+	cl_event* events = &mEvents[0];
 
-	size_t threads[2] = { 512, 512 };
-	err = clEnqueueNDRangeKernel( mCommandQueue, mKernel, 2, NULL, threads, NULL, 0, NULL, NULL);
+	size_t workSize[3] = { 512, 512, 1 };
+	err = clEnqueueNDRangeKernel( mCommandQueue, mKernel, 2, NULL, workSize, NULL, 0, NULL, &event );
 	this->checkError( err, "clEnqueueNDRangeKernel" );
+	mEvents.push_back( event );
+}
 
-	err = clEnqueueReleaseGLObjects( mCommandQueue, mImages.size(), &mImages[0], 0, NULL, NULL);
-	this->checkError( err, "clEnqueueReleaseGLObjects" );
 
+void CL::finish() {
 	clFlush( mCommandQueue );
 	clFinish( mCommandQueue );
-
-	mImages.clear();
+	mEvents.clear();
 }
 
 
@@ -224,6 +253,8 @@ void CL::getDefaultDevice() {
 	devices = new cl_device_id[deviceCount];
 	clGetDeviceIDs( mPlatform, CL_DEVICE_TYPE_ALL, deviceCount, devices, NULL );
 
+	mDevice = devices[0];
+
 
 	// Get device name
 	clGetDeviceInfo( devices[0], CL_DEVICE_NAME, 0, NULL, &valueSize );
@@ -233,23 +264,7 @@ void CL::getDefaultDevice() {
 	free( value );
 
 
-	// Check for needed gl_sharing extension
-	clGetDeviceInfo( devices[0], CL_DEVICE_EXTENSIONS, 0, NULL, &valueSize );
-	value = (char*) malloc( valueSize );
-	clGetDeviceInfo( devices[0], CL_DEVICE_EXTENSIONS, valueSize, value, NULL );
-	string extensions( value );
-	free( value );
-
-	if( extensions.find( "cl_khr_gl_sharing" ) == string::npos
-			&& extensions.find( "cl_APPLE_gl_sharing" ) == string::npos ) {
-		Logger::logError( "[OpenCL] Extension \"cl_khr_gl_sharing\" or \"cl_APPLE_gl_sharing\" not supported." );
-		Logger::logDebug( string( "[OpenCL] Supported extensions:\n" ) + extensions );
-		exit( EXIT_FAILURE );
-	}
-
-
 	this->initContext( devices );
-	mDevice = devices[0];
 	delete devices;
 }
 
@@ -341,84 +356,15 @@ void CL::loadProgram( string filepath ) {
 }
 
 
-/**
- * Return a more readable name to a given error code number.
- * Source: https://github.com/enjalot/adventures_in_opencl/blob/master/part1/util.cpp
- * @param  {cl_int}      errorCode Error code.
- * @return {const char*}           Error name.
- */
-const char* CL::errorCodeToName( cl_int errorCode ) {
-	static const char* errorString[] = {
-		"CL_SUCCESS",
-		"CL_DEVICE_NOT_FOUND",
-		"CL_DEVICE_NOT_AVAILABLE",
-		"CL_COMPILER_NOT_AVAILABLE",
-		"CL_MEM_OBJECT_ALLOCATION_FAILURE",
-		"CL_OUT_OF_RESOURCES",
-		"CL_OUT_OF_HOST_MEMORY",
-		"CL_PROFILING_INFO_NOT_AVAILABLE",
-		"CL_MEM_COPY_OVERLAP",
-		"CL_IMAGE_FORMAT_MISMATCH",
-		"CL_IMAGE_FORMAT_NOT_SUPPORTED",
-		"CL_BUILD_PROGRAM_FAILURE",
-		"CL_MAP_FAILURE",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"CL_INVALID_VALUE",
-		"CL_INVALID_DEVICE_TYPE",
-		"CL_INVALID_PLATFORM",
-		"CL_INVALID_DEVICE",
-		"CL_INVALID_CONTEXT",
-		"CL_INVALID_QUEUE_PROPERTIES",
-		"CL_INVALID_COMMAND_QUEUE",
-		"CL_INVALID_HOST_PTR",
-		"CL_INVALID_MEM_OBJECT",
-		"CL_INVALID_IMAGE_FORMAT_DESCRIPTOR",
-		"CL_INVALID_IMAGE_SIZE",
-		"CL_INVALID_SAMPLER",
-		"CL_INVALID_BINARY",
-		"CL_INVALID_BUILD_OPTIONS",
-		"CL_INVALID_PROGRAM",
-		"CL_INVALID_PROGRAM_EXECUTABLE",
-		"CL_INVALID_KERNEL_NAME",
-		"CL_INVALID_KERNEL_DEFINITION",
-		"CL_INVALID_KERNEL",
-		"CL_INVALID_ARG_INDEX",
-		"CL_INVALID_ARG_VALUE",
-		"CL_INVALID_ARG_SIZE",
-		"CL_INVALID_KERNEL_ARGS",
-		"CL_INVALID_WORK_DIMENSION",
-		"CL_INVALID_WORK_GROUP_SIZE",
-		"CL_INVALID_WORK_ITEM_SIZE",
-		"CL_INVALID_GLOBAL_OFFSET",
-		"CL_INVALID_EVENT_WAIT_LIST",
-		"CL_INVALID_EVENT",
-		"CL_INVALID_OPERATION",
-		"CL_INVALID_GL_OBJECT",
-		"CL_INVALID_BUFFER_SIZE",
-		"CL_INVALID_MIP_LEVEL",
-		"CL_INVALID_GLOBAL_WORK_SIZE"
-	};
+void CL::readImageOutput( size_t width, size_t height, float* outputTarget ) {
+	cl_int err;
+	cl_event event;
+	size_t origin[] = { 0, 0, 0 };
+	size_t region[] = { width, height, 1 };
 
-	const int errorCount = sizeof( errorString ) / sizeof( errorString[0] );
-	const int index = -errorCode;
-
-	return ( index >= 0 && index < errorCount ) ? errorString[index] : "";
+	err = clEnqueueReadImage( mCommandQueue, mWriteImage, CL_TRUE, origin, region, 0, 0, outputTarget, mEvents.size(), &mEvents[0], &event );
+	this->checkError( err, "clEnqueueReadImage" );
+	mEvents.push_back( event );
 }
 
 
@@ -426,7 +372,7 @@ void CL::setKernelArgs( vector<cl_mem> buffers ) {
 	cl_int err;
 
 	for( uint i = 0; i < buffers.size(); i++ ) {
-		err = clSetKernelArg( mKernel, 0, sizeof( cl_mem ), (void*) &buffers[i] );
+		err = clSetKernelArg( mKernel, i, sizeof( cl_mem ), (void*) &buffers[i] );
 		this->checkError( err, "clSetKernelArg" );
 	}
 }
