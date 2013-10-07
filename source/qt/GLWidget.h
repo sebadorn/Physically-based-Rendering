@@ -83,7 +83,7 @@ class GLWidget : public QGLWidget {
 		std::vector<GLuint> mNumIndices;
 		std::map<GLuint, GLuint> mTextureIDs;
 		std::vector<GLuint> mVA;
-		std::vector<GLuint> mTargetTextures;
+		GLuint mTargetTexture;
 
 		glm::mat3 mNormalMatrix;
 		glm::mat4 mModelMatrix;

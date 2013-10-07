@@ -148,8 +148,8 @@ void GLWidget::initializeGL() {
 	glBindBuffer( GL_ARRAY_BUFFER, mVertexBuffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), &vertices, GL_STATIC_DRAW );
 
-	glGenFramebuffers( 1, &mFramebuffer );
-	glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
+	// glGenFramebuffers( 1, &mFramebuffer );
+	// glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
 
 	Logger::logInfo( string( "[OpenGL] Version " ).append( (char*) glGetString( GL_VERSION ) ) );
 	Logger::logInfo( string( "[OpenGL] GLSL " ).append( (char*) glGetString( GL_SHADING_LANGUAGE_VERSION ) ) );
@@ -206,6 +206,8 @@ void GLWidget::initTargetTexture() {
 
 	mKernelArgTextureIn = mCL->createImageReadOnly( w, h, &mTextureIn[0] );
 	mKernelArgTextureOut = mCL->createImageWriteOnly( w, h );
+
+	glGenTextures( 1, &mTargetTexture );
 }
 
 
@@ -233,7 +235,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mVertices = ml->mVertices;
 	mNormals = ml->mNormals;
 
-	// this->initShaders();
+	this->initShaders();
 
 	// Ready
 	this->startRendering();
@@ -401,11 +403,12 @@ void GLWidget::paintGL() {
 		mCL->setKernelArgs( clBuffers );
 		mCL->execute();
 
-		float output[512 * 512 * 4];
-		mCL->readImageOutput( 512, 512, output );
+		mCL->readImageOutput( 512, 512, &mTextureOut[0] );
+		// for( uint i = 0; i < 12; i++ ) { cout << mTextureOut[i] << ", "; }
+		// cout << endl;
 
 		mCL->finish();
-exit( 1 );
+
 		this->paintScene();
 	}
 
@@ -417,14 +420,29 @@ exit( 1 );
  * Draw the main objects of the scene.
  */
 void GLWidget::paintScene() {
-	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
-	glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
-	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTextures[1], 0 );
+	// glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
+	// glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
+	// glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTextures[1], 0 );
+	// glVertexAttribPointer( mVertexAttribute, 2, GL_FLOAT, false, 0, 0 );
+	// glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
+	// glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+	glBindTexture( GL_TEXTURE_2D, mTargetTexture );
+	// glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
+
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
+
+	// glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTexture, 0 );
+
 	glVertexAttribPointer( mVertexAttribute, 2, GL_FLOAT, false, 0, 0 );
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
-	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+	glBindTexture( GL_TEXTURE_2D, 0 );
 
-	reverse( mTargetTextures.begin(), mTargetTextures.end() );
+	// if( glGetError() != 0 ) { cout << gluErrorString( glGetError() ) << endl; }
+
+	// reverse( mTargetTextures.begin(), mTargetTextures.end() );
 	mSampleCount++;
 
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );

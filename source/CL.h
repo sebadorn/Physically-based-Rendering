@@ -18,7 +18,6 @@ class CL {
 	public:
 		CL();
 		~CL();
-		cl_mem createBuffer( float object );
 		cl_mem createBuffer( float* object, size_t objectSize );
 		template<typename T> cl_mem createBuffer( std::vector<T> object, size_t objectSize ) {
 			cl_int err;

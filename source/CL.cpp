@@ -77,15 +77,6 @@ bool CL::checkError( cl_int err, const char* functionName ) {
 }
 
 
-cl_mem CL::createBuffer( cl_float object ) {
-	cl_int err;
-	cl_mem clBuffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY, sizeof( cl_float ), &object, &err );
-	this->checkError( err, "clCreateBuffer" );
-
-	return clBuffer;
-}
-
-
 cl_mem CL::createBuffer( float* object, size_t objectSize ) {
 	cl_int err;
 	cl_mem clBuffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, objectSize, object, &err );
@@ -110,7 +101,7 @@ cl_mem CL::createImageReadOnly( size_t width, size_t height, float* data ) {
 	size_t region[] = { width, height, 1 }; // Size of object to be transferred
 	cl_event event;
 
-	err = clEnqueueWriteImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, data, 0, NULL, &event );
+	err = clEnqueueWriteImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
 	this->checkError( err, "clEnqueueWriteImage" );
 	mEvents.push_back( event );
 
@@ -122,7 +113,7 @@ cl_mem CL::createImageWriteOnly( size_t width, size_t height ) {
 	cl_int err;
 	cl_image_format format;
 
-	format.image_channel_order = CL_RGB;
+	format.image_channel_order = CL_RGBA;
 	format.image_channel_data_type = CL_FLOAT;
 
 	mWriteImage = clCreateImage2D( mContext, CL_MEM_WRITE_ONLY, &format, width, height, 0, 0, &err );
@@ -221,7 +212,7 @@ void CL::execute() {
 	cl_event* events = &mEvents[0];
 
 	size_t workSize[3] = { 512, 512, 1 };
-	err = clEnqueueNDRangeKernel( mCommandQueue, mKernel, 2, NULL, workSize, NULL, 0, NULL, &event );
+	err = clEnqueueNDRangeKernel( mCommandQueue, mKernel, 2, NULL, workSize, NULL, mEvents.size(), &mEvents[0], &event );
 	this->checkError( err, "clEnqueueNDRangeKernel" );
 	mEvents.push_back( event );
 }
@@ -307,12 +298,7 @@ void CL::getDefaultPlatform() {
  */
 void CL::initContext( cl_device_id* devices ) {
 	cl_int err;
-	cl_context_properties properties[] = {
-		// CL_GL_CONTEXT_KHR, (cl_context_properties) mParent->context(),
-		// CL_GLX_DISPLAY_KHR, (cl_context_properties) ???,
-		CL_CONTEXT_PLATFORM, (cl_context_properties) mPlatform,
-		0
-	};
+	cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties) mPlatform, 0 };
 	mContext = clCreateContext( properties, 1, devices, NULL, NULL, &err );
 
 	if( !this->checkError( err, "clCreateContext" ) ) {
