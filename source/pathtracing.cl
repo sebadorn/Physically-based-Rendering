@@ -174,6 +174,7 @@ __kernel void pathTracing(
 		__read_only image2d_t textureIn, __write_only image2d_t textureOut
 	) {
 
+	// TODO: reduce work group size?
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 
 	float textureWeight = compact[0];
