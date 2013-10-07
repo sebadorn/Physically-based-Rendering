@@ -123,6 +123,20 @@ cl_mem CL::createImageWriteOnly( size_t width, size_t height ) {
 }
 
 
+cl_mem CL::updateImageWriteOnly( size_t width, size_t height, float* data ) {
+	size_t origin[] = { 0, 0, 0 };
+	size_t region[] = { width, height, 1 };
+	cl_int err;
+	cl_event event;
+
+	err = clEnqueueReadImage( mCommandQueue, mWriteImage, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
+	this->checkError( err, "clEnqueueReadImage" );
+	mEvents.push_back( event );
+
+	return mWriteImage;
+}
+
+
 /**
  * Create a kernel.
  * @param {const char*} functionName Name of the function to create kernel of.

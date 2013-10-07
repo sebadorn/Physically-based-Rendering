@@ -1,8 +1,8 @@
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
 
-inline float4 findIntersection( float4 ray, float4 origin, __global uint* indices, __global float* vertices ) {
-	uint index;
+inline float8 findIntersection( float4 ray, float4 origin, __global uint* indices, __global float* vertices ) {
+	uint index0, index1, index2;
 	float4 a, b, c;
 	float4 planeNormal;
 	float numerator, denumerator, r;
@@ -10,15 +10,19 @@ inline float4 findIntersection( float4 ray, float4 origin, __global uint* indice
 	uint numIndices = sizeof( indices ) / sizeof( indices[0] );
 
 	for( uint i = 0; i < numIndices; i += 3 ) {
-		index = indices[i * 3];
-		a = (float4)( vertices[index], vertices[index + 1], vertices[index + 2], 1.0f );
-		index = indices[i * 3 + 1];
-		b = (float4)( vertices[index], vertices[index + 1], vertices[index + 2], 1.0f );
-		index = indices[i * 3 + 2];
-		c = (float4)( vertices[index], vertices[index + 1], vertices[index + 2], 1.0f );
+		index0 = indices[i * 3];
+		index1 = indices[i * 3 + 1];
+		index2 = indices[i * 3 + 2];
+
+		a = (float4)( vertices[index0], vertices[index0 + 1], vertices[index0 + 2], 1.0f );
+		b = (float4)( vertices[index1], vertices[index1 + 1], vertices[index1 + 2], 1.0f );
+		c = (float4)( vertices[index2], vertices[index2 + 1], vertices[index2 + 2], 1.0f );
 
 		// First test: Intersection with plane of triangle
 		planeNormal = normalize( cross( ( b - a ), ( c - a ) ) );
+		planeNormal.w = 0.0f;
+		a.w = 0.0f;
+
 		numerator = dot( planeNormal, a - origin );
 		denumerator = dot( planeNormal, ray - origin );
 
@@ -48,23 +52,39 @@ inline float4 findIntersection( float4 ray, float4 origin, __global uint* indice
 		      t = ( uDotV * wDotU - uDotU * wDotV ) / d;
 
 		if( s >= 0 && t >= 0 ) {
-			return ( a + s * u + t * v );
+			float4 hit = ( a + s * u + t * v );
+			float8 result;
+
+			// hit
+			result.s0 = hit.s0;
+			result.s1 = hit.s1;
+			result.s2 = hit.s2;
+			result.s3 = hit.s3;
+
+			// normal
+			result.s4 = planeNormal.s0;
+			result.s5 = planeNormal.s1;
+			result.s6 = planeNormal.s2;
+			result.s7 = planeNormal.s3;
+
+			return result;
 		}
 	}
 
-	return (float4)( 10000.0f, 10000.0f, 10000.0f, 1.0f );
+	return (float8)( 10000.0f );
 }
 
 
 inline float random( float4 scale, float seed ) {
 	float i;
+
 	return fract( sin( dot( seed, scale ) ) * 43758.5453f + seed, &i );
 }
 
 
 inline float4 cosineWeightedDirection( float seed, float4 normal ) {
-	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 1.0f ), seed );
-	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 1.0f ), seed );
+	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
+	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
 	float r = sqrt( u );
 	float angle = 6.283185307179586f * v;
 	float4 sdir, tdir;
@@ -83,8 +103,8 @@ inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 
 
 inline float4 uniformlyRandomDirection( float seed ) {
-	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 1.0f ), seed );
-	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 1.0f ), seed );
+	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
+	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
 	float z = 1.0f - 2.0f * u;
 	float r = sqrt( 1.0f - z * z );
 	float angle = 6.283185307179586 * v;
@@ -94,17 +114,24 @@ inline float4 uniformlyRandomDirection( float seed ) {
 
 
 inline float4 uniformlyRandomVector( float seed ) {
-	float rand = random( (float4)( 36.7539f, 50.3658f, 306.2759f, 0.0f ), seed );
-	return uniformlyRandomDirection( seed ) * sqrt( rand );
+	float rnd = random( (float4)( 36.7539f, 50.3658f, 306.2759f, 0.0f ), seed );
+
+	return uniformlyRandomDirection( seed ) * sqrt( rnd );
 }
 
 
-inline float4 calculateColor( float4 origin, float4 ray, float4 light, __global uint* indices, __global float* vertices ) {
+inline float4 calculateColor( float4 origin, float4 ray, float4 light, __global uint* indices, __global float* vertices, __global float* normals, float timeSinceStart ) {
 	float4 colorMask = (float4)( 1.0f );
 	float4 accumulatedColor = (float4)( 0.0f );
 
 	for( uint bounce = 0; bounce < 3; bounce++ ) {
-		float4 hit = findIntersection( origin, ray, indices, vertices );
+		float8 intersect = findIntersection( origin, ray, indices, vertices );
+
+		float4 hit;
+		hit.s0 = intersect.s0;
+		hit.s1 = intersect.s1;
+		hit.s2 = intersect.s2;
+		hit.s3 = 0.0f;
 
 		if( hit.x == 10000.0f ) {
 			break;
@@ -112,17 +139,27 @@ inline float4 calculateColor( float4 origin, float4 ray, float4 light, __global 
 
 		float4 surfaceColor = (float4)( 0.75f );
 		float specularHighlight = 0.0f;
+
+		// Get normal of hit
 		float4 normal;
+		normal.s0 = intersect.s4;
+		normal.s1 = intersect.s5;
+		normal.s2 = intersect.s6;
+		normal.s3 = 0.0f;
 
 		float4 toLight = light - hit;
 		toLight.w = 0.0f;
+
 		float diffuse = max( 0.0f, dot( normalize( toLight ), normal ) );
-		float shadowIntensity = 1.0f;
+		float shadowIntensity = 1.0f; // TODO: shadow( hit + normal * 0.0001f, toLight );
 
 		colorMask *= surfaceColor;
 		accumulatedColor += colorMask * ( 0.5f * diffuse * shadowIntensity );
 		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
+
+		// Next bounce
 		origin = hit;
+		ray = cosineWeightedDirection( timeSinceStart + as_float( bounce ), normal );
 	}
 
 	return accumulatedColor;
@@ -154,9 +191,11 @@ __kernel void pathTracing(
 
 	float4 light = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
 	float4 newLight = light + uniformlyRandomVector( timeSinceStart - 53.0f ) * 0.1f;
+	newLight.w = 0.0f;
+
 	float4 texturePixel = read_imagef( textureIn, sampler, pos );
 
-	float4 calculatedColor = calculateColor( eye, initialRay, newLight, indices, vertices );
+	float4 calculatedColor = calculateColor( eye, initialRay, newLight, indices, vertices, normals, timeSinceStart );
 	float4 color = mix( calculatedColor, texturePixel, textureWeight );
 	color.w = 1.0f;
 

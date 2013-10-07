@@ -34,6 +34,7 @@ class CL {
 		void loadProgram( std::string filepath );
 		void readImageOutput( size_t width, size_t height, float* outputTarget );
 		void setKernelArgs( std::vector<cl_mem> buffers );
+		cl_mem updateImageWriteOnly( size_t width, size_t height, float* data );
 
 	protected:
 		void buildProgram();

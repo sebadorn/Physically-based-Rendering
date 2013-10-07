@@ -397,6 +397,8 @@ void GLWidget::paintGL() {
 		float compact[2] = { textureWeight, timeSinceStart };
 		clBuffers.push_back( mCL->createBuffer( compact, sizeof( float ) * 2 ) );
 
+		mCL->updateImageWriteOnly( 512, 512, &mTextureOut[0] );
+
 		clBuffers.push_back( mKernelArgTextureIn );
 		clBuffers.push_back( mKernelArgTextureOut );
 
@@ -404,8 +406,8 @@ void GLWidget::paintGL() {
 		mCL->execute();
 
 		mCL->readImageOutput( 512, 512, &mTextureOut[0] );
-		// for( uint i = 0; i < 12; i++ ) { cout << mTextureOut[i] << ", "; }
-		// cout << endl;
+		for( uint i = 0; i < 12; i++ ) { cout << mTextureOut[i] << ", "; }
+		cout << endl;
 
 		mCL->finish();
 

@@ -1,6 +1,6 @@
 ## ToDo
 
-* `Feature` Anti-Aliasing
+* `Feature` Get simple path tracer to work
 
 
 ## Libraries/headers
