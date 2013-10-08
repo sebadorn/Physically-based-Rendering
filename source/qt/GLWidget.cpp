@@ -30,8 +30,8 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mSampleCount = 0;
 	mSelectedLight = -1;
 
-	mTimer = new QTimer( this );
-	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
+	// mTimer = new QTimer( this );
+	// connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
 
 	mTimeSinceStart = boost::posix_time::microsec_clock::local_time();
 
@@ -235,6 +235,17 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mVertices = ml->mVertices;
 	mNormals = ml->mNormals;
 
+	// OpenCL buffers
+	mBufferIndices = mCL->createBuffer( mIndices, sizeof( GLuint ) * mIndices.size() );
+	mBufferVertices = mCL->createBuffer( mVertices, sizeof( GLfloat ) * mVertices.size() );
+
+	mBufferEye = mCL->createEmptyBuffer( sizeof( GLfloat ) * 3 );
+	mBufferRay00 = mCL->createEmptyBuffer( sizeof( GLfloat ) * 3 );
+	mBufferRay01 = mCL->createEmptyBuffer( sizeof( GLfloat ) * 3 );
+	mBufferRay10 = mCL->createEmptyBuffer( sizeof( GLfloat ) * 3 );
+	mBufferRay11 = mCL->createEmptyBuffer( sizeof( GLfloat ) * 3 );
+
+
 	this->initShaders();
 
 	// Ready
@@ -363,7 +374,7 @@ void GLWidget::paintGL() {
 
 
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
-	float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
+	cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
 
 
 	// Jittering for anti-aliasing
@@ -381,35 +392,39 @@ void GLWidget::paintGL() {
 
 
 	if( mVertices.size() > 0 ) {
+		uint i = 0;
 		vector<float> eye = mCamera->getEye();
 		vector<cl_mem> clBuffers;
 		cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 
-		clBuffers.push_back( mCL->createBuffer( mIndices, sizeof( GLuint ) * mIndices.size() ) );
-		clBuffers.push_back( mCL->createBuffer( mVertices, sizeof( GLfloat ) * mVertices.size() ) );
-		// clBuffers.push_back( mCL->createBuffer( mNormals, sizeof( GLfloat ) * mNormals.size() ) );
+		mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVertices );
 
-		clBuffers.push_back( mCL->createBuffer( eye, sizeof( GLfloat ) * eye.size() ) );
-		clBuffers.push_back( mCL->createBuffer( &ray00[0], sizeof( GLfloat ) * 3 ) );
-		clBuffers.push_back( mCL->createBuffer( &ray01[0], sizeof( GLfloat ) * 3 ) );
-		clBuffers.push_back( mCL->createBuffer( &ray10[0], sizeof( GLfloat ) * 3 ) );
-		clBuffers.push_back( mCL->createBuffer( &ray11[0], sizeof( GLfloat ) * 3 ) );
+		mCL->updateBuffer( mBufferEye, sizeof( GLfloat ) * 3, &eye[0] );
+		mCL->updateBuffer( mBufferRay00, sizeof( GLfloat ) * 3, &ray00[0] );
+		mCL->updateBuffer( mBufferRay01, sizeof( GLfloat ) * 3, &ray01[0] );
+		mCL->updateBuffer( mBufferRay10, sizeof( GLfloat ) * 3, &ray10[0] );
+		mCL->updateBuffer( mBufferRay11, sizeof( GLfloat ) * 3, &ray11[0] );
 
-		float compact[3] = { textureWeight, timeSinceStart, (float) mIndices.size() };
-		clBuffers.push_back( mCL->createBuffer( compact, sizeof( float ) * 3 ) );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferEye );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay00 );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay01 );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay10 );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay11 );
+
+		mCL->setKernelArg( ++i, sizeof( cl_float ), &textureWeight );
+		mCL->setKernelArg( ++i, sizeof( cl_float ), &timeSinceStart );
+
+		cl_uint numIndices = mIndices.size();
+		mCL->setKernelArg( ++i, sizeof( cl_uint ), &numIndices );
 
 		mCL->updateImageWriteOnly( 512, 512, &mTextureOut[0] );
 
-		clBuffers.push_back( mKernelArgTextureIn );
-		clBuffers.push_back( mKernelArgTextureOut );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
 
-		mCL->setKernelArgs( clBuffers );
 		mCL->execute();
-
 		mCL->readImageOutput( 512, 512, &mTextureOut[0] );
-		// for( uint i = 0; i < 12; i++ ) { cout << mTextureOut[i] << ", "; }
-		// cout << endl;
-
 		mCL->finish();
 
 		this->paintScene();
@@ -555,7 +570,7 @@ void GLWidget::startRendering() {
 	if( !mDoRendering ) {
 		mDoRendering = true;
 		float fps = Cfg::get().value<float>( Cfg::RENDER_INTERVAL );
-		mTimer->start( fps );
+		// mTimer->start( fps );
 	}
 }
 
@@ -566,7 +581,7 @@ void GLWidget::startRendering() {
 void GLWidget::stopRendering() {
 	if( mDoRendering ) {
 		mDoRendering = false;
-		mTimer->stop();
+		// mTimer->stop();
 		( (Window*) parentWidget() )->updateStatus( "Stopped." );
 	}
 }

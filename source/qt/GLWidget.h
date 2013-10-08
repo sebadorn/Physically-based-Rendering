@@ -108,6 +108,14 @@ class GLWidget : public QGLWidget {
 		cl_mem mKernelArgTextureIn;
 		cl_mem mKernelArgTextureOut;
 
+		cl_mem mBufferIndices;
+		cl_mem mBufferVertices;
+		cl_mem mBufferEye;
+		cl_mem mBufferRay00;
+		cl_mem mBufferRay01;
+		cl_mem mBufferRay10;
+		cl_mem mBufferRay11;
+
 };
 
 #endif

@@ -24,6 +24,13 @@ CL::CL() {
  * Deconstructor.
  */
 CL::~CL() {
+	cl_int err;
+
+	for( uint i = 0; i < mMemObjects.size(); i++ ) {
+		err = clReleaseMemObject( mMemObjects[i] );
+		this->checkError( err, "clReleaseMemObject" );
+	}
+
 	if( mKernel ) { clReleaseKernel( mKernel ); }
 	if( mProgram ) { clReleaseProgram( mProgram ); }
 	if( mCommandQueue ) { clReleaseCommandQueue( mCommandQueue ); }
@@ -77,12 +84,13 @@ bool CL::checkError( cl_int err, const char* functionName ) {
 }
 
 
-cl_mem CL::createBuffer( float* object, size_t objectSize ) {
+cl_mem CL::createEmptyBuffer( size_t size ) {
 	cl_int err;
-	cl_mem clBuffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, objectSize, object, &err );
+	cl_mem buffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY, size, NULL, &err );
 	this->checkError( err, "clCreateBuffer" );
+	mMemObjects.push_back( buffer );
 
-	return clBuffer;
+	return buffer;
 }
 
 
@@ -118,20 +126,6 @@ cl_mem CL::createImageWriteOnly( size_t width, size_t height ) {
 
 	mWriteImage = clCreateImage2D( mContext, CL_MEM_WRITE_ONLY, &format, width, height, 0, 0, &err );
 	this->checkError( err, "clCreateImage2D" );
-
-	return mWriteImage;
-}
-
-
-cl_mem CL::updateImageWriteOnly( size_t width, size_t height, float* data ) {
-	size_t origin[] = { 0, 0, 0 };
-	size_t region[] = { width, height, 1 };
-	cl_int err;
-	cl_event event;
-
-	err = clEnqueueReadImage( mCommandQueue, mWriteImage, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
-	this->checkError( err, "clEnqueueReadImage" );
-	mEvents.push_back( event );
 
 	return mWriteImage;
 }
@@ -368,11 +362,29 @@ void CL::readImageOutput( size_t width, size_t height, float* outputTarget ) {
 }
 
 
-void CL::setKernelArgs( vector<cl_mem> buffers ) {
-	cl_int err;
+void CL::setKernelArg( uint index, size_t size, void* data ) {
+	cl_int err = clSetKernelArg( mKernel, index, size, data );
+	this->checkError( err, "clSetKernelArg" );
+}
 
-	for( uint i = 0; i < buffers.size(); i++ ) {
-		err = clSetKernelArg( mKernel, i, sizeof( cl_mem ), (void*) &buffers[i] );
-		this->checkError( err, "clSetKernelArg" );
-	}
+
+cl_mem CL::updateBuffer( cl_mem buffer, size_t size, void* data ) {
+	cl_int err = clEnqueueWriteBuffer( mCommandQueue, buffer, CL_TRUE, 0, size, data, 0, NULL, NULL );
+	this->checkError( err, "clEnqueueWriteBuffer" );
+
+	return buffer;
+}
+
+
+cl_mem CL::updateImageWriteOnly( size_t width, size_t height, float* data ) {
+	size_t origin[] = { 0, 0, 0 };
+	size_t region[] = { width, height, 1 };
+	cl_int err;
+	cl_event event;
+
+	err = clEnqueueReadImage( mCommandQueue, mWriteImage, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
+	this->checkError( err, "clEnqueueReadImage" );
+	mEvents.push_back( event );
+
+	return mWriteImage;
 }

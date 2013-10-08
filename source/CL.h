@@ -18,14 +18,26 @@ class CL {
 	public:
 		CL();
 		~CL();
-		cl_mem createBuffer( float* object, size_t objectSize );
+
+		template<typename T> cl_mem createBuffer( T* object, size_t objectSize ) {
+			cl_int err;
+			cl_mem buffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, objectSize, object, &err );
+			this->checkError( err, "clCreateBuffer" );
+			mMemObjects.push_back( buffer );
+
+			return buffer;
+		}
+
 		template<typename T> cl_mem createBuffer( std::vector<T> object, size_t objectSize ) {
 			cl_int err;
-			cl_mem clBuffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, objectSize, &object[0], &err );
+			cl_mem buffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, objectSize, &object[0], &err );
 			this->checkError( err, "clCreateBuffer" );
+			mMemObjects.push_back( buffer );
 
-			return clBuffer;
+			return buffer;
 		}
+
+		cl_mem createEmptyBuffer( size_t size );
 		cl_mem createImageReadOnly( size_t width, size_t height, float* data );
 		cl_mem createImageWriteOnly( size_t width, size_t height );
 		void createKernel( const char* functionName );
@@ -33,7 +45,9 @@ class CL {
 		void finish();
 		void loadProgram( std::string filepath );
 		void readImageOutput( size_t width, size_t height, float* outputTarget );
+		void setKernelArg( uint index, size_t size, void* data );
 		void setKernelArgs( std::vector<cl_mem> buffers );
+		cl_mem updateBuffer( cl_mem buffer, size_t size, void* data );
 		cl_mem updateImageWriteOnly( size_t width, size_t height, float* data );
 
 	protected:
@@ -55,6 +69,7 @@ class CL {
 		cl_mem mWriteImage;
 
 		std::vector<cl_event> mEvents;
+		std::vector<cl_mem> mMemObjects;
 
 };
 

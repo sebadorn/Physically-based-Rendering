@@ -9,9 +9,9 @@ inline float8 findIntersection( float4 ray, float4 origin, __global uint* indice
 	float numerator, denumerator, r;
 
 	for( uint i = 0; i < numIndices; i += 3 ) {
-		index0 = indices[i * 3];
-		index1 = indices[i * 3 + 1];
-		index2 = indices[i * 3 + 2];
+		index0 = indices[i] * 3;
+		index1 = indices[i + 1] * 3;
+		index2 = indices[i + 2] * 3;
 
 		a = (float4)( vertices[index0], vertices[index0 + 1], vertices[index0 + 2], 0.0f );
 		b = (float4)( vertices[index1], vertices[index1 + 1], vertices[index1 + 2], 0.0f );
@@ -23,13 +23,13 @@ inline float8 findIntersection( float4 ray, float4 origin, __global uint* indice
 		numerator = dot( planeNormal, a - origin );
 		denumerator = dot( planeNormal, ray - origin );
 
-		if( convert_int( denumerator ) == 0 ) {
+		if( as_int( denumerator ) == 0 ) {
 			continue;
 		}
 
 		r = numerator / denumerator;
 
-		if( convert_int( r ) < 0 ) {
+		if( as_int( r ) < 0 ) {
 			continue;
 		}
 
@@ -100,7 +100,11 @@ inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 
 	tdir = cross( normal, sdir );
 
-	return ( r * cos( angle ) * sdir + r * sin( angle ) * tdir + sqrt( 1.0f - u ) * normal );
+	float4 part1 = r * cos( angle ) * sdir;
+	float4 part2 = r * sin( angle ) * tdir;
+	float4 part3 = sqrt( 1.0f - u ) * normal;
+
+	return ( part1 + part2 + part3 );
 }
 
 
@@ -140,7 +144,7 @@ inline float4 calculateColor(
 		hit.s1 = intersect.s1;
 		hit.s2 = intersect.s2;
 		hit.s3 = 0.0f;
-
+break;
 		// No hit, the path ends
 		if( hit.x == 10000.0f ) { // 10000.0f = arbitrary max distance, just a very high value
 			break;
@@ -169,7 +173,7 @@ inline float4 calculateColor(
 
 		// Next bounce
 		origin = hit;
-		ray = cosineWeightedDirection( timeSinceStart + convert_float( bounce ), normal );
+		ray = cosineWeightedDirection( timeSinceStart + bounce, normal );
 		ray.w = 0.0f;
 	}
 
@@ -181,25 +185,15 @@ __kernel void pathTracing(
 		__global uint* indices, __global float* vertices,// __global float* normals,
 		__global float* eyeIn,
 		__global float* ray00In, __global float* ray01In, __global float* ray10In, __global float* ray11In,
-		__global float* compact,
+		const float textureWeight, const float timeSinceStart, const uint numIndices,
 		__read_only image2d_t textureIn, __write_only image2d_t textureOut
 	) {
 	// TODO: reduce work group size
 	// NVIDIA GTX 560 Ti limit: 1024, 1024, 64 – currently used here: 512, 512, 1
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 
-	// How much the new color will blend with the current pixel color
-	// The longer it renders, the more influence the new color has(?)
-	float textureWeight = compact[0];
-
-	// Used as seed for random()
-	float timeSinceStart = compact[1];
-
-	// @see findIntersection()
-	uint numIndices = convert_uint( compact[2] );
-
 	// Progress in creating the final image (pixel by pixel)
-	float2 percent = convert_float2( pos ) / 512.0f * 0.5f + 0.5f;
+	float2 percent = as_float2( pos ) / 512.0f * 0.5f + 0.5f;
 
 	// Camera eye
 	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
@@ -225,7 +219,11 @@ __kernel void pathTracing(
 
 	// Mix new color with previous one
 	float4 color = mix( calculatedColor, texturePixel, textureWeight );
+	// float4 color;
 	color.w = 1.0f;
+	// color.x = 0.5f;
+	// color.y = 0.8f;
+	// color.z = 0.2f;
 
 	write_imagef( textureOut, pos, color );
 }
