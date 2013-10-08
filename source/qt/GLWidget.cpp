@@ -366,6 +366,7 @@ void GLWidget::paintGL() {
 	float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
 
 
+	// Jittering for anti-aliasing
 	glm::vec3 v = glm::vec3(
 		rand() / (float) RAND_MAX * 2.0f - 1.0f,
 		rand() / (float) RAND_MAX * 2.0f - 1.0f,
@@ -406,8 +407,8 @@ void GLWidget::paintGL() {
 		mCL->execute();
 
 		mCL->readImageOutput( 512, 512, &mTextureOut[0] );
-		for( uint i = 0; i < 12; i++ ) { cout << mTextureOut[i] << ", "; }
-		cout << endl;
+		// for( uint i = 0; i < 12; i++ ) { cout << mTextureOut[i] << ", "; }
+		// cout << endl;
 
 		mCL->finish();
 

@@ -1,10 +1,11 @@
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
 
+// TODO: Find the closest intersection: Find all (don't stop after first hit) and
+// choose the one with the smallest distance to the origin
 inline float8 findIntersection( float4 ray, float4 origin, __global uint* indices, __global float* vertices, uint numIndices ) {
 	uint index0, index1, index2;
-	float4 a, b, c;
-	float4 planeNormal;
+	float4 a, b, c, planeNormal;
 	float numerator, denumerator, r;
 
 	for( uint i = 0; i < numIndices; i += 3 ) {
@@ -18,7 +19,6 @@ inline float8 findIntersection( float4 ray, float4 origin, __global uint* indice
 
 		// First test: Intersection with plane of triangle
 		planeNormal = normalize( cross( ( b - a ), ( c - a ) ) );
-		planeNormal.w = 0.0f;
 
 		numerator = dot( planeNormal, a - origin );
 		denumerator = dot( planeNormal, ray - origin );
@@ -122,12 +122,17 @@ inline float4 uniformlyRandomVector( float seed ) {
 }
 
 
-inline float4 calculateColor( float4 origin, float4 ray, float4 light, __global uint* indices, __global float* vertices, uint numIndices, float timeSinceStart ) {
-	float4 colorMask = (float4)( 1.0f );
-	colorMask.w = 0.0f;
+inline float4 calculateColor(
+		float4 origin, float4 ray, float4 light,
+		__global uint* indices, __global float* vertices,
+		uint numIndices, float timeSinceStart
+	) {
+	// Accumulate the colors of each hit surface
+	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
 	float4 accumulatedColor = (float4)( 0.0f );
 
 	for( uint bounce = 0; bounce < 3; bounce++ ) {
+		// Find closest surface the ray hits
 		float8 intersect = findIntersection( origin, ray, indices, vertices, numIndices );
 
 		float4 hit;
@@ -136,13 +141,13 @@ inline float4 calculateColor( float4 origin, float4 ray, float4 light, __global 
 		hit.s2 = intersect.s2;
 		hit.s3 = 0.0f;
 
-		if( hit.x == 10000.0f ) {
+		// No hit, the path ends
+		if( hit.x == 10000.0f ) { // 10000.0f = arbitrary max distance, just a very high value
 			break;
 		}
 
-		float specularHighlight = 0.0f;
-		float4 surfaceColor = (float4)( 0.75f );
-		surfaceColor.w = 1.0f;
+		float specularHighlight = 0.0f; // TODO: actual sepcular value, not predefined
+		float4 surfaceColor = (float4)( 0.75f, 0.75f, 0.75f, 0.0f ); // TODO: actual color, not predefined
 
 		// Get normal of hit
 		float4 normal;
@@ -151,6 +156,7 @@ inline float4 calculateColor( float4 origin, float4 ray, float4 light, __global 
 		normal.s2 = intersect.s6;
 		normal.s3 = 0.0f;
 
+		// Distance of the hit surface point to the light source
 		float4 toLight = light - hit;
 		toLight.w = 0.0f;
 
@@ -178,32 +184,46 @@ __kernel void pathTracing(
 		__global float* compact,
 		__read_only image2d_t textureIn, __write_only image2d_t textureOut
 	) {
-
-	// TODO: reduce work group size?
+	// TODO: reduce work group size
+	// NVIDIA GTX 560 Ti limit: 1024, 1024, 64 – currently used here: 512, 512, 1
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 
+	// How much the new color will blend with the current pixel color
+	// The longer it renders, the more influence the new color has(?)
 	float textureWeight = compact[0];
+
+	// Used as seed for random()
 	float timeSinceStart = compact[1];
+
+	// @see findIntersection()
 	uint numIndices = convert_uint( compact[2] );
 
+	// Progress in creating the final image (pixel by pixel)
+	float2 percent = convert_float2( pos ) / 512.0f * 0.5f + 0.5f;
+
+	// Camera eye
+	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
+
+	// Initial ray (first of the to be created path) shooting from the eye and into the scene
 	float4 ray00 = (float4)( ray00In[0], ray00In[1], ray00In[2], 0.0f );
 	float4 ray01 = (float4)( ray01In[0], ray01In[1], ray01In[2], 0.0f );
 	float4 ray10 = (float4)( ray10In[0], ray10In[1], ray10In[2], 0.0f );
 	float4 ray11 = (float4)( ray11In[0], ray11In[1], ray11In[2], 0.0f );
-
-	float2 percent = convert_float2( pos ) / 512.0f * 0.5f + 0.5f;
-
-	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
 	float4 initialRay = mix( mix( ray00, ray01, percent.y ), mix( ray10, ray11, percent.y ), percent.x );
 	initialRay.w = 0.0f;
 
+	// Lighting
 	float4 light = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
 	float4 newLight = light + uniformlyRandomVector( timeSinceStart - 53.0f ) * 0.1f;
 	newLight.w = 0.0f;
 
+	// Old color
 	float4 texturePixel = read_imagef( textureIn, sampler, pos );
 
+	// New color (or: another color calculated by evaluating different light paths than before)
 	float4 calculatedColor = calculateColor( eye, initialRay, newLight, indices, vertices, numIndices, timeSinceStart );
+
+	// Mix new color with previous one
 	float4 color = mix( calculatedColor, texturePixel, textureWeight );
 	color.w = 1.0f;
 
