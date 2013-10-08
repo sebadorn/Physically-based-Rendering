@@ -1,27 +1,24 @@
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
 
-inline float8 findIntersection( float4 ray, float4 origin, __global uint* indices, __global float* vertices ) {
+inline float8 findIntersection( float4 ray, float4 origin, __global uint* indices, __global float* vertices, uint numIndices ) {
 	uint index0, index1, index2;
 	float4 a, b, c;
 	float4 planeNormal;
 	float numerator, denumerator, r;
-
-	uint numIndices = sizeof( indices ) / sizeof( indices[0] );
 
 	for( uint i = 0; i < numIndices; i += 3 ) {
 		index0 = indices[i * 3];
 		index1 = indices[i * 3 + 1];
 		index2 = indices[i * 3 + 2];
 
-		a = (float4)( vertices[index0], vertices[index0 + 1], vertices[index0 + 2], 1.0f );
-		b = (float4)( vertices[index1], vertices[index1 + 1], vertices[index1 + 2], 1.0f );
-		c = (float4)( vertices[index2], vertices[index2 + 1], vertices[index2 + 2], 1.0f );
+		a = (float4)( vertices[index0], vertices[index0 + 1], vertices[index0 + 2], 0.0f );
+		b = (float4)( vertices[index1], vertices[index1 + 1], vertices[index1 + 2], 0.0f );
+		c = (float4)( vertices[index2], vertices[index2 + 1], vertices[index2 + 2], 0.0f );
 
 		// First test: Intersection with plane of triangle
 		planeNormal = normalize( cross( ( b - a ), ( c - a ) ) );
 		planeNormal.w = 0.0f;
-		a.w = 0.0f;
 
 		numerator = dot( planeNormal, a - origin );
 		denumerator = dot( planeNormal, ray - origin );
@@ -38,9 +35,14 @@ inline float8 findIntersection( float4 ray, float4 origin, __global uint* indice
 
 		// Second test: Intersection with actual triangle
 		float4 rPoint = origin + r * ( ray - origin );
+		rPoint.w = 0.0f;
+
 		float4 u = b - a,
 		       v = c - a,
 		       w = rPoint - a;
+		u.w = 0.0f;
+		v.w = 0.0f;
+		w.w = 0.0f;
 
 		float uDotU = dot( u, u ),
 		      uDotV = dot( u, v ),
@@ -51,7 +53,7 @@ inline float8 findIntersection( float4 ray, float4 origin, __global uint* indice
 		float s = ( uDotV * wDotV - vDotV * wDotU ) / d,
 		      t = ( uDotV * wDotU - uDotU * wDotV ) / d;
 
-		if( s >= 0 && t >= 0 ) {
+		if( s >= 0.0f && t >= 0.0f ) {
 			float4 hit = ( a + s * u + t * v );
 			float8 result;
 
@@ -90,10 +92,10 @@ inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	float4 sdir, tdir;
 
 	if( fabs( normal.x ) < 0.5f ) {
-		sdir = cross( normal, (float4)( 1.0f, 0.0f, 0.0f, 1.0f ) );
+		sdir = cross( normal, (float4)( 1.0f, 0.0f, 0.0f, 0.0f ) );
 	}
 	else {
-		sdir = cross( normal, (float4)( 0.0f, 1.0f, 0.0f, 1.0f ) );
+		sdir = cross( normal, (float4)( 0.0f, 1.0f, 0.0f, 0.0f ) );
 	}
 
 	tdir = cross( normal, sdir );
@@ -107,9 +109,9 @@ inline float4 uniformlyRandomDirection( float seed ) {
 	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
 	float z = 1.0f - 2.0f * u;
 	float r = sqrt( 1.0f - z * z );
-	float angle = 6.283185307179586 * v;
+	float angle = 6.283185307179586f * v;
 
-	return (float4)( r * cos( angle ), r * sin( angle), z, 1.0f );
+	return (float4)( r * cos( angle ), r * sin( angle), z, 0.0f );
 }
 
 
@@ -120,12 +122,13 @@ inline float4 uniformlyRandomVector( float seed ) {
 }
 
 
-inline float4 calculateColor( float4 origin, float4 ray, float4 light, __global uint* indices, __global float* vertices, __global float* normals, float timeSinceStart ) {
+inline float4 calculateColor( float4 origin, float4 ray, float4 light, __global uint* indices, __global float* vertices, uint numIndices, float timeSinceStart ) {
 	float4 colorMask = (float4)( 1.0f );
+	colorMask.w = 0.0f;
 	float4 accumulatedColor = (float4)( 0.0f );
 
 	for( uint bounce = 0; bounce < 3; bounce++ ) {
-		float8 intersect = findIntersection( origin, ray, indices, vertices );
+		float8 intersect = findIntersection( origin, ray, indices, vertices, numIndices );
 
 		float4 hit;
 		hit.s0 = intersect.s0;
@@ -137,8 +140,9 @@ inline float4 calculateColor( float4 origin, float4 ray, float4 light, __global 
 			break;
 		}
 
-		float4 surfaceColor = (float4)( 0.75f );
 		float specularHighlight = 0.0f;
+		float4 surfaceColor = (float4)( 0.75f );
+		surfaceColor.w = 1.0f;
 
 		// Get normal of hit
 		float4 normal;
@@ -159,7 +163,8 @@ inline float4 calculateColor( float4 origin, float4 ray, float4 light, __global 
 
 		// Next bounce
 		origin = hit;
-		ray = cosineWeightedDirection( timeSinceStart + as_float( bounce ), normal );
+		ray = cosineWeightedDirection( timeSinceStart + convert_float( bounce ), normal );
+		ray.w = 0.0f;
 	}
 
 	return accumulatedColor;
@@ -167,7 +172,7 @@ inline float4 calculateColor( float4 origin, float4 ray, float4 light, __global 
 
 
 __kernel void pathTracing(
-		__global uint* indices, __global float* vertices, __global float* normals,
+		__global uint* indices, __global float* vertices,// __global float* normals,
 		__global float* eyeIn,
 		__global float* ray00In, __global float* ray01In, __global float* ray10In, __global float* ray11In,
 		__global float* compact,
@@ -179,16 +184,18 @@ __kernel void pathTracing(
 
 	float textureWeight = compact[0];
 	float timeSinceStart = compact[1];
+	uint numIndices = convert_uint( compact[2] );
 
-	float4 ray00 = (float4)( ray00In[0], ray00In[1], ray00In[2], 1.0f );
-	float4 ray01 = (float4)( ray01In[0], ray01In[1], ray01In[2], 1.0f );
-	float4 ray10 = (float4)( ray10In[0], ray10In[1], ray10In[2], 1.0f );
-	float4 ray11 = (float4)( ray11In[0], ray11In[1], ray11In[2], 1.0f );
+	float4 ray00 = (float4)( ray00In[0], ray00In[1], ray00In[2], 0.0f );
+	float4 ray01 = (float4)( ray01In[0], ray01In[1], ray01In[2], 0.0f );
+	float4 ray10 = (float4)( ray10In[0], ray10In[1], ray10In[2], 0.0f );
+	float4 ray11 = (float4)( ray11In[0], ray11In[1], ray11In[2], 0.0f );
 
-	float2 percent = convert_float2( pos ) * 0.5 + 0.5;
+	float2 percent = convert_float2( pos ) / 512.0f * 0.5f + 0.5f;
 
+	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
 	float4 initialRay = mix( mix( ray00, ray01, percent.y ), mix( ray10, ray11, percent.y ), percent.x );
-	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 1.0f );
+	initialRay.w = 0.0f;
 
 	float4 light = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
 	float4 newLight = light + uniformlyRandomVector( timeSinceStart - 53.0f ) * 0.1f;
@@ -196,7 +203,7 @@ __kernel void pathTracing(
 
 	float4 texturePixel = read_imagef( textureIn, sampler, pos );
 
-	float4 calculatedColor = calculateColor( eye, initialRay, newLight, indices, vertices, normals, timeSinceStart );
+	float4 calculatedColor = calculateColor( eye, initialRay, newLight, indices, vertices, numIndices, timeSinceStart );
 	float4 color = mix( calculatedColor, texturePixel, textureWeight );
 	color.w = 1.0f;
 

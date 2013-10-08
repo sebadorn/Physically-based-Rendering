@@ -1,6 +1,7 @@
 ## ToDo
 
 * `Feature` Get simple path tracer to work
+* `Improve` Use framebuffer
 
 
 ## Libraries/headers

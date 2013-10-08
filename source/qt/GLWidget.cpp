@@ -386,7 +386,7 @@ void GLWidget::paintGL() {
 
 		clBuffers.push_back( mCL->createBuffer( mIndices, sizeof( GLuint ) * mIndices.size() ) );
 		clBuffers.push_back( mCL->createBuffer( mVertices, sizeof( GLfloat ) * mVertices.size() ) );
-		clBuffers.push_back( mCL->createBuffer( mNormals, sizeof( GLfloat ) * mNormals.size() ) );
+		// clBuffers.push_back( mCL->createBuffer( mNormals, sizeof( GLfloat ) * mNormals.size() ) );
 
 		clBuffers.push_back( mCL->createBuffer( eye, sizeof( GLfloat ) * eye.size() ) );
 		clBuffers.push_back( mCL->createBuffer( &ray00[0], sizeof( GLfloat ) * 3 ) );
@@ -394,8 +394,8 @@ void GLWidget::paintGL() {
 		clBuffers.push_back( mCL->createBuffer( &ray10[0], sizeof( GLfloat ) * 3 ) );
 		clBuffers.push_back( mCL->createBuffer( &ray11[0], sizeof( GLfloat ) * 3 ) );
 
-		float compact[2] = { textureWeight, timeSinceStart };
-		clBuffers.push_back( mCL->createBuffer( compact, sizeof( float ) * 2 ) );
+		float compact[3] = { textureWeight, timeSinceStart, (float) mIndices.size() };
+		clBuffers.push_back( mCL->createBuffer( compact, sizeof( float ) * 3 ) );
 
 		mCL->updateImageWriteOnly( 512, 512, &mTextureOut[0] );
 
