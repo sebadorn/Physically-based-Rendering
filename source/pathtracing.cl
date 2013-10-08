@@ -23,13 +23,13 @@ inline float8 findIntersection( float4 ray, float4 origin, __global uint* indice
 		numerator = dot( planeNormal, a - origin );
 		denumerator = dot( planeNormal, ray - origin );
 
-		if( as_int( denumerator ) == 0 ) {
+		if( convert_int( denumerator ) == 0 ) {
 			continue;
 		}
 
 		r = numerator / denumerator;
 
-		if( as_int( r ) < 0 ) {
+		if( convert_int( r ) < 0 ) {
 			continue;
 		}
 
@@ -53,7 +53,7 @@ inline float8 findIntersection( float4 ray, float4 origin, __global uint* indice
 		float s = ( uDotV * wDotV - vDotV * wDotU ) / d,
 		      t = ( uDotV * wDotU - uDotU * wDotV ) / d;
 
-		if( s >= 0.0f && t >= 0.0f ) {
+		if( convert_int( s ) >= 0 && convert_int( t ) >= 0 ) {
 			float4 hit = ( a + s * u + t * v );
 			float8 result;
 
@@ -144,7 +144,7 @@ inline float4 calculateColor(
 		hit.s1 = intersect.s1;
 		hit.s2 = intersect.s2;
 		hit.s3 = 0.0f;
-break;
+
 		// No hit, the path ends
 		if( hit.x == 10000.0f ) { // 10000.0f = arbitrary max distance, just a very high value
 			break;
@@ -173,7 +173,7 @@ break;
 
 		// Next bounce
 		origin = hit;
-		ray = cosineWeightedDirection( timeSinceStart + bounce, normal );
+		ray = cosineWeightedDirection( timeSinceStart + convert_float( bounce ), normal );
 		ray.w = 0.0f;
 	}
 
@@ -189,11 +189,11 @@ __kernel void pathTracing(
 		__read_only image2d_t textureIn, __write_only image2d_t textureOut
 	) {
 	// TODO: reduce work group size
-	// NVIDIA GTX 560 Ti limit: 1024, 1024, 64 – currently used here: 512, 512, 1
+	// NVIDIA GTX 560 Ti limit: { 1024, 1024, 64 } – currently used here: { 512, 512, 1 }
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 
 	// Progress in creating the final image (pixel by pixel)
-	float2 percent = as_float2( pos ) / 512.0f * 0.5f + 0.5f;
+	const float2 percent = convert_float2( pos ) / 512.0f * 0.5f + 0.5f;
 
 	// Camera eye
 	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
@@ -203,11 +203,12 @@ __kernel void pathTracing(
 	float4 ray01 = (float4)( ray01In[0], ray01In[1], ray01In[2], 0.0f );
 	float4 ray10 = (float4)( ray10In[0], ray10In[1], ray10In[2], 0.0f );
 	float4 ray11 = (float4)( ray11In[0], ray11In[1], ray11In[2], 0.0f );
+
 	float4 initialRay = mix( mix( ray00, ray01, percent.y ), mix( ray10, ray11, percent.y ), percent.x );
 	initialRay.w = 0.0f;
 
 	// Lighting
-	float4 light = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
+	float4 light = (float4)( 0.0f, 1.0f, 0.0f, 0.0f );
 	float4 newLight = light + uniformlyRandomVector( timeSinceStart - 53.0f ) * 0.1f;
 	newLight.w = 0.0f;
 
