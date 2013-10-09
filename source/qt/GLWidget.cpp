@@ -70,11 +70,11 @@ void GLWidget::calculateMatrices() {
 		mCamera->getUp_glmVec3()
 	);
 
-	// glm::mat4 v = mViewMatrix;
-	// printf( "v: %f, %f, %f, %f\n", v[0][0], v[0][1], v[0][2], v[0][3] );
-	// printf( "v: %f, %f, %f, %f\n", v[1][0], v[1][1], v[1][2], v[1][3] );
-	// printf( "v: %f, %f, %f, %f\n", v[2][0], v[2][1], v[2][2], v[2][3] );
-	// printf( "v: %f, %f, %f, %f\n", v[3][0], v[3][1], v[3][2], v[3][3] );
+	glm::mat4 v = mViewMatrix;
+	printf( "v: %f, %f, %f, %f\n", v[0][0], v[0][1], v[0][2], v[0][3] );
+	printf( "v: %f, %f, %f, %f\n", v[1][0], v[1][1], v[1][2], v[1][3] );
+	printf( "v: %f, %f, %f, %f\n", v[2][0], v[2][1], v[2][2], v[2][3] );
+	printf( "v: %f, %f, %f, %f\n", v[3][0], v[3][1], v[3][2], v[3][3] );
 
 	mModelViewProjectionMatrix = mProjectionMatrix * mViewMatrix * mModelMatrix;
 }

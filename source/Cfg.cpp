@@ -1,6 +1,9 @@
 #include "Cfg.h"
 
 
+const char* Cfg::CAM_CENTER_X = "camera.center.x";
+const char* Cfg::CAM_CENTER_Y = "camera.center.y";
+const char* Cfg::CAM_CENTER_Z = "camera.center.z";
 const char* Cfg::CAM_EYE_X = "camera.eye.x";
 const char* Cfg::CAM_EYE_Y = "camera.eye.y";
 const char* Cfg::CAM_EYE_Z = "camera.eye.z";
