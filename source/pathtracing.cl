@@ -3,10 +3,22 @@ __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_T
 
 // TODO: Find the closest intersection: Find all (don't stop after first hit) and
 // choose the one with the smallest distance to the origin
-inline float8 findIntersection( float4 ray, float4 origin, __global uint* indices, __global float* vertices, uint numIndices ) {
-	uint index0, index1, index2;
-	float4 a, b, c, planeNormal;
-	float numerator, denumerator, r;
+inline float8 findIntersection( float4 origin, float4 ray, __global uint* indices, __global float* vertices, uint numIndices ) {
+	uint index0;
+	uint index1;
+	uint index2;
+	float4 a, b, c;
+	float4 planeNormal;
+	float numerator, denumerator;
+	float r;
+
+	float4 dir = ray - origin;
+	dir.w = 0.0f;
+	origin.w = 0.0f;
+
+	float4 closestHit = (float4)( 10000.0f, 10000.0f, 10000.0f, 0.0f );
+	float8 closestResult = (float8)( 10000.0f );
+
 
 	for( uint i = 0; i < numIndices; i += 3 ) {
 		index0 = indices[i] * 3;
@@ -18,62 +30,71 @@ inline float8 findIntersection( float4 ray, float4 origin, __global uint* indice
 		c = (float4)( vertices[index2], vertices[index2 + 1], vertices[index2 + 2], 0.0f );
 
 		// First test: Intersection with plane of triangle
-		planeNormal = normalize( cross( ( b - a ), ( c - a ) ) );
+		planeNormal = cross( ( b - a ), ( c - a ) );
+		numerator = -dot( planeNormal, origin - a );
+		denumerator = dot( planeNormal, dir );
 
-		numerator = dot( planeNormal, a - origin );
-		denumerator = dot( planeNormal, ray - origin );
-
-		if( convert_int( denumerator ) == 0 ) {
+		if( fabs( denumerator ) < 0.00000001f ) {
 			continue;
 		}
 
 		r = numerator / denumerator;
 
-		if( convert_int( r ) < 0 ) {
+		if( r < 0.0f ) {
 			continue;
 		}
 
+		// The plane has been hit.
 		// Second test: Intersection with actual triangle
-		float4 rPoint = origin + r * ( ray - origin );
-		rPoint.w = 0.0f;
+		float4 hit = origin + r * dir;
+		hit.w = 0.0f;
 
-		float4 u = b - a,
-		       v = c - a,
-		       w = rPoint - a;
+		float4 u = b - a;
+		float4 v = c - a;
+		float4 w = hit - a;
 		u.w = 0.0f;
 		v.w = 0.0f;
 		w.w = 0.0f;
 
-		float uDotU = dot( u, u ),
-		      uDotV = dot( u, v ),
-		      vDotV = dot( v, v ),
-		      wDotV = dot( w, v ),
-		      wDotU = dot( w, u );
+		float uDotU = dot( u, u );
+		float uDotV = dot( u, v );
+		float vDotV = dot( v, v );
+		float wDotV = dot( w, v );
+		float wDotU = dot( w, u );
 		float d = uDotV * uDotV - uDotU * vDotV;
-		float s = ( uDotV * wDotV - vDotV * wDotU ) / d,
-		      t = ( uDotV * wDotU - uDotU * wDotV ) / d;
+		float s = ( uDotV * wDotV - vDotV * wDotU ) / d;
 
-		if( convert_int( s ) >= 0 && convert_int( t ) >= 0 ) {
-			float4 hit = ( a + s * u + t * v );
-			float8 result;
+		if( s < 0.0f || s > 1.0f ) {
+			continue;
+		}
 
-			// hit
-			result.s0 = hit.s0;
-			result.s1 = hit.s1;
-			result.s2 = hit.s2;
-			result.s3 = hit.s3;
+		float t = ( uDotV * wDotU - uDotU * wDotV ) / d;
 
-			// normal
-			result.s4 = planeNormal.s0;
-			result.s5 = planeNormal.s1;
-			result.s6 = planeNormal.s2;
-			result.s7 = planeNormal.s3;
+		if( t < 0.0f || ( s + t ) > 1.0f ) {
+			continue;
+		}
 
-			return result;
+		float8 result;
+
+		// hit
+		result.s0 = hit.x;
+		result.s1 = hit.y;
+		result.s2 = hit.z;
+		result.s3 = 0.0f;
+
+		// normal
+		result.s4 = planeNormal.x;
+		result.s5 = planeNormal.y;
+		result.s6 = planeNormal.z;
+		result.s7 = 0.0f;
+
+		if( length( hit - origin ) < length( closestHit - origin ) ) {
+			closestHit = hit;
+			closestResult = result;
 		}
 	}
 
-	return (float8)( 10000.0f );
+	return closestResult;
 }
 
 
@@ -126,49 +147,67 @@ inline float4 uniformlyRandomVector( float seed ) {
 }
 
 
+float shadow( float4 origin, float4 ray ) {
+	// float tSphere0 = intersectSphere(origin, ray, sphereCenter0, sphereRadius0);
+	// if(tSphere0 < 1.0) return 0.0;
+
+	// float tSphere1 = intersectSphere(origin, ray, sphereCenter1, sphereRadius1);
+	// if(tSphere1 < 1.0) return 0.0;
+
+	// float tSphere2 = intersectSphere(origin, ray, sphereCenter2, sphereRadius2);
+	// if(tSphere2 < 1.0) return 0.0;
+
+	// float tSphere3 = intersectSphere(origin, ray, sphereCenter3, sphereRadius3);
+	// if(tSphere3 < 1.0) return 0.0;
+
+	return 1.0f;
+}
+
+
 inline float4 calculateColor(
 		float4 origin, float4 ray, float4 light,
 		__global uint* indices, __global float* vertices,
 		uint numIndices, float timeSinceStart
 	) {
 	// Accumulate the colors of each hit surface
-	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
+	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 1.0f );
 	float4 accumulatedColor = (float4)( 0.0f );
 
-	for( uint bounce = 0; bounce < 3; bounce++ ) {
+	for( uint bounce = 0; bounce < 5; bounce++ ) {
 		// Find closest surface the ray hits
 		float8 intersect = findIntersection( origin, ray, indices, vertices, numIndices );
 
 		float4 hit;
-		hit.s0 = intersect.s0;
-		hit.s1 = intersect.s1;
-		hit.s2 = intersect.s2;
-		hit.s3 = 0.0f;
+		hit.x = intersect.s0;
+		hit.y = intersect.s1;
+		hit.z = intersect.s2;
+		hit.w = 0.0f;
 
 		// No hit, the path ends
 		if( hit.x == 10000.0f ) { // 10000.0f = arbitrary max distance, just a very high value
 			break;
 		}
 
-		float specularHighlight = 0.0f; // TODO: actual sepcular value, not predefined
-		float4 surfaceColor = (float4)( 0.75f, 0.75f, 0.75f, 0.0f ); // TODO: actual color, not predefined
-
 		// Get normal of hit
 		float4 normal;
-		normal.s0 = intersect.s4;
-		normal.s1 = intersect.s5;
-		normal.s2 = intersect.s6;
-		normal.s3 = 0.0f;
+		normal.x = intersect.s4;
+		normal.y = intersect.s5;
+		normal.z = intersect.s6;
+		normal.w = 0.0f;
+
+		normal = normalize( normal );
 
 		// Distance of the hit surface point to the light source
 		float4 toLight = light - hit;
 		toLight.w = 0.0f;
 
 		float diffuse = max( 0.0f, dot( normalize( toLight ), normal ) );
-		float shadowIntensity = 1.0f; // TODO: shadow( hit + normal * 0.0001f, toLight );
+		float shadowIntensity = shadow( hit + normal * 0.0001f, toLight );
+		float specularHighlight = 0.0f;
+		float4 surfaceColor = (float4)( 0.9f, 0.9f, 0.9f, 1.0f );
 
 		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * ( 0.5f * diffuse * shadowIntensity );
+		accumulatedColor += colorMask * 0.2f * diffuse * shadowIntensity;
 		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
 
 		// Next bounce
@@ -193,7 +232,9 @@ __kernel void pathTracing(
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 
 	// Progress in creating the final image (pixel by pixel)
-	const float2 percent = convert_float2( pos ) / 512.0f * 0.5f + 0.5f;
+	float2 percent;
+	percent.x = convert_float( pos.x ) / 512.0f * 0.5f + 0.5f;
+	percent.y = convert_float( pos.y ) / 512.0f * 0.5f + 0.5f;
 
 	// Camera eye
 	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
@@ -206,9 +247,12 @@ __kernel void pathTracing(
 
 	float4 initialRay = mix( mix( ray00, ray01, percent.y ), mix( ray10, ray11, percent.y ), percent.x );
 	initialRay.w = 0.0f;
+	initialRay = normalize( initialRay );
 
 	// Lighting
 	float4 light = (float4)( 0.0f, 1.0f, 0.0f, 0.0f );
+
+	// The farther away a shadow is, the more diffuse it becomes
 	float4 newLight = light + uniformlyRandomVector( timeSinceStart - 53.0f ) * 0.1f;
 	newLight.w = 0.0f;
 
@@ -220,11 +264,7 @@ __kernel void pathTracing(
 
 	// Mix new color with previous one
 	float4 color = mix( calculatedColor, texturePixel, textureWeight );
-	// float4 color;
 	color.w = 1.0f;
-	// color.x = 0.5f;
-	// color.y = 0.8f;
-	// color.z = 0.2f;
 
 	write_imagef( textureOut, pos, color );
 }

@@ -85,7 +85,6 @@ class GLWidget : public QGLWidget {
 		std::vector<GLuint> mVA;
 		GLuint mTargetTexture;
 
-		glm::mat3 mNormalMatrix;
 		glm::mat4 mModelMatrix;
 		glm::mat4 mModelViewProjectionMatrix;
 		glm::mat4 mProjectionMatrix;
@@ -103,10 +102,7 @@ class GLWidget : public QGLWidget {
 		GLuint mVertexAttribute;
 		GLuint mVertexBuffer;
 
-		std::vector<float> mTextureIn;
 		std::vector<float> mTextureOut;
-		cl_mem mKernelArgTextureIn;
-		cl_mem mKernelArgTextureOut;
 
 		cl_mem mBufferIndices;
 		cl_mem mBufferVertices;
@@ -115,6 +111,8 @@ class GLWidget : public QGLWidget {
 		cl_mem mBufferRay01;
 		cl_mem mBufferRay10;
 		cl_mem mBufferRay11;
+		cl_mem mKernelArgTextureIn;
+		cl_mem mKernelArgTextureOut;
 
 };
 

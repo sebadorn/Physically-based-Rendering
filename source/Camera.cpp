@@ -77,11 +77,11 @@ void Camera::cameraMoveUp() {
  * Reset the camera position and rotation.
  */
 void Camera::cameraReset() {
-	mCamera.eyeX = 0.0f;
-	mCamera.eyeY = 0.0f;
-	mCamera.eyeZ = 4.0f;
+	mCamera.eyeX = Cfg::get().value<float>( Cfg::CAM_EYE_X );
+	mCamera.eyeY = Cfg::get().value<float>( Cfg::CAM_EYE_Y );
+	mCamera.eyeZ = Cfg::get().value<float>( Cfg::CAM_EYE_Z );
 	mCamera.centerX = 0.0f;
-	mCamera.centerY = 0.5f;
+	mCamera.centerY = 1.0f;
 	mCamera.centerZ = 0.0f;
 	mCamera.upX = 0.0f;
 	mCamera.upY = 1.0f;

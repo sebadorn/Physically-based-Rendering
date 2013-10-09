@@ -1,6 +1,11 @@
 {
 
 	"camera": {
+		"eye": {
+			"x": 0.0,
+			"y": 1.0,
+			"z": 8.0
+		},
 		"speed": 0.5
 	},
 
@@ -16,7 +21,7 @@
 		// render every 16.666 ms ~ 60 FPS
 		"interval": 100.0,
 		"perspective": {
-			"fov": 70.0,
+			"fov": 50.0,
 			"zfar": 400.0,
 			"znear": 0.1
 		}

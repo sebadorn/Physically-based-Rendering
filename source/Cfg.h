@@ -17,6 +17,9 @@ class Cfg {
 			return mPropTree.get<T>( key );
 		}
 
+		static const char* CAM_EYE_X;
+		static const char* CAM_EYE_Y;
+		static const char* CAM_EYE_Z;
 		static const char* CAM_SPEED;
 		static const char* IMPORT_PATH;
 		static const char* LOGGING;

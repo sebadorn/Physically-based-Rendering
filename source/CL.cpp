@@ -67,9 +67,9 @@ void CL::buildProgram() {
 
 /**
  * Check for an CL related error and log it.
- * @param  {cl_int}	  err		  Error code.
+ * @param  {cl_int}      err          Error code.
  * @param  {const char*} functionName Name of the function it occured in.
- * @return {bool}					 True, if no error occured, false otherwise.
+ * @return {bool}                     True, if no error occured, false otherwise.
  */
 bool CL::checkError( cl_int err, const char* functionName ) {
 	if( err != CL_SUCCESS ) {

@@ -11,10 +11,10 @@ ModelLoader::ModelLoader() {
 	// Doc: http://assimp.sourceforge.net/lib_html/postprocess_8h.html
 	mAssimpFlags = aiProcess_JoinIdenticalVertices |
 	               aiProcess_Triangulate |
-	               aiProcess_GenNormals |
+	               //aiProcess_GenNormals |
 	               aiProcess_SortByPType |
-	               aiProcess_OptimizeMeshes |
-	               aiProcess_OptimizeGraph |
+	               // aiProcess_OptimizeMeshes |
+	               // aiProcess_OptimizeGraph |
 	               aiProcess_SplitLargeMeshes;
 }
 
@@ -366,11 +366,11 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 			mVertices.push_back( mesh->mVertices[j].z );
 		}
 
-		for( int j = 0; j < mesh->mNumVertices; j++ ) {
-			mNormals.push_back( mesh->mNormals[j].x );
-			mNormals.push_back( mesh->mNormals[j].y );
-			mNormals.push_back( mesh->mNormals[j].z );
-		}
+		// for( int j = 0; j < mesh->mNumVertices; j++ ) {
+		// 	mNormals.push_back( mesh->mNormals[j].x );
+		// 	mNormals.push_back( mesh->mNormals[j].y );
+		// 	mNormals.push_back( mesh->mNormals[j].z );
+		// }
 
 		// this->createBufferColorsAmbient( mesh, material, buffers[2] );
 		// this->createBufferColorsDiffuse( mesh, material, buffers[3] );

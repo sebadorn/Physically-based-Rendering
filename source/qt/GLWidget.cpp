@@ -57,18 +57,24 @@ void GLWidget::calculateMatrices() {
 
 	mSampleCount = 0;
 
+	// glm::vec3 e = mCamera->getEye_glmVec3();
+	// glm::vec3 c = mCamera->getAdjustedCenter_glmVec3();
+	// glm::vec3 u = mCamera->getUp_glmVec3();
+	// printf( "e: %f, %f, %f\n", e[0], e[1], e[2] );
+	// printf( "c: %f, %f, %f\n", c[0], c[1], c[2] );
+	// printf( "u: %f, %f, %f\n", u[0], u[1], u[2] );
+
 	mViewMatrix = glm::lookAt(
 		mCamera->getEye_glmVec3(),
-		mCamera->getAdjustedCenter_glmVec3(),
+		mCamera->getCenter_glmVec3(),
 		mCamera->getUp_glmVec3()
 	);
 
-	// mModelMatrix = glm::mat4( 1.0f );
-
-	// If no scaling is involved:
-	mNormalMatrix = glm::mat3( mModelMatrix );
-	// else:
-	// mNormalMatrix = glm::inverseTranspose( glm::mat3( mModelMatrix ) );
+	// glm::mat4 v = mViewMatrix;
+	// printf( "v: %f, %f, %f, %f\n", v[0][0], v[0][1], v[0][2], v[0][3] );
+	// printf( "v: %f, %f, %f, %f\n", v[1][0], v[1][1], v[1][2], v[1][3] );
+	// printf( "v: %f, %f, %f, %f\n", v[2][0], v[2][1], v[2][2], v[2][3] );
+	// printf( "v: %f, %f, %f, %f\n", v[3][0], v[3][1], v[3][2], v[3][3] );
 
 	mModelViewProjectionMatrix = mProjectionMatrix * mViewMatrix * mModelMatrix;
 }
@@ -201,10 +207,9 @@ void GLWidget::initTargetTexture() {
 	size_t w = 512;
 	size_t h = 512;
 
-	mTextureIn = vector<float>( w * h * 4 );
 	mTextureOut = vector<float>( w * h * 4 );
 
-	mKernelArgTextureIn = mCL->createImageReadOnly( w, h, &mTextureIn[0] );
+	mKernelArgTextureIn = mCL->createImageReadOnly( w, h, &mTextureOut[0] );
 	mKernelArgTextureOut = mCL->createImageWriteOnly( w, h );
 
 	glGenTextures( 1, &mTargetTexture );
@@ -377,24 +382,30 @@ void GLWidget::paintGL() {
 	cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
 
 
-	// Jittering for anti-aliasing
-	glm::vec3 v = glm::vec3(
-		rand() / (float) RAND_MAX * 2.0f - 1.0f,
-		rand() / (float) RAND_MAX * 2.0f - 1.0f,
-		0.0f
-	);
-	glm::mat4 jitter = this->getJitterMatrix( v ) * ( 1.0f / 512.0f );
+	// // Jittering for anti-aliasing
+	// glm::vec3 v = glm::vec3(
+	// 	rand() / (float) RAND_MAX * 2.0f - 1.0f,
+	// 	rand() / (float) RAND_MAX * 2.0f - 1.0f,
+	// 	0.0f
+	// );
+	// glm::mat4 jitter = this->getJitterMatrix( v ) * ( 1.0f / 512.0f );
+	glm::mat4 jitter = glm::inverse( mModelViewProjectionMatrix );
 
 	glm::vec3 ray00 = this->getEyeRay( jitter, -1.0f, -1.0f );
 	glm::vec3 ray01 = this->getEyeRay( jitter, -1.0f, +1.0f );
 	glm::vec3 ray10 = this->getEyeRay( jitter, +1.0f, -1.0f );
 	glm::vec3 ray11 = this->getEyeRay( jitter, +1.0f, +1.0f );
 
+	// printf( "ray00: %f, %f, %f\n", ray00[0], ray00[1], ray00[2] );
+	// printf( "ray01: %f, %f, %f\n", ray01[0], ray01[1], ray01[2] );
+	// printf( "ray10: %f, %f, %f\n", ray10[0], ray10[1], ray10[2] );
+	// printf( "ray11: %f, %f, %f\n", ray11[0], ray11[1], ray11[2] );
+
 
 	if( mVertices.size() > 0 ) {
 		uint i = 0;
-		vector<float> eye = mCamera->getEye();
 		vector<cl_mem> clBuffers;
+		vector<float> eye = mCamera->getEye();
 		cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 
 		mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
@@ -426,6 +437,7 @@ void GLWidget::paintGL() {
 		mCL->execute();
 		mCL->readImageOutput( 512, 512, &mTextureOut[0] );
 		mCL->finish();
+
 
 		this->paintScene();
 	}
@@ -474,12 +486,14 @@ void GLWidget::paintScene() {
  */
 void GLWidget::resizeGL( int width, int height ) {
 	glViewport( 0, 0, width, height );
+
 	mProjectionMatrix = glm::perspective(
 		Cfg::get().value<float>( Cfg::PERS_FOV ),
 		width / (float) height,
 		Cfg::get().value<float>( Cfg::PERS_ZNEAR ),
 		Cfg::get().value<float>( Cfg::PERS_ZFAR )
 	);
+
 	this->calculateMatrices();
 }
 
