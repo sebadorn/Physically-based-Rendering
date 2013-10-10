@@ -52,7 +52,7 @@ class GLWidget : public QGLWidget {
 	protected:
 		void calculateMatrices();
 		void deleteOldModel();
-		glm::vec3 getEyeRay( glm::mat4 matrix, float x, float y );
+		glm::vec3 getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y );
 		glm::mat4 getJitterMatrix( glm::vec3 v );
 		void initGlew();
 		void initializeGL();
@@ -93,7 +93,7 @@ class GLWidget : public QGLWidget {
 		boost::posix_time::ptime mTimeSinceStart;
 
 		std::vector<GLfloat> mVertices;
-		std::vector<GLint> mIndices;
+		std::vector<GLuint> mIndices;
 		std::vector<GLfloat> mNormals;
 
 		GLuint mFramebuffer;

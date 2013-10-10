@@ -9,13 +9,13 @@ using namespace boost::property_tree;
  */
 ModelLoader::ModelLoader() {
 	// Doc: http://assimp.sourceforge.net/lib_html/postprocess_8h.html
-	mAssimpFlags = aiProcess_JoinIdenticalVertices |
-	               aiProcess_Triangulate |
+	mAssimpFlags = //aiProcess_JoinIdenticalVertices |
+	               aiProcess_Triangulate;
 	               //aiProcess_GenNormals |
-	               aiProcess_SortByPType |
+	               //aiProcess_SortByPType |
 	               // aiProcess_OptimizeMeshes |
 	               // aiProcess_OptimizeGraph |
-	               aiProcess_SplitLargeMeshes;
+	               //aiProcess_SplitLargeMeshes;
 }
 
 
@@ -342,7 +342,7 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 	// glGenVertexArrays( 1, &vertexArrayID );
 	// glBindVertexArray( vertexArrayID );
 
-	mIndices = vector<GLint>();
+	mIndices = vector<GLuint>();
 	mVertices = vector<GLfloat>();
 	mNormals = vector<GLfloat>();
 
@@ -360,11 +360,12 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 			mIndices.push_back( face->mIndices[2] );
 		}
 
-		for( int j = 0; j < mesh->mNumVertices; j++ ) {
-			mVertices.push_back( mesh->mVertices[j].x );
-			mVertices.push_back( mesh->mVertices[j].y );
-			mVertices.push_back( mesh->mVertices[j].z );
+		for( int k = 0; k < mesh->mNumVertices; k++ ) {
+			mVertices.push_back( mesh->mVertices[k].x );
+			mVertices.push_back( mesh->mVertices[k].y );
+			mVertices.push_back( mesh->mVertices[k].z );
 		}
+	}
 
 		// for( int j = 0; j < mesh->mNumVertices; j++ ) {
 		// 	mNormals.push_back( mesh->mNormals[j].x );
@@ -396,7 +397,7 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 		// }
 
 		// this->createBufferIndices( mesh );
-	}
+	// }
 
 	// glBindVertexArray( 0 );
 	// glBindBuffer( GL_ARRAY_BUFFER, 0 );

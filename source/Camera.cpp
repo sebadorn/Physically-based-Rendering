@@ -98,7 +98,7 @@ void Camera::cameraReset() {
  */
 glm::vec3 Camera::getAdjustedCenter_glmVec3() {
 	return glm::vec3(
-		mCamera.eyeX - mCamera.centerX,
+		mCamera.eyeX + mCamera.centerX, // was: -
 		mCamera.eyeY + mCamera.centerY,
 		mCamera.eyeZ + mCamera.centerZ
 	);

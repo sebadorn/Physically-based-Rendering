@@ -57,26 +57,50 @@ void GLWidget::calculateMatrices() {
 
 	mSampleCount = 0;
 
-	// glm::vec3 e = mCamera->getEye_glmVec3();
-	// glm::vec3 c = mCamera->getAdjustedCenter_glmVec3();
-	// glm::vec3 u = mCamera->getUp_glmVec3();
+	glm::vec3 e = mCamera->getEye_glmVec3();
+	glm::vec3 c = mCamera->getCenter_glmVec3();
+	glm::vec3 u = mCamera->getUp_glmVec3();
 	// printf( "e: %f, %f, %f\n", e[0], e[1], e[2] );
 	// printf( "c: %f, %f, %f\n", c[0], c[1], c[2] );
 	// printf( "u: %f, %f, %f\n", u[0], u[1], u[2] );
 
-	mViewMatrix = glm::lookAt(
-		mCamera->getEye_glmVec3(),
-		mCamera->getCenter_glmVec3(),
-		mCamera->getUp_glmVec3()
-	);
+	mViewMatrix = glm::lookAt( e, e - c, u );
 
-	glm::mat4 v = mViewMatrix;
-	printf( "v: %f, %f, %f, %f\n", v[0][0], v[0][1], v[0][2], v[0][3] );
-	printf( "v: %f, %f, %f, %f\n", v[1][0], v[1][1], v[1][2], v[1][3] );
-	printf( "v: %f, %f, %f, %f\n", v[2][0], v[2][1], v[2][2], v[2][3] );
-	printf( "v: %f, %f, %f, %f\n", v[3][0], v[3][1], v[3][2], v[3][3] );
+
+	// glm::vec3 z = glm::normalize( e - c );
+	// glm::vec3 x = glm::normalize( glm::cross( u, z ) );
+	// glm::vec3 y = glm::normalize( glm::cross( z, x ) );
+
+	// glm::mat4 m(
+	// 	x[0], x[1], x[2], 0.0f,
+	// 	y[0], y[1], y[2], 0.0f,
+	// 	z[0], z[1], z[2], 0.0f,
+	// 	0.0f, 0.0f, 0.0f, 1.0f
+	// );
+
+	// glm::mat4 t(
+	// 	1.0f, 0.0f, 0.0f, -e[0],
+	// 	0.0f, 1.0f, 0.0f, -e[1],
+	// 	0.0f, 0.0f, 1.0f, -e[2],
+	// 	0.0f, 0.0f, 0.0f, 1.0f
+	// );
+
+	// mViewMatrix = m * t;
+
+
+	// glm::mat4 v = mViewMatrix;
+	// printf( "v: %f, %f, %f, %f\n", v[0][0], v[0][1], v[0][2], v[0][3] );
+	// printf( "v: %f, %f, %f, %f\n", v[1][0], v[1][1], v[1][2], v[1][3] );
+	// printf( "v: %f, %f, %f, %f\n", v[2][0], v[2][1], v[2][2], v[2][3] );
+	// printf( "v: %f, %f, %f, %f\n", v[3][0], v[3][1], v[3][2], v[3][3] );
 
 	mModelViewProjectionMatrix = mProjectionMatrix * mViewMatrix * mModelMatrix;
+
+	// glm::mat4 v = mModelViewProjectionMatrix;
+	// printf( "v0: %f, %f, %f, %f\n", v[0][0], v[0][1], v[0][2], v[0][3] );
+	// printf( "v1: %f, %f, %f, %f\n", v[1][0], v[1][1], v[1][2], v[1][3] );
+	// printf( "v2: %f, %f, %f, %f\n", v[2][0], v[2][1], v[2][2], v[2][3] );
+	// printf( "v3: %f, %f, %f, %f\n", v[3][0], v[3][1], v[3][2], v[3][3] );
 }
 
 
@@ -85,6 +109,7 @@ void GLWidget::calculateMatrices() {
  */
 void GLWidget::cameraUpdate() {
 	this->calculateMatrices();
+	this->update(); // TODO: remove when timer in use again
 }
 
 
@@ -106,11 +131,11 @@ void GLWidget::deleteOldModel() {
 }
 
 
-glm::vec3 GLWidget::getEyeRay( glm::mat4 matrix, float x, float y ) {
+glm::vec3 GLWidget::getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y ) {
 	glm::vec4 tmp = matrix * glm::vec4( x, y, 0.0f, 1.0f );
 	glm::vec3 result( tmp[0] / tmp[3], tmp[1] / tmp[3], tmp[2] / tmp[3] );
 
-	return result - mCamera->getEye_glmVec3();
+	return glm::normalize( result - eye );
 }
 
 
@@ -204,10 +229,10 @@ void GLWidget::initShaders() {
 
 
 void GLWidget::initTargetTexture() {
-	size_t w = 512;
-	size_t h = 512;
+	size_t w = 256;
+	size_t h = 256;
 
-	mTextureOut = vector<float>( w * h * 4 );
+	mTextureOut = vector<cl_float>( w * h * 4 );
 
 	mKernelArgTextureIn = mCL->createImageReadOnly( w, h, &mTextureOut[0] );
 	mKernelArgTextureOut = mCL->createImageWriteOnly( w, h );
@@ -221,7 +246,7 @@ void GLWidget::initTargetTexture() {
  * @return {bool} True, if is rendering, false otherwise.
  */
 bool GLWidget::isRendering() {
-	return ( mDoRendering && mTimer->isActive() );
+	return ( mDoRendering /*&& mTimer->isActive()*/ );
 }
 
 
@@ -238,17 +263,17 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	ml->loadModel( filepath, filename );
 	mIndices = ml->mIndices;
 	mVertices = ml->mVertices;
-	mNormals = ml->mNormals;
+	// mNormals = ml->mNormals;
 
 	// OpenCL buffers
-	mBufferIndices = mCL->createBuffer( mIndices, sizeof( GLuint ) * mIndices.size() );
-	mBufferVertices = mCL->createBuffer( mVertices, sizeof( GLfloat ) * mVertices.size() );
+	mBufferIndices = mCL->createBuffer( mIndices, sizeof( cl_uint ) * mIndices.size() );
+	mBufferVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
 
-	mBufferEye = mCL->createEmptyBuffer( sizeof( GLfloat ) * 3 );
-	mBufferRay00 = mCL->createEmptyBuffer( sizeof( GLfloat ) * 3 );
-	mBufferRay01 = mCL->createEmptyBuffer( sizeof( GLfloat ) * 3 );
-	mBufferRay10 = mCL->createEmptyBuffer( sizeof( GLfloat ) * 3 );
-	mBufferRay11 = mCL->createEmptyBuffer( sizeof( GLfloat ) * 3 );
+	mBufferEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
+	mBufferRay00 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
+	mBufferRay01 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
+	mBufferRay10 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
+	mBufferRay11 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
 
 
 	this->initShaders();
@@ -350,7 +375,7 @@ void GLWidget::moveCamera( const int key ) {
  * Draw the scene.
  */
 void GLWidget::paintGL() {
-	if( !mDoRendering ) {
+	if( !mDoRendering || mVertices.size() <= 0 ) {
 		return;
 	}
 
@@ -388,13 +413,7 @@ void GLWidget::paintGL() {
 	// 	rand() / (float) RAND_MAX * 2.0f - 1.0f,
 	// 	0.0f
 	// );
-	// glm::mat4 jitter = this->getJitterMatrix( v ) * ( 1.0f / 512.0f );
-	glm::mat4 jitter = glm::inverse( mModelViewProjectionMatrix );
-
-	glm::vec3 ray00 = this->getEyeRay( jitter, -1.0f, -1.0f );
-	glm::vec3 ray01 = this->getEyeRay( jitter, -1.0f, +1.0f );
-	glm::vec3 ray10 = this->getEyeRay( jitter, +1.0f, -1.0f );
-	glm::vec3 ray11 = this->getEyeRay( jitter, +1.0f, +1.0f );
+	// glm::mat4 jitter = this->getJitterMatrix( v ) * ( 1.0f / 256.0f );
 
 	// printf( "ray00: %f, %f, %f\n", ray00[0], ray00[1], ray00[2] );
 	// printf( "ray01: %f, %f, %f\n", ray01[0], ray01[1], ray01[2] );
@@ -402,45 +421,57 @@ void GLWidget::paintGL() {
 	// printf( "ray11: %f, %f, %f\n", ray11[0], ray11[1], ray11[2] );
 
 
-	if( mVertices.size() > 0 ) {
-		uint i = 0;
-		vector<cl_mem> clBuffers;
-		vector<float> eye = mCamera->getEye();
-		cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
+	uint i = 0;
+	vector<cl_mem> clBuffers;
+	glm::vec3 eye = mCamera->getEye_glmVec3();
+	// glm::vec4 eye4 = mModelViewProjectionMatrix * glm::vec4( eye[0], eye[1], eye[2], 1.0f );
+	// eye[0] = eye4[0];
+	// eye[1] = eye4[1];
+	// eye[2] = eye4[2];
 
-		mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVertices );
+	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 
-		mCL->updateBuffer( mBufferEye, sizeof( GLfloat ) * 3, &eye[0] );
-		mCL->updateBuffer( mBufferRay00, sizeof( GLfloat ) * 3, &ray00[0] );
-		mCL->updateBuffer( mBufferRay01, sizeof( GLfloat ) * 3, &ray01[0] );
-		mCL->updateBuffer( mBufferRay10, sizeof( GLfloat ) * 3, &ray10[0] );
-		mCL->updateBuffer( mBufferRay11, sizeof( GLfloat ) * 3, &ray11[0] );
+	glm::mat4 jitter = glm::inverse( mModelViewProjectionMatrix );
 
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferEye );
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay00 );
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay01 );
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay10 );
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay11 );
-
-		mCL->setKernelArg( ++i, sizeof( cl_float ), &textureWeight );
-		mCL->setKernelArg( ++i, sizeof( cl_float ), &timeSinceStart );
-
-		cl_uint numIndices = mIndices.size();
-		mCL->setKernelArg( ++i, sizeof( cl_uint ), &numIndices );
-
-		mCL->updateImageWriteOnly( 512, 512, &mTextureOut[0] );
-
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
-
-		mCL->execute();
-		mCL->readImageOutput( 512, 512, &mTextureOut[0] );
-		mCL->finish();
+	glm::vec3 ray00 = this->getEyeRay( jitter, eye, -1.0f, -1.0f );
+	glm::vec3 ray01 = this->getEyeRay( jitter, eye, -1.0f, +1.0f );
+	glm::vec3 ray10 = this->getEyeRay( jitter, eye, +1.0f, -1.0f );
+	glm::vec3 ray11 = this->getEyeRay( jitter, eye, +1.0f, +1.0f );
 
 
-		this->paintScene();
-	}
+	mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
+	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVertices );
+
+	mCL->updateBuffer( mBufferEye, sizeof( cl_float ) * 3, &eye[0] );
+	mCL->updateBuffer( mBufferRay00, sizeof( cl_float ) * 3, &ray00[0] );
+	mCL->updateBuffer( mBufferRay01, sizeof( cl_float ) * 3, &ray01[0] );
+	mCL->updateBuffer( mBufferRay10, sizeof( cl_float ) * 3, &ray10[0] );
+	mCL->updateBuffer( mBufferRay11, sizeof( cl_float ) * 3, &ray11[0] );
+
+	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferEye );
+	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay00 );
+	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay01 );
+	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay10 );
+	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay11 );
+
+	mCL->setKernelArg( ++i, sizeof( cl_float ), &textureWeight );
+	mCL->setKernelArg( ++i, sizeof( cl_float ), &timeSinceStart );
+
+	cl_uint numIndices = mIndices.size();
+	mCL->setKernelArg( ++i, sizeof( cl_uint ), &numIndices );
+
+	mCL->updateImageWriteOnly( 256, 256, &mTextureOut[0] );
+
+	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
+	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
+
+	mCL->execute();
+	mCL->readImageOutput( 256, 256, &mTextureOut[0] );
+	mCL->finish();
+
+
+	this->paintScene();
+
 
 	this->showFPS();
 }
@@ -462,7 +493,7 @@ void GLWidget::paintScene() {
 
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
 
 	// glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTexture, 0 );
 

@@ -2,14 +2,14 @@
 
 	"camera": {
 		"eye": {
-			"x": 0.0,
-			"y": 1.0,
-			"z": 8.0
+			"x": 0.3,
+			"y": 0.8,
+			"z": 1.0
 		},
 		"center": {
 			"x": 0.0,
-			"y": 1.0,
-			"z": 0.0
+			"y": 0.8,
+			"z": -0.5
 		},
 		"speed": 0.5
 	},
@@ -27,7 +27,7 @@
 		"interval": 100.0,
 		"perspective": {
 			"fov": 50.0,
-			"zfar": 400.0,
+			"zfar": 100.0,
 			"znear": 0.1
 		}
 	},
@@ -38,9 +38,9 @@
 	},
 
 	"window": {
-		"height": 512,
+		"height": 256,
 		"title": "Physically-based Renderer",
-		"width": 512
+		"width": 256
 	}
 
 }

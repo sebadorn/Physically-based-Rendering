@@ -54,7 +54,7 @@ class ModelLoader {
 		void loadModel( std::string filepath, std::string filename );
 
 		std::vector<GLfloat> mVertices;
-		std::vector<GLint> mIndices;
+		std::vector<GLuint> mIndices;
 		std::vector<GLfloat> mNormals;
 
 	protected:

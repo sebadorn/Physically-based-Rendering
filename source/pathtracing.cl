@@ -173,7 +173,7 @@ inline float4 calculateColor(
 	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 1.0f );
 	float4 accumulatedColor = (float4)( 0.0f );
 
-	for( uint bounce = 0; bounce < 5; bounce++ ) {
+	for( uint bounce = 0; bounce < 3; bounce++ ) {
 		// Find closest surface the ray hits
 		float8 intersect = findIntersection( origin, ray, indices, vertices, numIndices );
 
@@ -228,13 +228,13 @@ __kernel void pathTracing(
 		__read_only image2d_t textureIn, __write_only image2d_t textureOut
 	) {
 	// TODO: reduce work group size
-	// NVIDIA GTX 560 Ti limit: { 1024, 1024, 64 } – currently used here: { 512, 512, 1 }
+	// NVIDIA GTX 560 Ti limit: { 1024, 1024, 64 } – currently used here: { 256, 256, 1 }
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 
 	// Progress in creating the final image (pixel by pixel)
 	float2 percent;
-	percent.x = convert_float( pos.x ) / 512.0f * 0.5f + 0.5f;
-	percent.y = convert_float( pos.y ) / 512.0f * 0.5f + 0.5f;
+	percent.x = convert_float( pos.x ) / 256.0f * 0.5f + 0.5f;
+	percent.y = convert_float( pos.y ) / 256.0f * 0.5f + 0.5f;
 
 	// Camera eye
 	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
@@ -245,12 +245,17 @@ __kernel void pathTracing(
 	float4 ray10 = (float4)( ray10In[0], ray10In[1], ray10In[2], 0.0f );
 	float4 ray11 = (float4)( ray11In[0], ray11In[1], ray11In[2], 0.0f );
 
+	// ray00 = normalize( ray00 );
+	// ray01 = normalize( ray01 );
+	// ray10 = normalize( ray10 );
+	// ray11 = normalize( ray11 );
+
 	float4 initialRay = mix( mix( ray00, ray01, percent.y ), mix( ray10, ray11, percent.y ), percent.x );
 	initialRay.w = 0.0f;
-	initialRay = normalize( initialRay );
+	// initialRay = normalize( initialRay );
 
 	// Lighting
-	float4 light = (float4)( 0.0f, 1.0f, 0.0f, 0.0f );
+	float4 light = (float4)( 0.5f, 1.1f, 0.0f, 0.0f );
 
 	// The farther away a shadow is, the more diffuse it becomes
 	float4 newLight = light + uniformlyRandomVector( timeSinceStart - 53.0f ) * 0.1f;
