@@ -2,7 +2,7 @@
 
 * `Critical` Get simple path tracer to work
 * `Improve` Use framebuffer
-* `Improve` Smaller work group sizes (64-256, currently 512, my GPU limit at 1024)
+* `Improve` Keep work group sizes down (64-256), even for bigger textures (GPU limit at 1024)
 * `Improve` Flexible width and height
 * `Improve` Dynamic lights (for now: number and position)
 * `Improve` Use CPU if no GPU available for OpenCL (or read from config)

@@ -52,7 +52,7 @@ class GLWidget : public QGLWidget {
 	protected:
 		void calculateMatrices();
 		void deleteOldModel();
-		glm::vec3 getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y );
+		glm::vec3 getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y, float z );
 		glm::mat4 getJitterMatrix( glm::vec3 v );
 		void initGlew();
 		void initializeGL();

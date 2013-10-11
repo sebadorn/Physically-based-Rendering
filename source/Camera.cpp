@@ -17,9 +17,9 @@ Camera::Camera( GLWidget* parent ) {
  * Move the camera position backward.
  */
 void Camera::cameraMoveBackward() {
-	mCamera.eyeX += sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mCamera.eyeY -= sin( degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mCamera.eyeZ -= cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeX -= sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeY += sin( degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeZ += cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
 	mParent->cameraUpdate();
 }
 
@@ -37,9 +37,9 @@ void Camera::cameraMoveDown() {
  * Move the camera position forward.
  */
 void Camera::cameraMoveForward() {
-	mCamera.eyeX -= sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mCamera.eyeY += sin( degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mCamera.eyeZ += cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeX += sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeY -= sin( degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeZ -= cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
 	mParent->cameraUpdate();
 }
 
@@ -48,8 +48,8 @@ void Camera::cameraMoveForward() {
  * Move the camera position to the left.
  */
 void Camera::cameraMoveLeft() {
-	mCamera.eyeX += cos( degToRad( mCamera.rotX ) ) * mCameraSpeed;
-	mCamera.eyeZ += sin( degToRad( mCamera.rotX ) ) * mCameraSpeed;
+	mCamera.eyeX -= cos( degToRad( mCamera.rotX ) ) * mCameraSpeed;
+	mCamera.eyeZ -= sin( degToRad( mCamera.rotX ) ) * mCameraSpeed;
 	mParent->cameraUpdate();
 }
 
@@ -58,8 +58,8 @@ void Camera::cameraMoveLeft() {
  * Move the camera position to the right.
  */
 void Camera::cameraMoveRight() {
-	mCamera.eyeX -= cos( degToRad( mCamera.rotX ) ) * mCameraSpeed;
-	mCamera.eyeZ -= sin( degToRad( mCamera.rotX ) ) * mCameraSpeed;
+	mCamera.eyeX += cos( degToRad( mCamera.rotX ) ) * mCameraSpeed;
+	mCamera.eyeZ += sin( degToRad( mCamera.rotX ) ) * mCameraSpeed;
 	mParent->cameraUpdate();
 }
 
@@ -98,7 +98,7 @@ void Camera::cameraReset() {
  */
 glm::vec3 Camera::getAdjustedCenter_glmVec3() {
 	return glm::vec3(
-		mCamera.eyeX + mCamera.centerX, // was: -
+		mCamera.eyeX - mCamera.centerX,
 		mCamera.eyeY + mCamera.centerY,
 		mCamera.eyeZ + mCamera.centerZ
 	);
@@ -152,8 +152,8 @@ glm::vec3 Camera::getUp_glmVec3() {
  * @param moveY {int} moveY Movement (of the mouse) in 2D Y direction.
  */
 void Camera::updateCameraRot( int moveX, int moveY ) {
-	mCamera.rotX -= moveX;
-	mCamera.rotY += moveY;
+	mCamera.rotX += moveX;
+	mCamera.rotY -= moveY;
 
 	if( mCamera.rotX >= 360.0f ) {
 		mCamera.rotX = 0.0f;

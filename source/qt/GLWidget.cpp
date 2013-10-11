@@ -131,11 +131,12 @@ void GLWidget::deleteOldModel() {
 }
 
 
-glm::vec3 GLWidget::getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y ) {
-	glm::vec4 tmp = matrix * glm::vec4( x, y, 0.0f, 1.0f );
-	glm::vec3 result( tmp[0] / tmp[3], tmp[1] / tmp[3], tmp[2] / tmp[3] );
+glm::vec3 GLWidget::getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y, float z ) {
+	glm::vec4 target = glm::vec4( x, y, z, 1.0f );
+	target = matrix * target;
+	glm::vec3 result( target[0] / target[3], target[1] / target[3], target[2] / target[3] );
 
-	return glm::normalize( result - eye );
+	return result - eye;
 }
 
 
@@ -423,20 +424,20 @@ void GLWidget::paintGL() {
 
 	uint i = 0;
 	vector<cl_mem> clBuffers;
+
+	glm::vec3 c = mCamera->getCenter_glmVec3();
 	glm::vec3 eye = mCamera->getEye_glmVec3();
-	// glm::vec4 eye4 = mModelViewProjectionMatrix * glm::vec4( eye[0], eye[1], eye[2], 1.0f );
-	// eye[0] = eye4[0];
-	// eye[1] = eye4[1];
-	// eye[2] = eye4[2];
+	glm::vec4 eye4 = mModelViewProjectionMatrix * glm::vec4( eye[0], eye[1], eye[2], 1.0f );
+	glm::vec3 eye3 = glm::vec3( eye4[0], eye4[1], eye4[2] );
 
 	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 
 	glm::mat4 jitter = glm::inverse( mModelViewProjectionMatrix );
 
-	glm::vec3 ray00 = this->getEyeRay( jitter, eye, -1.0f, -1.0f );
-	glm::vec3 ray01 = this->getEyeRay( jitter, eye, -1.0f, +1.0f );
-	glm::vec3 ray10 = this->getEyeRay( jitter, eye, +1.0f, -1.0f );
-	glm::vec3 ray11 = this->getEyeRay( jitter, eye, +1.0f, +1.0f );
+	glm::vec3 ray00 = this->getEyeRay( jitter, eye3, c[0]-2.0f, c[1]-2.0f, c[2] );
+	glm::vec3 ray01 = this->getEyeRay( jitter, eye3, c[0]-2.0f, c[1]+2.0f, c[2] );
+	glm::vec3 ray10 = this->getEyeRay( jitter, eye3, c[0]+2.0f, c[1]-2.0f, c[2] );
+	glm::vec3 ray11 = this->getEyeRay( jitter, eye3, c[0]+2.0f, c[1]+2.0f, c[2] );
 
 
 	mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
