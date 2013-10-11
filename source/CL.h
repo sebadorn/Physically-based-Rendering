@@ -48,7 +48,7 @@ class CL {
 		void setKernelArg( uint index, size_t size, void* data );
 		void setKernelArgs( std::vector<cl_mem> buffers );
 		cl_mem updateBuffer( cl_mem buffer, size_t size, void* data );
-		cl_mem updateImageWriteOnly( size_t width, size_t height, float* data );
+		cl_mem updateImageReadOnly( size_t width, size_t height, float* data );
 
 	protected:
 		void buildProgram();
@@ -66,6 +66,7 @@ class CL {
 		cl_kernel mKernel;
 		cl_platform_id mPlatform;
 		cl_program mProgram;
+		cl_mem mReadImage;
 		cl_mem mWriteImage;
 
 		std::vector<cl_event> mEvents;

@@ -101,7 +101,7 @@ cl_mem CL::createImageReadOnly( size_t width, size_t height, float* data ) {
 	format.image_channel_order = CL_RGBA;
 	format.image_channel_data_type = CL_FLOAT;
 
-	cl_mem image = clCreateImage2D( mContext, CL_MEM_READ_ONLY, &format, width, height, 0, 0, &err );
+	mReadImage = clCreateImage2D( mContext, CL_MEM_READ_ONLY, &format, width, height, 0, NULL, &err );
 	this->checkError( err, "clCreateImage2D" );
 
 
@@ -109,11 +109,11 @@ cl_mem CL::createImageReadOnly( size_t width, size_t height, float* data ) {
 	size_t region[] = { width, height, 1 }; // Size of object to be transferred
 	cl_event event;
 
-	err = clEnqueueWriteImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
+	err = clEnqueueWriteImage( mCommandQueue, mReadImage, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
 	this->checkError( err, "clEnqueueWriteImage" );
 	mEvents.push_back( event );
 
-	return image;
+	return mReadImage;
 }
 
 
@@ -124,7 +124,7 @@ cl_mem CL::createImageWriteOnly( size_t width, size_t height ) {
 	format.image_channel_order = CL_RGBA;
 	format.image_channel_data_type = CL_FLOAT;
 
-	mWriteImage = clCreateImage2D( mContext, CL_MEM_WRITE_ONLY, &format, width, height, 0, 0, &err );
+	mWriteImage = clCreateImage2D( mContext, CL_MEM_READ_WRITE, &format, width, height, 0, NULL, &err );
 	this->checkError( err, "clCreateImage2D" );
 
 	return mWriteImage;
@@ -376,15 +376,15 @@ cl_mem CL::updateBuffer( cl_mem buffer, size_t size, void* data ) {
 }
 
 
-cl_mem CL::updateImageWriteOnly( size_t width, size_t height, float* data ) {
+cl_mem CL::updateImageReadOnly( size_t width, size_t height, float* data ) {
 	size_t origin[] = { 0, 0, 0 };
 	size_t region[] = { width, height, 1 };
 	cl_int err;
 	cl_event event;
 
-	err = clEnqueueReadImage( mCommandQueue, mWriteImage, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
+	err = clEnqueueWriteImage( mCommandQueue, mReadImage, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
 	this->checkError( err, "clEnqueueReadImage" );
 	mEvents.push_back( event );
 
-	return mWriteImage;
+	return mReadImage;
 }

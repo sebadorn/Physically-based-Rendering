@@ -434,10 +434,10 @@ void GLWidget::paintGL() {
 
 	glm::mat4 jitter = glm::inverse( mModelViewProjectionMatrix );
 
-	glm::vec3 ray00 = this->getEyeRay( jitter, eye3, c[0]-2.0f, c[1]-2.0f, c[2] );
-	glm::vec3 ray01 = this->getEyeRay( jitter, eye3, c[0]-2.0f, c[1]+2.0f, c[2] );
-	glm::vec3 ray10 = this->getEyeRay( jitter, eye3, c[0]+2.0f, c[1]-2.0f, c[2] );
-	glm::vec3 ray11 = this->getEyeRay( jitter, eye3, c[0]+2.0f, c[1]+2.0f, c[2] );
+	glm::vec3 ray00 = this->getEyeRay( jitter, eye3, c[0] - 1.0f, c[1] - 1.0f, c[2] );
+	glm::vec3 ray01 = this->getEyeRay( jitter, eye3, c[0] - 1.0f, c[1] + 1.0f, c[2] );
+	glm::vec3 ray10 = this->getEyeRay( jitter, eye3, c[0] + 1.0f, c[1] - 1.0f, c[2] );
+	glm::vec3 ray11 = this->getEyeRay( jitter, eye3, c[0] + 1.0f, c[1] + 1.0f, c[2] );
 
 
 	mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
@@ -461,7 +461,7 @@ void GLWidget::paintGL() {
 	cl_uint numIndices = mIndices.size();
 	mCL->setKernelArg( ++i, sizeof( cl_uint ), &numIndices );
 
-	mCL->updateImageWriteOnly( 256, 256, &mTextureOut[0] );
+	mCL->updateImageReadOnly( 256, 256, &mTextureOut[0] );
 
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
