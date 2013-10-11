@@ -219,7 +219,7 @@ void CL::execute() {
 	cl_event event;
 	cl_event* events = &mEvents[0];
 
-	size_t workSize[3] = { 256, 256, 1 };
+	size_t workSize[3] = { 512, 512, 1 };
 	err = clEnqueueNDRangeKernel( mCommandQueue, mKernel, 2, NULL, workSize, NULL, mEvents.size(), &mEvents[0], &event );
 	this->checkError( err, "clEnqueueNDRangeKernel" );
 	mEvents.push_back( event );

@@ -51,18 +51,20 @@ class GLWidget : public QGLWidget {
 
 	protected:
 		void calculateMatrices();
+		void checkGLForErrors();
+		void checkFramebufferForErrors();
 		void deleteOldModel();
 		glm::vec3 getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y, float z );
-		glm::mat4 getJitterMatrix( glm::vec3 v );
+		glm::mat4 getJitterMatrix();
 		void initGlew();
 		void initializeGL();
+		void initOpenCLBuffers();
 		void initShaders();
 		void initTargetTexture();
 		void loadShader( GLuint shader, std::string path );
 		void paintGL();
 		void paintScene();
 		void resizeGL( int width, int height );
-		std::string shaderReplacePlaceholders( std::string shaderString );
 		void showFPS();
 
 	private:
@@ -70,7 +72,6 @@ class GLWidget : public QGLWidget {
 		int mSelectedLight;
 
 		GLuint mFrameCount;
-		GLuint mGLProgramRender;
 		GLuint mGLProgramTracer;
 		GLuint mIndexBuffer;
 		GLuint mPreviousTime;
@@ -83,7 +84,7 @@ class GLWidget : public QGLWidget {
 		std::vector<GLuint> mNumIndices;
 		std::map<GLuint, GLuint> mTextureIDs;
 		std::vector<GLuint> mVA;
-		GLuint mTargetTexture;
+		std::vector<GLuint> mTargetTextures;
 
 		glm::mat4 mModelMatrix;
 		glm::mat4 mModelViewProjectionMatrix;

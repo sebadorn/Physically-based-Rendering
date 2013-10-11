@@ -11,7 +11,6 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	srand( (unsigned) time( 0 ) );
 
 	mCL = new CL();
-	this->initTargetTexture();
 	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
 	mCL->createKernel( "pathTracing" );
 
@@ -30,8 +29,8 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mSampleCount = 0;
 	mSelectedLight = -1;
 
-	// mTimer = new QTimer( this );
-	// connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
+	mTimer = new QTimer( this );
+	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
 
 	mTimeSinceStart = boost::posix_time::microsec_clock::local_time();
 
@@ -60,47 +59,9 @@ void GLWidget::calculateMatrices() {
 	glm::vec3 e = mCamera->getEye_glmVec3();
 	glm::vec3 c = mCamera->getCenter_glmVec3();
 	glm::vec3 u = mCamera->getUp_glmVec3();
-	// printf( "e: %f, %f, %f\n", e[0], e[1], e[2] );
-	// printf( "c: %f, %f, %f\n", c[0], c[1], c[2] );
-	// printf( "u: %f, %f, %f\n", u[0], u[1], u[2] );
 
 	mViewMatrix = glm::lookAt( e, e - c, u );
-
-
-	// glm::vec3 z = glm::normalize( e - c );
-	// glm::vec3 x = glm::normalize( glm::cross( u, z ) );
-	// glm::vec3 y = glm::normalize( glm::cross( z, x ) );
-
-	// glm::mat4 m(
-	// 	x[0], x[1], x[2], 0.0f,
-	// 	y[0], y[1], y[2], 0.0f,
-	// 	z[0], z[1], z[2], 0.0f,
-	// 	0.0f, 0.0f, 0.0f, 1.0f
-	// );
-
-	// glm::mat4 t(
-	// 	1.0f, 0.0f, 0.0f, -e[0],
-	// 	0.0f, 1.0f, 0.0f, -e[1],
-	// 	0.0f, 0.0f, 1.0f, -e[2],
-	// 	0.0f, 0.0f, 0.0f, 1.0f
-	// );
-
-	// mViewMatrix = m * t;
-
-
-	// glm::mat4 v = mViewMatrix;
-	// printf( "v: %f, %f, %f, %f\n", v[0][0], v[0][1], v[0][2], v[0][3] );
-	// printf( "v: %f, %f, %f, %f\n", v[1][0], v[1][1], v[1][2], v[1][3] );
-	// printf( "v: %f, %f, %f, %f\n", v[2][0], v[2][1], v[2][2], v[2][3] );
-	// printf( "v: %f, %f, %f, %f\n", v[3][0], v[3][1], v[3][2], v[3][3] );
-
 	mModelViewProjectionMatrix = mProjectionMatrix * mViewMatrix * mModelMatrix;
-
-	// glm::mat4 v = mModelViewProjectionMatrix;
-	// printf( "v0: %f, %f, %f, %f\n", v[0][0], v[0][1], v[0][2], v[0][3] );
-	// printf( "v1: %f, %f, %f, %f\n", v[1][0], v[1][1], v[1][2], v[1][3] );
-	// printf( "v2: %f, %f, %f, %f\n", v[2][0], v[2][1], v[2][2], v[2][3] );
-	// printf( "v3: %f, %f, %f, %f\n", v[3][0], v[3][1], v[3][2], v[3][3] );
 }
 
 
@@ -109,8 +70,57 @@ void GLWidget::calculateMatrices() {
  */
 void GLWidget::cameraUpdate() {
 	this->calculateMatrices();
-	this->update(); // TODO: remove when timer in use again
 }
+
+
+void GLWidget::checkGLForErrors() {
+	if( glGetError() != 0 ) {
+		Logger::logDebug( (const char*) gluErrorString( glGetError() ) );
+	}
+}
+
+
+void GLWidget::checkFramebufferForErrors() {
+	GLenum err = glCheckFramebufferStatus( GL_FRAMEBUFFER );
+
+	if( err != GL_FRAMEBUFFER_COMPLETE ) {
+		string errMsg( "[OpenGL] Error configuring framebuffer: " );
+
+		switch( err ) {
+			case GL_FRAMEBUFFER_UNDEFINED:
+				errMsg.append( "GL_FRAMEBUFFER_UNDEFINED" );
+				break;
+			case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+				errMsg.append( "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT" );
+				break;
+			case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+				errMsg.append( "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT" );
+				break;
+			case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER:
+				errMsg.append( "GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER" );
+				break;
+			case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER:
+				errMsg.append( "GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER" );
+				break;
+			case GL_FRAMEBUFFER_UNSUPPORTED:
+				errMsg.append( "GL_FRAMEBUFFER_UNSUPPORTED" );
+				break;
+			case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
+				errMsg.append( "GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE" );
+				break;
+			case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS:
+				errMsg.append( "GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS" );
+				break;
+			default:
+				errMsg.append( "unknown error code" );
+		}
+
+		Logger::logError( errMsg );
+
+		exit( EXIT_FAILURE );
+	}
+}
+
 
 
 /**
@@ -134,14 +144,26 @@ void GLWidget::deleteOldModel() {
 glm::vec3 GLWidget::getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y, float z ) {
 	glm::vec4 target = glm::vec4( x, y, z, 1.0f );
 	target = matrix * target;
-	glm::vec3 result( target[0] / target[3], target[1] / target[3], target[2] / target[3] );
+	glm::vec3 result(
+		target[0] / target[3],
+		target[1] / target[3],
+		target[2] / target[3]
+	);
 
 	return result - eye;
 }
 
 
-glm::mat4 GLWidget::getJitterMatrix( glm::vec3 v ) {
+glm::mat4 GLWidget::getJitterMatrix() {
 	glm::mat4 jitter = glm::mat4( 1.0f );
+	glm::vec3 v = glm::vec3(
+		rand() / (float) RAND_MAX * 1.0f - 1.0f,
+		rand() / (float) RAND_MAX * 1.0f - 1.0f,
+		0.0f
+	);
+
+	v[0] *= ( 1.0f / (float) width() );
+	v[1] *= ( 1.0f / (float) height() );
 
 	jitter[0][3] = v[0];
 	jitter[1][3] = v[1];
@@ -167,7 +189,6 @@ void GLWidget::initializeGL() {
 	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
 	this->initGlew();
-	// this->initTargetTexture();
 
 	GLfloat vertices[8] = {
 		-1.0f, -1.0f,
@@ -180,11 +201,10 @@ void GLWidget::initializeGL() {
 	glBindBuffer( GL_ARRAY_BUFFER, mVertexBuffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), &vertices, GL_STATIC_DRAW );
 
-	// glGenFramebuffers( 1, &mFramebuffer );
-	// glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
-
 	Logger::logInfo( string( "[OpenGL] Version " ).append( (char*) glGetString( GL_VERSION ) ) );
 	Logger::logInfo( string( "[OpenGL] GLSL " ).append( (char*) glGetString( GL_SHADING_LANGUAGE_VERSION ) ) );
+
+	this->initTargetTexture();
 }
 
 
@@ -193,9 +213,21 @@ void GLWidget::initGlew() {
 
 	if( err != GLEW_OK ) {
 		Logger::logError( string( "[GLEW] Init failed: " ).append( (char*) glewGetErrorString( err ) ) );
-		exit( 1 );
+		exit( EXIT_FAILURE );
 	}
 	Logger::logInfo( string( "[GLEW] Version " ).append( (char*) glewGetString( GLEW_VERSION ) ) );
+}
+
+
+void GLWidget::initOpenCLBuffers() {
+	mBufferIndices = mCL->createBuffer( mIndices, sizeof( cl_uint ) * mIndices.size() );
+	mBufferVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
+
+	mBufferEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
+	mBufferRay00 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
+	mBufferRay01 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
+	mBufferRay10 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
+	mBufferRay11 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
 }
 
 
@@ -213,7 +245,7 @@ void GLWidget::initShaders() {
 	mShaderFrag = glCreateShader( GL_FRAGMENT_SHADER );
 
 	this->loadShader( mShaderVert, shaderPath + string( ".vert" ) );
-	this->loadShader( mShaderFrag, shaderPath +string( ".frag" ) );
+	this->loadShader( mShaderFrag, shaderPath + string( ".frag" ) );
 
 	glLinkProgram( mGLProgramTracer );
 	glUseProgram( mGLProgramTracer );
@@ -230,15 +262,26 @@ void GLWidget::initShaders() {
 
 
 void GLWidget::initTargetTexture() {
-	size_t w = 256;
-	size_t h = 256;
+	size_t w = width();
+	size_t h = height();
 
 	mTextureOut = vector<cl_float>( w * h * 4 );
 
+	mTargetTextures.clear();
+
+	for( uint i = 0; i < 2; i++ ) {
+		GLuint texture;
+		glGenTextures( 1, &texture );
+		glBindTexture( GL_TEXTURE_2D, texture );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+		glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
+		mTargetTextures.push_back( texture );
+	}
+	glBindTexture( GL_TEXTURE_2D, 0 );
+
 	mKernelArgTextureIn = mCL->createImageReadOnly( w, h, &mTextureOut[0] );
 	mKernelArgTextureOut = mCL->createImageWriteOnly( w, h );
-
-	glGenTextures( 1, &mTargetTexture );
 }
 
 
@@ -247,7 +290,7 @@ void GLWidget::initTargetTexture() {
  * @return {bool} True, if is rendering, false otherwise.
  */
 bool GLWidget::isRendering() {
-	return ( mDoRendering /*&& mTimer->isActive()*/ );
+	return ( mDoRendering && mTimer->isActive() );
 }
 
 
@@ -266,17 +309,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mVertices = ml->mVertices;
 	// mNormals = ml->mNormals;
 
-	// OpenCL buffers
-	mBufferIndices = mCL->createBuffer( mIndices, sizeof( cl_uint ) * mIndices.size() );
-	mBufferVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
-
-	mBufferEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
-	mBufferRay00 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
-	mBufferRay01 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
-	mBufferRay10 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
-	mBufferRay11 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
-
-
+	this->initOpenCLBuffers();
 	this->initShaders();
 
 	// Ready
@@ -292,8 +325,6 @@ void GLWidget::loadModel( string filepath, string filename ) {
 void GLWidget::loadShader( GLuint shader, string path ) {
 	string shaderString = utils::loadFileAsString( path.c_str() );
 
-	shaderString = this->shaderReplacePlaceholders( shaderString );
-
 	const GLchar* shaderSource = shaderString.c_str();
 	const GLint shaderLength = shaderString.size();
 
@@ -307,7 +338,7 @@ void GLWidget::loadShader( GLuint shader, string path ) {
 		char logBuffer[1000];
 		glGetShaderInfoLog( shader, 1000, 0, logBuffer );
 		Logger::logError( path + string( "\n" ).append( logBuffer ) );
-		exit( 1 );
+		exit( EXIT_FAILURE );
 	}
 
 	glAttachShader( mGLProgramTracer, shader );
@@ -382,7 +413,6 @@ void GLWidget::paintGL() {
 
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-
 	// Light(s)
 
 	// char lightName1[20];
@@ -408,18 +438,8 @@ void GLWidget::paintGL() {
 	cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
 
 
-	// // Jittering for anti-aliasing
-	// glm::vec3 v = glm::vec3(
-	// 	rand() / (float) RAND_MAX * 2.0f - 1.0f,
-	// 	rand() / (float) RAND_MAX * 2.0f - 1.0f,
-	// 	0.0f
-	// );
-	// glm::mat4 jitter = this->getJitterMatrix( v ) * ( 1.0f / 256.0f );
-
-	// printf( "ray00: %f, %f, %f\n", ray00[0], ray00[1], ray00[2] );
-	// printf( "ray01: %f, %f, %f\n", ray01[0], ray01[1], ray01[2] );
-	// printf( "ray10: %f, %f, %f\n", ray10[0], ray10[1], ray10[2] );
-	// printf( "ray11: %f, %f, %f\n", ray11[0], ray11[1], ray11[2] );
+	// Jittering for anti-aliasing
+	glm::mat4 jitter = this->getJitterMatrix();
 
 
 	uint i = 0;
@@ -431,8 +451,6 @@ void GLWidget::paintGL() {
 	glm::vec3 eye3 = glm::vec3( eye4[0], eye4[1], eye4[2] );
 
 	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
-
-	glm::mat4 jitter = glm::inverse( mModelViewProjectionMatrix );
 
 	glm::vec3 ray00 = this->getEyeRay( jitter, eye3, c[0] - 1.0f, c[1] - 1.0f, c[2] );
 	glm::vec3 ray01 = this->getEyeRay( jitter, eye3, c[0] - 1.0f, c[1] + 1.0f, c[2] );
@@ -461,13 +479,13 @@ void GLWidget::paintGL() {
 	cl_uint numIndices = mIndices.size();
 	mCL->setKernelArg( ++i, sizeof( cl_uint ), &numIndices );
 
-	mCL->updateImageReadOnly( 256, 256, &mTextureOut[0] );
+	mCL->updateImageReadOnly( width(), height(), &mTextureOut[0] );
 
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
 
 	mCL->execute();
-	mCL->readImageOutput( 256, 256, &mTextureOut[0] );
+	mCL->readImageOutput( width(), height(), &mTextureOut[0] );
 	mCL->finish();
 
 
@@ -489,25 +507,18 @@ void GLWidget::paintScene() {
 	// glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 	// glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-	glBindTexture( GL_TEXTURE_2D, mTargetTexture );
-	// glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
+	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
 
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
-
-	// glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTexture, 0 );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width(), height(), 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
 
 	glVertexAttribPointer( mVertexAttribute, 2, GL_FLOAT, false, 0, 0 );
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 	glBindTexture( GL_TEXTURE_2D, 0 );
 
-	// if( glGetError() != 0 ) { cout << gluErrorString( glGetError() ) << endl; }
-
-	// reverse( mTargetTextures.begin(), mTargetTextures.end() );
+	reverse( mTargetTextures.begin(), mTargetTextures.end() );
 	mSampleCount++;
-
-	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 }
 
 
@@ -583,32 +594,6 @@ void GLWidget::selectPreviousLight() {
 }
 
 
-string GLWidget::shaderReplacePlaceholders( string shaderString ) {
-	size_t posVertices = shaderString.find( "#NUM_VERTICES#" );
-	if( posVertices != string::npos ) {
-		char numVertices[20];
-		snprintf( numVertices, 20, "%lu", mVertices.size() / 3 );
-		shaderString.replace( posVertices, 14, numVertices );
-	}
-
-	size_t posNormals = shaderString.find( "#NUM_NORMALS#" );
-	if( posNormals != string::npos ) {
-		char numNormals[20];
-		snprintf( numNormals, 20, "%lu", mNormals.size() / 3 );
-		shaderString.replace( posNormals, 13, numNormals );
-	}
-
-	size_t posIndices = shaderString.find( "#NUM_INDICES#" );
-	if( posIndices != string::npos ) {
-		char numIndices[20];
-		snprintf( numIndices, 20, "%lu", mIndices.size() / 3 );
-		shaderString.replace( posIndices, 13, numIndices );
-	}
-
-	return shaderString;
-}
-
-
 /**
  * Start or resume rendering.
  */
@@ -616,7 +601,7 @@ void GLWidget::startRendering() {
 	if( !mDoRendering ) {
 		mDoRendering = true;
 		float fps = Cfg::get().value<float>( Cfg::RENDER_INTERVAL );
-		// mTimer->start( fps );
+		mTimer->start( fps );
 	}
 }
 
@@ -627,7 +612,7 @@ void GLWidget::startRendering() {
 void GLWidget::stopRendering() {
 	if( mDoRendering ) {
 		mDoRendering = false;
-		// mTimer->stop();
+		mTimer->stop();
 		( (Window*) parentWidget() )->updateStatus( "Stopped." );
 	}
 }
