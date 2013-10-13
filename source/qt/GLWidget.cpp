@@ -276,9 +276,9 @@ void GLWidget::initShaders() {
 	glDeleteShader( shaderFrag );
 
 
-	// Shaders for drawing lines
+	// // Shaders for drawing lines
 	// shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
-	// shaderPath.append( Cfg::get().value<string>( "lines" ) );
+	// shaderPath.append( "lines" );
 
 	// glDeleteProgram( mGLProgramLines );
 
@@ -298,7 +298,7 @@ void GLWidget::initShaders() {
 	// glDetachShader( mGLProgramLines, shaderFrag );
 	// glDeleteShader( shaderFrag );
 
-	// glEnableVertexAttribArray( mVertexAttributeLines );
+	// glEnableVertexAttribArray( 1 );
 }
 
 
@@ -333,6 +333,10 @@ void GLWidget::initTargetTexture() {
  * Init vertex buffer for the generated OpenCL texture.
  */
 void GLWidget::initVertexBuffer() {
+	GLuint vaID;
+	glGenVertexArrays( 1, &vaID );
+	glBindVertexArray( vaID );
+
 	GLfloat vertices[8] = {
 		-1.0f, -1.0f,
 		-1.0f, +1.0f,
@@ -346,6 +350,11 @@ void GLWidget::initVertexBuffer() {
 	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), &vertices, GL_STATIC_DRAW );
 	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 2, GL_FLOAT, GL_FALSE, 0, 0 );
 	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
+
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glBindVertexArray( 0 );
+
+	mVA.push_back( vaID );
 }
 
 
@@ -576,6 +585,7 @@ void GLWidget::paintScene() {
 	// glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 	// glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
+	glBindVertexArray( mVA[0] );
 	glUseProgram( mGLProgramTracer );
 	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width(), height(), 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
@@ -588,6 +598,7 @@ void GLWidget::paintScene() {
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 	// glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 	glBindTexture( GL_TEXTURE_2D, 0 );
+	glBindVertexArray( 0 );
 
 	// reverse( mTargetTextures.begin(), mTargetTextures.end() );
 
