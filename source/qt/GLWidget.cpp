@@ -63,7 +63,12 @@ void GLWidget::calculateMatrices() {
 	glm::vec3 c = mCamera->getCenter_glmVec3();
 	glm::vec3 u = mCamera->getUp_glmVec3();
 
-	mViewMatrix = glm::lookAt( e, e - c, u );
+	glm::vec3 l = glm::vec3( e[0] + c[0], e[1] - c[1], e[2] - c[2] );
+
+	mViewMatrix = glm::lookAt( e, l, u );
+	// printf( "%g %g %g\n", mViewMatrix[0][0], mViewMatrix[0][1], mViewMatrix[0][2] );
+	// printf( "%g %g %g\n", mViewMatrix[1][0], mViewMatrix[1][1], mViewMatrix[1][2] );
+	// printf( "%g %g %g\n-----\n", mViewMatrix[2][0], mViewMatrix[2][1], mViewMatrix[2][2] );
 	mModelViewProjectionMatrix = mProjectionMatrix * mViewMatrix * mModelMatrix;
 }
 
@@ -159,8 +164,7 @@ void GLWidget::deleteOldModel() {
  * @return {glm::vec3}        Resulting eye ray.
  */
 glm::vec3 GLWidget::getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y, float z ) {
-	glm::vec4 target = glm::vec4( x, y, z, 1.0f );
-	target = matrix * target;
+	glm::vec4 target = matrix * glm::vec4( x, y, z, 1.0f );
 	glm::vec3 result(
 		target[0] / target[3],
 		target[1] / target[3],
@@ -201,8 +205,8 @@ glm::mat4 GLWidget::getJitterMatrix() {
 void GLWidget::initializeGL() {
 	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 
-	glEnable( GL_DEPTH_TEST );
-	glEnable( GL_MULTISAMPLE );
+	// glEnable( GL_DEPTH_TEST );
+	// glEnable( GL_MULTISAMPLE );
 
 	glEnable( GL_ALPHA_TEST );
 	glAlphaFunc( GL_ALWAYS, 0.0f );
@@ -384,7 +388,7 @@ void GLWidget::initVertexBuffer() {
 		0.0f, 1.0f, 1.0f,
 		1.0f, 1.0f, 1.0f
 	};
-	GLuint indicesLines[24] = {
+	GLushort indicesLines[24] = {
 		0, 1, 1, 3, 3, 2, 2, 0,
 		4, 5, 5, 7, 7, 6, 6, 4,
 		0, 4, 1, 5, 2, 6, 3, 7
@@ -403,6 +407,8 @@ void GLWidget::initVertexBuffer() {
 	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indicesLines ), &indicesLines, GL_STATIC_DRAW );
 
 	glBindVertexArray( 0 );
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
 
 	mVA.push_back( vaLines );
 }
@@ -560,7 +566,7 @@ void GLWidget::paintGL() {
 
 
 	// Jittering for anti-aliasing
-	glm::mat4 jitter = this->getJitterMatrix();
+	glm::mat4 jitter = glm::inverse( mModelViewProjectionMatrix ); //this->getJitterMatrix();
 
 
 	uint i = 0;
@@ -568,8 +574,8 @@ void GLWidget::paintGL() {
 
 	glm::vec3 c = mCamera->getCenter_glmVec3();
 	glm::vec3 eye = mCamera->getEye_glmVec3();
-	glm::vec4 eye4 = mModelViewProjectionMatrix * glm::vec4( eye[0], eye[1], eye[2], 1.0f );
-	glm::vec3 eye3 = glm::vec3( eye4[0], eye4[1], eye4[2] );
+	glm::vec4 eye4 = mModelViewProjectionMatrix * glm::vec4( eye, 1.0f );
+	glm::vec3 eye3 = glm::vec3( eye4 );
 
 	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 	mSampleCount++;
@@ -621,9 +627,22 @@ void GLWidget::paintGL() {
  * Draw the main objects of the scene.
  */
 void GLWidget::paintScene() {
+	// Path tracing result
+	glUseProgram( mGLProgramTracer );
+
+	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width(), height(), 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
+
+	glBindVertexArray( mVA[0] );
+	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
+
+	glBindTexture( GL_TEXTURE_2D, 0 );
+	glBindVertexArray( 0 );
+	glUseProgram( 0 );
+
+
 	// Overlay for the path tracing image to highlight/outline elements with a box
 	glUseProgram( mGLProgramLines );
-	glBindTexture( GL_TEXTURE_2D, 0 );
 	glUniformMatrix4fv(
 		glGetUniformLocation( mGLProgramLines, "mvp" ),
 		1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
@@ -632,18 +651,6 @@ void GLWidget::paintScene() {
 	glBindVertexArray( mVA[1] );
 	glDrawElements( GL_LINES, 24, GL_UNSIGNED_SHORT, 0 );
 
-	glBindVertexArray( 0 );
-	glUseProgram( 0 );
-
-
-	// Path tracing result
-	glUseProgram( mGLProgramTracer );
-	glBindVertexArray( mVA[0] );
-	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
-	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width(), height(), 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
-	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
-
-	glBindTexture( GL_TEXTURE_2D, 0 );
 	glBindVertexArray( 0 );
 	glUseProgram( 0 );
 

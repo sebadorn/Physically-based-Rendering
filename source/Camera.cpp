@@ -98,9 +98,9 @@ void Camera::cameraReset() {
  */
 glm::vec3 Camera::getAdjustedCenter_glmVec3() {
 	return glm::vec3(
-		mCamera.eyeX - mCamera.centerX,
-		mCamera.eyeY + mCamera.centerY,
-		mCamera.eyeZ + mCamera.centerZ
+		mCamera.eyeX + mCamera.centerX,
+		mCamera.eyeY - mCamera.centerY,
+		mCamera.eyeZ - mCamera.centerZ
 	);
 }
 
@@ -152,8 +152,8 @@ glm::vec3 Camera::getUp_glmVec3() {
  * @param moveY {int} moveY Movement (of the mouse) in 2D Y direction.
  */
 void Camera::updateCameraRot( int moveX, int moveY ) {
-	mCamera.rotX += moveX;
-	mCamera.rotY -= moveY;
+	mCamera.rotX -= moveX;
+	mCamera.rotY += moveY;
 
 	if( mCamera.rotX >= 360.0f ) {
 		mCamera.rotX = 0.0f;
