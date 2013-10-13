@@ -200,7 +200,15 @@ glm::mat4 GLWidget::getJitterMatrix() {
  */
 void GLWidget::initializeGL() {
 	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
-	glEnable( GL_TEXTURE_2D );
+
+	glEnable( GL_DEPTH_TEST );
+	glEnable( GL_MULTISAMPLE );
+
+	glEnable( GL_ALPHA_TEST );
+	glAlphaFunc( GL_ALWAYS, 0.0f );
+
+	glEnable( GL_BLEND );
+	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
 	this->initGlew();
 
@@ -266,6 +274,9 @@ void GLWidget::initShaders() {
 	this->loadShader( shaderVert, shaderPath + string( ".vert" ) );
 	this->loadShader( shaderFrag, shaderPath + string( ".frag" ) );
 
+	glAttachShader( mGLProgramTracer, shaderVert );
+	glAttachShader( mGLProgramTracer, shaderFrag );
+
 	glLinkProgram( mGLProgramTracer );
 	glUseProgram( mGLProgramTracer );
 
@@ -274,31 +285,34 @@ void GLWidget::initShaders() {
 
 	glDetachShader( mGLProgramTracer, shaderFrag );
 	glDeleteShader( shaderFrag );
+	glUseProgram( 0 );
 
 
-	// // Shaders for drawing lines
-	// shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
-	// shaderPath.append( "lines" );
+	// Shaders for drawing lines
+	shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
+	shaderPath.append( "lines" );
 
-	// glDeleteProgram( mGLProgramLines );
+	glDeleteProgram( mGLProgramLines );
 
-	// mGLProgramLines = glCreateProgram();
-	// shaderVert = glCreateShader( GL_VERTEX_SHADER );
-	// shaderFrag = glCreateShader( GL_FRAGMENT_SHADER );
+	mGLProgramLines = glCreateProgram();
+	GLuint shaderVertLines = glCreateShader( GL_VERTEX_SHADER );
+	GLuint shaderFragLines = glCreateShader( GL_FRAGMENT_SHADER );
 
-	// this->loadShader( shaderVert, shaderPath + string( ".vert" ) );
-	// this->loadShader( shaderFrag, shaderPath + string( ".frag" ) );
+	this->loadShader( shaderVertLines, shaderPath + string( ".vert" ) );
+	this->loadShader( shaderFragLines, shaderPath + string( ".frag" ) );
 
-	// glLinkProgram( mGLProgramLines );
-	// glUseProgram( mGLProgramLines );
+	glAttachShader( mGLProgramLines, shaderVertLines );
+	glAttachShader( mGLProgramLines, shaderFragLines );
 
-	// glDetachShader( mGLProgramLines, shaderVert );
-	// glDeleteShader( shaderVert );
+	glLinkProgram( mGLProgramLines );
+	glUseProgram( mGLProgramLines );
 
-	// glDetachShader( mGLProgramLines, shaderFrag );
-	// glDeleteShader( shaderFrag );
+	glDetachShader( mGLProgramLines, shaderVertLines );
+	glDeleteShader( shaderVertLines );
 
-	// glEnableVertexAttribArray( 1 );
+	glDetachShader( mGLProgramLines, shaderFragLines );
+	glDeleteShader( shaderFragLines );
+	glUseProgram( 0 );
 }
 
 
@@ -333,9 +347,9 @@ void GLWidget::initTargetTexture() {
  * Init vertex buffer for the generated OpenCL texture.
  */
 void GLWidget::initVertexBuffer() {
-	GLuint vaID;
-	glGenVertexArrays( 1, &vaID );
-	glBindVertexArray( vaID );
+	GLuint vaTracer;
+	glGenVertexArrays( 1, &vaTracer );
+	glBindVertexArray( vaTracer );
 
 	GLfloat vertices[8] = {
 		-1.0f, -1.0f,
@@ -351,10 +365,46 @@ void GLWidget::initVertexBuffer() {
 	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 2, GL_FLOAT, GL_FALSE, 0, 0 );
 	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
 
-	glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	glBindVertexArray( 0 );
 
-	mVA.push_back( vaID );
+	mVA.push_back( vaTracer );
+
+
+	GLuint vaLines;
+	glGenVertexArrays( 1, &vaLines );
+	glBindVertexArray( vaLines );
+
+	GLfloat verticesLines[24] = {
+		0.0f, 0.0f, 0.0f,
+		1.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f,
+		1.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 1.0f,
+		1.0f, 0.0f, 1.0f,
+		0.0f, 1.0f, 1.0f,
+		1.0f, 1.0f, 1.0f
+	};
+	GLuint indicesLines[24] = {
+		0, 1, 1, 3, 3, 2, 2, 0,
+		4, 5, 5, 7, 7, 6, 6, 4,
+		0, 4, 1, 5, 2, 6, 3, 7
+	};
+
+	GLuint vertexBufferLines;
+	glGenBuffers( 1, &vertexBufferLines );
+	glBindBuffer( GL_ARRAY_BUFFER, vertexBufferLines );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( verticesLines ), &verticesLines, GL_STATIC_DRAW );
+	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
+
+	GLuint indexBufferLines;
+	glGenBuffers( 1, &indexBufferLines );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBufferLines );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indicesLines ), &indicesLines, GL_STATIC_DRAW );
+
+	glBindVertexArray( 0 );
+
+	mVA.push_back( vaLines );
 }
 
 
@@ -413,8 +463,6 @@ void GLWidget::loadShader( GLuint shader, string path ) {
 		Logger::logError( path + string( "\n" ).append( logBuffer ) );
 		exit( EXIT_FAILURE );
 	}
-
-	glAttachShader( mGLProgramTracer, shader );
 }
 
 
@@ -573,42 +621,38 @@ void GLWidget::paintGL() {
  * Draw the main objects of the scene.
  */
 void GLWidget::paintScene() {
-	// glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
-	// glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
-	// glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTextures[1], 0 );
-	// glVertexAttribPointer( mVertexAttribute, 2, GL_FLOAT, false, 0, 0 );
-	// glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
-	// glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+	// Overlay for the path tracing image to highlight/outline elements with a box
+	glUseProgram( mGLProgramLines );
+	glBindTexture( GL_TEXTURE_2D, 0 );
+	glUniformMatrix4fv(
+		glGetUniformLocation( mGLProgramLines, "mvp" ),
+		1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
+	);
 
-	// glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
-	// glViewport( 0, 0, width(), height() );
-	// glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
-	// glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+	glBindVertexArray( mVA[1] );
+	glDrawElements( GL_LINES, 24, GL_UNSIGNED_SHORT, 0 );
 
-	glBindVertexArray( mVA[0] );
+	glBindVertexArray( 0 );
+	glUseProgram( 0 );
+
+
+	// Path tracing result
 	glUseProgram( mGLProgramTracer );
+	glBindVertexArray( mVA[0] );
 	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width(), height(), 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
-
-	// glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
-	// glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTextures[0], 0 );
-	// this->checkGLForErrors();
-	// this->checkFramebufferForErrors();
-
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
-	// glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
 	glBindTexture( GL_TEXTURE_2D, 0 );
 	glBindVertexArray( 0 );
+	glUseProgram( 0 );
+
 
 	// reverse( mTargetTextures.begin(), mTargetTextures.end() );
 
-
-	// Overlay for the path tracing image to highlight/outline elements with a box
-	// glUseProgram( mGLProgramLines );
-	// glBindBuffer( GL_ARRAY_BUFFER, mLinesVertices );
-	// glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mLinesIndices );
-	// glUniformMatrix4fv( glGetUniformLocation( mGLProgramLines, "mvp" ), 1, GL_FALSE, &mModelViewProjectionMatrix[0][0] );
-	// glDrawElements( GL_LINES, 24, GL_UNSIGNED_SHORT, 0 );
+	// glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
+	// glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTextures[0], 0 );
+	// glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 }
 
 

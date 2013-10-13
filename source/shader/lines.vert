@@ -1,11 +1,13 @@
 #version 330 core
 
 
-attribute vec3 vertex;
-
 uniform mat4 mvp;
 
+layout( location = 0 ) in vec3 vertex;
 
-void main() {
-	gl_Position = mvp * vec4( vertex, 1.0 );
+
+void main( void ) {
+	vec3 cubeMin = vec3( -0.5, -0.5, -0.5 );
+	vec3 cubeMax = vec3( 0.5, 0.5, 0.5 );
+	gl_Position = vec4( mix( cubeMin, cubeMax, vertex ), 1.0 ) * mvp;
 }
