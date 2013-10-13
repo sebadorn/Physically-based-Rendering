@@ -47,6 +47,7 @@ class GLWidget : public QGLWidget {
 		void stopRendering();
 		void toggleLightControl();
 
+		static const GLuint ATTRIB_POINTER_VERTEX = 0;
 		Camera* mCamera;
 
 	protected:
@@ -61,6 +62,7 @@ class GLWidget : public QGLWidget {
 		void initOpenCLBuffers();
 		void initShaders();
 		void initTargetTexture();
+		void initVertexBuffer();
 		void loadShader( GLuint shader, std::string path );
 		void paintGL();
 		void paintScene();
@@ -73,6 +75,7 @@ class GLWidget : public QGLWidget {
 
 		GLuint mFrameCount;
 		GLuint mGLProgramTracer;
+		GLuint mGLProgramLines;
 		GLuint mIndexBuffer;
 		GLuint mPreviousTime;
 		GLuint mSampleCount;
@@ -98,10 +101,6 @@ class GLWidget : public QGLWidget {
 		std::vector<GLfloat> mNormals;
 
 		GLuint mFramebuffer;
-		GLuint mShaderVert;
-		GLuint mShaderFrag;
-		GLuint mVertexAttribute;
-		GLuint mVertexBuffer;
 
 		std::vector<float> mTextureOut;
 

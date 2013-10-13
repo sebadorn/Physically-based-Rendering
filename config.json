@@ -24,7 +24,7 @@
 
 	"render": {
 		// render every 16.666 ms ~ 60 FPS
-		"interval": 500.0,
+		"interval": 100.0,
 		"perspective": {
 			"fov": 50.0,
 			"zfar": 100.0,

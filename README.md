@@ -1,9 +1,8 @@
 ## ToDo
 
-* `Improve` PT: color
+* `Improve` PT: colors
 * `Improve` PT: shadows
-
-* `Improve` Use framebuffer
+* `Improve` PT: use pre-defined normals (if available)
 * `Improve` kd-tree or octree for intersection test
 * `Improve` Keep work group sizes down (64-256), even for bigger textures (GPU limit at 1024)
 * `Improve` Flexible width and height

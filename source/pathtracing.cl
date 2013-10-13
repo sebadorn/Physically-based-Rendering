@@ -249,7 +249,7 @@ __kernel void pathTracing(
 	initialRay.w = 0.0f;
 
 	// Lighting
-	float4 light = (float4)( 0.5f, 1.1f, 0.0f, 0.0f );
+	float4 light = (float4)( 0.0f, 1.7f, 0.0f, 0.0f );
 
 	// The farther away a shadow is, the more diffuse it becomes
 	float4 newLight = light + uniformlyRandomVector( timeSinceStart - 53.0f ) * 0.1f;

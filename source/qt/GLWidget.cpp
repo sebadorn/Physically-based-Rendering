@@ -43,6 +43,9 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
  */
 GLWidget::~GLWidget() {
 	this->stopRendering();
+	this->deleteOldModel();
+	glDeleteTextures( mTargetTextures.size(), &mTargetTextures[0] );
+	glDeleteFramebuffers( 1, &mFramebuffer );
 }
 
 
@@ -73,6 +76,9 @@ void GLWidget::cameraUpdate() {
 }
 
 
+/**
+ * Check if an error occured in the last executed OpenGL function.
+ */
 void GLWidget::checkGLForErrors() {
 	if( glGetError() != 0 ) {
 		Logger::logDebug( (const char*) gluErrorString( glGetError() ) );
@@ -80,6 +86,9 @@ void GLWidget::checkGLForErrors() {
 }
 
 
+/**
+ * Check if there is an error in the current status of the framebuffer.
+ */
 void GLWidget::checkFramebufferForErrors() {
 	GLenum err = glCheckFramebufferStatus( GL_FRAMEBUFFER );
 
@@ -116,7 +125,6 @@ void GLWidget::checkFramebufferForErrors() {
 		}
 
 		Logger::logError( errMsg );
-
 		exit( EXIT_FAILURE );
 	}
 }
@@ -141,6 +149,15 @@ void GLWidget::deleteOldModel() {
 }
 
 
+/**
+ * Get a ray that originates from the eye position.
+ * @param  {glm::mat4} matrix Should be the inversed model-view-projection matrix (maybe with additional jittering).
+ * @param  {glm::vec3} eye    Camera eye position.
+ * @param  {float}     x      Direction of the ray: X coordinate.
+ * @param  {float}     y      Direction of the ray: Y coordinate.
+ * @param  {float}     z      Direction of the ray: Z coordinate.
+ * @return {glm::vec3}        Resulting eye ray.
+ */
 glm::vec3 GLWidget::getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y, float z ) {
 	glm::vec4 target = glm::vec4( x, y, z, 1.0f );
 	target = matrix * target;
@@ -154,6 +171,11 @@ glm::vec3 GLWidget::getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y
 }
 
 
+/**
+ * Get a jitter 4x4 matrix based on the model-view-projection matrix in order to
+ * slightly alter the eye rays. This results in anti-aliasing.
+ * @return {glm::mat4} Jitter Model-view-projection matrix.
+ */
 glm::mat4 GLWidget::getJitterMatrix() {
 	glm::mat4 jitter = glm::mat4( 1.0f );
 	glm::vec3 v = glm::vec3(
@@ -177,29 +199,15 @@ glm::mat4 GLWidget::getJitterMatrix() {
  * Initialize OpenGL and start rendering.
  */
 void GLWidget::initializeGL() {
-	glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
-
-	glEnable( GL_DEPTH_TEST );
-	glEnable( GL_MULTISAMPLE );
-
-	glEnable( GL_ALPHA_TEST );
-	glAlphaFunc( GL_ALWAYS, 0.0f );
-
-	glEnable( GL_BLEND );
-	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+	glEnable( GL_TEXTURE_2D );
 
 	this->initGlew();
 
-	GLfloat vertices[8] = {
-		-1.0f, -1.0f,
-		-1.0f, +1.0f,
-		+1.0f, -1.0f,
-		+1.0f, +1.0f
-	};
+	glGenFramebuffers( 1, &mFramebuffer );
 
-	glGenBuffers( 1, &mVertexBuffer );
-	glBindBuffer( GL_ARRAY_BUFFER, mVertexBuffer );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), &vertices, GL_STATIC_DRAW );
+	this->initVertexBuffer();
+
 
 	Logger::logInfo( string( "[OpenGL] Version " ).append( (char*) glGetString( GL_VERSION ) ) );
 	Logger::logInfo( string( "[OpenGL] GLSL " ).append( (char*) glGetString( GL_SHADING_LANGUAGE_VERSION ) ) );
@@ -208,6 +216,9 @@ void GLWidget::initializeGL() {
 }
 
 
+/**
+ * Init GLew.
+ */
 void GLWidget::initGlew() {
 	GLenum err = glewInit();
 
@@ -219,6 +230,9 @@ void GLWidget::initGlew() {
 }
 
 
+/**
+ * Init the needed OpenCL buffers: Indices, vertices, camera eye and rays.
+ */
 void GLWidget::initOpenCLBuffers() {
 	mBufferIndices = mCL->createBuffer( mIndices, sizeof( cl_uint ) * mIndices.size() );
 	mBufferVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
@@ -235,32 +249,62 @@ void GLWidget::initOpenCLBuffers() {
  * Load and compile the shader.
  */
 void GLWidget::initShaders() {
-	string shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
+	string shaderPath;
+	GLuint shaderFrag, shaderVert;
+
+
+	// Shaders for path tracing
+	shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
 	shaderPath.append( Cfg::get().value<string>( Cfg::SHADER_NAME ) );
 
 	glDeleteProgram( mGLProgramTracer );
 
 	mGLProgramTracer = glCreateProgram();
-	mShaderVert = glCreateShader( GL_VERTEX_SHADER );
-	mShaderFrag = glCreateShader( GL_FRAGMENT_SHADER );
+	shaderVert = glCreateShader( GL_VERTEX_SHADER );
+	shaderFrag = glCreateShader( GL_FRAGMENT_SHADER );
 
-	this->loadShader( mShaderVert, shaderPath + string( ".vert" ) );
-	this->loadShader( mShaderFrag, shaderPath + string( ".frag" ) );
+	this->loadShader( shaderVert, shaderPath + string( ".vert" ) );
+	this->loadShader( shaderFrag, shaderPath + string( ".frag" ) );
 
 	glLinkProgram( mGLProgramTracer );
 	glUseProgram( mGLProgramTracer );
 
-	glDetachShader( mGLProgramTracer, mShaderVert );
-	glDeleteShader( mShaderVert );
+	glDetachShader( mGLProgramTracer, shaderVert );
+	glDeleteShader( shaderVert );
 
-	glDetachShader( mGLProgramTracer, mShaderFrag );
-	glDeleteShader( mShaderFrag );
+	glDetachShader( mGLProgramTracer, shaderFrag );
+	glDeleteShader( shaderFrag );
 
-	mVertexAttribute = glGetAttribLocation( mGLProgramTracer, "vertex" );
-	glEnableVertexAttribArray( mVertexAttribute );
+
+	// Shaders for drawing lines
+	// shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
+	// shaderPath.append( Cfg::get().value<string>( "lines" ) );
+
+	// glDeleteProgram( mGLProgramLines );
+
+	// mGLProgramLines = glCreateProgram();
+	// shaderVert = glCreateShader( GL_VERTEX_SHADER );
+	// shaderFrag = glCreateShader( GL_FRAGMENT_SHADER );
+
+	// this->loadShader( shaderVert, shaderPath + string( ".vert" ) );
+	// this->loadShader( shaderFrag, shaderPath + string( ".frag" ) );
+
+	// glLinkProgram( mGLProgramLines );
+	// glUseProgram( mGLProgramLines );
+
+	// glDetachShader( mGLProgramLines, shaderVert );
+	// glDeleteShader( shaderVert );
+
+	// glDetachShader( mGLProgramLines, shaderFrag );
+	// glDeleteShader( shaderFrag );
+
+	// glEnableVertexAttribArray( mVertexAttributeLines );
 }
 
 
+/**
+ * Init the target textures for the generated image.
+ */
 void GLWidget::initTargetTexture() {
 	size_t w = width();
 	size_t h = height();
@@ -282,6 +326,26 @@ void GLWidget::initTargetTexture() {
 
 	mKernelArgTextureIn = mCL->createImageReadOnly( w, h, &mTextureOut[0] );
 	mKernelArgTextureOut = mCL->createImageWriteOnly( w, h );
+}
+
+
+/**
+ * Init vertex buffer for the generated OpenCL texture.
+ */
+void GLWidget::initVertexBuffer() {
+	GLfloat vertices[8] = {
+		-1.0f, -1.0f,
+		-1.0f, +1.0f,
+		+1.0f, -1.0f,
+		+1.0f, +1.0f
+	};
+
+	GLuint vertexBuffer;
+	glGenBuffers( 1, &vertexBuffer );
+	glBindBuffer( GL_ARRAY_BUFFER, vertexBuffer );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), &vertices, GL_STATIC_DRAW );
+	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 2, GL_FLOAT, GL_FALSE, 0, 0 );
+	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
 }
 
 
@@ -451,6 +515,7 @@ void GLWidget::paintGL() {
 	glm::vec3 eye3 = glm::vec3( eye4[0], eye4[1], eye4[2] );
 
 	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
+	mSampleCount++;
 
 	glm::vec3 ray00 = this->getEyeRay( jitter, eye3, c[0] - 1.0f, c[1] - 1.0f, c[2] );
 	glm::vec3 ray01 = this->getEyeRay( jitter, eye3, c[0] - 1.0f, c[1] + 1.0f, c[2] );
@@ -491,7 +556,6 @@ void GLWidget::paintGL() {
 
 	this->paintScene();
 
-
 	this->showFPS();
 }
 
@@ -507,18 +571,33 @@ void GLWidget::paintScene() {
 	// glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 	// glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
+	// glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
+	// glViewport( 0, 0, width(), height() );
+	// glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+	// glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+	glUseProgram( mGLProgramTracer );
+	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width(), height(), 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
 
-	glVertexAttribPointer( mVertexAttribute, 2, GL_FLOAT, false, 0, 0 );
+	// glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
+	// glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTextures[0], 0 );
+	// this->checkGLForErrors();
+	// this->checkFramebufferForErrors();
+
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
+	// glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 	glBindTexture( GL_TEXTURE_2D, 0 );
 
-	reverse( mTargetTextures.begin(), mTargetTextures.end() );
-	mSampleCount++;
+	// reverse( mTargetTextures.begin(), mTargetTextures.end() );
+
+
+	// Overlay for the path tracing image to highlight/outline elements with a box
+	// glUseProgram( mGLProgramLines );
+	// glBindBuffer( GL_ARRAY_BUFFER, mLinesVertices );
+	// glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mLinesIndices );
+	// glUniformMatrix4fv( glGetUniformLocation( mGLProgramLines, "mvp" ), 1, GL_FALSE, &mModelViewProjectionMatrix[0][0] );
+	// glDrawElements( GL_LINES, 24, GL_UNSIGNED_SHORT, 0 );
 }
 
 
