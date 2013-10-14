@@ -20,7 +20,7 @@ void Camera::cameraMoveBackward() {
 	mCamera.eyeX -= sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
 	mCamera.eyeY += sin( degToRad( mCamera.rotY ) ) * mCameraSpeed;
 	mCamera.eyeZ += cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mParent->cameraUpdate();
+	this->updateParent();
 }
 
 
@@ -29,7 +29,7 @@ void Camera::cameraMoveBackward() {
  */
 void Camera::cameraMoveDown() {
 	mCamera.eyeY -= mCameraSpeed;
-	mParent->cameraUpdate();
+	this->updateParent();
 }
 
 
@@ -40,7 +40,7 @@ void Camera::cameraMoveForward() {
 	mCamera.eyeX += sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
 	mCamera.eyeY -= sin( degToRad( mCamera.rotY ) ) * mCameraSpeed;
 	mCamera.eyeZ -= cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mParent->cameraUpdate();
+	this->updateParent();
 }
 
 
@@ -50,7 +50,7 @@ void Camera::cameraMoveForward() {
 void Camera::cameraMoveLeft() {
 	mCamera.eyeX -= cos( degToRad( mCamera.rotX ) ) * mCameraSpeed;
 	mCamera.eyeZ -= sin( degToRad( mCamera.rotX ) ) * mCameraSpeed;
-	mParent->cameraUpdate();
+	this->updateParent();
 }
 
 
@@ -60,7 +60,7 @@ void Camera::cameraMoveLeft() {
 void Camera::cameraMoveRight() {
 	mCamera.eyeX += cos( degToRad( mCamera.rotX ) ) * mCameraSpeed;
 	mCamera.eyeZ += sin( degToRad( mCamera.rotX ) ) * mCameraSpeed;
-	mParent->cameraUpdate();
+	this->updateParent();
 }
 
 
@@ -69,7 +69,7 @@ void Camera::cameraMoveRight() {
  */
 void Camera::cameraMoveUp() {
 	mCamera.eyeY += mCameraSpeed;
-	mParent->cameraUpdate();
+	this->updateParent();
 }
 
 
@@ -88,7 +88,27 @@ void Camera::cameraReset() {
 	mCamera.upZ = 0.0f;
 	mCamera.rotX = 0.0f;
 	mCamera.rotY = 0.0f;
-	mParent->cameraUpdate();
+	this->updateParent();
+}
+
+
+/**
+ * Copy the settings of an other camera object.
+ * Does not copy parent element or speed.
+ * @param {Camera} camera Camera to copy from.
+ */
+void Camera::copy( Camera* camera ) {
+	mCamera.eyeX = camera->mCamera.eyeX;
+	mCamera.eyeY = camera->mCamera.eyeY;
+	mCamera.eyeZ = camera->mCamera.eyeZ;
+	mCamera.centerX = camera->mCamera.centerX;
+	mCamera.centerY = camera->mCamera.centerY;
+	mCamera.centerZ = camera->mCamera.centerZ;
+	mCamera.upX = camera->mCamera.upX;
+	mCamera.upY = camera->mCamera.upY;
+	mCamera.upZ = camera->mCamera.upZ;
+	mCamera.rotX = camera->mCamera.rotX;
+	mCamera.rotY = camera->mCamera.rotY;
 }
 
 
@@ -137,6 +157,16 @@ std::vector<float> Camera::getEye() {
 }
 
 
+float Camera::getRotX() {
+	return mCamera.rotX;
+}
+
+
+float Camera::getRotY() {
+	return mCamera.rotY;
+}
+
+
 /**
  * Return the up coordinates as GLM 3D vector.
  * @return {glm::vec3} Up coordinates.
@@ -147,13 +177,22 @@ glm::vec3 Camera::getUp_glmVec3() {
 
 
 /**
+ * Set the camera speed (distance to cover with one step).
+ * @param {float} speed New camera speed.
+ */
+void Camera::setSpeed( float speed ) {
+	mCameraSpeed = speed;
+}
+
+
+/**
  * Update the viewing direction of the camera, triggered by mouse movement.
  * @param moveX {int} moveX Movement (of the mouse) in 2D X direction.
  * @param moveY {int} moveY Movement (of the mouse) in 2D Y direction.
  */
 void Camera::updateCameraRot( int moveX, int moveY ) {
 	mCamera.rotX -= moveX;
-	mCamera.rotY += moveY;
+	mCamera.rotY -= moveY;
 
 	if( mCamera.rotX >= 360.0f ) {
 		mCamera.rotX = 0.0f;
@@ -187,12 +226,7 @@ void Camera::updateCameraRot( int moveX, int moveY ) {
 		mCamera.upX = 0.0f;
 	}
 
-	if( mCamera.centerY == 1.0f || mCamera.centerY == -1.0f ) {
-		mCamera.upY = 0.0f;
-	}
-	else {
-		mCamera.upY = 1.0f;
-	}
+	mCamera.upY = ( mCamera.centerY == 1.0f || mCamera.centerY == -1.0f ) ? 0.0f : 1.0f;
 
 	if( mCamera.centerY == 1.0f ) {
 		mCamera.upZ = -cos( degToRad( mCamera.rotX ) );
@@ -204,5 +238,12 @@ void Camera::updateCameraRot( int moveX, int moveY ) {
 		mCamera.upZ = 0.0f;
 	}
 
-	mParent->cameraUpdate();
+	this->updateParent();
+}
+
+
+void Camera::updateParent() {
+	if( mParent != NULL ) {
+		mParent->cameraUpdate();
+	}
 }

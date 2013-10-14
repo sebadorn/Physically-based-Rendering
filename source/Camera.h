@@ -14,6 +14,7 @@ typedef struct {
 	float eyeX, eyeY, eyeZ;
 	float centerX, centerY, centerZ;
 	float upX, upY, upZ;
+	float rightX, rightY, rightZ;
 	float rotX, rotY;
 } camera_t;
 
@@ -32,12 +33,19 @@ class Camera {
 		void cameraMoveRight();
 		void cameraMoveUp();
 		void cameraReset();
+		void copy( Camera* camera );
 		glm::vec3 getAdjustedCenter_glmVec3();
 		glm::vec3 getCenter_glmVec3();
 		std::vector<float> getEye();
 		glm::vec3 getEye_glmVec3();
+		float getRotX();
+		float getRotY();
 		glm::vec3 getUp_glmVec3();
+		void setSpeed( float speed );
 		void updateCameraRot( int moveX, int moveY );
+
+	protected:
+		void updateParent();
 
 	private:
 		float mCameraSpeed;

@@ -60,12 +60,10 @@ void GLWidget::calculateMatrices() {
 	mSampleCount = 0;
 
 	glm::vec3 e = mCamera->getEye_glmVec3();
-	glm::vec3 c = mCamera->getCenter_glmVec3();
+	glm::vec3 c = mCamera->getAdjustedCenter_glmVec3();
 	glm::vec3 u = mCamera->getUp_glmVec3();
 
-	glm::vec3 l = glm::vec3( e[0] + c[0], e[1] - c[1], e[2] - c[2] );
-
-	mViewMatrix = glm::lookAt( e, l, u );
+	mViewMatrix = glm::lookAt( e, c, u );
 	// printf( "%g %g %g\n", mViewMatrix[0][0], mViewMatrix[0][1], mViewMatrix[0][2] );
 	// printf( "%g %g %g\n", mViewMatrix[1][0], mViewMatrix[1][1], mViewMatrix[1][2] );
 	// printf( "%g %g %g\n-----\n", mViewMatrix[2][0], mViewMatrix[2][1], mViewMatrix[2][2] );
@@ -165,13 +163,13 @@ void GLWidget::deleteOldModel() {
  */
 glm::vec3 GLWidget::getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y, float z ) {
 	glm::vec4 target = matrix * glm::vec4( x, y, z, 1.0f );
-	glm::vec3 result(
+	glm::vec3 r(
 		target[0] / target[3],
 		target[1] / target[3],
 		target[2] / target[3]
 	);
 
-	return result - eye;
+	return r - eye;
 }
 
 
@@ -351,6 +349,8 @@ void GLWidget::initTargetTexture() {
  * Init vertex buffer for the generated OpenCL texture.
  */
 void GLWidget::initVertexBuffer() {
+	mVA = vector<GLuint>( 2 );
+
 	GLuint vaTracer;
 	glGenVertexArrays( 1, &vaTracer );
 	glBindVertexArray( vaTracer );
@@ -371,46 +371,46 @@ void GLWidget::initVertexBuffer() {
 
 	glBindVertexArray( 0 );
 
-	mVA.push_back( vaTracer );
+	mVA[0] = vaTracer;
 
 
-	GLuint vaLines;
-	glGenVertexArrays( 1, &vaLines );
-	glBindVertexArray( vaLines );
+	// GLuint vaLines;
+	// glGenVertexArrays( 1, &vaLines );
+	// glBindVertexArray( vaLines );
 
-	GLfloat verticesLines[24] = {
-		0.0f, 0.0f, 0.0f,
-		1.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f,
-		1.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 1.0f,
-		1.0f, 0.0f, 1.0f,
-		0.0f, 1.0f, 1.0f,
-		1.0f, 1.0f, 1.0f
-	};
-	GLushort indicesLines[24] = {
-		0, 1, 1, 3, 3, 2, 2, 0,
-		4, 5, 5, 7, 7, 6, 6, 4,
-		0, 4, 1, 5, 2, 6, 3, 7
-	};
+	// GLfloat verticesLines[24] = {
+	// 	0.0f, 0.0f, 0.0f,
+	// 	1.0f, 0.0f, 0.0f,
+	// 	0.0f, 1.0f, 0.0f,
+	// 	1.0f, 1.0f, 0.0f,
+	// 	0.0f, 0.0f, 1.0f,
+	// 	1.0f, 0.0f, 1.0f,
+	// 	0.0f, 1.0f, 1.0f,
+	// 	1.0f, 1.0f, 1.0f
+	// };
+	// GLushort indicesLines[24] = {
+	// 	0, 1, 1, 3, 3, 2, 2, 0,
+	// 	4, 5, 5, 7, 7, 6, 6, 4,
+	// 	0, 4, 1, 5, 2, 6, 3, 7
+	// };
 
-	GLuint vertexBufferLines;
-	glGenBuffers( 1, &vertexBufferLines );
-	glBindBuffer( GL_ARRAY_BUFFER, vertexBufferLines );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( verticesLines ), &verticesLines, GL_STATIC_DRAW );
-	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
+	// GLuint vertexBufferLines;
+	// glGenBuffers( 1, &vertexBufferLines );
+	// glBindBuffer( GL_ARRAY_BUFFER, vertexBufferLines );
+	// glBufferData( GL_ARRAY_BUFFER, sizeof( verticesLines ), &verticesLines, GL_STATIC_DRAW );
+	// glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	// glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
 
-	GLuint indexBufferLines;
-	glGenBuffers( 1, &indexBufferLines );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBufferLines );
-	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indicesLines ), &indicesLines, GL_STATIC_DRAW );
+	// GLuint indexBufferLines;
+	// glGenBuffers( 1, &indexBufferLines );
+	// glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBufferLines );
+	// glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indicesLines ), &indicesLines, GL_STATIC_DRAW );
 
-	glBindVertexArray( 0 );
-	glBindBuffer( GL_ARRAY_BUFFER, 0 );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
+	// glBindVertexArray( 0 );
+	// glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	// glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
 
-	mVA.push_back( vaLines );
+	// mVA.push_back( vaLines );
 }
 
 
@@ -437,6 +437,30 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mIndices = ml->mIndices;
 	mVertices = ml->mVertices;
 	// mNormals = ml->mNormals;
+
+
+	GLuint vaLines;
+	glGenVertexArrays( 1, &vaLines );
+	glBindVertexArray( vaLines );
+
+	GLuint vertexBufferLines;
+	glGenBuffers( 1, &vertexBufferLines );
+	glBindBuffer( GL_ARRAY_BUFFER, vertexBufferLines );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( GLfloat ) * mVertices.size(), &mVertices[0], GL_STATIC_DRAW );
+	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
+
+	GLuint indexBufferLines;
+	glGenBuffers( 1, &indexBufferLines );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBufferLines );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( GLuint ) * mIndices.size(), &mIndices, GL_STATIC_DRAW );
+
+	glBindVertexArray( 0 );
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
+
+	mVA[1] = vaLines;
+
 
 	this->initOpenCLBuffers();
 	this->initShaders();
@@ -568,23 +592,21 @@ void GLWidget::paintGL() {
 	// Jittering for anti-aliasing
 	glm::mat4 jitter = glm::inverse( mModelViewProjectionMatrix ); //this->getJitterMatrix();
 
-
 	uint i = 0;
 	vector<cl_mem> clBuffers;
-
-	glm::vec3 c = mCamera->getCenter_glmVec3();
-	glm::vec3 eye = mCamera->getEye_glmVec3();
-	glm::vec4 eye4 = mModelViewProjectionMatrix * glm::vec4( eye, 1.0f );
-	glm::vec3 eye3 = glm::vec3( eye4 );
 
 	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 	mSampleCount++;
 
-	glm::vec3 ray00 = this->getEyeRay( jitter, eye3, c[0] - 1.0f, c[1] - 1.0f, c[2] );
-	glm::vec3 ray01 = this->getEyeRay( jitter, eye3, c[0] - 1.0f, c[1] + 1.0f, c[2] );
-	glm::vec3 ray10 = this->getEyeRay( jitter, eye3, c[0] + 1.0f, c[1] - 1.0f, c[2] );
-	glm::vec3 ray11 = this->getEyeRay( jitter, eye3, c[0] + 1.0f, c[1] + 1.0f, c[2] );
 
+	glm::vec3 c = mCamera->getCenter_glmVec3();
+	glm::vec3 eye = mCamera->getEye_glmVec3();
+	glm::vec3 eyeMVP = glm::vec3( mModelViewProjectionMatrix * glm::vec4( eye, 1.0f ) );
+
+	glm::vec3 ray00 = this->getEyeRay( jitter, eyeMVP, c[0] - 1.0f, c[1] - 1.0f, c[2] );
+	glm::vec3 ray01 = this->getEyeRay( jitter, eyeMVP, c[0] - 1.0f, c[1] + 1.0f, c[2] );
+	glm::vec3 ray10 = this->getEyeRay( jitter, eyeMVP, c[0] + 1.0f, c[1] - 1.0f, c[2] );
+	glm::vec3 ray11 = this->getEyeRay( jitter, eyeMVP, c[0] + 1.0f, c[1] + 1.0f, c[2] );
 
 	mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVertices );
@@ -649,7 +671,8 @@ void GLWidget::paintScene() {
 	);
 
 	glBindVertexArray( mVA[1] );
-	glDrawElements( GL_LINES, 24, GL_UNSIGNED_SHORT, 0 );
+	// glDrawElements( GL_LINES, 24, GL_UNSIGNED_SHORT, 0 );
+	glDrawArrays( GL_TRIANGLES, 0, mIndices.size() );
 
 	glBindVertexArray( 0 );
 	glUseProgram( 0 );
