@@ -601,21 +601,30 @@ void GLWidget::paintGL() {
 
 	glm::vec3 c = mCamera->getCenter_glmVec3();
 	glm::vec3 eye = mCamera->getEye_glmVec3();
-	glm::vec3 eyeMVP = glm::vec3( mModelViewProjectionMatrix * glm::vec4( eye, 1.0f ) );
+	// glm::vec3 eyeMVP = glm::vec3( mModelViewProjectionMatrix * glm::vec4( eye, 1.0f ) );
 
-	glm::vec3 ray00 = this->getEyeRay( jitter, eyeMVP, c[0] - 1.0f, c[1] - 1.0f, c[2] );
-	glm::vec3 ray01 = this->getEyeRay( jitter, eyeMVP, c[0] - 1.0f, c[1] + 1.0f, c[2] );
-	glm::vec3 ray10 = this->getEyeRay( jitter, eyeMVP, c[0] + 1.0f, c[1] - 1.0f, c[2] );
-	glm::vec3 ray11 = this->getEyeRay( jitter, eyeMVP, c[0] + 1.0f, c[1] + 1.0f, c[2] );
+	glm::vec3 w = glm::normalize( glm::vec3( c[0] + eye[0], c[1] - eye[1], c[2] - eye[2] ) );
+	glm::vec3 u = glm::cross( w, mCamera->getUp_glmVec3() );
+	glm::vec3 v = glm::cross( u, w );
+
+	// glm::vec3 ray00 = this->getEyeRay( jitter, eyeMVP, c[0] - 1.0f, c[1] - 1.0f, c[2] );
+	// glm::vec3 ray01 = this->getEyeRay( jitter, eyeMVP, c[0] - 1.0f, c[1] + 1.0f, c[2] );
+	// glm::vec3 ray10 = this->getEyeRay( jitter, eyeMVP, c[0] + 1.0f, c[1] - 1.0f, c[2] );
+	// glm::vec3 ray11 = this->getEyeRay( jitter, eyeMVP, c[0] + 1.0f, c[1] + 1.0f, c[2] );
 
 	mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVertices );
 
 	mCL->updateBuffer( mBufferEye, sizeof( cl_float ) * 3, &eye[0] );
-	mCL->updateBuffer( mBufferRay00, sizeof( cl_float ) * 3, &ray00[0] );
-	mCL->updateBuffer( mBufferRay01, sizeof( cl_float ) * 3, &ray01[0] );
-	mCL->updateBuffer( mBufferRay10, sizeof( cl_float ) * 3, &ray10[0] );
-	mCL->updateBuffer( mBufferRay11, sizeof( cl_float ) * 3, &ray11[0] );
+	mCL->updateBuffer( mBufferRay00, sizeof( cl_float ) * 3, &c[0] );
+	mCL->updateBuffer( mBufferRay01, sizeof( cl_float ) * 3, &w[0] );
+	mCL->updateBuffer( mBufferRay10, sizeof( cl_float ) * 3, &u[0] );
+	mCL->updateBuffer( mBufferRay11, sizeof( cl_float ) * 3, &v[0] );
+	// mCL->updateBuffer( mBufferEye, sizeof( cl_float ) * 3, &eye[0] );
+	// mCL->updateBuffer( mBufferRay00, sizeof( cl_float ) * 3, &ray00[0] );
+	// mCL->updateBuffer( mBufferRay01, sizeof( cl_float ) * 3, &ray01[0] );
+	// mCL->updateBuffer( mBufferRay10, sizeof( cl_float ) * 3, &ray10[0] );
+	// mCL->updateBuffer( mBufferRay11, sizeof( cl_float ) * 3, &ray11[0] );
 
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferEye );
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay00 );

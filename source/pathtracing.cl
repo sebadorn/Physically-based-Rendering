@@ -233,20 +233,41 @@ __kernel void pathTracing(
 
 	// Progress in creating the final image (pixel by pixel)
 	float2 percent;
-	percent.x = convert_float( pos.x ) / 512.0f * 0.5f + 0.5f;
-	percent.y = convert_float( pos.y ) / 512.0f * 0.5f + 0.5f;
+	percent.x = convert_float( pos.x ) / convert_float( get_global_size( 0 ) ) * 0.5f + 0.5f;
+	percent.y = convert_float( pos.y ) / convert_float( get_global_size( 1 ) ) * 0.5f + 0.5f;
 
 	// Camera eye
 	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
 
 	// Initial ray (first of the to be created path) shooting from the eye and into the scene
-	float4 ray00 = (float4)( ray00In[0], ray00In[1], ray00In[2], 0.0f );
-	float4 ray01 = (float4)( ray01In[0], ray01In[1], ray01In[2], 0.0f );
-	float4 ray10 = (float4)( ray10In[0], ray10In[1], ray10In[2], 0.0f );
-	float4 ray11 = (float4)( ray11In[0], ray11In[1], ray11In[2], 0.0f );
+	// float4 ray00 = (float4)( ray00In[0], ray00In[1], ray00In[2], 0.0f );
+	// float4 ray01 = (float4)( ray01In[0], ray01In[1], ray01In[2], 0.0f );
+	// float4 ray10 = (float4)( ray10In[0], ray10In[1], ray10In[2], 0.0f );
+	// float4 ray11 = (float4)( ray11In[0], ray11In[1], ray11In[2], 0.0f );
 
-	float4 initialRay = mix( mix( ray00, ray01, percent.y ), mix( ray10, ray11, percent.y ), percent.x );
+	float4 c = (float4)( ray00In[0], ray00In[1], ray00In[2], 0.0f );
+	float4 w = (float4)( ray01In[0], ray01In[1], ray01In[2], 0.0f );
+	float4 u = (float4)( ray10In[0], ray10In[1], ray10In[2], 0.0f );
+	float4 v = (float4)( ray11In[0], ray11In[1], ray11In[2], 0.0f );
+
+	// float4 initialRay = mix( mix( ray00, ray01, percent.y ), mix( ray10, ray11, percent.y ), percent.x );
+	// initialRay.w = 0.0f;
+
+	float width = get_global_size( 0 );
+	float height = get_global_size( 1 );
+	float fovRad = 50.0f * M_PI / 180.0f;
+	float pxWidth = 2.0f * tan( fovRad / 2.0f ) / width;
+	float pxHeight = 2.0f * tan( fovRad / 2.0f ) / height;
+
+	float4 initialRay = eye + w
+			- ( width / 2.0f ) * pxWidth * u
+			+ ( height / 2.0f ) * pxHeight * v
+			+ pxWidth / 2.0f * u
+			- pxHeight / 2.0f * v;
+	initialRay += pos.x * pxWidth * u;
+	initialRay -= ( height - pos.y ) * pxHeight * v;
 	initialRay.w = 0.0f;
+
 
 	// Lighting
 	float4 light = (float4)( 0.0f, 1.7f, 0.0f, 0.0f );

@@ -27,7 +27,7 @@
 		"interval": 100.0,
 		"perspective": {
 			"fov": 50.0,
-			"zfar": 100.0,
+			"zfar": 200.0,
 			"znear": 0.1
 		}
 	},
