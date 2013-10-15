@@ -3,14 +3,17 @@
 	"camera": {
 		"eye": {
 			"x": 0.0,
-			"y": 0.0,
+			"y": 1.0,
 			"z": 3.0
 		},
+		// Doesn't really mean anything, since it gets
+		// overwritten with the first mouse movement
 		"center": {
 			"x": 0.0,
 			"y": 0.0,
 			"z": 0.0
 		},
+		// Step distance
 		"speed": 0.5
 	},
 
@@ -25,9 +28,11 @@
 	"render": {
 		// render every 16.666 ms ~ 60 FPS
 		"interval": 100.0,
+		// Transparent overlay to show where the model should be
+		"overlay": true,
 		"perspective": {
 			"fov": 50.0,
-			"zfar": 200.0,
+			"zfar": 100.0,
 			"znear": 0.1
 		}
 	},

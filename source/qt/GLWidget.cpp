@@ -153,27 +153,6 @@ void GLWidget::deleteOldModel() {
 
 
 /**
- * Get a ray that originates from the eye position.
- * @param  {glm::mat4} matrix Should be the inversed model-view-projection matrix (maybe with additional jittering).
- * @param  {glm::vec3} eye    Camera eye position.
- * @param  {float}     x      Direction of the ray: X coordinate.
- * @param  {float}     y      Direction of the ray: Y coordinate.
- * @param  {float}     z      Direction of the ray: Z coordinate.
- * @return {glm::vec3}        Resulting eye ray.
- */
-glm::vec3 GLWidget::getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y, float z ) {
-	glm::vec4 target = matrix * glm::vec4( x, y, z, 1.0f );
-	glm::vec3 r(
-		target[0] / target[3],
-		target[1] / target[3],
-		target[2] / target[3]
-	);
-
-	return r - eye;
-}
-
-
-/**
  * Get a jitter 4x4 matrix based on the model-view-projection matrix in order to
  * slightly alter the eye rays. This results in anti-aliasing.
  * @return {glm::mat4} Jitter Model-view-projection matrix.
@@ -589,8 +568,8 @@ void GLWidget::paintGL() {
 	cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
 
 
-	// Jittering for anti-aliasing
-	glm::mat4 jitter = glm::inverse( mModelViewProjectionMatrix ); //this->getJitterMatrix();
+	// // Jittering for anti-aliasing
+	// glm::mat4 jitter = this->getJitterMatrix();
 
 	uint i = 0;
 	vector<cl_mem> clBuffers;
@@ -599,18 +578,12 @@ void GLWidget::paintGL() {
 	mSampleCount++;
 
 
-	glm::vec3 c = mCamera->getCenter_glmVec3();
+	glm::vec3 c = mCamera->getAdjustedCenter_glmVec3();
 	glm::vec3 eye = mCamera->getEye_glmVec3();
-	// glm::vec3 eyeMVP = glm::vec3( mModelViewProjectionMatrix * glm::vec4( eye, 1.0f ) );
 
-	glm::vec3 w = glm::normalize( glm::vec3( c[0] + eye[0], c[1] - eye[1], c[2] - eye[2] ) );
+	glm::vec3 w = glm::normalize( glm::vec3( c[0] - eye[0], c[1] - eye[1], c[2] - eye[2] ) );
 	glm::vec3 u = glm::cross( w, mCamera->getUp_glmVec3() );
 	glm::vec3 v = glm::cross( u, w );
-
-	// glm::vec3 ray00 = this->getEyeRay( jitter, eyeMVP, c[0] - 1.0f, c[1] - 1.0f, c[2] );
-	// glm::vec3 ray01 = this->getEyeRay( jitter, eyeMVP, c[0] - 1.0f, c[1] + 1.0f, c[2] );
-	// glm::vec3 ray10 = this->getEyeRay( jitter, eyeMVP, c[0] + 1.0f, c[1] - 1.0f, c[2] );
-	// glm::vec3 ray11 = this->getEyeRay( jitter, eyeMVP, c[0] + 1.0f, c[1] + 1.0f, c[2] );
 
 	mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVertices );
@@ -620,11 +593,6 @@ void GLWidget::paintGL() {
 	mCL->updateBuffer( mBufferRay01, sizeof( cl_float ) * 3, &w[0] );
 	mCL->updateBuffer( mBufferRay10, sizeof( cl_float ) * 3, &u[0] );
 	mCL->updateBuffer( mBufferRay11, sizeof( cl_float ) * 3, &v[0] );
-	// mCL->updateBuffer( mBufferEye, sizeof( cl_float ) * 3, &eye[0] );
-	// mCL->updateBuffer( mBufferRay00, sizeof( cl_float ) * 3, &ray00[0] );
-	// mCL->updateBuffer( mBufferRay01, sizeof( cl_float ) * 3, &ray01[0] );
-	// mCL->updateBuffer( mBufferRay10, sizeof( cl_float ) * 3, &ray10[0] );
-	// mCL->updateBuffer( mBufferRay11, sizeof( cl_float ) * 3, &ray11[0] );
 
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferEye );
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay00 );
@@ -673,18 +641,19 @@ void GLWidget::paintScene() {
 
 
 	// Overlay for the path tracing image to highlight/outline elements with a box
-	glUseProgram( mGLProgramLines );
-	glUniformMatrix4fv(
-		glGetUniformLocation( mGLProgramLines, "mvp" ),
-		1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
-	);
+	if( Cfg::get().value<bool>( Cfg::RENDER_OVERLAY ) ) {
+		glUseProgram( mGLProgramLines );
+		glUniformMatrix4fv(
+			glGetUniformLocation( mGLProgramLines, "mvp" ),
+			1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
+		);
 
-	glBindVertexArray( mVA[1] );
-	// glDrawElements( GL_LINES, 24, GL_UNSIGNED_SHORT, 0 );
-	glDrawArrays( GL_TRIANGLES, 0, mIndices.size() );
+		glBindVertexArray( mVA[1] );
+		glDrawArrays( GL_TRIANGLES, 0, mIndices.size() );
 
-	glBindVertexArray( 0 );
-	glUseProgram( 0 );
+		glBindVertexArray( 0 );
+		glUseProgram( 0 );
+	}
 
 
 	// reverse( mTargetTextures.begin(), mTargetTextures.end() );

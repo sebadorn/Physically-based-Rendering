@@ -11,6 +11,7 @@ const char* Cfg::CAM_SPEED = "camera.speed";
 const char* Cfg::IMPORT_PATH = "import_path";
 const char* Cfg::LOGGING = "logging";
 const char* Cfg::RENDER_INTERVAL = "render.interval";
+const char* Cfg::RENDER_OVERLAY = "render.overlay";
 const char* Cfg::OPENCL_PROGRAM = "opencl.program";
 const char* Cfg::PERS_FOV = "render.perspective.fov";
 const char* Cfg::PERS_ZFAR = "render.perspective.zfar";
