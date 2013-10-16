@@ -46,6 +46,8 @@ GLWidget::~GLWidget() {
 	this->deleteOldModel();
 	glDeleteTextures( mTargetTextures.size(), &mTargetTextures[0] );
 	glDeleteFramebuffers( 1, &mFramebuffer );
+
+	delete mKdTree;
 }
 
 
@@ -416,6 +418,9 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mIndices = ml->mIndices;
 	mVertices = ml->mVertices;
 	// mNormals = ml->mNormals;
+
+
+	KdTree* mKdTree = new KdTree( mVertices, mIndices );
 
 
 	GLuint vaLines;

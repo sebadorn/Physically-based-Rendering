@@ -1,4 +1,4 @@
-__constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+__constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
 
 
 // TODO: Find the closest intersection: Find all (don't stop after first hit) and
@@ -100,7 +100,6 @@ inline float8 findIntersection( float4 origin, float4 ray, __global uint* indice
 
 inline float random( float4 scale, float seed ) {
 	float i;
-
 	return fract( sin( dot( seed, scale ) ) * 43758.5453f + seed, &i );
 }
 
@@ -109,9 +108,10 @@ inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
 	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
 	float r = sqrt( u );
-	float angle = 6.283185307179586f * v;
+	float angle = M_PI * 2.0f * v;
 	float4 sdir, tdir;
 
+	// TODO: What is happening here?
 	if( fabs( normal.x ) < 0.5f ) {
 		sdir = cross( normal, (float4)( 1.0f, 0.0f, 0.0f, 0.0f ) );
 	}
@@ -134,7 +134,7 @@ inline float4 uniformlyRandomDirection( float seed ) {
 	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
 	float z = 1.0f - 2.0f * u;
 	float r = sqrt( 1.0f - z * z );
-	float angle = 6.283185307179586f * v;
+	float angle = M_PI * 2.0f * v;
 
 	return (float4)( r * cos( angle ), r * sin( angle), z, 0.0f );
 }
@@ -232,9 +232,9 @@ __kernel void pathTracing(
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 
 	// Progress in creating the final image (pixel by pixel)
-	float2 percent;
-	percent.x = convert_float( pos.x ) / convert_float( get_global_size( 0 ) ) * 0.5f + 0.5f;
-	percent.y = convert_float( pos.y ) / convert_float( get_global_size( 1 ) ) * 0.5f + 0.5f;
+	// float2 percent;
+	// percent.x = convert_float( pos.x ) / convert_float( get_global_size( 0 ) ) * 0.5f + 0.5f;
+	// percent.y = convert_float( pos.y ) / convert_float( get_global_size( 1 ) ) * 0.5f + 0.5f;
 
 	// Camera eye
 	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );

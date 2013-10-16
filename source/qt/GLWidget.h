@@ -15,6 +15,7 @@
 #include "../Camera.h"
 #include "../CL.h"
 #include "../Cfg.h"
+#include "../KdTree.h"
 #include "../Logger.h"
 #include "../ModelLoader.h"
 #include "../utils.h"
@@ -82,6 +83,7 @@ class GLWidget : public QGLWidget {
 
 		CL* mCL;
 		QTimer* mTimer;
+		KdTree* mKdTree;
 
 		std::vector<light_t> mLights;
 		std::vector<GLuint> mNumIndices;
