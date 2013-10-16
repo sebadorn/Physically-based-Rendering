@@ -420,7 +420,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	// mNormals = ml->mNormals;
 
 
-	KdTree* mKdTree = new KdTree( mVertices, mIndices );
+	// KdTree* mKdTree = new KdTree( mVertices, mIndices );
 
 
 	GLuint vaLines;
@@ -585,10 +585,11 @@ void GLWidget::paintGL() {
 
 	glm::vec3 c = mCamera->getAdjustedCenter_glmVec3();
 	glm::vec3 eye = mCamera->getEye_glmVec3();
+	glm::vec3 up = mCamera->getUp_glmVec3();
 
 	glm::vec3 w = glm::normalize( glm::vec3( c[0] - eye[0], c[1] - eye[1], c[2] - eye[2] ) );
-	glm::vec3 u = glm::cross( w, mCamera->getUp_glmVec3() );
-	glm::vec3 v = glm::cross( u, w );
+	glm::vec3 u = glm::normalize( glm::cross( w, up ) );
+	glm::vec3 v = glm::normalize( glm::cross( u, w ) );
 
 	mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVertices );

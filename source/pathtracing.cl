@@ -1,4 +1,4 @@
-__constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
+__constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
 
 // TODO: Find the closest intersection: Find all (don't stop after first hit) and
@@ -275,7 +275,8 @@ __kernel void pathTracing(
 	float4 calculatedColor = calculateColor( eye, initialRay, newLight, indices, vertices, numIndices, timeSinceStart );
 
 	// Mix new color with previous one
-	float4 color = mix( calculatedColor, texturePixel, textureWeight );
+	// float4 color = mix( calculatedColor, texturePixel, textureWeight );
+	float4 color = mix( calculatedColor, texturePixel, 0.0f );
 	color.w = 1.0f;
 
 	write_imagef( textureOut, pos, color );
