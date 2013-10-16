@@ -80,12 +80,12 @@ inline float8 findIntersection( float4 origin, float4 ray, __global uint* indice
 		result.s0 = hit.x;
 		result.s1 = hit.y;
 		result.s2 = hit.z;
-		result.s3 = 0.0f;
+		result.s3 = r;
 
-		// normal
-		result.s4 = planeNormal.x;
-		result.s5 = planeNormal.y;
-		result.s6 = planeNormal.z;
+		// indices of normals
+		result.s4 = index0;
+		result.s5 = index1;
+		result.s6 = index2;
 		result.s7 = 0.0f;
 
 		if( length( hit - origin ) < length( closestHit - origin ) ) {
@@ -147,18 +147,12 @@ inline float4 uniformlyRandomVector( float seed ) {
 }
 
 
-float shadow( float4 origin, float4 ray ) {
-	// float tSphere0 = intersectSphere(origin, ray, sphereCenter0, sphereRadius0);
-	// if(tSphere0 < 1.0) return 0.0;
+float shadow( float4 origin, float4 ray, __global uint* indices, __global float* vertices, uint numIndices  ) {
+	// float8 intersect = findIntersection( origin, ray, indices, vertices, numIndices );
 
-	// float tSphere1 = intersectSphere(origin, ray, sphereCenter1, sphereRadius1);
-	// if(tSphere1 < 1.0) return 0.0;
-
-	// float tSphere2 = intersectSphere(origin, ray, sphereCenter2, sphereRadius2);
-	// if(tSphere2 < 1.0) return 0.0;
-
-	// float tSphere3 = intersectSphere(origin, ray, sphereCenter3, sphereRadius3);
-	// if(tSphere3 < 1.0) return 0.0;
+	// if( intersect.s3 < 1.0f ) {
+	// 	return 0.0f;
+	// }
 
 	return 1.0f;
 }
@@ -166,7 +160,7 @@ float shadow( float4 origin, float4 ray ) {
 
 inline float4 calculateColor(
 		float4 origin, float4 ray, float4 light,
-		__global uint* indices, __global float* vertices,
+		__global uint* indices, __global float* vertices, __global float* normals,
 		uint numIndices, float timeSinceStart
 	) {
 	// Accumulate the colors of each hit surface
@@ -189,12 +183,15 @@ inline float4 calculateColor(
 		}
 
 		// Get normal of hit
-		float4 normal;
-		normal.x = intersect.s4;
-		normal.y = intersect.s5;
-		normal.z = intersect.s6;
-		normal.w = 0.0f;
+		uint nIndex0 = convert_uint( intersect.s4 );
+		uint nIndex1 = convert_uint( intersect.s5 );
+		uint nIndex2 = convert_uint( intersect.s6 );
 
+		float4 normal0 = (float4)( normals[nIndex0], normals[nIndex0 + 1], normals[nIndex0 + 2], 0.0f );
+		float4 normal1 = (float4)( normals[nIndex1], normals[nIndex1 + 1], normals[nIndex1 + 2], 0.0f );
+		float4 normal2 = (float4)( normals[nIndex2], normals[nIndex2 + 1], normals[nIndex2 + 2], 0.0f );
+
+		float4 normal = ( normal0 + normal1 + normal2 ) / 3.0f;
 		normal = normalize( normal );
 
 		// Distance of the hit surface point to the light source
@@ -202,11 +199,13 @@ inline float4 calculateColor(
 		toLight.w = 0.0f;
 
 		float diffuse = max( 0.0f, dot( normalize( toLight ), normal ) );
-		float shadowIntensity = shadow( hit + normal * 0.0001f, toLight );
-		float specularHighlight = 0.0f;
+		// 0.0001f – meaning?
+		float shadowIntensity = shadow( hit + normal * 0.0001f, toLight, indices, vertices, numIndices );
+		float specularHighlight = 0.0f; // Disabled
 		float4 surfaceColor = (float4)( 0.9f, 0.9f, 0.9f, 1.0f );
 
 		colorMask *= surfaceColor;
+		// 0.2f – meaning?
 		accumulatedColor += colorMask * 0.2f * diffuse * shadowIntensity;
 		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
 
@@ -221,34 +220,26 @@ inline float4 calculateColor(
 
 
 __kernel void pathTracing(
-		__global uint* indices, __global float* vertices,
-		__global float* eyeIn,
-		__global float* cVecIn, __global float* wVecIn, __global float* uVecIn, __global float* vVecIn,
-		const float textureWeight, const float timeSinceStart, const uint numIndices,
+		__global uint* indices, __global float* vertices, __global float* normals,
+		const uint numIndices,
+		__global float* eyeIn, __global float* wVecIn, __global float* uVecIn, __global float* vVecIn,
+		const float textureWeight, const float timeSinceStart, const float fovRad,
 		__read_only image2d_t textureIn, __write_only image2d_t textureOut
 	) {
 	// TODO: reduce work group size
 	// NVIDIA GTX 560 Ti limit: { 1024, 1024, 64 } – currently used here: { 512, 512, 1 }
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 
-	// Progress in creating the final image (pixel by pixel)
-	// float2 percent;
-	// percent.x = convert_float( pos.x ) / convert_float( get_global_size( 0 ) ) * 0.5f + 0.5f;
-	// percent.y = convert_float( pos.y ) / convert_float( get_global_size( 1 ) ) * 0.5f + 0.5f;
-
 	// Camera eye
 	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
 
 	// Initial ray (first of the to be created path) shooting from the eye and into the scene
-	float4 c = (float4)( cVecIn[0], cVecIn[1], cVecIn[2], 0.0f );
 	float4 w = (float4)( wVecIn[0], wVecIn[1], wVecIn[2], 0.0f );
 	float4 u = (float4)( uVecIn[0], uVecIn[1], uVecIn[2], 0.0f );
 	float4 v = (float4)( vVecIn[0], vVecIn[1], vVecIn[2], 0.0f );
 
 	float width = get_global_size( 0 );
 	float height = get_global_size( 1 );
-	float fovDeg = 50.0f;
-	float fovRad = fovDeg * M_PI / 180.0f;
 	float pxWidth = 2.0f * tan( fovRad / 2.0f ) / width;
 	float pxHeight = 2.0f * tan( fovRad / 2.0f ) / height;
 
@@ -262,21 +253,24 @@ __kernel void pathTracing(
 	initialRay.w = 0.0f;
 
 	// Lighting
-	float4 light = (float4)( 0.0f, 1.7f, 0.0f, 0.0f );
+	float4 light = (float4)( 0.3f, 1.6f, 0.0f, 0.0f );
 
 	// The farther away a shadow is, the more diffuse it becomes
-	float4 newLight = light + uniformlyRandomVector( timeSinceStart - 53.0f ) * 0.1f;
+	float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
 	newLight.w = 0.0f;
 
 	// Old color
 	float4 texturePixel = read_imagef( textureIn, sampler, pos );
 
 	// New color (or: another color calculated by evaluating different light paths than before)
-	float4 calculatedColor = calculateColor( eye, initialRay, newLight, indices, vertices, numIndices, timeSinceStart );
+	float4 calculatedColor = calculateColor(
+		eye, initialRay, newLight,
+		indices, vertices, normals,
+		numIndices, timeSinceStart
+	);
 
 	// Mix new color with previous one
-	// float4 color = mix( calculatedColor, texturePixel, textureWeight );
-	float4 color = mix( calculatedColor, texturePixel, 0.0f );
+	float4 color = mix( calculatedColor, texturePixel, textureWeight );
 	color.w = 1.0f;
 
 	write_imagef( textureOut, pos, color );

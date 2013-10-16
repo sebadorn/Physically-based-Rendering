@@ -14,12 +14,13 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
 	mCL->createKernel( "pathTracing" );
 
+	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
 	mModelMatrix = glm::mat4( 1.0f );
 	mProjectionMatrix = glm::perspective(
-		Cfg::get().value<float>( Cfg::PERS_FOV ),
-		Cfg::get().value<float>( Cfg::WINDOW_WIDTH ) / Cfg::get().value<float>( Cfg::WINDOW_HEIGHT ),
-		Cfg::get().value<float>( Cfg::PERS_ZNEAR ),
-		Cfg::get().value<float>( Cfg::PERS_ZFAR )
+		mFOV,
+		Cfg::get().value<GLfloat>( Cfg::WINDOW_WIDTH ) / Cfg::get().value<GLfloat>( Cfg::WINDOW_HEIGHT ),
+		Cfg::get().value<GLfloat>( Cfg::PERS_ZNEAR ),
+		Cfg::get().value<GLfloat>( Cfg::PERS_ZFAR )
 	);
 
 	mDoRendering = false;
@@ -47,7 +48,7 @@ GLWidget::~GLWidget() {
 	glDeleteTextures( mTargetTextures.size(), &mTargetTextures[0] );
 	glDeleteFramebuffers( 1, &mFramebuffer );
 
-	delete mKdTree;
+	// delete mKdTree;
 }
 
 
@@ -155,12 +156,11 @@ void GLWidget::deleteOldModel() {
 
 
 /**
- * Get a jitter 4x4 matrix based on the model-view-projection matrix in order to
- * slightly alter the eye rays. This results in anti-aliasing.
- * @return {glm::mat4} Jitter Model-view-projection matrix.
+ * Get a jitter vector in order to slightly alter the eye ray.
+ * This results in anti-aliasing.
+ * @return {glm::vec3} Jitter.
  */
-glm::mat4 GLWidget::getJitterMatrix() {
-	glm::mat4 jitter = glm::mat4( 1.0f );
+glm::vec3 GLWidget::getJitter() {
 	glm::vec3 v = glm::vec3(
 		rand() / (float) RAND_MAX * 1.0f - 1.0f,
 		rand() / (float) RAND_MAX * 1.0f - 1.0f,
@@ -170,11 +170,7 @@ glm::mat4 GLWidget::getJitterMatrix() {
 	v[0] *= ( 1.0f / (float) width() );
 	v[1] *= ( 1.0f / (float) height() );
 
-	jitter[0][3] = v[0];
-	jitter[1][3] = v[1];
-	jitter[2][3] = v[2];
-
-	return glm::inverse( jitter * mModelViewProjectionMatrix );
+	return v;
 }
 
 
@@ -227,12 +223,12 @@ void GLWidget::initGlew() {
 void GLWidget::initOpenCLBuffers() {
 	mBufferIndices = mCL->createBuffer( mIndices, sizeof( cl_uint ) * mIndices.size() );
 	mBufferVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
+	mBufferNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
 
 	mBufferEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
-	mBufferRay00 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
-	mBufferRay01 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
-	mBufferRay10 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
-	mBufferRay11 = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
+	mBufferVecW = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
+	mBufferVecU = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
+	mBufferVecV = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
 }
 
 
@@ -417,7 +413,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	ml->loadModel( filepath, filename );
 	mIndices = ml->mIndices;
 	mVertices = ml->mVertices;
-	// mNormals = ml->mNormals;
+	mNormals = ml->mNormals;
 
 
 	// KdTree* mKdTree = new KdTree( mVertices, mIndices );
@@ -573,19 +569,22 @@ void GLWidget::paintGL() {
 	cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
 
 
-	// // Jittering for anti-aliasing
-	// glm::mat4 jitter = this->getJitterMatrix();
-
 	uint i = 0;
 	vector<cl_mem> clBuffers;
 
 	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 	mSampleCount++;
 
-
 	glm::vec3 c = mCamera->getAdjustedCenter_glmVec3();
 	glm::vec3 eye = mCamera->getEye_glmVec3();
 	glm::vec3 up = mCamera->getUp_glmVec3();
+
+	// Jittering for anti-aliasing
+	// TODO: probably wrong or at least not very good
+	if( Cfg::get().value<bool>( Cfg::RENDER_ANTIALIAS ) ) {
+		glm::vec3 jitter = this->getJitter();
+		eye += jitter;
+	}
 
 	glm::vec3 w = glm::normalize( glm::vec3( c[0] - eye[0], c[1] - eye[1], c[2] - eye[2] ) );
 	glm::vec3 u = glm::normalize( glm::cross( w, up ) );
@@ -593,24 +592,26 @@ void GLWidget::paintGL() {
 
 	mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVertices );
+	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferNormals );
+
+	cl_uint numIndices = mIndices.size();
+	mCL->setKernelArg( ++i, sizeof( cl_uint ), &numIndices );
 
 	mCL->updateBuffer( mBufferEye, sizeof( cl_float ) * 3, &eye[0] );
-	mCL->updateBuffer( mBufferRay00, sizeof( cl_float ) * 3, &c[0] );
-	mCL->updateBuffer( mBufferRay01, sizeof( cl_float ) * 3, &w[0] );
-	mCL->updateBuffer( mBufferRay10, sizeof( cl_float ) * 3, &u[0] );
-	mCL->updateBuffer( mBufferRay11, sizeof( cl_float ) * 3, &v[0] );
+	mCL->updateBuffer( mBufferVecW, sizeof( cl_float ) * 3, &w[0] );
+	mCL->updateBuffer( mBufferVecU, sizeof( cl_float ) * 3, &u[0] );
+	mCL->updateBuffer( mBufferVecV, sizeof( cl_float ) * 3, &v[0] );
 
 	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferEye );
-	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay00 );
-	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay01 );
-	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay10 );
-	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferRay11 );
+	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVecW );
+	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVecU );
+	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVecV );
 
 	mCL->setKernelArg( ++i, sizeof( cl_float ), &textureWeight );
 	mCL->setKernelArg( ++i, sizeof( cl_float ), &timeSinceStart );
 
-	cl_uint numIndices = mIndices.size();
-	mCL->setKernelArg( ++i, sizeof( cl_uint ), &numIndices );
+	cl_float fovRad = utils::degToRad( mFOV );
+	mCL->setKernelArg( ++i, sizeof( cl_float ), &fovRad );
 
 	mCL->updateImageReadOnly( width(), height(), &mTextureOut[0] );
 

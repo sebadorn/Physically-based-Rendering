@@ -57,7 +57,7 @@ class GLWidget : public QGLWidget {
 		void checkFramebufferForErrors();
 		void deleteOldModel();
 		glm::vec3 getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y, float z );
-		glm::mat4 getJitterMatrix();
+		glm::vec3 getJitter();
 		void initGlew();
 		void initializeGL();
 		void initOpenCLBuffers();
@@ -73,6 +73,7 @@ class GLWidget : public QGLWidget {
 	private:
 		bool mDoRendering;
 		int mSelectedLight;
+		cl_float mFOV;
 
 		GLuint mFrameCount;
 		GLuint mGLProgramTracer;
@@ -108,11 +109,11 @@ class GLWidget : public QGLWidget {
 
 		cl_mem mBufferIndices;
 		cl_mem mBufferVertices;
+		cl_mem mBufferNormals;
 		cl_mem mBufferEye;
-		cl_mem mBufferRay00;
-		cl_mem mBufferRay01;
-		cl_mem mBufferRay10;
-		cl_mem mBufferRay11;
+		cl_mem mBufferVecW;
+		cl_mem mBufferVecU;
+		cl_mem mBufferVecV;
 		cl_mem mKernelArgTextureIn;
 		cl_mem mKernelArgTextureOut;
 
