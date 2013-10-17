@@ -1,5 +1,6 @@
 # directories
 CMakeFiles/*
+tests/CMakeFiles/*
 resources/*
 
 # files
@@ -10,3 +11,4 @@ cmake_install.cmake
 Makefile
 PBR
 valgrind.log
+tests/TEST_*

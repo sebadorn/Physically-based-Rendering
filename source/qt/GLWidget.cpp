@@ -416,7 +416,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mNormals = ml->mNormals;
 
 
-	// KdTree* mKdTree = new KdTree( mVertices, mIndices );
+	KdTree* mKdTree = new KdTree( mVertices, mIndices );
 
 
 	GLuint vaLines;

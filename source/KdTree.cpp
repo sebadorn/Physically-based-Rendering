@@ -6,18 +6,19 @@ KdTree::KdTree( std::vector<float> vertices, std::vector<unsigned int> indices )
 		return;
 	}
 
-	struct kdNode_t input[indices.size()];
+	std::vector<KdNode*> input;
 
 	for( unsigned int i = 0; i < indices.size(); i += 3 ) {
-		struct kdNode_t n;
-		n.coord[0] = vertices[indices[i * 3]];
-		n.coord[1] = vertices[indices[i * 3 + 1]];
-		n.coord[2] = vertices[indices[i * 3 + 2]];
-		input[i] = n;
+		KdNode* node = new KdNode(
+			vertices[indices[i]],
+			vertices[indices[i + 1]],
+			vertices[indices[i + 2]]
+		);
+		input.push_back( node );
 	}
 
 	mVisited = 0;
-	mRoot = this->makeTree( input, indices.size(), 0 );
+	mRoot = this->makeTree( input, 0 );
 }
 
 
@@ -26,120 +27,162 @@ KdTree::~KdTree() {
 }
 
 
-struct kdNode_t* KdTree::makeTree( struct kdNode_t* t, int len, int i ) {
-	struct kdNode_t* n;
-
-	if( len == 0 ) {
-		return 0;
-	}
-
-	n = this->findMedian( t, t + len, i );
-
-	if( n ) {
-		i = ( i + 1 ) % KD_DIM;
-		n->left = this->makeTree( t, n - t, i );
-		n->right = this->makeTree( n + 1, t + len - ( n + 1 ), i );
-	}
-
-	return n;
-}
-
-void KdTree::swap( struct kdNode_t* x, struct kdNode_t* y ) {
-	float tmp[KD_DIM];
-	memcpy( tmp, x->coord, sizeof( tmp ) );
-	memcpy( x->coord, y->coord, sizeof( tmp ) );
-	memcpy( y->coord, tmp, sizeof( tmp ) );
+bool KdTree::compFunc0( KdNode* a, KdNode* b ) {
+	return ( a->mCoord[0] < b->mCoord[0] );
 }
 
 
-struct kdNode_t* KdTree::findMedian( struct kdNode_t* start, struct kdNode_t* end, int index ) {
-	if( end <= start ) {
+bool KdTree::compFunc1( KdNode* a, KdNode* b ) {
+	return ( a->mCoord[1] < b->mCoord[1] );
+}
+
+
+bool KdTree::compFunc2( KdNode* a, KdNode* b ) {
+	return ( a->mCoord[2] < b->mCoord[2] );
+}
+
+
+KdNode* KdTree::findMedian( std::vector<KdNode*>* nodes, int axis ) {
+	if( nodes->size() == 0 ) {
 		return NULL;
 	}
-	if( end == start + 1 ) {
-		return start;
+	if( nodes->size() == 1 ) {
+		return (*nodes)[0];
 	}
 
-	struct kdNode_t* p;
-	struct kdNode_t* store;
-	struct kdNode_t* md = start + ( end - start ) / 2;
-	float pivot;
+	if( axis == 0 ) {
+		std::sort( nodes->begin(), nodes->end(), this->compFunc0 );
+	}
+	else if( axis == 1 ) {
+		std::sort( nodes->begin(), nodes->end(), this->compFunc1 );
+	}
+	else if( axis == 2 ) {
+		std::sort( nodes->begin(), nodes->end(), this->compFunc2 );
+	}
+	else {
+		Logger::logError( "[KdTree] Unknown index for axis." );
+	}
 
-	while( 1 ) {
-		pivot = md->coord[index];
-		this->swap( md, end - 1 );
+	int index = round( nodes->size() / 2 ) - 1;
+	printf( "Median index: %d | Nodes: %lu\n", index, nodes->size() );
+	KdNode* median = (*nodes)[index];
 
-		for( store = p = start; p < end; p++ ) {
-			if( p->coord[index] < pivot ) {
-				if( p != store ) {
-					this->swap( p, store );
-				}
-				store++;
+	return median;
+}
+
+
+KdNode* KdTree::makeTree( std::vector<KdNode*> nodes, int axis ) {
+	if( nodes.size() == 0 ) {
+		return NULL;
+	}
+
+	KdNode* median = this->findMedian( &nodes, axis );
+
+	if( median == NULL ) {
+		return median;
+	}
+
+	std::vector<KdNode*> left;
+	std::vector<KdNode*> right;
+	bool leftSide = true;
+
+	for( int i = 0; i < nodes.size(); i++ ) {
+		if( leftSide ) {
+			if( nodes[i] == median ) {
+				leftSide = false;
+			}
+			else {
+				left.push_back( nodes[i] );
 			}
 		}
-
-		this->swap( store, end - 1 );
-
-		if( store->coord[index] == md->coord[index] ) {
-			return md;
-		}
-		if( store > md ) {
-			end = store;
-		}
 		else {
-			start = store;
+			right.push_back( nodes[i] );
 		}
 	}
+
+	if( nodes.size() == 2 ) {
+		median->mLeft = ( left.size() == 0 ) ? NULL : left[0];
+		median->mRight = ( right.size() == 0 ) ? NULL : right[0];
+	}
+	else {
+		axis = ( axis + 1 ) % KD_DIM;
+		median->mLeft = this->makeTree( left, axis );
+		median->mRight = this->makeTree( right, axis );
+	}
+
+	return median;
 }
 
 
-float KdTree::distance( struct kdNode_t* a, struct kdNode_t* b ) {
-	float t;
-	float d = 0.0f;
-	int dim = KD_DIM;
-
-	while( dim-- ) {
-		t = a->coord[dim] - b->coord[dim];
-		d += t * t;
+void KdTree::print() {
+	if( mRoot == NULL ) {
+		printf( "Tree is empty.\n" );
+		return;
 	}
 
-	return d;
+	this->printNode( mRoot );
 }
 
 
-void KdTree::nearest( struct kdNode_t* root, struct kdNode_t* nd, int i, struct kdNode_t** best, float* bestDist ) {
-	float d, dx, dx2;
-
-	if( !root ) {
+void KdTree::printNode( KdNode* node ) {
+	if( node == NULL ) {
+		printf( "NULL\n" );
 		return;
 	}
 
-	d = this->distance( root, nd );
-	dx = root->coord[i] - nd->coord[i];
-	dx2 = dx * dx;
-
-	mVisited++;
-
-	if( !*best || d < *bestDist ) {
-		*bestDist = d;
-		*best = root;
-	}
-	if( !*bestDist ) {
-		return;
-	}
-	if( ++i >= KD_DIM ) {
-		i = 0;
-	}
-
-	struct kdNode_t* next;
-
-	next = ( dx > 0 ) ? root->left : root->right;
-	this->nearest( next, nd, i, best, bestDist );
-
-	if( dx2 >= *bestDist ) {
-		return;
-	}
-
-	next = ( dx > 0 ) ? root->right : root->left;
-	this->nearest( next, nd, i, best, bestDist );
+	printf( "(%g %g %g) ", node->mCoord[0], node->mCoord[1], node->mCoord[2] );
+	this->printNode( node->mLeft );
+	this->printNode( node->mRight );
 }
+
+
+// float KdTree::distance( KdNode* a, KdNode* b ) {
+// 	float t;
+// 	float d = 0.0f;
+// 	int dim = KD_DIM;
+
+// 	while( dim-- ) {
+// 		t = a->mCoord[dim] - b->mCoord[dim];
+// 		d += t * t;
+// 	}
+
+// 	return d;
+// }
+
+
+// void KdTree::nearest( KdNode* root, KdNode* nd, int i, KdNode** best, float* bestDist ) {
+// 	float d, dx, dx2;
+
+// 	if( !root ) {
+// 		return;
+// 	}
+
+// 	d = this->distance( root, nd );
+// 	dx = root->mCoord[i] - nd->mCoord[i];
+// 	dx2 = dx * dx;
+
+// 	mVisited++;
+
+// 	if( !*best || d < *bestDist ) {
+// 		*bestDist = d;
+// 		*best = root;
+// 	}
+// 	if( !*bestDist ) {
+// 		return;
+// 	}
+// 	if( ++i >= KD_DIM ) {
+// 		i = 0;
+// 	}
+
+// 	KdNode* next;
+
+// 	next = ( dx > 0 ) ? root->mLeft : root->mRight;
+// 	this->nearest( next, nd, i, best, bestDist );
+
+// 	if( dx2 >= *bestDist ) {
+// 		return;
+// 	}
+
+// 	next = ( dx > 0 ) ? root->mRight : root->mLeft;
+// 	this->nearest( next, nd, i, best, bestDist );
+// }

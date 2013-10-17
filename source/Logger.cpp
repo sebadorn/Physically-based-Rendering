@@ -50,7 +50,7 @@ void Logger::logError( std::string msg, const char* prefix ) {
  */
 void Logger::logInfo( const char* msg, const char* prefix ) {
 	if( !Cfg::get().value<bool>( Cfg::LOGGING ) ) { return; }
-	std::cout << "* " << msg << std::endl;
+	std::cout << prefix << msg << std::endl;
 }
 
 
@@ -71,7 +71,7 @@ void Logger::logInfo( std::string msg, const char* prefix ) {
  */
 void Logger::logWarning( const char* msg, const char* prefix ) {
 	if( !Cfg::get().value<bool>( Cfg::LOGGING ) ) { return; }
-	std::cout << "\033[33;1m" << "* " << msg << "\033[0m" << std::endl;
+	std::cout << "\033[33;1m" << prefix << msg << "\033[0m" << std::endl;
 }
 
 
