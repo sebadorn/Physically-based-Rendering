@@ -9,8 +9,14 @@
 #include <stdlib.h>
 #include <vector>
 
-#include "KdNode.h"
 #include "Logger.h"
+
+
+typedef struct kdNode_t {
+	float coord[3];
+	kdNode_t* left;
+	kdNode_t* right;
+} kdNode_t;
 
 
 class KdTree {
@@ -21,17 +27,17 @@ class KdTree {
 		void print();
 
 	protected:
-		// float distance( KdNode* a, KdNode* b );
-		KdNode* findMedian( std::vector<KdNode*>* nodes, int axis );
-		KdNode* makeTree( std::vector<KdNode*> t, int axis );
-		// void nearest( KdNode* root, KdNode* nd, int i, KdNode** best, float* bestDist );
-		void printNode( KdNode* node );
+		// float distance( kdNode_t* a, kdNode_t* b );
+		kdNode_t* findMedian( std::vector<kdNode_t*>* nodes, int axis );
+		kdNode_t* makeTree( std::vector<kdNode_t*> t, int axis );
+		// void nearest( kdNode_t* root, kdNode_t* nd, int i, kdNode_t** best, float* bestDist );
+		void printNode( kdNode_t* node );
 
 	private:
-		static bool compFunc0( KdNode* a, KdNode* b );
-		static bool compFunc1( KdNode* a, KdNode* b );
-		static bool compFunc2( KdNode* a, KdNode* b );
-		KdNode* mRoot;
+		static bool compFunc0( kdNode_t* a, kdNode_t* b );
+		static bool compFunc1( kdNode_t* a, kdNode_t* b );
+		static bool compFunc2( kdNode_t* a, kdNode_t* b );
+		kdNode_t* mRoot;
 		int mVisited;
 
 };

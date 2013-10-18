@@ -7,7 +7,7 @@ int main( int argc, char* argv[] ) {
 	setlocale( LC_ALL, "C" );
 	Cfg::get().loadConfigFile( "../config.json" );
 
-	// Test 1: makeTree
+
 	ModelLoader* ml = new ModelLoader();
 	ml->loadModel( "../resources/models/cornell-box/", "cornell_original.obj" );
 
