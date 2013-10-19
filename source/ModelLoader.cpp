@@ -346,32 +346,62 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 	mVertices = vector<GLfloat>();
 	mNormals = vector<GLfloat>();
 
+	GLfloat bbMin[3];
+	GLfloat bbMax[3];
+
 	// GLuint buffers[3];
 	// glGenBuffers( 3, &buffers[0] );
+
+	GLfloat x, y, z;
 
 	for( uint i = 0; i < scene->mNumMeshes; i++ ) {
 		aiMesh* mesh = scene->mMeshes[i];
 		// aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
-		for( int j = 0; j < mesh->mNumFaces; j++ ) {
+		for( uint j = 0; j < mesh->mNumFaces; j++ ) {
 			const aiFace* face = &mesh->mFaces[j];
 			mIndices.push_back( face->mIndices[0] );
 			mIndices.push_back( face->mIndices[1] );
 			mIndices.push_back( face->mIndices[2] );
 		}
 
-		for( int j = 0; j < mesh->mNumVertices; j++ ) {
-			mVertices.push_back( mesh->mVertices[j].x );
-			mVertices.push_back( mesh->mVertices[j].y );
-			mVertices.push_back( mesh->mVertices[j].z );
+		for( uint j = 0; j < mesh->mNumVertices; j++ ) {
+			x = mesh->mVertices[j].x;
+			y = mesh->mVertices[j].y;
+			z = mesh->mVertices[j].z;
+			mVertices.push_back( x );
+			mVertices.push_back( y );
+			mVertices.push_back( z );
+
+			if( i == 0 && j == 0 ) {
+				bbMin[0] = x; bbMin[1] = y; bbMin[2] = z;
+				bbMax[0] = x; bbMax[1] = y; bbMax[2] = z;
+			}
+			else {
+				if( x < bbMin[0] ) { bbMin[0] = x; }
+				else if( x > bbMax[0] ) { bbMax[0] = x; }
+
+				if( y < bbMin[1] ) { bbMin[1] = y; }
+				else if( y > bbMax[1] ) { bbMax[1] = y; }
+
+				if( z < bbMin[2] ) { bbMin[2] = z; }
+				else if( z > bbMax[2] ) { bbMax[2] = z; }
+			}
 		}
 
-		for( int j = 0; j < mesh->mNumVertices; j++ ) {
+		for( uint j = 0; j < mesh->mNumVertices; j++ ) {
 			mNormals.push_back( mesh->mNormals[j].x );
 			mNormals.push_back( mesh->mNormals[j].y );
 			mNormals.push_back( mesh->mNormals[j].z );
 		}
 	}
+
+	mBoundingBox.push_back( bbMin[0] );
+	mBoundingBox.push_back( bbMin[1] );
+	mBoundingBox.push_back( bbMin[2] );
+	mBoundingBox.push_back( bbMax[0] );
+	mBoundingBox.push_back( bbMax[1] );
+	mBoundingBox.push_back( bbMax[2] );
 
 		// this->createBufferColorsAmbient( mesh, material, buffers[2] );
 		// this->createBufferColorsDiffuse( mesh, material, buffers[3] );

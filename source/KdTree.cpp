@@ -6,7 +6,7 @@ KdTree::KdTree( std::vector<float> vertices, std::vector<unsigned int> indices )
 		return;
 	}
 
-	std::vector<kdNode_t*> input;
+	std::vector<kdNode_t*> mNodes;
 
 	for( unsigned int i = 0; i < indices.size(); i += 3 ) {
 		kdNode_t* node = new kdNode_t;
@@ -16,16 +16,18 @@ KdTree::KdTree( std::vector<float> vertices, std::vector<unsigned int> indices )
 		node->left = NULL;
 		node->right = NULL;
 
-		input.push_back( node );
+		mNodes.push_back( node );
 	}
 
 	mVisited = 0;
-	mRoot = this->makeTree( input, 0 );
+	mRoot = this->makeTree( mNodes, 0 );
 }
 
 
 KdTree::~KdTree() {
-	//
+	for( unsigned int i = 0; i < mNodes.size(); i++ ) {
+		delete mNodes[i];
+	}
 }
 
 
@@ -52,21 +54,26 @@ kdNode_t* KdTree::findMedian( std::vector<kdNode_t*>* nodes, int axis ) {
 		return (*nodes)[0];
 	}
 
-	if( axis == 0 ) {
-		std::sort( nodes->begin(), nodes->end(), this->compFunc0 );
-	}
-	else if( axis == 1 ) {
-		std::sort( nodes->begin(), nodes->end(), this->compFunc1 );
-	}
-	else if( axis == 2 ) {
-		std::sort( nodes->begin(), nodes->end(), this->compFunc2 );
-	}
-	else {
-		Logger::logError( "[KdTree] Unknown index for axis." );
+	switch( axis ) {
+
+		case 0:
+			std::sort( nodes->begin(), nodes->end(), this->compFunc0 );
+			break;
+
+		case 1:
+			std::sort( nodes->begin(), nodes->end(), this->compFunc1 );
+			break;
+
+		case 2:
+			std::sort( nodes->begin(), nodes->end(), this->compFunc2 );
+			break;
+
+		default:
+			Logger::logError( "[KdTree] Unknown index for axis. No sorting done." );
+
 	}
 
 	int index = round( nodes->size() / 2 ) - 1;
-	printf( "Median index: %d | Nodes: %lu\n", index, nodes->size() );
 	kdNode_t* median = (*nodes)[index];
 
 	return median;
@@ -133,8 +140,8 @@ void KdTree::printNode( kdNode_t* node ) {
 	}
 
 	printf( "(%g %g %g) ", node->coord[0], node->coord[1], node->coord[2] );
-	this->printNode( node->left );
-	this->printNode( node->right );
+	printf( "l" ); this->printNode( node->left );
+	printf( "r" ); this->printNode( node->right );
 }
 
 

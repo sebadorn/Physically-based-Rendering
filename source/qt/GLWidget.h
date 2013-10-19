@@ -25,6 +25,15 @@
 	#define GL_MULTISAMPLE 0x809D
 #endif
 
+// Number of vertex arrays
+#define NUM_VA 3
+// Vertex array for path tracer texture
+#define VA_TRACER 0
+// Vertex array for model overlay (for position comparison)
+#define VA_OVERLAY 1
+// Vertex array for bounding box of the model
+#define VA_BOUNDINGBOX 2
+
 
 class Camera;
 
@@ -63,11 +72,13 @@ class GLWidget : public QGLWidget {
 		void initOpenCLBuffers();
 		void initShaders();
 		void initTargetTexture();
-		void initVertexBuffer();
-		void loadShader( GLuint shader, std::string path );
+		void loadShader( GLuint program, GLuint shader, std::string path );
 		void paintGL();
 		void paintScene();
 		void resizeGL( int width, int height );
+		void setShaderBuffersForOverlay( std::vector<GLfloat> vertices, std::vector<GLuint> indices );
+		void setShaderBuffersForBoundingBox( std::vector<GLfloat> bbox );
+		void setShaderBuffersForTracer();
 		void showFPS();
 
 	private:
@@ -77,7 +88,7 @@ class GLWidget : public QGLWidget {
 
 		GLuint mFrameCount;
 		GLuint mGLProgramTracer;
-		GLuint mGLProgramLines;
+		GLuint mGLProgramSimple;
 		GLuint mIndexBuffer;
 		GLuint mPreviousTime;
 		GLuint mSampleCount;
@@ -102,8 +113,6 @@ class GLWidget : public QGLWidget {
 		std::vector<GLfloat> mVertices;
 		std::vector<GLuint> mIndices;
 		std::vector<GLfloat> mNormals;
-
-		GLuint mFramebuffer;
 
 		std::vector<float> mTextureOut;
 

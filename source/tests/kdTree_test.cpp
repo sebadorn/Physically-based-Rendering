@@ -11,8 +11,13 @@ int main( int argc, char* argv[] ) {
 	ModelLoader* ml = new ModelLoader();
 	ml->loadModel( "../resources/models/cornell-box/", "cornell_original.obj" );
 
-	std::vector<float> vertices = ml->mVertices;
-	std::vector<uint> indices = ml->mIndices;
+	std::vector<GLfloat> vertices = ml->mVertices;
+	std::vector<GLuint> indices = ml->mIndices;
+	std::vector<GLfloat> bb = ml->mBoundingBox;
+
+	Logger::logInfo( "BoundingBox:" );
+	printf( "    Min: %g  %g  %g\n", bb[0], bb[1], bb[2] );
+	printf( "    Max: %g  %g  %g\n", bb[3], bb[4], bb[5] );
 
 	char msg[20];
 	snprintf( msg, 20, "KdNodes: %lu", indices.size() / 3 );

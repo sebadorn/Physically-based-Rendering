@@ -56,6 +56,7 @@ class ModelLoader {
 		std::vector<GLfloat> mVertices;
 		std::vector<GLuint> mIndices;
 		std::vector<GLfloat> mNormals;
+		std::vector<GLfloat> mBoundingBox;
 
 	protected:
 		void createBufferColorsAmbient( aiMesh* mesh, aiMaterial* material, GLuint buffer );

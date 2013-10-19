@@ -37,7 +37,9 @@ class KdTree {
 		static bool compFunc0( kdNode_t* a, kdNode_t* b );
 		static bool compFunc1( kdNode_t* a, kdNode_t* b );
 		static bool compFunc2( kdNode_t* a, kdNode_t* b );
+
 		kdNode_t* mRoot;
+		std::vector<kdNode_t*> mNodes;
 		int mVisited;
 
 };

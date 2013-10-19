@@ -16,12 +16,6 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
 	mModelMatrix = glm::mat4( 1.0f );
-	mProjectionMatrix = glm::perspective(
-		mFOV,
-		Cfg::get().value<GLfloat>( Cfg::WINDOW_WIDTH ) / Cfg::get().value<GLfloat>( Cfg::WINDOW_HEIGHT ),
-		Cfg::get().value<GLfloat>( Cfg::PERS_ZNEAR ),
-		Cfg::get().value<GLfloat>( Cfg::PERS_ZFAR )
-	);
 
 	mDoRendering = false;
 	mFrameCount = 0;
@@ -46,9 +40,8 @@ GLWidget::~GLWidget() {
 	this->stopRendering();
 	this->deleteOldModel();
 	glDeleteTextures( mTargetTextures.size(), &mTargetTextures[0] );
-	glDeleteFramebuffers( 1, &mFramebuffer );
 
-	// delete mKdTree;
+	// delete mKdTree; // "segmentation fault" :(
 }
 
 
@@ -67,9 +60,6 @@ void GLWidget::calculateMatrices() {
 	glm::vec3 u = mCamera->getUp_glmVec3();
 
 	mViewMatrix = glm::lookAt( e, c, u );
-	// printf( "%g %g %g\n", mViewMatrix[0][0], mViewMatrix[0][1], mViewMatrix[0][2] );
-	// printf( "%g %g %g\n", mViewMatrix[1][0], mViewMatrix[1][1], mViewMatrix[1][2] );
-	// printf( "%g %g %g\n-----\n", mViewMatrix[2][0], mViewMatrix[2][1], mViewMatrix[2][2] );
 	mModelViewProjectionMatrix = mProjectionMatrix * mViewMatrix * mModelMatrix;
 }
 
@@ -191,10 +181,7 @@ void GLWidget::initializeGL() {
 
 	this->initGlew();
 
-	glGenFramebuffers( 1, &mFramebuffer );
-
-	this->initVertexBuffer();
-
+	mVA = vector<GLuint>( NUM_VA );
 
 	Logger::logInfo( string( "[OpenGL] Version " ).append( (char*) glGetString( GL_VERSION ) ) );
 	Logger::logInfo( string( "[OpenGL] GLSL " ).append( (char*) glGetString( GL_SHADING_LANGUAGE_VERSION ) ) );
@@ -241,6 +228,7 @@ void GLWidget::initShaders() {
 
 
 	// Shaders for path tracing
+
 	shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
 	shaderPath.append( Cfg::get().value<string>( Cfg::SHADER_NAME ) );
 
@@ -250,48 +238,35 @@ void GLWidget::initShaders() {
 	shaderVert = glCreateShader( GL_VERTEX_SHADER );
 	shaderFrag = glCreateShader( GL_FRAGMENT_SHADER );
 
-	this->loadShader( shaderVert, shaderPath + string( ".vert" ) );
-	this->loadShader( shaderFrag, shaderPath + string( ".frag" ) );
-
-	glAttachShader( mGLProgramTracer, shaderVert );
-	glAttachShader( mGLProgramTracer, shaderFrag );
+	this->loadShader( mGLProgramTracer, shaderVert, shaderPath + string( ".vert" ) );
+	this->loadShader( mGLProgramTracer, shaderFrag, shaderPath + string( ".frag" ) );
 
 	glLinkProgram( mGLProgramTracer );
-	glUseProgram( mGLProgramTracer );
-
 	glDetachShader( mGLProgramTracer, shaderVert );
-	glDeleteShader( shaderVert );
-
 	glDetachShader( mGLProgramTracer, shaderFrag );
+	glDeleteShader( shaderVert );
 	glDeleteShader( shaderFrag );
-	glUseProgram( 0 );
 
 
-	// Shaders for drawing lines
+	// Shaders for drawing simple geometry with just one color
+
 	shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
-	shaderPath.append( "lines" );
+	shaderPath.append( "simple" );
 
-	glDeleteProgram( mGLProgramLines );
+	glDeleteProgram( mGLProgramSimple );
 
-	mGLProgramLines = glCreateProgram();
-	GLuint shaderVertLines = glCreateShader( GL_VERTEX_SHADER );
-	GLuint shaderFragLines = glCreateShader( GL_FRAGMENT_SHADER );
+	mGLProgramSimple = glCreateProgram();
+	GLuint shaderVertSimple = glCreateShader( GL_VERTEX_SHADER );
+	GLuint shaderFragSimple = glCreateShader( GL_FRAGMENT_SHADER );
 
-	this->loadShader( shaderVertLines, shaderPath + string( ".vert" ) );
-	this->loadShader( shaderFragLines, shaderPath + string( ".frag" ) );
+	this->loadShader( mGLProgramSimple, shaderVertSimple, shaderPath + string( ".vert" ) );
+	this->loadShader( mGLProgramSimple, shaderFragSimple, shaderPath + string( ".frag" ) );
 
-	glAttachShader( mGLProgramLines, shaderVertLines );
-	glAttachShader( mGLProgramLines, shaderFragLines );
-
-	glLinkProgram( mGLProgramLines );
-	glUseProgram( mGLProgramLines );
-
-	glDetachShader( mGLProgramLines, shaderVertLines );
-	glDeleteShader( shaderVertLines );
-
-	glDetachShader( mGLProgramLines, shaderFragLines );
-	glDeleteShader( shaderFragLines );
-	glUseProgram( 0 );
+	glLinkProgram( mGLProgramSimple );
+	glDetachShader( mGLProgramSimple, shaderVert );
+	glDetachShader( mGLProgramSimple, shaderFrag );
+	glDeleteShader( shaderVert );
+	glDeleteShader( shaderFrag );
 }
 
 
@@ -323,75 +298,6 @@ void GLWidget::initTargetTexture() {
 
 
 /**
- * Init vertex buffer for the generated OpenCL texture.
- */
-void GLWidget::initVertexBuffer() {
-	mVA = vector<GLuint>( 2 );
-
-	GLuint vaTracer;
-	glGenVertexArrays( 1, &vaTracer );
-	glBindVertexArray( vaTracer );
-
-	GLfloat vertices[8] = {
-		-1.0f, -1.0f,
-		-1.0f, +1.0f,
-		+1.0f, -1.0f,
-		+1.0f, +1.0f
-	};
-
-	GLuint vertexBuffer;
-	glGenBuffers( 1, &vertexBuffer );
-	glBindBuffer( GL_ARRAY_BUFFER, vertexBuffer );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), &vertices, GL_STATIC_DRAW );
-	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 2, GL_FLOAT, GL_FALSE, 0, 0 );
-	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
-
-	glBindVertexArray( 0 );
-
-	mVA[0] = vaTracer;
-
-
-	// GLuint vaLines;
-	// glGenVertexArrays( 1, &vaLines );
-	// glBindVertexArray( vaLines );
-
-	// GLfloat verticesLines[24] = {
-	// 	0.0f, 0.0f, 0.0f,
-	// 	1.0f, 0.0f, 0.0f,
-	// 	0.0f, 1.0f, 0.0f,
-	// 	1.0f, 1.0f, 0.0f,
-	// 	0.0f, 0.0f, 1.0f,
-	// 	1.0f, 0.0f, 1.0f,
-	// 	0.0f, 1.0f, 1.0f,
-	// 	1.0f, 1.0f, 1.0f
-	// };
-	// GLushort indicesLines[24] = {
-	// 	0, 1, 1, 3, 3, 2, 2, 0,
-	// 	4, 5, 5, 7, 7, 6, 6, 4,
-	// 	0, 4, 1, 5, 2, 6, 3, 7
-	// };
-
-	// GLuint vertexBufferLines;
-	// glGenBuffers( 1, &vertexBufferLines );
-	// glBindBuffer( GL_ARRAY_BUFFER, vertexBufferLines );
-	// glBufferData( GL_ARRAY_BUFFER, sizeof( verticesLines ), &verticesLines, GL_STATIC_DRAW );
-	// glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-	// glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
-
-	// GLuint indexBufferLines;
-	// glGenBuffers( 1, &indexBufferLines );
-	// glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBufferLines );
-	// glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indicesLines ), &indicesLines, GL_STATIC_DRAW );
-
-	// glBindVertexArray( 0 );
-	// glBindBuffer( GL_ARRAY_BUFFER, 0 );
-	// glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
-
-	// mVA.push_back( vaLines );
-}
-
-
-/**
  * Check, if QGLWidget is currently rendering.
  * @return {bool} True, if is rendering, false otherwise.
  */
@@ -409,41 +315,20 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	this->deleteOldModel();
 
 	ModelLoader* ml = new ModelLoader();
-
 	ml->loadModel( filepath, filename );
 	mIndices = ml->mIndices;
 	mVertices = ml->mVertices;
 	mNormals = ml->mNormals;
 
-
 	KdTree* mKdTree = new KdTree( mVertices, mIndices );
 
-
-	GLuint vaLines;
-	glGenVertexArrays( 1, &vaLines );
-	glBindVertexArray( vaLines );
-
-	GLuint vertexBufferLines;
-	glGenBuffers( 1, &vertexBufferLines );
-	glBindBuffer( GL_ARRAY_BUFFER, vertexBufferLines );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( GLfloat ) * mVertices.size(), &mVertices[0], GL_STATIC_DRAW );
-	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
-
-	GLuint indexBufferLines;
-	glGenBuffers( 1, &indexBufferLines );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBufferLines );
-	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( GLuint ) * mIndices.size(), &mIndices, GL_STATIC_DRAW );
-
-	glBindVertexArray( 0 );
-	glBindBuffer( GL_ARRAY_BUFFER, 0 );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
-
-	mVA[1] = vaLines;
-
-
+	this->setShaderBuffersForOverlay( mVertices, mIndices );
+	this->setShaderBuffersForBoundingBox( ml->mBoundingBox );
+	this->setShaderBuffersForTracer();
 	this->initOpenCLBuffers();
 	this->initShaders();
+
+	delete ml;
 
 	// Ready
 	this->startRendering();
@@ -452,10 +337,11 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 /**
  * Load a GLSL shader and attach it to the program.
- * @param {GLuint}     shader ID of the shader.
- * @param {std:string} path   File path and name.
+ * @param {GLuint}     program ID of the shader program.
+ * @param {GLuint}     shader  ID of the shader.
+ * @param {std:string} path    File path and name.
  */
-void GLWidget::loadShader( GLuint shader, string path ) {
+void GLWidget::loadShader( GLuint program, GLuint shader, string path ) {
 	string shaderString = utils::loadFileAsString( path.c_str() );
 
 	const GLchar* shaderSource = shaderString.c_str();
@@ -473,6 +359,8 @@ void GLWidget::loadShader( GLuint shader, string path ) {
 		Logger::logError( path + string( "\n" ).append( logBuffer ) );
 		exit( EXIT_FAILURE );
 	}
+
+	glAttachShader( program, shader );
 }
 
 
@@ -639,7 +527,7 @@ void GLWidget::paintScene() {
 	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width(), height(), 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
 
-	glBindVertexArray( mVA[0] );
+	glBindVertexArray( mVA[VA_TRACER] );
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 
 	glBindTexture( GL_TEXTURE_2D, 0 );
@@ -649,13 +537,15 @@ void GLWidget::paintScene() {
 
 	// Overlay for the path tracing image to highlight/outline elements with a box
 	if( Cfg::get().value<bool>( Cfg::RENDER_OVERLAY ) ) {
-		glUseProgram( mGLProgramLines );
+		glUseProgram( mGLProgramSimple );
 		glUniformMatrix4fv(
-			glGetUniformLocation( mGLProgramLines, "mvp" ),
+			glGetUniformLocation( mGLProgramSimple, "mvp" ),
 			1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
 		);
+		float color[4] = { 0.6f, 1.0f, 0.3f, 0.4f };
+		glUniform4fv( glGetUniformLocation( mGLProgramSimple, "fragColor" ), 1, color );
 
-		glBindVertexArray( mVA[1] );
+		glBindVertexArray( mVA[VA_OVERLAY] );
 		glDrawArrays( GL_TRIANGLES, 0, mIndices.size() );
 
 		glBindVertexArray( 0 );
@@ -663,11 +553,22 @@ void GLWidget::paintScene() {
 	}
 
 
-	// reverse( mTargetTextures.begin(), mTargetTextures.end() );
+	// Bounding box
+	if( Cfg::get().value<bool>( Cfg::RENDER_BOUNDINGBOX ) ) {
+		glUseProgram( mGLProgramSimple );
+		glUniformMatrix4fv(
+			glGetUniformLocation( mGLProgramSimple, "mvp" ),
+			1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
+		);
+		float color[4] = { 1.0f, 1.0f, 1.0f, 0.6f };
+		glUniform4fv( glGetUniformLocation( mGLProgramSimple, "fragColor" ), 1, color );
 
-	// glBindFramebuffer( GL_FRAMEBUFFER, mFramebuffer );
-	// glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTargetTextures[0], 0 );
-	// glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+		glBindVertexArray( mVA[VA_BOUNDINGBOX] );
+		glDrawElements( GL_LINES, 24, GL_UNSIGNED_INT, NULL );
+
+		glBindVertexArray( 0 );
+		glUseProgram( 0 );
+	}
 }
 
 
@@ -680,13 +581,142 @@ void GLWidget::resizeGL( int width, int height ) {
 	glViewport( 0, 0, width, height );
 
 	mProjectionMatrix = glm::perspective(
-		Cfg::get().value<float>( Cfg::PERS_FOV ),
+		mFOV,
 		width / (float) height,
 		Cfg::get().value<float>( Cfg::PERS_ZNEAR ),
 		Cfg::get().value<float>( Cfg::PERS_ZFAR )
 	);
 
 	this->calculateMatrices();
+}
+
+
+/**
+ * Select the next light in the list.
+ */
+void GLWidget::selectNextLight() {
+	if( mSelectedLight > -1 ) {
+		mSelectedLight = ( mSelectedLight + 1 ) % mLights.size();
+	}
+}
+
+
+/**
+ * Select the previous light in the list.
+ */
+void GLWidget::selectPreviousLight() {
+	if( mSelectedLight > -1 ) {
+		mSelectedLight = ( mSelectedLight == 0 ) ? mLights.size() - 1 : mSelectedLight - 1;
+	}
+}
+
+
+/**
+ * Set the vertex array for the model overlay.
+ * @param {std::vector<GLfloat>} vertices Vertices of the model.
+ * @param {std::vector<GLuint>}  indices  Indices of the vertices of the faces.
+ */
+void GLWidget::setShaderBuffersForOverlay( vector<GLfloat> vertices, vector<GLuint> indices ) {
+	GLuint vaID;
+	glGenVertexArrays( 1, &vaID );
+	glBindVertexArray( vaID );
+
+	GLuint vertexBuffer;
+	glGenBuffers( 1, &vertexBuffer );
+	glBindBuffer( GL_ARRAY_BUFFER, vertexBuffer );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( GLfloat ) * vertices.size(), &vertices[0], GL_STATIC_DRAW );
+	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0 );
+	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
+
+	GLuint indexBuffer;
+	glGenBuffers( 1, &indexBuffer );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( GLuint ) * indices.size(), &indices[0], GL_STATIC_DRAW );
+
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glBindVertexArray( 0 );
+
+	mVA[VA_OVERLAY] = vaID;
+}
+
+
+/**
+ * Set the vertex array for the model bounding box.
+ * @param {std::vector<GLfloat>} bbox Min and max vertices of the bounding box.
+ */
+void GLWidget::setShaderBuffersForBoundingBox( vector<GLfloat> bbox ) {
+	GLfloat bbVertices[24] = {
+		// bottom
+		bbox[0], bbox[1], bbox[2],
+		bbox[3], bbox[1], bbox[2],
+		bbox[0], bbox[1], bbox[5],
+		bbox[3], bbox[1], bbox[5],
+		// top
+		bbox[0], bbox[4], bbox[2],
+		bbox[3], bbox[4], bbox[2],
+		bbox[0], bbox[4], bbox[5],
+		bbox[3], bbox[4], bbox[5]
+	};
+	GLuint bbIndices[24] = {
+		// bottom
+		0, 1, 1, 3, 3, 2, 2, 0,
+		// left
+		0, 4, 2, 6,
+		// top
+		6, 4, 4, 5, 5, 7, 7, 6,
+		// right
+		1, 5, 3, 7
+	};
+
+	GLuint vaID;
+	glGenVertexArrays( 1, &vaID );
+	glBindVertexArray( vaID );
+
+	GLuint vertexBuffer;
+	glGenBuffers( 1, &vertexBuffer );
+	glBindBuffer( GL_ARRAY_BUFFER, vertexBuffer );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( bbVertices ), &bbVertices, GL_STATIC_DRAW );
+	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0 );
+	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
+
+	GLuint indexBuffer;
+	glGenBuffers( 1, &indexBuffer );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( bbIndices ), &bbIndices, GL_STATIC_DRAW );
+
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glBindVertexArray( 0 );
+
+	mVA[VA_BOUNDINGBOX] = vaID;
+}
+
+
+/**
+ * Init vertex buffer for the rendering of the OpenCL generated texture.
+ */
+void GLWidget::setShaderBuffersForTracer() {
+	GLuint vaID;
+	glGenVertexArrays( 1, &vaID );
+	glBindVertexArray( vaID );
+
+	GLfloat vertices[8] = {
+		-1.0f, -1.0f,
+		-1.0f, +1.0f,
+		+1.0f, -1.0f,
+		+1.0f, +1.0f
+	};
+
+	GLuint vertexBuffer;
+	glGenBuffers( 1, &vertexBuffer );
+	glBindBuffer( GL_ARRAY_BUFFER, vertexBuffer );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), &vertices, GL_STATIC_DRAW );
+	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 2, GL_FLOAT, GL_FALSE, 0, (void*) 0 );
+	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
+
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glBindVertexArray( 0 );
+
+	mVA[VA_TRACER] = vaID;
 }
 
 
@@ -720,26 +750,6 @@ QSize GLWidget::sizeHint() const {
 		Cfg::get().value<uint>( Cfg::WINDOW_WIDTH ),
 		Cfg::get().value<uint>( Cfg::WINDOW_HEIGHT )
 	);
-}
-
-
-/**
- * Select the next light in the list.
- */
-void GLWidget::selectNextLight() {
-	if( mSelectedLight > -1 ) {
-		mSelectedLight = ( mSelectedLight + 1 ) % mLights.size();
-	}
-}
-
-
-/**
- * Select the previous light in the list.
- */
-void GLWidget::selectPreviousLight() {
-	if( mSelectedLight > -1 ) {
-		mSelectedLight = ( mSelectedLight == 0 ) ? mLights.size() - 1 : mSelectedLight - 1;
-	}
 }
 
 
