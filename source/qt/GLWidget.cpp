@@ -17,6 +17,8 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
 	mModelMatrix = glm::mat4( 1.0f );
 
+	mKdTree = NULL;
+
 	mDoRendering = false;
 	mFrameCount = 0;
 	mPreviousTime = 0;
@@ -44,7 +46,9 @@ GLWidget::~GLWidget() {
 	this->deleteOldModel();
 	glDeleteTextures( mTargetTextures.size(), &mTargetTextures[0] );
 
-	// delete mKdTree; // "segmentation fault" :(
+	if( mKdTree ) {
+		delete mKdTree;
+	}
 }
 
 
@@ -323,7 +327,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mVertices = ml->mVertices;
 	mNormals = ml->mNormals;
 
-	KdTree* mKdTree = new KdTree( mVertices, mIndices );
+	mKdTree = new KdTree( mVertices, mIndices );
 
 	this->setShaderBuffersForOverlay( mVertices, mIndices );
 	this->setShaderBuffersForBoundingBox( ml->mBoundingBox );
@@ -515,7 +519,6 @@ void GLWidget::paintGL() {
 
 
 	this->paintScene();
-
 	this->showFPS();
 }
 
@@ -585,9 +588,9 @@ void GLWidget::resizeGL( int width, int height ) {
 
 	mProjectionMatrix = glm::perspective(
 		mFOV,
-		width / (float) height,
-		Cfg::get().value<float>( Cfg::PERS_ZNEAR ),
-		Cfg::get().value<float>( Cfg::PERS_ZFAR )
+		width / (GLfloat) height,
+		Cfg::get().value<GLfloat>( Cfg::PERS_ZNEAR ),
+		Cfg::get().value<GLfloat>( Cfg::PERS_ZFAR )
 	);
 
 	this->calculateMatrices();
@@ -733,7 +736,7 @@ void GLWidget::showFPS() {
 	GLuint timeInterval = currentTime - mPreviousTime;
 
 	if( timeInterval > 1000 ) {
-		float fps = mFrameCount / (float) timeInterval * 1000.0f;
+		GLfloat fps = mFrameCount / (GLfloat) timeInterval * 1000.0f;
 		mPreviousTime = currentTime;
 		mFrameCount = 0;
 
@@ -762,8 +765,7 @@ QSize GLWidget::sizeHint() const {
 void GLWidget::startRendering() {
 	if( !mDoRendering ) {
 		mDoRendering = true;
-		float fps = Cfg::get().value<float>( Cfg::RENDER_INTERVAL );
-		mTimer->start( fps );
+		mTimer->start( Cfg::get().value<float>( Cfg::RENDER_INTERVAL ) );
 	}
 }
 

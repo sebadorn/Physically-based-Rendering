@@ -121,7 +121,6 @@ void Window::importFile() {
 QStatusBar* Window::createStatusBar() {
 	QStatusBar *statusBar = new QStatusBar( this );
 	statusBar->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
-	statusBar->showMessage( tr( "0 FPS" ) );
 
 	return statusBar;
 }
