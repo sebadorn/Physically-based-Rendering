@@ -26,13 +26,15 @@
 #endif
 
 // Number of vertex arrays
-#define NUM_VA 3
+#define NUM_VA 4
 // Vertex array for path tracer texture
 #define VA_TRACER 0
 // Vertex array for model overlay (for position comparison)
 #define VA_OVERLAY 1
 // Vertex array for bounding box of the model
 #define VA_BOUNDINGBOX 2
+// Vertex array for kd-tree visualization
+#define VA_KDTREE 3
 
 
 class Camera;
@@ -78,11 +80,13 @@ class GLWidget : public QGLWidget {
 		void resizeGL( int width, int height );
 		void setShaderBuffersForOverlay( std::vector<GLfloat> vertices, std::vector<GLuint> indices );
 		void setShaderBuffersForBoundingBox( std::vector<GLfloat> bbox );
+		void setShaderBuffersForKdTree( std::vector<GLfloat> vertices, std::vector<GLuint> indices );
 		void setShaderBuffersForTracer();
 		void showFPS();
 
 	protected slots:
 		void toggleViewBoundingBox();
+		void toggleViewKdTree();
 		void toggleViewOverlay();
 
 	private:
@@ -91,6 +95,7 @@ class GLWidget : public QGLWidget {
 		cl_float mFOV;
 
 		bool mViewBoundingBox;
+		bool mViewKdTree;
 		bool mViewOverlay;
 
 		GLuint mFrameCount;
@@ -103,6 +108,7 @@ class GLWidget : public QGLWidget {
 		CL* mCL;
 		QTimer* mTimer;
 		KdTree* mKdTree;
+		GLuint mKdTreeNumIndices;
 
 		std::vector<light_t> mLights;
 		std::vector<GLuint> mNumIndices;

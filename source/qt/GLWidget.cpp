@@ -27,6 +27,7 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mSelectedLight = -1;
 
 	mViewBoundingBox = false;
+	mViewKdTree = false;
 	mViewOverlay = false;
 
 	mTimer = new QTimer( this );
@@ -328,9 +329,16 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mNormals = ml->mNormals;
 
 	mKdTree = new KdTree( mVertices, mIndices );
+	vector<GLfloat> verticesKdTree;
+	vector<GLuint> indicesKdTree;
+	float bbMin[3] = { ml->mBoundingBox[0], ml->mBoundingBox[1], ml->mBoundingBox[2] };
+	float bbMax[3] = { ml->mBoundingBox[3], ml->mBoundingBox[4], ml->mBoundingBox[5] };
+	mKdTree->visualize( bbMin, bbMax, &verticesKdTree, &indicesKdTree );
+	mKdTreeNumIndices = indicesKdTree.size();
 
 	this->setShaderBuffersForOverlay( mVertices, mIndices );
 	this->setShaderBuffersForBoundingBox( ml->mBoundingBox );
+	this->setShaderBuffersForKdTree( verticesKdTree, indicesKdTree );
 	this->setShaderBuffersForTracer();
 	this->initOpenCLBuffers();
 	this->initShaders();
@@ -575,6 +583,24 @@ void GLWidget::paintScene() {
 		glBindVertexArray( 0 );
 		glUseProgram( 0 );
 	}
+
+
+	// kd-tree
+	if( mViewKdTree ) {
+		glUseProgram( mGLProgramSimple );
+		glUniformMatrix4fv(
+			glGetUniformLocation( mGLProgramSimple, "mvp" ),
+			1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
+		);
+		float color[4] = { 0.6f, 0.85f, 1.0f, 0.8f };
+		glUniform4fv( glGetUniformLocation( mGLProgramSimple, "fragColor" ), 1, color );
+
+		glBindVertexArray( mVA[VA_KDTREE] );
+		glDrawElements( GL_LINES, mKdTreeNumIndices, GL_UNSIGNED_INT, NULL );
+
+		glBindVertexArray( 0 );
+		glUseProgram( 0 );
+	}
 }
 
 
@@ -698,6 +724,35 @@ void GLWidget::setShaderBuffersForBoundingBox( vector<GLfloat> bbox ) {
 
 
 /**
+ * Set the vertex array for the generated kd-tree.
+ * @param {std::vector<GLfloat>} vertices
+ * @param {std::vector<GLuint>}  indices
+ */
+void GLWidget::setShaderBuffersForKdTree( vector<GLfloat> vertices, vector<GLuint> indices ) {
+	GLuint vaID;
+	glGenVertexArrays( 1, &vaID );
+	glBindVertexArray( vaID );
+
+	GLuint vertexBuffer;
+	glGenBuffers( 1, &vertexBuffer );
+	glBindBuffer( GL_ARRAY_BUFFER, vertexBuffer );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( GLfloat ) * vertices.size(), &vertices[0], GL_STATIC_DRAW );
+	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0 );
+	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
+
+	GLuint indexBuffer;
+	glGenBuffers( 1, &indexBuffer );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( GLuint ) * indices.size(), &indices[0], GL_STATIC_DRAW );
+
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glBindVertexArray( 0 );
+
+	mVA[VA_KDTREE] = vaID;
+}
+
+
+/**
  * Init vertex buffer for the rendering of the OpenCL generated texture.
  */
 void GLWidget::setShaderBuffersForTracer() {
@@ -802,6 +857,14 @@ void GLWidget::toggleLightControl() {
  */
 void GLWidget::toggleViewBoundingBox() {
 	mViewBoundingBox = !mViewBoundingBox;
+}
+
+
+/**
+ * Toggle rendering of the kd-tree visualization.
+ */
+void GLWidget::toggleViewKdTree() {
+	mViewKdTree = !mViewKdTree;
 }
 
 

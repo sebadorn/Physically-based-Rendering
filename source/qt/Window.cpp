@@ -70,8 +70,15 @@ QMenuBar* Window::createMenuBar() {
 	actionOverlay->setChecked( false );
 	connect( actionOverlay, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewOverlay() ) );
 
+	QAction* actionKdTree = new QAction( tr( "Toggle &kd-tree visualization" ), this );
+	actionKdTree->setStatusTip( tr( "Visualize the generated kd-tree." ) );
+	actionKdTree->setCheckable( true );
+	actionKdTree->setChecked( false );
+	connect( actionKdTree, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewKdTree() ) );
+
 	QMenu* menuView = new QMenu( tr( "&View" ) );
 	menuView->addAction( actionBoundingBox );
+	menuView->addAction( actionKdTree );
 	menuView->addAction( actionOverlay );
 
 
