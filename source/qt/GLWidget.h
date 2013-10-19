@@ -81,10 +81,17 @@ class GLWidget : public QGLWidget {
 		void setShaderBuffersForTracer();
 		void showFPS();
 
+	protected slots:
+		void toggleViewBoundingBox();
+		void toggleViewOverlay();
+
 	private:
 		bool mDoRendering;
 		int mSelectedLight;
 		cl_float mFOV;
+
+		bool mViewBoundingBox;
+		bool mViewOverlay;
 
 		GLuint mFrameCount;
 		GLuint mGLProgramTracer;

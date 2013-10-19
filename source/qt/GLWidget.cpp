@@ -24,6 +24,9 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mSampleCount = 0;
 	mSelectedLight = -1;
 
+	mViewBoundingBox = false;
+	mViewOverlay = false;
+
 	mTimer = new QTimer( this );
 	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
 
@@ -536,7 +539,7 @@ void GLWidget::paintScene() {
 
 
 	// Overlay for the path tracing image to highlight/outline elements with a box
-	if( Cfg::get().value<bool>( Cfg::RENDER_OVERLAY ) ) {
+	if( mViewOverlay ) {
 		glUseProgram( mGLProgramSimple );
 		glUniformMatrix4fv(
 			glGetUniformLocation( mGLProgramSimple, "mvp" ),
@@ -554,7 +557,7 @@ void GLWidget::paintScene() {
 
 
 	// Bounding box
-	if( Cfg::get().value<bool>( Cfg::RENDER_BOUNDINGBOX ) ) {
+	if( mViewBoundingBox ) {
 		glUseProgram( mGLProgramSimple );
 		glUniformMatrix4fv(
 			glGetUniformLocation( mGLProgramSimple, "mvp" ),
@@ -789,4 +792,20 @@ void GLWidget::toggleLightControl() {
 	else {
 		mSelectedLight = -1;
 	}
+}
+
+
+/**
+ * Toggle rendering of the bounding box.
+ */
+void GLWidget::toggleViewBoundingBox() {
+	mViewBoundingBox = !mViewBoundingBox;
+}
+
+
+/**
+ * Toggle rendering of the translucent overlay over the traced model.
+ */
+void GLWidget::toggleViewOverlay() {
+	mViewOverlay = !mViewOverlay;
 }

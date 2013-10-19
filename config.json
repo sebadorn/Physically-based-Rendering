@@ -28,11 +28,8 @@
 	"render": {
 		// AA through jittering
 		"antialiasing": true,
-		"boundingbox": true,
 		// render every 16.666 ms ~ 60 FPS
 		"interval": 100.0,
-		// Transparent overlay to show where the model should be
-		"overlay": true,
 		"perspective": {
 			"fov": 50.0,
 			"zfar": 100.0,

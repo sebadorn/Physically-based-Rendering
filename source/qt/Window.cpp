@@ -40,6 +40,8 @@ QBoxLayout* Window::createLayout() {
  * @return {QMenuBar*} The menu bar.
  */
 QMenuBar* Window::createMenuBar() {
+	// Menu 1: File
+
 	QAction* actionImport = new QAction( tr( "&Import model..." ), this );
 	actionImport->setStatusTip( tr( "Import a model." ) );
 	connect( actionImport, SIGNAL( triggered() ), this, SLOT( importFile() ) );
@@ -53,9 +55,33 @@ QMenuBar* Window::createMenuBar() {
 	menuFile->addAction( actionImport );
 	menuFile->addAction( actionExit );
 
+
+	// Menu 2: View
+
+	QAction* actionBoundingBox = new QAction( tr( "Toggle &bounding box" ), this );
+	actionBoundingBox->setStatusTip( tr( "Bounding box of the model." ) );
+	actionBoundingBox->setCheckable( true );
+	actionBoundingBox->setChecked( false );
+	connect( actionBoundingBox, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewBoundingBox() ) );
+
+	QAction* actionOverlay = new QAction( tr( "Toggle original &overlay" ), this );
+	actionOverlay->setStatusTip( tr( "Translucent overlay of the model over the traced one." ) );
+	actionOverlay->setCheckable( true );
+	actionOverlay->setChecked( false );
+	connect( actionOverlay, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewOverlay() ) );
+
+	QMenu* menuView = new QMenu( tr( "&View" ) );
+	menuView->addAction( actionBoundingBox );
+	menuView->addAction( actionOverlay );
+
+
+	// The menu bar itself
+
 	QMenuBar* menubar = new QMenuBar( this );
 	menubar->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
 	menubar->addMenu( menuFile );
+	menubar->addMenu( menuView );
+
 
 	return menubar;
 }
