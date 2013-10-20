@@ -64,22 +64,29 @@ QMenuBar* Window::createMenuBar() {
 	actionBoundingBox->setChecked( false );
 	connect( actionBoundingBox, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewBoundingBox() ) );
 
-	QAction* actionOverlay = new QAction( tr( "Toggle original &overlay" ), this );
-	actionOverlay->setStatusTip( tr( "Translucent overlay of the model over the traced one." ) );
-	actionOverlay->setCheckable( true );
-	actionOverlay->setChecked( false );
-	connect( actionOverlay, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewOverlay() ) );
-
 	QAction* actionKdTree = new QAction( tr( "Toggle &kd-tree visualization" ), this );
 	actionKdTree->setStatusTip( tr( "Visualize the generated kd-tree." ) );
 	actionKdTree->setCheckable( true );
 	actionKdTree->setChecked( false );
 	connect( actionKdTree, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewKdTree() ) );
 
+	QAction* actionOverlay = new QAction( tr( "Toggle original &overlay" ), this );
+	actionOverlay->setStatusTip( tr( "Translucent overlay of the model over the traced one." ) );
+	actionOverlay->setCheckable( true );
+	actionOverlay->setChecked( false );
+	connect( actionOverlay, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewOverlay() ) );
+
+	QAction* actionTracer = new QAction( tr( "Toggle path &tracing" ), this );
+	actionTracer->setStatusTip( tr( "Path tracing." ) );
+	actionTracer->setCheckable( true );
+	actionTracer->setChecked( true );
+	connect( actionTracer, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewTracer() ) );
+
 	QMenu* menuView = new QMenu( tr( "&View" ) );
 	menuView->addAction( actionBoundingBox );
 	menuView->addAction( actionKdTree );
 	menuView->addAction( actionOverlay );
+	menuView->addAction( actionTracer );
 
 
 	// The menu bar itself

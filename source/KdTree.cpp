@@ -26,7 +26,6 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices ) {
 		mNodes.push_back( node );
 	}
 
-	mVisited = 0;
 	mRoot = this->makeTree( mNodes, 0 );
 }
 
@@ -279,53 +278,54 @@ void KdTree::visualizeNextNode( kdNode_t* node, float* bbMin, float* bbMax, vect
 }
 
 
-// float KdTree::distance( kdNode_t* a, kdNode_t* b ) {
-// 	float t;
-// 	float d = 0.0f;
-// 	int dim = KD_DIM;
+/**
+ * Calculate the distance between two nodes.
+ * @param  {kdNode_t*} a A node with coordinates.
+ * @param  {kdNode_t*} b A node with coordinates.
+ * @return {float}       Distance between node a and b.
+ */
+float KdTree::distance( kdNode_t* a, kdNode_t* b ) {
+	float t;
+	float d = 0.0f;
+	int axis = KD_DIM;
 
-// 	while( dim-- ) {
-// 		t = a->coord[dim] - b->coord[dim];
-// 		d += t * t;
-// 	}
+	while( axis-- ) {
+		t = a->coord[axis] - b->coord[axis];
+		d += t * t;
+	}
 
-// 	return d;
-// }
+	return d;
+}
 
 
-// void KdTree::nearest( kdNode_t* root, kdNode_t* nd, int i, kdNode_t** best, float* bestDist ) {
-// 	float d, dx, dx2;
+void KdTree::nearest( kdNode_t* input, kdNode_t* currentNode, int axis, kdNode_t** bestNode, float* bestDist ) {
+	float d, dx, dx2;
 
-// 	if( !root ) {
-// 		return;
-// 	}
+	if( !currentNode ) {
+		return;
+	}
 
-// 	d = this->distance( root, nd );
-// 	dx = root->coord[i] - nd->coord[i];
-// 	dx2 = dx * dx;
+	d = this->distance( currentNode, input );
+	dx = currentNode->coord[axis] - input->coord[axis];
 
-// 	mVisited++;
+	if( !*bestNode || d < *bestDist ) {
+		*bestDist = d;
+		*bestNode = currentNode;
+	}
+	if( !*bestDist ) {
+		return;
+	}
 
-// 	if( !*best || d < *bestDist ) {
-// 		*bestDist = d;
-// 		*best = root;
-// 	}
-// 	if( !*bestDist ) {
-// 		return;
-// 	}
-// 	if( ++i >= KD_DIM ) {
-// 		i = 0;
-// 	}
+	axis = ( axis + 1 ) % KD_DIM;
+	kdNode_t* next;
 
-// 	kdNode_t* next;
+	next = ( dx > 0 ) ? currentNode->left : currentNode->right;
+	this->nearest( input, next, axis, bestNode, bestDist );
 
-// 	next = ( dx > 0 ) ? root->left : root->right;
-// 	this->nearest( next, nd, i, best, bestDist );
+	if( dx * dx >= *bestDist ) {
+		return;
+	}
 
-// 	if( dx2 >= *bestDist ) {
-// 		return;
-// 	}
-
-// 	next = ( dx > 0 ) ? root->right : root->left;
-// 	this->nearest( next, nd, i, best, bestDist );
-// }
+	next = ( dx > 0 ) ? currentNode->right : currentNode->left;
+	this->nearest( input, next, axis, bestNode, bestDist );
+}

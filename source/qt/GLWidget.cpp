@@ -29,6 +29,7 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mViewBoundingBox = false;
 	mViewKdTree = false;
 	mViewOverlay = false;
+	mViewTracer = true;
 
 	mTimer = new QTimer( this );
 	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
@@ -328,13 +329,23 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mVertices = ml->mVertices;
 	mNormals = ml->mNormals;
 
+
+	// CLEAN UP
+	boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
 	mKdTree = new KdTree( mVertices, mIndices );
+	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - start;
+
+	char msg[60];
+	snprintf( msg, 60, "[KdTree] Generated kd-tree in %g ms.", (float) msdiff.total_milliseconds() );
+	Logger::logInfo( msg );
+
 	vector<GLfloat> verticesKdTree;
 	vector<GLuint> indicesKdTree;
 	float bbMin[3] = { ml->mBoundingBox[0], ml->mBoundingBox[1], ml->mBoundingBox[2] };
 	float bbMax[3] = { ml->mBoundingBox[3], ml->mBoundingBox[4], ml->mBoundingBox[5] };
 	mKdTree->visualize( bbMin, bbMax, &verticesKdTree, &indicesKdTree );
 	mKdTreeNumIndices = indicesKdTree.size();
+
 
 	this->setShaderBuffersForOverlay( mVertices, mIndices );
 	this->setShaderBuffersForBoundingBox( ml->mBoundingBox );
@@ -468,62 +479,63 @@ void GLWidget::paintGL() {
 	// }
 
 
-	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
-	cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
+	if( mViewTracer ) {
+		boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
+		cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
 
+		uint i = 0;
+		vector<cl_mem> clBuffers;
 
-	uint i = 0;
-	vector<cl_mem> clBuffers;
+		cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
+		mSampleCount++;
 
-	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
-	mSampleCount++;
+		glm::vec3 c = mCamera->getAdjustedCenter_glmVec3();
+		glm::vec3 eye = mCamera->getEye_glmVec3();
+		glm::vec3 up = mCamera->getUp_glmVec3();
 
-	glm::vec3 c = mCamera->getAdjustedCenter_glmVec3();
-	glm::vec3 eye = mCamera->getEye_glmVec3();
-	glm::vec3 up = mCamera->getUp_glmVec3();
+		// Jittering for anti-aliasing
+		// TODO: probably wrong or at least not very good
+		if( Cfg::get().value<bool>( Cfg::RENDER_ANTIALIAS ) ) {
+			glm::vec3 jitter = this->getJitter();
+			eye += jitter;
+		}
 
-	// Jittering for anti-aliasing
-	// TODO: probably wrong or at least not very good
-	if( Cfg::get().value<bool>( Cfg::RENDER_ANTIALIAS ) ) {
-		glm::vec3 jitter = this->getJitter();
-		eye += jitter;
+		glm::vec3 w = glm::normalize( glm::vec3( c[0] - eye[0], c[1] - eye[1], c[2] - eye[2] ) );
+		glm::vec3 u = glm::normalize( glm::cross( w, up ) );
+		glm::vec3 v = glm::normalize( glm::cross( u, w ) );
+
+		mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVertices );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferNormals );
+
+		cl_uint numIndices = mIndices.size();
+		mCL->setKernelArg( ++i, sizeof( cl_uint ), &numIndices );
+
+		mCL->updateBuffer( mBufferEye, sizeof( cl_float ) * 3, &eye[0] );
+		mCL->updateBuffer( mBufferVecW, sizeof( cl_float ) * 3, &w[0] );
+		mCL->updateBuffer( mBufferVecU, sizeof( cl_float ) * 3, &u[0] );
+		mCL->updateBuffer( mBufferVecV, sizeof( cl_float ) * 3, &v[0] );
+
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferEye );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVecW );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVecU );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVecV );
+
+		mCL->setKernelArg( ++i, sizeof( cl_float ), &textureWeight );
+		mCL->setKernelArg( ++i, sizeof( cl_float ), &timeSinceStart );
+
+		cl_float fovRad = utils::degToRad( mFOV );
+		mCL->setKernelArg( ++i, sizeof( cl_float ), &fovRad );
+
+		mCL->updateImageReadOnly( width(), height(), &mTextureOut[0] );
+
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
+
+		mCL->execute();
+		mCL->readImageOutput( width(), height(), &mTextureOut[0] );
+		mCL->finish();
 	}
-
-	glm::vec3 w = glm::normalize( glm::vec3( c[0] - eye[0], c[1] - eye[1], c[2] - eye[2] ) );
-	glm::vec3 u = glm::normalize( glm::cross( w, up ) );
-	glm::vec3 v = glm::normalize( glm::cross( u, w ) );
-
-	mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
-	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVertices );
-	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferNormals );
-
-	cl_uint numIndices = mIndices.size();
-	mCL->setKernelArg( ++i, sizeof( cl_uint ), &numIndices );
-
-	mCL->updateBuffer( mBufferEye, sizeof( cl_float ) * 3, &eye[0] );
-	mCL->updateBuffer( mBufferVecW, sizeof( cl_float ) * 3, &w[0] );
-	mCL->updateBuffer( mBufferVecU, sizeof( cl_float ) * 3, &u[0] );
-	mCL->updateBuffer( mBufferVecV, sizeof( cl_float ) * 3, &v[0] );
-
-	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferEye );
-	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVecW );
-	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVecU );
-	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVecV );
-
-	mCL->setKernelArg( ++i, sizeof( cl_float ), &textureWeight );
-	mCL->setKernelArg( ++i, sizeof( cl_float ), &timeSinceStart );
-
-	cl_float fovRad = utils::degToRad( mFOV );
-	mCL->setKernelArg( ++i, sizeof( cl_float ), &fovRad );
-
-	mCL->updateImageReadOnly( width(), height(), &mTextureOut[0] );
-
-	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
-	mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
-
-	mCL->execute();
-	mCL->readImageOutput( width(), height(), &mTextureOut[0] );
-	mCL->finish();
 
 
 	this->paintScene();
@@ -536,17 +548,19 @@ void GLWidget::paintGL() {
  */
 void GLWidget::paintScene() {
 	// Path tracing result
-	glUseProgram( mGLProgramTracer );
+	if( mViewTracer ) {
+		glUseProgram( mGLProgramTracer );
 
-	glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
-	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width(), height(), 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
+		glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
+		glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width(), height(), 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
 
-	glBindVertexArray( mVA[VA_TRACER] );
-	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
+		glBindVertexArray( mVA[VA_TRACER] );
+		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 
-	glBindTexture( GL_TEXTURE_2D, 0 );
-	glBindVertexArray( 0 );
-	glUseProgram( 0 );
+		glBindTexture( GL_TEXTURE_2D, 0 );
+		glBindVertexArray( 0 );
+		glUseProgram( 0 );
+	}
 
 
 	// Overlay for the path tracing image to highlight/outline elements with a box
@@ -873,4 +887,12 @@ void GLWidget::toggleViewKdTree() {
  */
 void GLWidget::toggleViewOverlay() {
 	mViewOverlay = !mViewOverlay;
+}
+
+
+/**
+ * Toggle rendering of the path tracing.
+ */
+void GLWidget::toggleViewTracer() {
+	mViewTracer = !mViewTracer;
 }

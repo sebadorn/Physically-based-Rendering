@@ -30,10 +30,10 @@ class KdTree {
 		void visualize( float* bbMin, float* bbMax, vector<float>* vertices, vector<unsigned int>* indices );
 
 	protected:
-		// float distance( kdNode_t* a, kdNode_t* b );
+		float distance( kdNode_t* a, kdNode_t* b );
 		kdNode_t* findMedian( vector<kdNode_t*>* nodes, int axis );
 		kdNode_t* makeTree( vector<kdNode_t*> t, int axis );
-		// void nearest( kdNode_t* root, kdNode_t* nd, int i, kdNode_t** best, float* bestDist );
+		void nearest( kdNode_t* input, kdNode_t* currentNode, int axis, kdNode_t** bestNode, float* bestDist );
 		void printNode( kdNode_t* node );
 		void visualizeNextNode( kdNode_t* node, float* bbMin, float* bbMax, vector<float>* vertices, vector<unsigned int>* indices, unsigned int axis );
 
@@ -44,7 +44,6 @@ class KdTree {
 
 		kdNode_t* mRoot;
 		vector<kdNode_t*> mNodes;
-		int mVisited;
 
 };
 

@@ -88,6 +88,7 @@ class GLWidget : public QGLWidget {
 		void toggleViewBoundingBox();
 		void toggleViewKdTree();
 		void toggleViewOverlay();
+		void toggleViewTracer();
 
 	private:
 		bool mDoRendering;
@@ -97,6 +98,7 @@ class GLWidget : public QGLWidget {
 		bool mViewBoundingBox;
 		bool mViewKdTree;
 		bool mViewOverlay;
+		bool mViewTracer;
 
 		GLuint mFrameCount;
 		GLuint mGLProgramTracer;
