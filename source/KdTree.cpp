@@ -13,20 +13,33 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices ) {
 		return;
 	}
 
-	vector<kdNode_t*> mNodes;
-
 	for( unsigned int i = 0; i < indices.size(); i += 3 ) {
 		kdNode_t* node = new kdNode_t;
+		node->index = mNodes.size();
+		node->vertIndex = indices[i];
 		node->coord[0] = vertices[indices[i]];
 		node->coord[1] = vertices[indices[i + 1]];
 		node->coord[2] = vertices[indices[i + 2]];
-		node->left = NULL;
-		node->right = NULL;
+		node->left = -1;
+		node->right = -1;
+
+		unsigned int nSize = mNodes.size();
+
+		if( nSize >= 3 && nSize % 3 == 0 ) {
+			mNodes[nSize - 3]->face0 = mNodes[nSize - 2]->vertIndex;
+			mNodes[nSize - 3]->face1 = mNodes[nSize - 1]->vertIndex;
+
+			mNodes[nSize - 2]->face0 = mNodes[nSize - 3]->vertIndex;
+			mNodes[nSize - 2]->face1 = mNodes[nSize - 1]->vertIndex;
+
+			mNodes[nSize - 1]->face0 = mNodes[nSize - 3]->vertIndex;
+			mNodes[nSize - 1]->face1 = mNodes[nSize - 2]->vertIndex;
+		}
 
 		mNodes.push_back( node );
 	}
 
-	mRoot = this->makeTree( mNodes, 0 );
+	mRoot = mNodes[this->makeTree( mNodes, 0 )];
 }
 
 
@@ -113,21 +126,37 @@ kdNode_t* KdTree::findMedian( vector<kdNode_t*>* nodes, int axis ) {
 }
 
 
+vector<kdNode_t> KdTree::getNodes() {
+	vector<kdNode_t> nodes;
+
+	for( unsigned int i = 0; i < mNodes.size(); i++ ) {
+		nodes.push_back( *mNodes[i] );
+	}
+
+	return nodes;
+}
+
+
+kdNode_t* KdTree::getRootNode() {
+	return mRoot;
+}
+
+
 /**
  * Build a kd-tree.
  * @param  {std::vector<kdNode_t*>} nodes List of nodes to build the tree from.
  * @param  {int}                    axis  Axis to use as criterium.
- * @return {kdNode_t*}                    Top element for this part of the tree.
+ * @return {int}                          Top element for this part of the tree.
  */
-kdNode_t* KdTree::makeTree( vector<kdNode_t*> nodes, int axis ) {
+int KdTree::makeTree( vector<kdNode_t*> nodes, int axis ) {
 	if( nodes.size() == 0 ) {
-		return NULL;
+		return -1;
 	}
 
 	kdNode_t* median = this->findMedian( &nodes, axis );
 
 	if( median == NULL ) {
-		return median;
+		return -1;
 	}
 
 	vector<kdNode_t*> left;
@@ -149,8 +178,8 @@ kdNode_t* KdTree::makeTree( vector<kdNode_t*> nodes, int axis ) {
 	}
 
 	if( nodes.size() == 2 ) {
-		median->left = ( left.size() == 0 ) ? NULL : left[0];
-		median->right = ( right.size() == 0 ) ? NULL : right[0];
+		median->left = ( left.size() == 0 ) ? -1 : left[0]->index;
+		median->right = ( right.size() == 0 ) ? -1 : right[0]->index;
 	}
 	else {
 		axis = ( axis + 1 ) % KD_DIM;
@@ -158,7 +187,7 @@ kdNode_t* KdTree::makeTree( vector<kdNode_t*> nodes, int axis ) {
 		median->right = this->makeTree( right, axis );
 	}
 
-	return median;
+	return median->index;
 }
 
 
@@ -186,16 +215,32 @@ void KdTree::printNode( kdNode_t* node ) {
 	}
 
 	printf( "(%g %g %g) ", node->coord[0], node->coord[1], node->coord[2] );
-	printf( "l" ); this->printNode( node->left );
-	printf( "r" ); this->printNode( node->right );
+	printf( "l" ); this->printNode( mNodes[node->left] );
+	printf( "r" ); this->printNode( mNodes[node->right] );
 }
 
 
+/**
+ * Get vertices and indices to draw a 3D visualization of the kd-tree.
+ * @param {float*}                     bbMin    Bounding box minimum coordinates.
+ * @param {float*}                     bbMax    Bounding box maximum coordinates.
+ * @param {std::vector<float>*}        vertices Vector to put the vertices into.
+ * @param {std::vector<unsigned int>*} indices  Vector to put the indices into.
+ */
 void KdTree::visualize( float* bbMin, float* bbMax, vector<float>* vertices, vector<unsigned int>* indices ) {
 	this->visualizeNextNode( mRoot, bbMin, bbMax, vertices, indices, 0 );
 }
 
 
+/**
+ * Visualize the next node in the kd-tree.
+ * @param {kdNode_t*}                  node     Current node.
+ * @param {float*}                     bbMin    Bounding box minimum coordinates.
+ * @param {float*}                     bbMax    Bounding box maximum coordinates.
+ * @param {std::vector<float>*}        vertices Vector to put the vertices into.
+ * @param {std::vector<unsigned int>*} indices  Vector to put the indices into.
+ * @param {unsigned int}               axis     Current axis.
+ */
 void KdTree::visualizeNextNode( kdNode_t* node, float* bbMin, float* bbMax, vector<float>* vertices, vector<unsigned int>* indices, unsigned int axis ) {
 	if( node == NULL ) {
 		return;
@@ -267,13 +312,13 @@ void KdTree::visualizeNextNode( kdNode_t* node, float* bbMin, float* bbMax, vect
 	axis = ( axis + 1 ) % KD_DIM;
 
 	// Proceed with left side
-	if( node->left != NULL ) {
-		this->visualizeNextNode( node->left, bbMinLeft, bbMaxLeft, vertices, indices, axis );
+	if( node->left > -1 ) {
+		this->visualizeNextNode( mNodes[node->left], bbMinLeft, bbMaxLeft, vertices, indices, axis );
 	}
 
 	// Proceed width right side
-	if( node->right != NULL ) {
-		this->visualizeNextNode( node->right, bbMinRight, bbMaxRight, vertices, indices, axis );
+	if( node->right > -1 ) {
+		this->visualizeNextNode( mNodes[node->right], bbMinRight, bbMaxRight, vertices, indices, axis );
 	}
 }
 
@@ -317,15 +362,15 @@ void KdTree::nearest( kdNode_t* input, kdNode_t* currentNode, int axis, kdNode_t
 	}
 
 	axis = ( axis + 1 ) % KD_DIM;
-	kdNode_t* next;
+	unsigned int next;
 
 	next = ( dx > 0 ) ? currentNode->left : currentNode->right;
-	this->nearest( input, next, axis, bestNode, bestDist );
+	this->nearest( input, mNodes[next], axis, bestNode, bestDist );
 
 	if( dx * dx >= *bestDist ) {
 		return;
 	}
 
 	next = ( dx > 0 ) ? currentNode->right : currentNode->left;
-	this->nearest( input, next, axis, bestNode, bestDist );
+	this->nearest( input, mNodes[next], axis, bestNode, bestDist );
 }

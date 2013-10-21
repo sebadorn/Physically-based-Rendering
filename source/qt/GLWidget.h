@@ -134,6 +134,7 @@ class GLWidget : public QGLWidget {
 		cl_mem mBufferIndices;
 		cl_mem mBufferVertices;
 		cl_mem mBufferNormals;
+		cl_mem mBufferKdNodes;
 		cl_mem mBufferEye;
 		cl_mem mBufferVecW;
 		cl_mem mBufferVecU;

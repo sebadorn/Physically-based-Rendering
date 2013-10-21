@@ -221,6 +221,9 @@ void GLWidget::initOpenCLBuffers() {
 	mBufferVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
 	mBufferNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
 
+	vector<kdNode_t> kdNodes = mKdTree->getNodes();
+	mBufferKdNodes = mCL->createBuffer( &kdNodes[0], sizeof( kdNode_t ) * kdNodes.size() );
+
 	mBufferEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
 	mBufferVecW = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
 	mBufferVecU = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
@@ -510,6 +513,13 @@ void GLWidget::paintGL() {
 
 		cl_uint numIndices = mIndices.size();
 		mCL->setKernelArg( ++i, sizeof( cl_uint ), &numIndices );
+
+
+		// kd-tree
+		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferKdNodes );
+		cl_int kdRootIndex = mKdTree->getRootNode()->index;
+		mCL->setKernelArg( ++i, sizeof( cl_int ), &kdRootIndex );
+
 
 		mCL->updateBuffer( mBufferEye, sizeof( cl_float ) * 3, &eye[0] );
 		mCL->updateBuffer( mBufferVecW, sizeof( cl_float ) * 3, &w[0] );
