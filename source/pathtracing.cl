@@ -9,34 +9,38 @@ typedef struct {
 } kdNode_t;
 
 typedef struct {
-	float distance = -1.0f;
 	float4 hit;
-	float4 normal;
+	float distance;
+	uint normalIndex0, normalIndex1, normalIndex2;
 } bestResult_t;
 
+typedef struct {
+	kdNode_t node;
+	uint axis;
+} stack_t;
 
 #define KD_DIM 3
 #define T_MAX 10.0f
 
 
-inline float checkPlaneIntersection( float4 origin, float4 ray, kdNode_t node, uint axis, float tmax, float4* a, float4* b, float4* c ) {
-	*a = (float4)( node.coord[0], node.coord[1], node.coord[2], 0.0f );
-	*b = (float4)( a->x, a->y, a->z, 0.0f );
-	*c = (float4)( a->x, a->y, a->z, 0.0f );
+inline float checkPlaneIntersection( float4 origin, float4 ray, kdNode_t node, uint axis, float tmax ) {
+	float4 a = (float4)( node.coord[0], node.coord[1], node.coord[2], 0.0f );
+	float4 b = (float4)( a.x, a.y, a.z, 0.0f );
+	float4 c = (float4)( a.x, a.y, a.z, 0.0f );
 
 	if( axis == 0 ) {
-		b->y += tmax; c->z += tmax;
+		b.y += tmax; c.z += tmax;
 	}
 	else if( axis == 1 ) {
-		b->x += tmax; c->z += tmax;
+		b.x += tmax; c.z += tmax;
 	}
 	else if( axis == 2 ) {
-		b->x += tmax; c->y += tmax;
+		b.x += tmax; c.y += tmax;
 	}
 
 	float4 direction = ray - origin;
-	float4 planeNormal = cross( ( *b - *a ), ( *c - *a ) );
-	float numerator = -dot( planeNormal, origin - *a );
+	float4 planeNormal = cross( ( b - a ), ( c - a ) );
+	float numerator = -dot( planeNormal, origin - a );
 	float denumerator = dot( planeNormal, direction );
 
 	if( fabs( denumerator ) < 0.00000001f ) {
@@ -48,11 +52,14 @@ inline float checkPlaneIntersection( float4 origin, float4 ray, kdNode_t node, u
 
 
 inline float checkTriangleIntersection(
-	float4 origin, float4 ray,
+	float4 origin, float4 ray, __global float* vertices,
 	kdNode_t node, float t,
-	float4 a, float4 b, float4 c,
-	bestResult_t *newResult
+	bestResult_t* newResult
 ) {
+	float4 a = (float4)( node.coord[0], node.coord[1], node.coord[2], 0.0f );
+	float4 b = (float4)( vertices[node.vertFace0], vertices[node.vertFace0 + 1], vertices[node.vertFace0 + 2], 0.0f );
+	float4 c = (float4)( vertices[node.vertFace1], vertices[node.vertFace1 + 1], vertices[node.vertFace1 + 2], 0.0f );
+
 	float4 hit = origin + t * ( ray - origin );
 	hit.w = 0.0f;
 
@@ -90,150 +97,100 @@ inline float checkTriangleIntersection(
 
 
 inline void descendKdTree(
-	float4 origin, float4 ray,
+	float4 origin, float4 ray, __global float* vertices,
 	__global kdNode_t* nodes, kdNode_t node, uint axis, float tmax,
-	bestResult* result
+	bestResult_t* result
 ) {
-	float4 a, b, c;
+	stack_t toDo[100]; // Evil, don't do this. Has to be changed with model. (Recompile after string replacements?)
+	int process = 0;
 
-	float t = checkPlaneIntersection( origin, ray, node, axis, tmax, &a, &b, &c );
-	axis = ( axis + 1 ) % KD_DIM;
+	stack_t doNode;
+	stack_t first;
+	first.node = node;
+	first.axis = axis;
 
-	// Ray intersects with splitting plane
-	if( t >= 0.0f && t <= tmax ) {
-		bestResult_t newResult;
-		float r = checkTriangleIntersection( origin, ray, node, t, a, b, c, &newResult );
+	toDo[0] = first;
 
-		if( r == t ) { // intersection found
-			if( result->distance < 0.0f || result->distance > newResult.distance ) {
-				*result = newResult;
+	while( process >= 0 ) {
+		doNode = toDo[process];
+
+		float t = checkPlaneIntersection( origin, ray, doNode.node, doNode.axis, tmax );
+
+		// Ray intersects with splitting plane
+		if( t >= 0.0f && t <= tmax ) {
+			bestResult_t newResult;
+			newResult.distance = -1.0f;
+			float r = checkTriangleIntersection( origin, ray, vertices, doNode.node, t, &newResult );
+
+			if( r == t ) { // intersection found
+				if( result->distance < 0.0f || result->distance > newResult.distance ) {
+					*result = newResult;
+					result->normalIndex0 = doNode.node.vertIndex;
+					result->normalIndex1 = doNode.node.vertFace0;
+					result->normalIndex2 = doNode.node.vertFace1;
+				}
 			}
+			process--; continue;
+
+			// if( doNode.node.nodeLeft < 0 && doNode.node.nodeRight < 0 ) {
+			// 	process--; continue;
+			// }
+
+			// if( doNode.node.nodeLeft >= 0 ) {
+			// 	stack_t leftNode;
+			// 	leftNode.node = nodes[doNode.node.nodeLeft];
+			// 	leftNode.axis = ( doNode.axis + 1 ) % KD_DIM;
+
+			// 	process += ( doNode.node.nodeRight >= 0 ) ? 1 : 0;
+			// 	toDo[process] = leftNode;
+			// }
+
+			// if( doNode.node.nodeRight >= 0 ) {
+			// 	stack_t rightNode;
+			// 	rightNode.node = nodes[doNode.node.nodeLeft];
+			// 	rightNode.axis = ( doNode.axis + 1 ) % KD_DIM;
+			// 	toDo[process] = rightNode;
+			// }
 		}
 
-		descendKdTree( origin, ray, nodes, nodes[node.nodeLeft], axis, tmax, result );
-		descendKdTree( origin, ray, nodes, nodes[node.nodeRight], axis, tmax, result );
-	}
-	// Ray doesn't intersect splitting plane
-	else {
-		kdNode_t nextNode = nodes[node.nodeLeft];
+		// Ray doesn't intersect splitting plane
+		else {
+			kdNode_t nextNode;
 
-		if( t > tmax ) { // PROBABLY WRONG, DID JUST TAKE AN ELABORATE GUESS
-			nextNode = nodes[node.nodeRight];
+			if( t <= tmax ) { // PROBABLY WRONG, DID JUST TAKE AN ELABORATE GUESS
+				if( doNode.node.nodeRight >= 0 ) {
+					nextNode = nodes[doNode.node.nodeRight];
+				}
+				else { process--; continue; }
+			}
+			else {
+				if( doNode.node.nodeLeft >= 0 ) {
+					nextNode = nodes[doNode.node.nodeLeft];
+				}
+				else { process--; continue; }
+			}
+
+			doNode.node = nextNode;
+			doNode.axis = ( doNode.axis + 1 ) % KD_DIM;
+			toDo[process] = doNode;
 		}
-
-		descendKdTree( origin, ray, nodes, nextNode, axis, tmax, result );
 	}
 }
 
 
-inline float8 findIntersection(
+inline bestResult_t findIntersection(
 	float4 origin, float4 ray, uint numIndices,
 	__global float* vertices, __global kdNode_t* nodes, int kdRoot
 ) {
 	uint axis = 0;
 	float tmax = T_MAX;
 	bestResult_t result;
+	result.distance = -1.0f;
 
-	descendKdTree( origin, ray, nodes, nodes[kdRoot], 0, tmax, &result );
+	descendKdTree( origin, ray, vertices, nodes, nodes[kdRoot], 0, tmax, &result );
+
+	return result;
 }
-
-
-// inline float8 findIntersection(
-// 	float4 origin, float4 ray,
-// 	__global uint* indices, __global float* vertices, uint numIndices
-// ) {
-// 	uint index0;
-// 	uint index1;
-// 	uint index2;
-// 	float4 a, b, c;
-// 	float4 planeNormal;
-// 	float numerator, denumerator;
-// 	float r;
-
-// 	float4 dir = ray - origin;
-// 	dir.w = 0.0f;
-// 	origin.w = 0.0f;
-
-// 	float4 closestHit = (float4)( 10000.0f, 10000.0f, 10000.0f, 0.0f );
-// 	float8 closestResult = (float8)( 10000.0f );
-
-
-// 	for( uint i = 0; i < numIndices; i += 3 ) {
-// 		index0 = indices[i] * 3;
-// 		index1 = indices[i + 1] * 3;
-// 		index2 = indices[i + 2] * 3;
-
-// 		a = (float4)( vertices[index0], vertices[index0 + 1], vertices[index0 + 2], 0.0f );
-// 		b = (float4)( vertices[index1], vertices[index1 + 1], vertices[index1 + 2], 0.0f );
-// 		c = (float4)( vertices[index2], vertices[index2 + 1], vertices[index2 + 2], 0.0f );
-
-// 		// First test: Intersection with plane of triangle
-// 		planeNormal = cross( ( b - a ), ( c - a ) );
-// 		numerator = -dot( planeNormal, origin - a );
-// 		denumerator = dot( planeNormal, dir );
-
-// 		if( fabs( denumerator ) < 0.00000001f ) {
-// 			continue;
-// 		}
-
-// 		r = numerator / denumerator;
-
-// 		if( r < 0.0f ) {
-// 			continue;
-// 		}
-
-// 		// The plane has been hit.
-// 		// Second test: Intersection with actual triangle
-// 		float4 hit = origin + r * dir;
-// 		hit.w = 0.0f;
-
-// 		float4 u = b - a;
-// 		float4 v = c - a;
-// 		float4 w = hit - a;
-// 		u.w = 0.0f;
-// 		v.w = 0.0f;
-// 		w.w = 0.0f;
-
-// 		float uDotU = dot( u, u );
-// 		float uDotV = dot( u, v );
-// 		float vDotV = dot( v, v );
-// 		float wDotV = dot( w, v );
-// 		float wDotU = dot( w, u );
-// 		float d = uDotV * uDotV - uDotU * vDotV;
-// 		float s = ( uDotV * wDotV - vDotV * wDotU ) / d;
-
-// 		if( s < 0.0f || s > 1.0f ) {
-// 			continue;
-// 		}
-
-// 		float t = ( uDotV * wDotU - uDotU * wDotV ) / d;
-
-// 		if( t < 0.0f || ( s + t ) > 1.0f ) {
-// 			continue;
-// 		}
-
-// 		float8 result;
-
-// 		// hit
-// 		result.s0 = hit.x;
-// 		result.s1 = hit.y;
-// 		result.s2 = hit.z;
-// 		result.s3 = r;
-
-// 		// indices of normals
-// 		result.s4 = index0;
-// 		result.s5 = index1;
-// 		result.s6 = index2;
-// 		result.s7 = 0.0f;
-
-// 		if( length( hit - origin ) < length( closestHit - origin ) ) {
-// 			closestHit = hit;
-// 			closestResult = result;
-// 		}
-// 	}
-
-// 	return closestResult;
-// }
 
 
 inline float random( float4 scale, float seed ) {
@@ -302,7 +259,8 @@ float shadow(
 inline float4 calculateColor(
 	float4 origin, float4 ray, float4 light,
 	__global uint* indices, __global float* vertices, __global float* normals,
-	uint numIndices, float timeSinceStart
+	uint numIndices, float timeSinceStart,
+	__global kdNode_t* nodes, int kdRoot
 ) {
 	// Accumulate the colors of each hit surface
 	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 1.0f );
@@ -310,23 +268,17 @@ inline float4 calculateColor(
 
 	for( uint bounce = 0; bounce < 5; bounce++ ) {
 		// Find closest surface the ray hits
-		float8 intersect = findIntersection( origin, ray, indices, vertices, numIndices );
-
-		float4 hit;
-		hit.x = intersect.s0;
-		hit.y = intersect.s1;
-		hit.z = intersect.s2;
-		hit.w = 0.0f;
+		bestResult_t result = findIntersection( origin, ray, numIndices, vertices, nodes, kdRoot );
 
 		// No hit, the path ends
-		if( hit.x == 10000.0f ) { // 10000.0f = arbitrary max distance, just a very high value
+		if( result.distance <= -1.0f ) {
 			break;
 		}
 
 		// Get normal of hit
-		uint nIndex0 = convert_uint( intersect.s4 );
-		uint nIndex1 = convert_uint( intersect.s5 );
-		uint nIndex2 = convert_uint( intersect.s6 );
+		uint nIndex0 = result.normalIndex0;
+		uint nIndex1 = result.normalIndex1;
+		uint nIndex2 = result.normalIndex2;
 
 		float4 normal0 = (float4)( normals[nIndex0], normals[nIndex0 + 1], normals[nIndex0 + 2], 0.0f );
 		float4 normal1 = (float4)( normals[nIndex1], normals[nIndex1 + 1], normals[nIndex1 + 2], 0.0f );
@@ -336,12 +288,12 @@ inline float4 calculateColor(
 		normal = normalize( normal );
 
 		// Distance of the hit surface point to the light source
-		float4 toLight = light - hit;
+		float4 toLight = light - result.hit;
 		toLight.w = 0.0f;
 
 		float diffuse = max( 0.0f, dot( normalize( toLight ), normal ) );
 		// 0.0001f – meaning?
-		float shadowIntensity = shadow( hit + normal * 0.0001f, toLight, indices, vertices, numIndices );
+		float shadowIntensity = shadow( result.hit + normal * 0.0001f, toLight, indices, vertices, numIndices );
 		float specularHighlight = 0.0f; // Disabled
 		float4 surfaceColor = (float4)( 0.9f, 0.9f, 0.9f, 1.0f );
 
@@ -351,7 +303,7 @@ inline float4 calculateColor(
 		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
 
 		// Next bounce
-		origin = hit;
+		origin = result.hit;
 		ray = cosineWeightedDirection( timeSinceStart + convert_float( bounce ), normal );
 		ray.w = 0.0f;
 	}
@@ -408,7 +360,8 @@ __kernel void pathTracing(
 	float4 calculatedColor = calculateColor(
 		eye, initialRay, newLight,
 		indices, vertices, normals,
-		numIndices, timeSinceStart
+		numIndices, timeSinceStart,
+		kdNodes, kdRoot
 	);
 
 	// Mix new color with previous one

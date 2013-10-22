@@ -10,6 +10,15 @@
 * `Improve` Use CPU if no GPU available for OpenCL (or read from config)
 
 
+## Optimization notes and ideas
+
+* OpenCL code is just a string that can be changed and recompiled
+* OpenGL shaders are just strings that can be changed and recompiled
+* Trade space for speed
+* Trade accuracy/error rate for speed
+* Are some tasks in OpenCL better done on CPU than GPU?
+
+
 ## Libraries/headers
 
 * freeglut3
