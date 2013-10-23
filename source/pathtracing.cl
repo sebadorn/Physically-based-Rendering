@@ -17,10 +17,10 @@ typedef struct {
 typedef struct {
 	kdNode_t node;
 	uint axis;
-} stack_t;
+} stackEntry_t;
 
 #define KD_DIM 3
-#define T_MAX 10.0f
+#define T_MAX 10000.0f
 
 
 inline float checkPlaneIntersection( float4 origin, float4 ray, kdNode_t node, uint axis, float tmax ) {
@@ -43,7 +43,7 @@ inline float checkPlaneIntersection( float4 origin, float4 ray, kdNode_t node, u
 	float numerator = -dot( planeNormal, origin - a );
 	float denumerator = dot( planeNormal, direction );
 
-	if( fabs( denumerator ) < 0.00000001f ) {
+	if( denumerator < 0.0f ) {
 		return tmax + 1.0f;
 	}
 
@@ -51,15 +51,14 @@ inline float checkPlaneIntersection( float4 origin, float4 ray, kdNode_t node, u
 }
 
 
-inline float checkTriangleIntersection(
+inline bool checkTriangleIntersection(
 	float4 origin, float4 ray, __global float* vertices,
-	kdNode_t node, float t,
+	kdNode_t node, float t, float tmax,
 	bestResult_t* newResult
 ) {
 	float4 a = (float4)( node.coord[0], node.coord[1], node.coord[2], 0.0f );
 	float4 b = (float4)( vertices[node.vertFace0], vertices[node.vertFace0 + 1], vertices[node.vertFace0 + 2], 0.0f );
 	float4 c = (float4)( vertices[node.vertFace1], vertices[node.vertFace1 + 1], vertices[node.vertFace1 + 2], 0.0f );
-
 	float4 hit = origin + t * ( ray - origin );
 	hit.w = 0.0f;
 
@@ -80,19 +79,19 @@ inline float checkTriangleIntersection(
 	float r = ( uDotV * wDotV - vDotV * wDotU ) / d;
 
 	if( r < 0.0f || r > 1.0f ) {
-		return t + 1.0f;
+		return false;
 	}
 
 	float s = ( uDotV * wDotU - uDotU * wDotV ) / d;
 
 	if( s < 0.0f || ( r + s ) > 1.0f ) {
-		return t + 1.0f;
+		return false;
 	}
 
 	newResult->hit = hit;
-	newResult->distance = length( origin - hit );
+	newResult->distance = length( hit - origin );
 
-	return t;
+	return true;
 }
 
 
@@ -101,78 +100,88 @@ inline void descendKdTree(
 	__global kdNode_t* nodes, kdNode_t node, uint axis, float tmax,
 	bestResult_t* result
 ) {
-	stack_t toDo[100]; // Evil, don't do this. Has to be changed with model. (Recompile after string replacements?)
+	// Evil, don't do this. Has to be changed with model.
+	// (Recompile after string replacements like %STACK_SIZE%?)
+	stackEntry_t nodeStack[100];
 	int process = 0;
 
-	stack_t doNode;
-	stack_t first;
+	stackEntry_t currentNode;
+	stackEntry_t first;
 	first.node = node;
 	first.axis = axis;
 
-	toDo[0] = first;
+	nodeStack[0] = first;
 
 	while( process >= 0 ) {
-		doNode = toDo[process];
-
-		float t = checkPlaneIntersection( origin, ray, doNode.node, doNode.axis, tmax );
+		currentNode = nodeStack[process];
+		float t = checkPlaneIntersection( origin, ray, currentNode.node, currentNode.axis, tmax );
 
 		// Ray intersects with splitting plane
-		if( t >= 0.0f && t <= tmax ) {
+		if( t >= 0.0f && t <= tmax ) { // TODO: adjust tmin and tmax
 			bestResult_t newResult;
 			newResult.distance = -1.0f;
-			float r = checkTriangleIntersection( origin, ray, vertices, doNode.node, t, &newResult );
+			bool hitFound = checkTriangleIntersection( origin, ray, vertices, currentNode.node, t, tmax, &newResult );
 
-			if( r == t ) { // intersection found
+			if( hitFound ) {
 				if( result->distance < 0.0f || result->distance > newResult.distance ) {
 					*result = newResult;
-					result->normalIndex0 = doNode.node.vertIndex;
-					result->normalIndex1 = doNode.node.vertFace0;
-					result->normalIndex2 = doNode.node.vertFace1;
+					result->normalIndex0 = currentNode.node.vertIndex;
+					result->normalIndex1 = currentNode.node.vertFace0;
+					result->normalIndex2 = currentNode.node.vertFace1;
 				}
 			}
-			process--; continue;
 
-			// if( doNode.node.nodeLeft < 0 && doNode.node.nodeRight < 0 ) {
-			// 	process--; continue;
-			// }
+			if( currentNode.node.nodeLeft < 0 && currentNode.node.nodeRight < 0 ) {
+				process--;
+				continue;
+			}
 
-			// if( doNode.node.nodeLeft >= 0 ) {
-			// 	stack_t leftNode;
-			// 	leftNode.node = nodes[doNode.node.nodeLeft];
-			// 	leftNode.axis = ( doNode.axis + 1 ) % KD_DIM;
+			if( currentNode.node.nodeLeft >= 0 ) {
+				stackEntry_t leftNode;
+				leftNode.node = nodes[currentNode.node.nodeLeft];
+				leftNode.axis = ( currentNode.axis + 1 ) % KD_DIM;
 
-			// 	process += ( doNode.node.nodeRight >= 0 ) ? 1 : 0;
-			// 	toDo[process] = leftNode;
-			// }
+				process += ( currentNode.node.nodeRight >= 0 ) ? 1 : 0;
+				nodeStack[process] = leftNode;
+			}
 
-			// if( doNode.node.nodeRight >= 0 ) {
-			// 	stack_t rightNode;
-			// 	rightNode.node = nodes[doNode.node.nodeLeft];
-			// 	rightNode.axis = ( doNode.axis + 1 ) % KD_DIM;
-			// 	toDo[process] = rightNode;
-			// }
+			if( currentNode.node.nodeRight >= 0 ) {
+				stackEntry_t rightNode;
+				rightNode.node = nodes[currentNode.node.nodeLeft];
+				rightNode.axis = ( currentNode.axis + 1 ) % KD_DIM;
+				nodeStack[process] = rightNode;
+			}
 		}
 
 		// Ray doesn't intersect splitting plane
 		else {
 			kdNode_t nextNode;
+			uint axis = currentNode.axis;
 
-			if( t <= tmax ) { // PROBABLY WRONG, DID JUST TAKE AN ELABORATE GUESS
-				if( doNode.node.nodeRight >= 0 ) {
-					nextNode = nodes[doNode.node.nodeRight];
+			// Ray on "right" side of the plane, proceed with only this part of the tree
+			if( currentNode.node.coord[axis] < ( ray - origin )[axis] ) {
+				if( currentNode.node.nodeRight >= 0 ) {
+					nextNode = nodes[currentNode.node.nodeRight];
 				}
-				else { process--; continue; }
+				else {
+					process--;
+					continue;
+				}
 			}
+			// Ray on "left" side of the plane, proceed with only this part of the tree
 			else {
-				if( doNode.node.nodeLeft >= 0 ) {
-					nextNode = nodes[doNode.node.nodeLeft];
+				if( currentNode.node.nodeLeft >= 0 ) {
+					nextNode = nodes[currentNode.node.nodeLeft];
 				}
-				else { process--; continue; }
+				else {
+					process--;
+					continue;
+				}
 			}
 
-			doNode.node = nextNode;
-			doNode.axis = ( doNode.axis + 1 ) % KD_DIM;
-			toDo[process] = doNode;
+			currentNode.node = nextNode;
+			currentNode.axis = ( currentNode.axis + 1 ) % KD_DIM;
+			nodeStack[process] = currentNode;
 		}
 	}
 }

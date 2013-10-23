@@ -12,11 +12,13 @@
 
 ## Optimization notes and ideas
 
-* OpenCL code is just a string that can be changed and recompiled
-* OpenGL shaders are just strings that can be changed and recompiled
 * Trade space for speed
 * Trade accuracy/error rate for speed
+* OpenCL code is just a string that can be changed and recompiled
+* OpenGL shaders are just strings that can be changed and recompiled
+* Split OpenCL into multiply kernels for each (greater) task, like ray generation, ray traversal, intersection test, and so on
 * Are some tasks in OpenCL better done on CPU than GPU?
+* Tree traversion not good for parallelization? (Use a bunch of voxels/an octree instead and check all boxes parallelized?)
 
 
 ## Libraries/headers
