@@ -10,7 +10,6 @@ CL::CL() {
 	mCommandQueue = NULL;
 	mContext = NULL;
 	mDevice = NULL;
-	mKernel = NULL;
 	mPlatform = NULL;
 	mProgram = NULL;
 
@@ -31,7 +30,10 @@ CL::~CL() {
 		this->checkError( err, "clReleaseMemObject" );
 	}
 
-	if( mKernel ) { clReleaseKernel( mKernel ); }
+	for( uint i = 0; i < mKernels.size(); i++ ) {
+		clReleaseKernel( mKernels[i] );
+	}
+
 	if( mProgram ) { clReleaseProgram( mProgram ); }
 	if( mCommandQueue ) { clReleaseCommandQueue( mCommandQueue ); }
 	if( mContext ) { clReleaseContext( mContext ); }
@@ -84,9 +86,9 @@ bool CL::checkError( cl_int err, const char* functionName ) {
 }
 
 
-cl_mem CL::createEmptyBuffer( size_t size ) {
+cl_mem CL::createEmptyBuffer( size_t size, cl_mem_flags flags ) {
 	cl_int err;
-	cl_mem buffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY, size, NULL, &err );
+	cl_mem buffer = clCreateBuffer( mContext, flags, size, NULL, &err );
 	this->checkError( err, "clCreateBuffer" );
 	mMemObjects.push_back( buffer );
 
@@ -133,19 +135,20 @@ cl_mem CL::createImageWriteOnly( size_t width, size_t height ) {
 
 /**
  * Create a kernel.
- * @param {const char*} functionName Name of the function to create kernel of.
+ * @param  {const char*} functionName Name of the function to create kernel of.
+ * @return {cl_kernel}                The created kernel.
  */
-void CL::createKernel( const char* functionName ) {
-	if( mKernel ) {
-		clReleaseKernel( mKernel );
-	}
-
+cl_kernel CL::createKernel( const char* functionName ) {
 	cl_int err;
-	mKernel = clCreateKernel( mProgram, functionName, &err );
+	cl_kernel kernel = clCreateKernel( mProgram, functionName, &err );
 
 	if( !this->checkError( err, "clCreateKernel" ) ) {
 		exit( EXIT_FAILURE );
 	}
+
+	mKernels.push_back( kernel );
+
+	return kernel;
 }
 
 
@@ -214,13 +217,13 @@ const char* CL::errorCodeToName( cl_int errorCode ) {
 }
 
 
-void CL::execute() {
+void CL::execute( cl_kernel kernel ) {
 	cl_int err;
 	cl_event event;
 	cl_event* events = &mEvents[0];
 
 	size_t workSize[3] = { 512, 512, 1 };
-	err = clEnqueueNDRangeKernel( mCommandQueue, mKernel, 2, NULL, workSize, NULL, mEvents.size(), &mEvents[0], &event );
+	err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 2, NULL, workSize, NULL, mEvents.size(), &mEvents[0], &event );
 	this->checkError( err, "clEnqueueNDRangeKernel" );
 	mEvents.push_back( event );
 }
@@ -362,8 +365,8 @@ void CL::readImageOutput( size_t width, size_t height, float* outputTarget ) {
 }
 
 
-void CL::setKernelArg( uint index, size_t size, void* data ) {
-	cl_int err = clSetKernelArg( mKernel, index, size, data );
+void CL::setKernelArg( cl_kernel kernel, uint index, size_t size, void* data ) {
+	cl_int err = clSetKernelArg( kernel, index, size, data );
 	this->checkError( err, "clSetKernelArg" );
 }
 

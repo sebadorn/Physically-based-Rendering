@@ -139,8 +139,12 @@ class GLWidget : public QGLWidget {
 		cl_mem mBufferVecW;
 		cl_mem mBufferVecU;
 		cl_mem mBufferVecV;
+		cl_mem mBufferRays;
 		cl_mem mKernelArgTextureIn;
 		cl_mem mKernelArgTextureOut;
+
+		cl_kernel mKernelRays;
+		cl_kernel mKernelTracing;
 
 };
 

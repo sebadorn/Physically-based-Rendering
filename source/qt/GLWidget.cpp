@@ -12,7 +12,8 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 
 	mCL = new CL();
 	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
-	mCL->createKernel( "pathTracing" );
+	mKernelRays = mCL->createKernel( "generateRays" );
+	mKernelTracing = mCL->createKernel( "pathTracing" );
 
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
 	mModelMatrix = glm::mat4( 1.0f );
@@ -224,10 +225,11 @@ void GLWidget::initOpenCLBuffers() {
 	vector<kdNode_t> kdNodes = mKdTree->getNodes();
 	mBufferKdNodes = mCL->createBuffer( &kdNodes[0], sizeof( kdNode_t ) * kdNodes.size() );
 
-	mBufferEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
-	mBufferVecW = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
-	mBufferVecU = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
-	mBufferVecV = mCL->createEmptyBuffer( sizeof( cl_float ) * 3 );
+	mBufferEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
+	mBufferVecW = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
+	mBufferVecU = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
+	mBufferVecV = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
+	mBufferRays = mCL->createEmptyBuffer( sizeof( cl_float4 ) * width() * height(), CL_MEM_READ_WRITE );
 }
 
 
@@ -486,7 +488,7 @@ void GLWidget::paintGL() {
 		boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
 		cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
 
-		uint i = 0;
+		uint i;
 		vector<cl_mem> clBuffers;
 
 		cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
@@ -507,44 +509,51 @@ void GLWidget::paintGL() {
 		glm::vec3 u = glm::normalize( glm::cross( w, up ) );
 		glm::vec3 v = glm::normalize( glm::cross( u, w ) );
 
-		mCL->setKernelArg( i, sizeof( cl_mem ), &mBufferIndices );
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVertices );
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferNormals );
-
-		cl_uint numIndices = mIndices.size();
-		mCL->setKernelArg( ++i, sizeof( cl_uint ), &numIndices );
-
-
-		// kd-tree
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferKdNodes );
-		cl_int kdRootIndex = mKdTree->getRootNode()->index;
-		mCL->setKernelArg( ++i, sizeof( cl_int ), &kdRootIndex );
-
-
 		mCL->updateBuffer( mBufferEye, sizeof( cl_float ) * 3, &eye[0] );
 		mCL->updateBuffer( mBufferVecW, sizeof( cl_float ) * 3, &w[0] );
 		mCL->updateBuffer( mBufferVecU, sizeof( cl_float ) * 3, &u[0] );
 		mCL->updateBuffer( mBufferVecV, sizeof( cl_float ) * 3, &v[0] );
 
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferEye );
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVecW );
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVecU );
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mBufferVecV );
 
-		mCL->setKernelArg( ++i, sizeof( cl_float ), &textureWeight );
-		mCL->setKernelArg( ++i, sizeof( cl_float ), &timeSinceStart );
-
+		i = 0;
 		cl_float fovRad = utils::degToRad( mFOV );
-		mCL->setKernelArg( ++i, sizeof( cl_float ), &fovRad );
+
+		mCL->setKernelArg( mKernelRays, i, sizeof( cl_mem ), &mBufferEye );
+		mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufferVecW );
+		mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufferVecU );
+		mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufferVecV );
+		mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_float ), &fovRad );
+		mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufferRays );
+
+		mCL->execute( mKernelRays );
+		// mCL->readBufferOutput( &mBufferRays );
+		mCL->finish();
+
+
+		i = 0;
+		cl_uint numIndices = mIndices.size();
 
 		mCL->updateImageReadOnly( width(), height(), &mTextureOut[0] );
+		mCL->setKernelArg( mKernelTracing, i, sizeof( cl_mem ), &mBufferIndices );
+		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mBufferVertices );
+		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mBufferNormals );
+		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_uint ), &numIndices );
+		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mBufferEye );
+		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mBufferRays );
+		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_float ), &textureWeight );
+		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_float ), &timeSinceStart );
+		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
+		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
 
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
-		mCL->setKernelArg( ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
-
-		mCL->execute();
+		mCL->execute( mKernelTracing );
 		mCL->readImageOutput( width(), height(), &mTextureOut[0] );
 		mCL->finish();
+
+
+		// // kd-tree
+		// mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mBufferKdNodes );
+		// cl_int kdRootIndex = mKdTree->getRootNode()->index;
+		// mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_int ), &kdRootIndex );
 	}
 
 

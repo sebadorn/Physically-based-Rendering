@@ -37,16 +37,15 @@ class CL {
 			return buffer;
 		}
 
-		cl_mem createEmptyBuffer( size_t size );
+		cl_mem createEmptyBuffer( size_t size, cl_mem_flags flags );
 		cl_mem createImageReadOnly( size_t width, size_t height, float* data );
 		cl_mem createImageWriteOnly( size_t width, size_t height );
-		void createKernel( const char* functionName );
-		void execute();
+		cl_kernel createKernel( const char* functionName );
+		void execute( cl_kernel kernel );
 		void finish();
 		void loadProgram( std::string filepath );
 		void readImageOutput( size_t width, size_t height, float* outputTarget );
-		void setKernelArg( uint index, size_t size, void* data );
-		void setKernelArgs( std::vector<cl_mem> buffers );
+		void setKernelArg( cl_kernel kernel, uint index, size_t size, void* data );
 		cl_mem updateBuffer( cl_mem buffer, size_t size, void* data );
 		cl_mem updateImageReadOnly( size_t width, size_t height, float* data );
 
@@ -69,6 +68,7 @@ class CL {
 		cl_mem mReadImage;
 		cl_mem mWriteImage;
 
+		std::vector<cl_kernel> mKernels;
 		std::vector<cl_event> mEvents;
 		std::vector<cl_mem> mMemObjects;
 
