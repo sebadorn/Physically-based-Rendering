@@ -67,8 +67,8 @@ class GLWidget : public QGLWidget {
 		void checkGLForErrors();
 		void checkFramebufferForErrors();
 		void clInitRays();
-		void clFindIntersections();
-		void clAccumulateColors();
+		void clFindIntersections( float timeSinceStart );
+		void clAccumulateColors( float timeSinceStart );
 		void deleteOldModel();
 		glm::vec3 getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y, float z );
 		glm::vec3 getJitter();

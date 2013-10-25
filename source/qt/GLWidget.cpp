@@ -137,12 +137,9 @@ void GLWidget::checkFramebufferForErrors() {
 }
 
 
-void GLWidget::clAccumulateColors() {
+void GLWidget::clAccumulateColors( float timeSinceStart ) {
 	uint i = 0;
 	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
-
-	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
-	cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
 
 	mCL->setKernelArg( mKernelColors, i, sizeof( cl_mem ), &mBufOrigins );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufNormals );
@@ -161,7 +158,7 @@ void GLWidget::clAccumulateColors() {
 /**
  * OpenCL: Find intersections of rays with scene.
  */
-void GLWidget::clFindIntersections() {
+void GLWidget::clFindIntersections( float timeSinceStart ) {
 	uint i = 0;
 	cl_uint numIndices = mIndices.size();
 
@@ -172,6 +169,7 @@ void GLWidget::clFindIntersections() {
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScVertices );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_uint ), &numIndices );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_float ), &timeSinceStart );
 
 	mCL->execute( mKernelIntersections );
 	mCL->finish();
@@ -408,10 +406,6 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mKdTree = new KdTree( mVertices, mIndices );
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - start;
 
-	char msg[60];
-	snprintf( msg, 60, "[KdTree] Generated kd-tree in %g ms.", (float) msdiff.total_milliseconds() );
-	Logger::logInfo( msg );
-
 	vector<GLfloat> verticesKdTree;
 	vector<GLuint> indicesKdTree;
 	float bbMin[3] = { ml->mBoundingBox[0], ml->mBoundingBox[1], ml->mBoundingBox[2] };
@@ -419,6 +413,12 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mKdTree->visualize( bbMin, bbMax, &verticesKdTree, &indicesKdTree );
 	mKdTreeNumIndices = indicesKdTree.size();
 
+	char msg[80];
+	snprintf(
+		msg, 80, "[KdTree] Generated kd-tree in %g ms. %lu nodes.",
+		(float) msdiff.total_milliseconds(), mKdTree->getNodes().size()
+	);
+	Logger::logInfo( msg );
 
 	this->setShaderBuffersForOverlay( mVertices, mIndices );
 	this->setShaderBuffersForBoundingBox( ml->mBoundingBox );
@@ -575,13 +575,15 @@ void GLWidget::paintGL() {
 		mCL->updateBuffer( mBufVecU, sizeof( cl_float ) * 3, &u[0] );
 		mCL->updateBuffer( mBufVecV, sizeof( cl_float ) * 3, &v[0] );
 
+		boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
+		cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
 
 		this->clInitRays();
 		mCL->updateImageReadOnly( width(), height(), &mTextureOut[0] );
 
-		for( uint bounce = 0; bounce < 4; bounce++ ) {
-			this->clFindIntersections();
-			this->clAccumulateColors();
+		for( uint bounce = 0; bounce < 5; bounce++ ) {
+			this->clFindIntersections( timeSinceStart + bounce );
+			this->clAccumulateColors( timeSinceStart );
 		}
 
 		mCL->readImageOutput( width(), height(), &mTextureOut[0] );

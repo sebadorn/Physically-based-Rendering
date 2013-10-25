@@ -16,25 +16,17 @@ inline float random( float4 scale, float seed ) {
 inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
 	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
+
+	// http://www.rorydriscoll.com/2009/01/07/better-sampling/
+	// But it doesn't seem to make a difference what I do here. :(
+
 	float r = sqrt( u );
-	float angle = 6.28318530718f * v; // M_PI * 2.0f * v
-	float4 sdir, tdir;
+	float theta = 6.28318530718f * v; // M_PI * 2.0f * v
 
-	// TODO: What is happening here?
-	if( fabs( normal.x ) < 0.5f ) {
-		sdir = cross( normal, (float4)( 1.0f, 0.0f, 0.0f, 0.0f ) );
-	}
-	else {
-		sdir = cross( normal, (float4)( 0.0f, 1.0f, 0.0f, 0.0f ) );
-	}
+	float x = r * cos( theta );
+	float y = r * sin( theta );
 
-	tdir = cross( normal, sdir );
-
-	float4 part1 = r * cos( angle ) * sdir;
-	float4 part2 = r * sin( angle ) * tdir;
-	float4 part3 = sqrt( 1.0f - u ) * normal;
-
-	return ( part1 + part2 + part3 );
+	return (float4)( x, y, sqrt( max( 0.0f, 1.0f - u ) ), 0.0f );
 }
 
 
@@ -80,6 +72,119 @@ float shadow(
 }
 
 
+
+// KERNELS
+
+
+/**
+ * Accumulate the colors of hit surfaces.
+ * @param {__global float4*}       origins        Positions on the hit surfaces.
+ * @param {__global float4*}       normals        Normals of the hit surfaces.
+ * @param {__global float4*}       accColors      Accumulated color so far.
+ * @param {__global float4*}       colorMasks     Color mask so far.
+ * @param {const float}            textureWeight  Weight for the mixing of the textures.
+ * @param {const float}            timeSinceStart Time since start of the tracer in seconds.
+ * @param {__read_only image2d_t}  textureIn      Input. The generated texture so far.
+ * @param {__write_only image2d_t} textureOut     Output. The generated texture now.
+ */
+__kernel void accumulateColors(
+	__global float4* origins, __global float4* normals,
+	__global float4* accColors, __global float4* colorMasks,
+	const float textureWeight, const float timeSinceStart,
+	__read_only image2d_t textureIn, __write_only image2d_t textureOut
+) {
+	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
+	uint workIndex = pos.x + pos.y * get_global_size( 1 );
+
+	float4 hit = origins[workIndex];
+
+	// Lighting
+	float4 light = (float4)( 0.3f, 1.6f, 0.0f, 0.0f );
+
+	// New color (or: another color calculated by evaluating different light paths than before)
+	// Accumulate the colors of each hit surface
+	float4 colorMask = colorMasks[workIndex];
+	float4 accumulatedColor = accColors[workIndex];
+
+	// No hit, the path ends
+	if( hit.w > -1.0f ) {
+		// The farther away a shadow is, the more diffuse it becomes
+		float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
+		newLight.w = 0.0f;
+
+		float4 normal = normals[workIndex];
+
+		// Distance of the hit surface point to the light source
+		float4 toLight = newLight - hit;
+		toLight.w = 0.0f;
+
+		float diffuse = max( 0.0f, dot( normalize( toLight ), normal ) );
+		float shadowIntensity = 1.0f;//shadow( hit + normal * 0.0001f, toLight, indices, vertices, numIndices ); // 0.0001f – meaning?
+		float specularHighlight = 0.0f; // Disabled for now
+		float4 surfaceColor = (float4)( 0.9f, 0.9f, 0.9f, 1.0f );
+
+		colorMask *= surfaceColor;
+		accumulatedColor += colorMask * 0.2f * diffuse * shadowIntensity; // 0.2f – meaning?
+		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
+	}
+
+	accColors[workIndex] = accumulatedColor;
+	colorMasks[workIndex] = colorMask;
+
+
+	// Mix new color with previous one
+	float4 texturePixel = read_imagef( textureIn, sampler, pos );
+	float4 color = mix( accumulatedColor, texturePixel, textureWeight );
+	color.w = 1.0f;
+
+	write_imagef( textureOut, pos, color );
+}
+
+
+typedef struct {
+	float coord[3];
+	int nodeIndex, vertIndex;
+	int vertFace0, vertFace1;
+	int nodeLeft, nodeRight;
+} kdNode_t;
+
+typedef struct {
+	kdNode_t node;
+	uint axis;
+} stackEntry_t;
+
+
+
+inline void descendKdTree(
+	float4 origin, float4 ray,
+	__global kdNode_t* nodes, kdNode_t currentNode
+) {
+	// Evil, don't do this. Has to be changed with model.
+	// (Recompile after string replacements like %STACK_SIZE%?)
+	stackEntry_t nodeStack[100];
+	int process = 0;
+	uint axis = 0;
+
+	while( process >= 0 ) {
+
+	}
+}
+
+
+__kernel void findIntersectionKdTree(
+	__global float4* origins, __global float4* rays, __global float4* normals,
+	__global float* scVertices,
+	__global kdNode_t* nodes, const uint kdRoot,
+	const float timeSinceStart
+) {
+	uint workIndex = get_global_id( 0 ) + get_global_id( 1 ) * get_global_size( 1 );
+	float4 origin = origins[workIndex];
+	float4 ray = rays[workIndex];
+
+	descendKdTree( origin, ray, nodes, nodes[kdRoot] );
+}
+
+
 /**
  * Kernel for finding the closest intersections of the rays with the scene.
  * @param {__global float4*} origins    Origins of the rays.
@@ -93,12 +198,15 @@ float shadow(
 __kernel void findIntersections(
 	__global float4* origins, __global float4* rays, __global float4* normals,
 	__global uint* scIndices, __global float* scVertices, __global float* scNormals,
-	const uint numIndices
+	const uint numIndices, const float timeSinceStart
 ) {
 	uint workIndex = get_global_id( 0 ) + get_global_id( 1 ) * get_global_size( 1 );
 
 	float4 origin = origins[workIndex];
 
+	// Initial rays have a <w> value of 0.0f.
+	// Negative values are only present in rays that previously didn't hit anything.
+	// Those rays aren't of any interest.
 	if( origin.w < -1.0f ) {
 		return;
 	}
@@ -191,7 +299,7 @@ __kernel void findIntersections(
 
 		float4 normal = normalize( ( normal0 + normal1 + normal2 ) / 3.0f );
 
-		rays[workIndex] = cosineWeightedDirection( /*timeSinceStart + */r, normal );
+		rays[workIndex] = cosineWeightedDirection( timeSinceStart, normal );
 		normals[workIndex] = normal;
 	}
 }
@@ -245,69 +353,4 @@ __kernel void generateRays(
 
 	accColors[workIndex] = (float4)( 0.0f );
 	colorMasks[workIndex] = (float4)( 1.0f );
-}
-
-
-/**
- * Accumulate the colors of hit surfaces.
- * @param {__global float4*}       origins        Positions on the hit surfaces.
- * @param {__global float4*}       normals        Normals of the hit surfaces.
- * @param {__global float4*}       accColors      Accumulated color so far.
- * @param {__global float4*}       colorMasks     Color mask so far.
- * @param {const float}            textureWeight  Weight for the mixing of the textures.
- * @param {const float}            timeSinceStart Time since start of the tracer in seconds.
- * @param {__read_only image2d_t}  textureIn      Input. The generated texture so far.
- * @param {__write_only image2d_t} textureOut     Output. The generated texture now.
- */
-__kernel void accumulateColors(
-	__global float4* origins, __global float4* normals,
-	__global float4* accColors, __global float4* colorMasks,
-	const float textureWeight, const float timeSinceStart,
-	__read_only image2d_t textureIn, __write_only image2d_t textureOut
-) {
-	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
-	uint workIndex = pos.x + pos.y * get_global_size( 1 );
-
-	float4 hit = origins[workIndex];
-
-	// Lighting
-	float4 light = (float4)( 0.3f, 1.6f, 0.0f, 0.0f );
-
-	// New color (or: another color calculated by evaluating different light paths than before)
-	// Accumulate the colors of each hit surface
-	float4 colorMask = colorMasks[workIndex];
-	float4 accumulatedColor = accColors[workIndex];
-
-	// No hit, the path ends
-	if( hit.w > -1.0f ) {
-		// The farther away a shadow is, the more diffuse it becomes
-		float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
-		newLight.w = 0.0f;
-
-		float4 normal = normals[workIndex];
-
-		// Distance of the hit surface point to the light source
-		float4 toLight = newLight - hit;
-		toLight.w = 0.0f;
-
-		float diffuse = max( 0.0f, dot( normalize( toLight ), normal ) );
-		float shadowIntensity = 1.0f;//shadow( hit + normal * 0.0001f, toLight, indices, vertices, numIndices ); // 0.0001f – meaning?
-		float specularHighlight = 0.0f; // Disabled for now
-		float4 surfaceColor = (float4)( 0.9f, 0.9f, 0.9f, 1.0f );
-
-		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * 0.2f * diffuse * shadowIntensity; // 0.2f – meaning?
-		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
-	}
-
-	accColors[workIndex] = accumulatedColor;
-	colorMasks[workIndex] = colorMask;
-
-
-	// Mix new color with previous one
-	float4 texturePixel = read_imagef( textureIn, sampler, pos );
-	float4 color = mix( accumulatedColor, texturePixel, textureWeight );
-	color.w = 1.0f;
-
-	write_imagef( textureOut, pos, color );
 }

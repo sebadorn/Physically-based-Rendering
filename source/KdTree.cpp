@@ -13,30 +13,26 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices ) {
 		return;
 	}
 
-	for( unsigned int i = 0; i < indices.size(); i += 3 ) {
+	for( unsigned int i = 0; i < vertices.size(); i += 3 ) {
 		kdNode_t* node = new kdNode_t;
-		node->index = mNodes.size();
-		node->vertIndex = indices[i];
-		node->coord[0] = vertices[indices[i]];
-		node->coord[1] = vertices[indices[i + 1]];
-		node->coord[2] = vertices[indices[i + 2]];
+		node->index = i / 3;
+		node->vertIndex = i;
+		node->coord[0] = vertices[i];
+		node->coord[1] = vertices[i + 1];
+		node->coord[2] = vertices[i + 2];
 		node->left = -1;
 		node->right = -1;
 
-		unsigned int nSize = mNodes.size();
-
-		if( nSize >= 3 && nSize % 3 == 0 ) {
-			mNodes[nSize - 3]->face0 = mNodes[nSize - 2]->vertIndex;
-			mNodes[nSize - 3]->face1 = mNodes[nSize - 1]->vertIndex;
-
-			mNodes[nSize - 2]->face0 = mNodes[nSize - 3]->vertIndex;
-			mNodes[nSize - 2]->face1 = mNodes[nSize - 1]->vertIndex;
-
-			mNodes[nSize - 1]->face0 = mNodes[nSize - 3]->vertIndex;
-			mNodes[nSize - 1]->face1 = mNodes[nSize - 2]->vertIndex;
-		}
-
 		mNodes.push_back( node );
+	}
+
+	for( unsigned int i = 0; i < indices.size(); i += 3 ) {
+		mNodes[indices[i]]->face0 = mNodes[indices[i + 1]]->vertIndex;
+		mNodes[indices[i]]->face1 = mNodes[indices[i + 2]]->vertIndex;
+		mNodes[indices[i + 1]]->face0 = mNodes[indices[i]]->vertIndex;
+		mNodes[indices[i + 1]]->face1 = mNodes[indices[i + 2]]->vertIndex;
+		mNodes[indices[i + 2]]->face0 = mNodes[indices[i]]->vertIndex;
+		mNodes[indices[i + 2]]->face1 = mNodes[indices[i + 1]]->vertIndex;
 	}
 
 	mRoot = mNodes[this->makeTree( mNodes, 0 )];
@@ -126,6 +122,10 @@ kdNode_t* KdTree::findMedian( vector<kdNode_t*>* nodes, int axis ) {
 }
 
 
+/**
+ * Get the list of generated nodes.
+ * @return {std::vector<kdNode_t>} The nodes of the kd-tree.
+ */
 vector<kdNode_t> KdTree::getNodes() {
 	vector<kdNode_t> nodes;
 
@@ -137,6 +137,10 @@ vector<kdNode_t> KdTree::getNodes() {
 }
 
 
+/**
+ * Get the root node of the kd-tree.
+ * @return {kdNode_t*} Pointer to the root node.
+ */
 kdNode_t* KdTree::getRootNode() {
 	return mRoot;
 }
