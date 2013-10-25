@@ -579,7 +579,7 @@ void GLWidget::paintGL() {
 		this->clInitRays();
 		mCL->updateImageReadOnly( width(), height(), &mTextureOut[0] );
 
-		for( uint bounce = 0; bounce < 5; bounce++ ) {
+		for( uint bounce = 0; bounce < 4; bounce++ ) {
 			this->clFindIntersections();
 			this->clAccumulateColors();
 		}
