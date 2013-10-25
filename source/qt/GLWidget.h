@@ -66,6 +66,9 @@ class GLWidget : public QGLWidget {
 		void calculateMatrices();
 		void checkGLForErrors();
 		void checkFramebufferForErrors();
+		void clInitRays();
+		void clFindIntersections();
+		void clAccumulateColors();
 		void deleteOldModel();
 		glm::vec3 getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y, float z );
 		glm::vec3 getJitter();
@@ -131,20 +134,28 @@ class GLWidget : public QGLWidget {
 
 		std::vector<float> mTextureOut;
 
-		cl_mem mBufferIndices;
-		cl_mem mBufferVertices;
-		cl_mem mBufferNormals;
-		cl_mem mBufferKdNodes;
-		cl_mem mBufferEye;
-		cl_mem mBufferVecW;
-		cl_mem mBufferVecU;
-		cl_mem mBufferVecV;
-		cl_mem mBufferRays;
+		cl_mem mBufScIndices;
+		cl_mem mBufScVertices;
+		cl_mem mBufScNormals;
+		cl_mem mBufKdNodes;
+
+		cl_mem mBufEye;
+		cl_mem mBufVecW;
+		cl_mem mBufVecU;
+		cl_mem mBufVecV;
+
+		cl_mem mBufOrigins;
+		cl_mem mBufRays;
+		cl_mem mBufNormals;
+		cl_mem mBufAccColors;
+		cl_mem mBufColorMasks;
+
 		cl_mem mKernelArgTextureIn;
 		cl_mem mKernelArgTextureOut;
 
+		cl_kernel mKernelColors;
+		cl_kernel mKernelIntersections;
 		cl_kernel mKernelRays;
-		cl_kernel mKernelTracing;
 
 };
 

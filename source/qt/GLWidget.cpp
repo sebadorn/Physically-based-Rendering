@@ -13,7 +13,8 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mCL = new CL();
 	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
 	mKernelRays = mCL->createKernel( "generateRays" );
-	mKernelTracing = mCL->createKernel( "pathTracing" );
+	mKernelIntersections = mCL->createKernel( "findIntersections" );
+	mKernelColors = mCL->createKernel( "accumulateColors" );
 
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
 	mModelMatrix = glm::mat4( 1.0f );
@@ -136,6 +137,68 @@ void GLWidget::checkFramebufferForErrors() {
 }
 
 
+void GLWidget::clAccumulateColors() {
+	uint i = 0;
+	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
+
+	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
+	cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
+
+	mCL->setKernelArg( mKernelColors, i, sizeof( cl_mem ), &mBufOrigins );
+	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufNormals );
+	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufAccColors );
+	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufColorMasks );
+	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_float ), &textureWeight );
+	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_float ), &timeSinceStart );
+	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
+	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
+
+	mCL->execute( mKernelColors );
+	mCL->finish();
+}
+
+
+/**
+ * OpenCL: Find intersections of rays with scene.
+ */
+void GLWidget::clFindIntersections() {
+	uint i = 0;
+	cl_uint numIndices = mIndices.size();
+
+	mCL->setKernelArg( mKernelIntersections, i, sizeof( cl_mem ), &mBufOrigins );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufRays );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufNormals );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScIndices );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScVertices );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_uint ), &numIndices );
+
+	mCL->execute( mKernelIntersections );
+	mCL->finish();
+}
+
+
+/**
+ * OpenCL: Compute the initial rays into the scene.
+ */
+void GLWidget::clInitRays() {
+	uint i = 0;
+	cl_float fovRad = utils::degToRad( mFOV );
+
+	mCL->setKernelArg( mKernelRays, i, sizeof( cl_mem ), &mBufEye );
+	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufVecW );
+	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufVecU );
+	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufVecV );
+	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_float ), &fovRad );
+	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufOrigins );
+	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufRays );
+	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufAccColors );
+	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufColorMasks );
+
+	mCL->execute( mKernelRays );
+	mCL->finish();
+}
+
 
 /**
  * Delete data (buffers, textures) of the old model.
@@ -218,18 +281,23 @@ void GLWidget::initGlew() {
  * Init the needed OpenCL buffers: Indices, vertices, camera eye and rays.
  */
 void GLWidget::initOpenCLBuffers() {
-	mBufferIndices = mCL->createBuffer( mIndices, sizeof( cl_uint ) * mIndices.size() );
-	mBufferVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
-	mBufferNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
+	mBufScIndices = mCL->createBuffer( mIndices, sizeof( cl_uint ) * mIndices.size() );
+	mBufScVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
+	mBufScNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
 
 	vector<kdNode_t> kdNodes = mKdTree->getNodes();
-	mBufferKdNodes = mCL->createBuffer( &kdNodes[0], sizeof( kdNode_t ) * kdNodes.size() );
+	mBufKdNodes = mCL->createBuffer( &kdNodes[0], sizeof( kdNode_t ) * kdNodes.size() );
 
-	mBufferEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
-	mBufferVecW = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
-	mBufferVecU = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
-	mBufferVecV = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
-	mBufferRays = mCL->createEmptyBuffer( sizeof( cl_float4 ) * width() * height(), CL_MEM_READ_WRITE );
+	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
+	mBufVecW = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
+	mBufVecU = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
+	mBufVecV = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
+
+	mBufOrigins = mCL->createEmptyBuffer( sizeof( cl_float4 ) * width() * height(), CL_MEM_READ_WRITE );
+	mBufRays = mCL->createEmptyBuffer( sizeof( cl_float4 ) * width() * height(), CL_MEM_READ_WRITE );
+	mBufNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * width() * height(), CL_MEM_READ_WRITE );
+	mBufAccColors = mCL->createEmptyBuffer( sizeof( cl_float4 ) * width() * height(), CL_MEM_READ_WRITE );
+	mBufColorMasks = mCL->createEmptyBuffer( sizeof( cl_float4 ) * width() * height(), CL_MEM_READ_WRITE );
 }
 
 
@@ -485,13 +553,6 @@ void GLWidget::paintGL() {
 
 
 	if( mViewTracer ) {
-		boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
-		cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
-
-		uint i;
-		vector<cl_mem> clBuffers;
-
-		cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 		mSampleCount++;
 
 		glm::vec3 c = mCamera->getAdjustedCenter_glmVec3();
@@ -509,49 +570,26 @@ void GLWidget::paintGL() {
 		glm::vec3 u = glm::normalize( glm::cross( w, up ) );
 		glm::vec3 v = glm::normalize( glm::cross( u, w ) );
 
-		mCL->updateBuffer( mBufferEye, sizeof( cl_float ) * 3, &eye[0] );
-		mCL->updateBuffer( mBufferVecW, sizeof( cl_float ) * 3, &w[0] );
-		mCL->updateBuffer( mBufferVecU, sizeof( cl_float ) * 3, &u[0] );
-		mCL->updateBuffer( mBufferVecV, sizeof( cl_float ) * 3, &v[0] );
+		mCL->updateBuffer( mBufEye, sizeof( cl_float ) * 3, &eye[0] );
+		mCL->updateBuffer( mBufVecW, sizeof( cl_float ) * 3, &w[0] );
+		mCL->updateBuffer( mBufVecU, sizeof( cl_float ) * 3, &u[0] );
+		mCL->updateBuffer( mBufVecV, sizeof( cl_float ) * 3, &v[0] );
 
 
-		i = 0;
-		cl_float fovRad = utils::degToRad( mFOV );
-
-		mCL->setKernelArg( mKernelRays, i, sizeof( cl_mem ), &mBufferEye );
-		mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufferVecW );
-		mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufferVecU );
-		mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufferVecV );
-		mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_float ), &fovRad );
-		mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufferRays );
-
-		mCL->execute( mKernelRays );
-		// mCL->readBufferOutput( &mBufferRays );
-		mCL->finish();
-
-
-		i = 0;
-		cl_uint numIndices = mIndices.size();
-
+		this->clInitRays();
 		mCL->updateImageReadOnly( width(), height(), &mTextureOut[0] );
-		mCL->setKernelArg( mKernelTracing, i, sizeof( cl_mem ), &mBufferIndices );
-		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mBufferVertices );
-		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mBufferNormals );
-		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_uint ), &numIndices );
-		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mBufferEye );
-		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mBufferRays );
-		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_float ), &textureWeight );
-		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_float ), &timeSinceStart );
-		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
-		mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
 
-		mCL->execute( mKernelTracing );
+		for( uint bounce = 0; bounce < 5; bounce++ ) {
+			this->clFindIntersections();
+			this->clAccumulateColors();
+		}
+
 		mCL->readImageOutput( width(), height(), &mTextureOut[0] );
 		mCL->finish();
 
 
 		// // kd-tree
-		// mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mBufferKdNodes );
+		// mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mBufKdNodes );
 		// cl_int kdRootIndex = mKdTree->getRootNode()->index;
 		// mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_int ), &kdRootIndex );
 	}
