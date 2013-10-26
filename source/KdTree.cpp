@@ -16,10 +16,9 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices ) {
 	for( unsigned int i = 0; i < vertices.size(); i += 3 ) {
 		kdNode_t* node = new kdNode_t;
 		node->index = i / 3;
-		node->vertIndex = i;
-		node->coord[0] = vertices[i];
-		node->coord[1] = vertices[i + 1];
-		node->coord[2] = vertices[i + 2];
+		node->x = vertices[i];
+		node->y = vertices[i + 1];
+		node->z = vertices[i + 2];
 		node->left = -1;
 		node->right = -1;
 
@@ -27,12 +26,12 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices ) {
 	}
 
 	for( unsigned int i = 0; i < indices.size(); i += 3 ) {
-		mNodes[indices[i]]->face0 = mNodes[indices[i + 1]]->vertIndex;
-		mNodes[indices[i]]->face1 = mNodes[indices[i + 2]]->vertIndex;
-		mNodes[indices[i + 1]]->face0 = mNodes[indices[i]]->vertIndex;
-		mNodes[indices[i + 1]]->face1 = mNodes[indices[i + 2]]->vertIndex;
-		mNodes[indices[i + 2]]->face0 = mNodes[indices[i]]->vertIndex;
-		mNodes[indices[i + 2]]->face1 = mNodes[indices[i + 1]]->vertIndex;
+		mNodes[indices[i]]->face0 = mNodes[indices[i + 1]]->index;
+		mNodes[indices[i]]->face1 = mNodes[indices[i + 2]]->index;
+		mNodes[indices[i + 1]]->face0 = mNodes[indices[i]]->index;
+		mNodes[indices[i + 1]]->face1 = mNodes[indices[i + 2]]->index;
+		mNodes[indices[i + 2]]->face0 = mNodes[indices[i]]->index;
+		mNodes[indices[i + 2]]->face1 = mNodes[indices[i + 1]]->index;
 	}
 
 	mRoot = mNodes[this->makeTree( mNodes, 0 )];
@@ -56,7 +55,7 @@ KdTree::~KdTree() {
  * @return {bool}        True if a < b, false otherwise.
  */
 bool KdTree::compFunc0( kdNode_t* a, kdNode_t* b ) {
-	return ( a->coord[0] < b->coord[0] );
+	return ( a->x < b->x );
 }
 
 
@@ -67,7 +66,7 @@ bool KdTree::compFunc0( kdNode_t* a, kdNode_t* b ) {
  * @return {bool}        True if a < b, false otherwise.
  */
 bool KdTree::compFunc1( kdNode_t* a, kdNode_t* b ) {
-	return ( a->coord[1] < b->coord[1] );
+	return ( a->y < b->y );
 }
 
 
@@ -78,7 +77,7 @@ bool KdTree::compFunc1( kdNode_t* a, kdNode_t* b ) {
  * @return {bool}        True if a < b, false otherwise.
  */
 bool KdTree::compFunc2( kdNode_t* a, kdNode_t* b ) {
-	return ( a->coord[2] < b->coord[2] );
+	return ( a->z < b->z );
 }
 
 
@@ -90,7 +89,9 @@ bool KdTree::compFunc2( kdNode_t* a, kdNode_t* b ) {
  */
 kdNode_t* KdTree::findMedian( vector<kdNode_t*>* nodes, int axis ) {
 	if( nodes->size() == 0 ) {
-		return NULL;
+		kdNode_t* end;
+		end->index = -1;
+		return end;
 	}
 	if( nodes->size() == 1 ) {
 		return (*nodes)[0];
@@ -159,7 +160,7 @@ int KdTree::makeTree( vector<kdNode_t*> nodes, int axis ) {
 
 	kdNode_t* median = this->findMedian( &nodes, axis );
 
-	if( median == NULL ) {
+	if( median->index == -1 ) {
 		return -1;
 	}
 
@@ -213,12 +214,12 @@ void KdTree::print() {
  * @param {kdNode_t*} node Starting node.
  */
 void KdTree::printNode( kdNode_t* node ) {
-	if( node == NULL ) {
-		printf( "NULL\n" );
+	if( node->index == -1 ) {
+		printf( "END\n" );
 		return;
 	}
 
-	printf( "(%g %g %g) ", node->coord[0], node->coord[1], node->coord[2] );
+	printf( "(%g %g %g) ", node->x, node->y, node->z );
 	printf( "l" ); this->printNode( mNodes[node->left] );
 	printf( "r" ); this->printNode( mNodes[node->right] );
 }
@@ -246,7 +247,7 @@ void KdTree::visualize( float* bbMin, float* bbMax, vector<float>* vertices, vec
  * @param {unsigned int}               axis     Current axis.
  */
 void KdTree::visualizeNextNode( kdNode_t* node, float* bbMin, float* bbMax, vector<float>* vertices, vector<unsigned int>* indices, unsigned int axis ) {
-	if( node == NULL ) {
+	if( node->index == -1 ) {
 		return;
 	}
 
@@ -262,36 +263,36 @@ void KdTree::visualizeNextNode( kdNode_t* node, float* bbMin, float* bbMax, vect
 	switch( axis ) {
 
 		case 0: // x
-			a[0] = b[0] = c[0] = d[0] = node->coord[0];
+			a[0] = b[0] = c[0] = d[0] = node->x;
 			a[1] = d[1] = bbMin[1];
 			a[2] = b[2] = bbMin[2];
 			b[1] = c[1] = bbMax[1];
 			c[2] = d[2] = bbMax[2];
 
-			bbMaxLeft[0] = node->coord[0];
-			bbMinRight[0] = node->coord[0];
+			bbMaxLeft[0] = node->x;
+			bbMinRight[0] = node->x;
 			break;
 
 		case 1: // y
-			a[1] = b[1] = c[1] = d[1] = node->coord[1];
+			a[1] = b[1] = c[1] = d[1] = node->y;
 			a[0] = d[0] = bbMin[0];
 			a[2] = b[2] = bbMin[2];
 			b[0] = c[0] = bbMax[0];
 			c[2] = d[2] = bbMax[2];
 
-			bbMaxLeft[1] = node->coord[1];
-			bbMinRight[1] = node->coord[1];
+			bbMaxLeft[1] = node->y;
+			bbMinRight[1] = node->y;
 			break;
 
 		case 2: // z
-			a[2] = b[2] = c[2] = d[2] = node->coord[2];
+			a[2] = b[2] = c[2] = d[2] = node->z;
 			a[1] = d[1] = bbMin[1];
 			a[0] = b[0] = bbMin[0];
 			b[1] = c[1] = bbMax[1];
 			c[0] = d[0] = bbMax[0];
 
-			bbMaxLeft[2] = node->coord[2];
-			bbMinRight[2] = node->coord[2];
+			bbMaxLeft[2] = node->z;
+			bbMinRight[2] = node->z;
 			break;
 
 		default:
@@ -327,54 +328,54 @@ void KdTree::visualizeNextNode( kdNode_t* node, float* bbMin, float* bbMax, vect
 }
 
 
-/**
- * Calculate the distance between two nodes.
- * @param  {kdNode_t*} a A node with coordinates.
- * @param  {kdNode_t*} b A node with coordinates.
- * @return {float}       Distance between node a and b.
- */
-float KdTree::distance( kdNode_t* a, kdNode_t* b ) {
-	float t;
-	float d = 0.0f;
-	int axis = KD_DIM;
+// /**
+//  * Calculate the distance between two nodes.
+//  * @param  {kdNode_t*} a A node with coordinates.
+//  * @param  {kdNode_t*} b A node with coordinates.
+//  * @return {float}       Distance between node a and b.
+//  */
+// float KdTree::distance( kdNode_t* a, kdNode_t* b ) {
+// 	float t;
+// 	float d = 0.0f;
+// 	int axis = KD_DIM;
 
-	while( axis-- ) {
-		t = a->coord[axis] - b->coord[axis];
-		d += t * t;
-	}
+// 	while( axis-- ) {
+// 		t = a->coord[axis] - b->coord[axis];
+// 		d += t * t;
+// 	}
 
-	return d;
-}
+// 	return d;
+// }
 
 
-void KdTree::nearest( kdNode_t* input, kdNode_t* currentNode, int axis, kdNode_t** bestNode, float* bestDist ) {
-	float d, dx, dx2;
+// void KdTree::nearest( kdNode_t* input, kdNode_t* currentNode, int axis, kdNode_t** bestNode, float* bestDist ) {
+// 	float d, dx, dx2;
 
-	if( !currentNode ) {
-		return;
-	}
+// 	if( !currentNode ) {
+// 		return;
+// 	}
 
-	d = this->distance( currentNode, input );
-	dx = currentNode->coord[axis] - input->coord[axis];
+// 	d = this->distance( currentNode, input );
+// 	dx = currentNode->coord[axis] - input->coord[axis];
 
-	if( !*bestNode || d < *bestDist ) {
-		*bestDist = d;
-		*bestNode = currentNode;
-	}
-	if( !*bestDist ) {
-		return;
-	}
+// 	if( !*bestNode || d < *bestDist ) {
+// 		*bestDist = d;
+// 		*bestNode = currentNode;
+// 	}
+// 	if( !*bestDist ) {
+// 		return;
+// 	}
 
-	axis = ( axis + 1 ) % KD_DIM;
-	unsigned int next;
+// 	axis = ( axis + 1 ) % KD_DIM;
+// 	unsigned int next;
 
-	next = ( dx > 0 ) ? currentNode->left : currentNode->right;
-	this->nearest( input, mNodes[next], axis, bestNode, bestDist );
+// 	next = ( dx > 0 ) ? currentNode->left : currentNode->right;
+// 	this->nearest( input, mNodes[next], axis, bestNode, bestDist );
 
-	if( dx * dx >= *bestDist ) {
-		return;
-	}
+// 	if( dx * dx >= *bestDist ) {
+// 		return;
+// 	}
 
-	next = ( dx > 0 ) ? currentNode->right : currentNode->left;
-	this->nearest( input, mNodes[next], axis, bestNode, bestDist );
-}
+// 	next = ( dx > 0 ) ? currentNode->right : currentNode->left;
+// 	this->nearest( input, mNodes[next], axis, bestNode, bestDist );
+// }

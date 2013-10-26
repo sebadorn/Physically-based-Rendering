@@ -13,7 +13,7 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mCL = new CL();
 	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
 	mKernelRays = mCL->createKernel( "generateRays" );
-	mKernelIntersections = mCL->createKernel( "findIntersections" );
+	mKernelIntersections = mCL->createKernel( "findIntersectionsKdTree" );
 	mKernelColors = mCL->createKernel( "accumulateColors" );
 
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
@@ -165,10 +165,14 @@ void GLWidget::clFindIntersections( float timeSinceStart ) {
 	mCL->setKernelArg( mKernelIntersections, i, sizeof( cl_mem ), &mBufOrigins );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufRays );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufNormals );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScIndices );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScVertices );
+	// mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScIndices );
+	// mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScVertices );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_uint ), &numIndices );
+
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodes );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_uint ), &( mKdTree->getRootNode()->index ) );
+
+	// mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_uint ), &numIndices );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_float ), &timeSinceStart );
 
 	mCL->execute( mKernelIntersections );
@@ -284,7 +288,7 @@ void GLWidget::initOpenCLBuffers() {
 	mBufScNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
 
 	vector<kdNode_t> kdNodes = mKdTree->getNodes();
-	mBufKdNodes = mCL->createBuffer( &kdNodes[0], sizeof( kdNode_t ) * kdNodes.size() );
+	mBufKdNodes = mCL->createBuffer( kdNodes, sizeof( kdNode_t ) * kdNodes.size() );
 
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
 	mBufVecW = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );

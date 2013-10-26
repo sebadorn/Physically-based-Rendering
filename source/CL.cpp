@@ -222,7 +222,11 @@ void CL::execute( cl_kernel kernel ) {
 	cl_event event;
 	cl_event* events = &mEvents[0];
 
-	size_t workSize[3] = { 512, 512, 1 };
+	size_t workSize[3] = {
+		Cfg::get().value<uint>( Cfg::WINDOW_WIDTH ),
+		Cfg::get().value<uint>( Cfg::WINDOW_HEIGHT ),
+		1
+	};
 	err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 2, NULL, workSize, NULL, mEvents.size(), &mEvents[0], &event );
 	this->checkError( err, "clEnqueueNDRangeKernel" );
 	mEvents.push_back( event );

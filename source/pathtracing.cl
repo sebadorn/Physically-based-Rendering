@@ -141,47 +141,247 @@ __kernel void accumulateColors(
 }
 
 
-typedef struct {
-	float coord[3];
-	int nodeIndex, vertIndex;
-	int vertFace0, vertFace1;
-	int nodeLeft, nodeRight;
+typedef struct kdNode_t {
+	float x;
+	float y;
+	float z;
+	int index;
+	int face0;
+	int face1;
+	int left;
+	int right;
 } kdNode_t;
 
-typedef struct {
-	kdNode_t node;
+
+typedef struct stackEntry_t {
+	int nodeIndex;
 	uint axis;
 } stackEntry_t;
 
 
+typedef struct hit_t {
+	float4 position;
+	float distance;
+	int normalIndices[3];
+} hit_t;
+
+
+inline float checkPlaneIntersection( float4 origin, float4 ray, kdNode_t* node, uint axis, float tmax ) {
+	float4 a = (float4)( node->x, node->y, node->z, 0.0f );
+	float4 b = (float4)( a.x, a.y, a.z, 0.0f );
+	float4 c = (float4)( a.x, a.y, a.z, 0.0f );
+
+	if( axis == 0 ) {
+		b.y += tmax; c.z += tmax;
+	}
+	else if( axis == 1 ) {
+		b.x += tmax; c.z += tmax;
+	}
+	else if( axis == 2 ) {
+		b.x += tmax; c.y += tmax;
+	}
+
+	float4 direction = ray - origin;
+	float4 planeNormal = cross( ( b - a ), ( c - a ) );
+	float numerator = -dot( planeNormal, origin - a );
+	float denumerator = dot( planeNormal, direction );
+
+	if( denumerator < 0.0f ) {
+		return tmax + 1.0f;
+	}
+
+	return numerator / denumerator;
+}
+
+
+inline void checkTriangleIntersection(
+	float4 origin, float4 ray,
+	__constant struct kdNode_t* nodes, kdNode_t* node,
+	float t, float tmax, hit_t* result
+) {
+	float face0[3] = { nodes[node->face0].x, nodes[node->face0].y, nodes[node->face0].z };
+	float face1[3] = { nodes[node->face1].x, nodes[node->face1].y, nodes[node->face1].z };
+
+	float4 a = (float4)( node->x, node->y, node->z, 0.0f );
+	float4 b = (float4)( face0[0], face0[1], face0[2], 0.0f );
+	float4 c = (float4)( face1[0], face1[1], face1[2], 0.0f );
+	float4 hit = origin + t * ( ray - origin );
+	hit.w = 0.0f;
+
+	float4 u = b - a;
+	float4 v = c - a;
+	float4 w = hit - a;
+	u.w = 0.0f;
+	v.w = 0.0f;
+	w.w = 0.0f;
+
+	float uDotU = dot( u, u );
+	float uDotV = dot( u, v );
+	float vDotV = dot( v, v );
+	float wDotV = dot( w, v );
+	float wDotU = dot( w, u );
+
+	float d = uDotV * uDotV - uDotU * vDotV;
+	float r = ( uDotV * wDotV - vDotV * wDotU ) / d;
+
+	if( r < 0.0f || r > 1.0f ) {
+		return;
+	}
+
+	float s = ( uDotV * wDotU - uDotU * wDotV ) / d;
+
+	if( s < 0.0f || ( r + s ) > 1.0f ) {
+		return;
+	}
+
+	result->position = hit;
+	result->distance = length( hit - origin );
+}
+
 
 inline void descendKdTree(
 	float4 origin, float4 ray,
-	__global kdNode_t* nodes, kdNode_t currentNode
+	__constant struct kdNode_t* nodes, kdNode_t rootNode,
+	hit_t* result
 ) {
 	// Evil, don't do this. Has to be changed with model.
 	// (Recompile after string replacements like %STACK_SIZE%?)
-	stackEntry_t nodeStack[100];
+	stackEntry_t nodeStack[40];
+
 	int process = 0;
+	float tmin = 0.0f;
+	float tmax = 100.0f;
 	uint axis = 0;
 
-	while( process >= 0 ) {
+	stackEntry_t first;
+	first.nodeIndex = rootNode.index;
+	first.axis = axis;
+	nodeStack[0] = first;
 
+	kdNode_t currentNode;
+
+
+	while( process >= 0 ) {
+		if( nodeStack[process].nodeIndex == -1 ) {
+			process--;
+			continue;
+		}
+
+		currentNode = nodes[nodeStack[process].nodeIndex];
+		axis = nodeStack[process].axis;
+
+		float t = checkPlaneIntersection( origin, ray, &currentNode, axis, tmax );
+
+		// Ray intersects with splitting plane
+		if( t > tmin && t <= tmax ) { // TODO: adjust tmin and tmax
+			hit_t newResult;
+			newResult.distance = -1.0f;
+			checkTriangleIntersection( origin, ray, nodes, &currentNode, t, tmax, &newResult );
+
+			if( newResult.distance > -1.0f ) {
+				if( result->distance < 0.0f || result->distance > newResult.distance ) {
+					result->distance = newResult.distance;
+					result->position = newResult.position;
+					result->normalIndices[0] = currentNode.index;
+					result->normalIndices[1] = currentNode.face0;
+					result->normalIndices[2] = currentNode.face1;
+				}
+			}
+
+			if( currentNode.left < 0 && currentNode.right < 0 ) {
+				process--;
+				continue;
+			}
+
+			if( currentNode.left >= 0 ) {
+				stackEntry_t leftNode;
+				leftNode.nodeIndex = currentNode.left;
+				leftNode.axis = ( axis + 1 ) % 3;
+
+				process += ( currentNode.right >= 0 ) ? 1 : 0;
+				nodeStack[process] = leftNode;
+			}
+
+			if( currentNode.right >= 0 ) {
+				stackEntry_t rightNode;
+				rightNode.nodeIndex = currentNode.right;
+				rightNode.axis = ( axis + 1 ) % 3;
+
+				nodeStack[process] = rightNode;
+			}
+		}
+
+		// Ray doesn't intersect splitting plane
+		else {
+			stackEntry_t next;
+
+			float4 dir = ray - origin;
+			float coords[3] = { currentNode.x, currentNode.y, currentNode.z };
+			float dirCoord;
+
+			switch( axis ) {
+				case 0: dirCoord = dir.x; break;
+				case 1: dirCoord = dir.y; break;
+				case 2: dirCoord = dir.z; break;
+			}
+
+			// Ray on "right" side of the plane, proceed with only this part of the tree
+			if( coords[axis] < dirCoord ) {
+				if( currentNode.right >= 0 ) {
+					next.nodeIndex = currentNode.right;
+				}
+				else {
+					process--;
+					continue;
+				}
+			}
+			// Ray on "left" side of the plane, proceed with only this part of the tree
+			else {
+				if( currentNode.left >= 0 ) {
+					next.nodeIndex = currentNode.left;
+				}
+				else {
+					process--;
+					continue;
+				}
+			}
+
+			next.axis = ( axis + 1 ) % 3;
+			nodeStack[process] = next;
+		}
 	}
 }
 
 
-__kernel void findIntersectionKdTree(
+__kernel void findIntersectionsKdTree(
 	__global float4* origins, __global float4* rays, __global float4* normals,
-	__global float* scVertices,
-	__global kdNode_t* nodes, const uint kdRoot,
+	__global float* scNormals,
+	__constant struct kdNode_t* nodes, const uint kdRoot,
 	const float timeSinceStart
 ) {
 	uint workIndex = get_global_id( 0 ) + get_global_id( 1 ) * get_global_size( 1 );
 	float4 origin = origins[workIndex];
 	float4 ray = rays[workIndex];
+	hit_t hit;
+	hit.distance = -1.0f;
+	descendKdTree( origin, ray, nodes, nodes[kdRoot], &hit );
 
-	descendKdTree( origin, ray, nodes, nodes[kdRoot] );
+	if( hit.distance > -1.0f ) {
+		origins[workIndex] = hit.position;
+
+		uint nIndex0 = hit.normalIndices[0];
+		uint nIndex1 = hit.normalIndices[1];
+		uint nIndex2 = hit.normalIndices[2];
+
+		float4 normal0 = (float4)( scNormals[nIndex0], scNormals[nIndex0 + 1], scNormals[nIndex0 + 2], 0.0f );
+		float4 normal1 = (float4)( scNormals[nIndex1], scNormals[nIndex1 + 1], scNormals[nIndex1 + 2], 0.0f );
+		float4 normal2 = (float4)( scNormals[nIndex2], scNormals[nIndex2 + 1], scNormals[nIndex2 + 2], 0.0f );
+
+		float4 normal = normalize( ( normal0 + normal1 + normal2 ) / 3.0f );
+
+		rays[workIndex] = cosineWeightedDirection( timeSinceStart, normal );
+		normals[workIndex] = normal;
+	}
 }
 
 
