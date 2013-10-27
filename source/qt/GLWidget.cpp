@@ -169,8 +169,14 @@ void GLWidget::clFindIntersections( float timeSinceStart ) {
 	// mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScVertices );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
 
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodes );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_uint ), &( mKdTree->getRootNode()->index ) );
+
+	// mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodes );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData1 );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData2 );
+
+	cl_uint rootNode = mKdTree->getRootNode()->index;
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_uint ), &rootNode );
+
 
 	// mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_uint ), &numIndices );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_float ), &timeSinceStart );
@@ -287,8 +293,22 @@ void GLWidget::initOpenCLBuffers() {
 	mBufScVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
 	mBufScNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
 
+
 	vector<kdNode_t> kdNodes = mKdTree->getNodes();
-	mBufKdNodes = mCL->createBuffer( kdNodes, sizeof( kdNode_t ) * kdNodes.size() );
+	vector<cl_float> kdData1;
+	vector<cl_int> kdData2;
+
+	for( uint i = 0; i < kdNodes.size(); i++ ) {
+		kdData1.push_back( kdNodes[i].x ); kdData1.push_back( kdNodes[i].y ); kdData1.push_back( kdNodes[i].z );
+		kdData2.push_back( kdNodes[i].index );
+		kdData2.push_back( kdNodes[i].face0 ); kdData2.push_back( kdNodes[i].face1 );
+		kdData2.push_back( kdNodes[i].left ); kdData2.push_back( kdNodes[i].right );
+	}
+
+	mBufKdNodeData1 = mCL->createBuffer( kdData1, sizeof( cl_float ) * kdData1.size() );
+	mBufKdNodeData2 = mCL->createBuffer( kdData2, sizeof( cl_int ) * kdData2.size() );
+	// mBufKdNodes = mCL->createBuffer( kdNodes, sizeof( kdNode_t ) * kdNodes.size() );
+
 
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
 	mBufVecW = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
@@ -585,19 +605,13 @@ void GLWidget::paintGL() {
 		this->clInitRays();
 		mCL->updateImageReadOnly( width(), height(), &mTextureOut[0] );
 
-		for( uint bounce = 0; bounce < 5; bounce++ ) {
+		for( uint bounce = 0; bounce < 3; bounce++ ) {
 			this->clFindIntersections( timeSinceStart + bounce );
 			this->clAccumulateColors( timeSinceStart );
 		}
 
 		mCL->readImageOutput( width(), height(), &mTextureOut[0] );
 		mCL->finish();
-
-
-		// // kd-tree
-		// mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_mem ), &mBufKdNodes );
-		// cl_int kdRootIndex = mKdTree->getRootNode()->index;
-		// mCL->setKernelArg( mKernelTracing, ++i, sizeof( cl_int ), &kdRootIndex );
 	}
 
 

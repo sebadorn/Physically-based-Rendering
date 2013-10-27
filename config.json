@@ -29,7 +29,7 @@
 		// AA through jittering
 		"antialiasing": true,
 		// render every 16.666 ms ~ 60 FPS
-		"interval": 100.0,
+		"interval": 50.0,
 		"perspective": {
 			"fov": 50.0,
 			"zfar": 100.0,
@@ -43,9 +43,9 @@
 	},
 
 	"window": {
-		"height": 256,
+		"height": 512,
 		"title": "Physically-based Renderer",
-		"width": 256
+		"width": 512
 	}
 
 }

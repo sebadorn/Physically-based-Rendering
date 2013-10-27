@@ -14,19 +14,41 @@ inline float random( float4 scale, float seed ) {
 
 
 inline float4 cosineWeightedDirection( float seed, float4 normal ) {
+	// float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
+	// float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
+
+	// // http://www.rorydriscoll.com/2009/01/07/better-sampling/
+	// // But it doesn't seem to make a difference what I do here. :(
+
+	// float r = sqrt( u );
+	// float theta = 6.28318530718f * v; // M_PI * 2.0f * v
+
+	// float x = r * cos( theta );
+	// float y = r * sin( theta );
+
+	// return (float4)( x, y, sqrt( max( 0.0f, 1.0f - u ) ), 0.0f );
+
 	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
 	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
-
-	// http://www.rorydriscoll.com/2009/01/07/better-sampling/
-	// But it doesn't seem to make a difference what I do here. :(
-
 	float r = sqrt( u );
-	float theta = 6.28318530718f * v; // M_PI * 2.0f * v
+	float angle = M_PI * 2.0f * v;
+	float4 sdir, tdir;
 
-	float x = r * cos( theta );
-	float y = r * sin( theta );
+	// TODO: What is happening here?
+	if( fabs( normal.x ) < 0.5f ) {
+		sdir = cross( normal, (float4)( 1.0f, 0.0f, 0.0f, 0.0f ) );
+	}
+	else {
+		sdir = cross( normal, (float4)( 0.0f, 1.0f, 0.0f, 0.0f ) );
+	}
 
-	return (float4)( x, y, sqrt( max( 0.0f, 1.0f - u ) ), 0.0f );
+	tdir = cross( normal, sdir );
+
+	float4 part1 = r * cos( angle ) * sdir;
+	float4 part2 = r * sin( angle ) * tdir;
+	float4 part3 = sqrt( 1.0f - u ) * normal;
+
+	return ( part1 + part2 + part3 );
 }
 
 
@@ -141,18 +163,6 @@ __kernel void accumulateColors(
 }
 
 
-typedef struct kdNode_t {
-	float x;
-	float y;
-	float z;
-	int index;
-	int face0;
-	int face1;
-	int left;
-	int right;
-} kdNode_t;
-
-
 typedef struct stackEntry_t {
 	int nodeIndex;
 	uint axis;
@@ -166,19 +176,28 @@ typedef struct hit_t {
 } hit_t;
 
 
-inline float checkPlaneIntersection( float4 origin, float4 ray, kdNode_t* node, uint axis, float tmax ) {
-	float4 a = (float4)( node->x, node->y, node->z, 0.0f );
+inline float checkPlaneIntersection(
+	float4 origin, float4 ray,
+	__global float* kdNodeData1, int nodeIndex,
+	uint axis, float tmax
+) {
+	float4 a = (float4)(
+		kdNodeData1[nodeIndex * 3],
+		kdNodeData1[nodeIndex * 3 + 1],
+		kdNodeData1[nodeIndex * 3 + 2],
+		0.0f
+	);
 	float4 b = (float4)( a.x, a.y, a.z, 0.0f );
 	float4 c = (float4)( a.x, a.y, a.z, 0.0f );
 
 	if( axis == 0 ) {
-		b.y += tmax; c.z += tmax;
+		b.y += 1.0f; c.z += 1.0f;
 	}
 	else if( axis == 1 ) {
-		b.x += tmax; c.z += tmax;
+		b.x += 1.0f; c.z += 1.0f;
 	}
 	else if( axis == 2 ) {
-		b.x += tmax; c.y += tmax;
+		b.x += 1.0f; c.y += 1.0f;
 	}
 
 	float4 direction = ray - origin;
@@ -186,7 +205,7 @@ inline float checkPlaneIntersection( float4 origin, float4 ray, kdNode_t* node, 
 	float numerator = -dot( planeNormal, origin - a );
 	float denumerator = dot( planeNormal, direction );
 
-	if( denumerator < 0.0f ) {
+	if( fabs( denumerator ) < 0.0000001f ) {
 		return tmax + 1.0f;
 	}
 
@@ -196,16 +215,50 @@ inline float checkPlaneIntersection( float4 origin, float4 ray, kdNode_t* node, 
 
 inline void checkTriangleIntersection(
 	float4 origin, float4 ray,
-	__constant struct kdNode_t* nodes, kdNode_t* node,
-	float t, float tmax, hit_t* result
+	__global float* kdNodeData1, __global int* kdNodeData2, int nodeIndex,
+	float tmax, hit_t* result
 ) {
-	float face0[3] = { nodes[node->face0].x, nodes[node->face0].y, nodes[node->face0].z };
-	float face1[3] = { nodes[node->face1].x, nodes[node->face1].y, nodes[node->face1].z };
+	int face0Index = kdNodeData2[nodeIndex * 5 + 1];
+	int face1Index = kdNodeData2[nodeIndex * 5 + 2];
 
-	float4 a = (float4)( node->x, node->y, node->z, 0.0f );
+	float face0[3] = {
+		kdNodeData1[face0Index * 3],
+		kdNodeData1[face0Index * 3 + 1],
+		kdNodeData1[face0Index * 3 + 2]
+	};
+	float face1[3] = {
+		kdNodeData1[face1Index * 3],
+		kdNodeData1[face1Index * 3 + 1],
+		kdNodeData1[face1Index * 3 + 2]
+	};
+
+	float4 a = (float4)(
+		kdNodeData1[nodeIndex * 3],
+		kdNodeData1[nodeIndex * 3 + 1],
+		kdNodeData1[nodeIndex * 3 + 2],
+		0.0f
+	);
 	float4 b = (float4)( face0[0], face0[1], face0[2], 0.0f );
 	float4 c = (float4)( face1[0], face1[1], face1[2], 0.0f );
-	float4 hit = origin + t * ( ray - origin );
+
+
+	float4 direction = ray - origin;
+	float4 planeNormal = cross( ( b - a ), ( c - a ) );
+	float denumerator = dot( planeNormal, direction );
+
+	if( fabs( denumerator ) < 0.0000001f ) {
+		return;
+	}
+
+	float numerator = -dot( planeNormal, origin - a );
+	float r = numerator / denumerator;
+
+	if( r < 0.0f ) {
+		return;
+	}
+
+
+	float4 hit = origin + r * direction;
 	hit.w = 0.0f;
 
 	float4 u = b - a;
@@ -222,15 +275,15 @@ inline void checkTriangleIntersection(
 	float wDotU = dot( w, u );
 
 	float d = uDotV * uDotV - uDotU * vDotV;
-	float r = ( uDotV * wDotV - vDotV * wDotU ) / d;
+	float s = ( uDotV * wDotV - vDotV * wDotU ) / d;
 
-	if( r < 0.0f || r > 1.0f ) {
+	if( s < 0.0f || s > 1.0f ) {
 		return;
 	}
 
-	float s = ( uDotV * wDotU - uDotU * wDotV ) / d;
+	float t = ( uDotV * wDotU - uDotU * wDotV ) / d;
 
-	if( s < 0.0f || ( r + s ) > 1.0f ) {
+	if( t < 0.0f || ( s + t ) > 1.0f ) {
 		return;
 	}
 
@@ -241,24 +294,25 @@ inline void checkTriangleIntersection(
 
 inline void descendKdTree(
 	float4 origin, float4 ray,
-	__constant struct kdNode_t* nodes, kdNode_t rootNode,
+	__global float* kdNodeData1, __global int* kdNodeData2, const uint kdRoot,
 	hit_t* result
 ) {
 	// Evil, don't do this. Has to be changed with model.
 	// (Recompile after string replacements like %STACK_SIZE%?)
-	stackEntry_t nodeStack[40];
+	stackEntry_t nodeStack[100];
 
 	int process = 0;
 	float tmin = 0.0f;
-	float tmax = 100.0f;
+	float tmax = 10000.0f;
 	uint axis = 0;
 
 	stackEntry_t first;
-	first.nodeIndex = rootNode.index;
+	first.nodeIndex = kdRoot;
 	first.axis = axis;
 	nodeStack[0] = first;
 
-	kdNode_t currentNode;
+	int nodeIndex;
+	int left, right;
 
 
 	while( process >= 0 ) {
@@ -267,47 +321,51 @@ inline void descendKdTree(
 			continue;
 		}
 
-		currentNode = nodes[nodeStack[process].nodeIndex];
+		nodeIndex = nodeStack[process].nodeIndex;
 		axis = nodeStack[process].axis;
+		left = kdNodeData2[nodeIndex * 5 + 3];
+		right = kdNodeData2[nodeIndex * 5 + 4];
 
-		float t = checkPlaneIntersection( origin, ray, &currentNode, axis, tmax );
+		float t = checkPlaneIntersection( origin, ray, kdNodeData1, nodeIndex, axis, tmax );
 
 		// Ray intersects with splitting plane
-		if( t > tmin && t <= tmax ) { // TODO: adjust tmin and tmax
+		if( t >= tmin && t <= tmax ) { // TODO: adjust tmin and tmax
 			hit_t newResult;
 			newResult.distance = -1.0f;
-			checkTriangleIntersection( origin, ray, nodes, &currentNode, t, tmax, &newResult );
+			checkTriangleIntersection( origin, ray, kdNodeData1, kdNodeData2, nodeIndex, tmax, &newResult );
 
 			if( newResult.distance > -1.0f ) {
 				if( result->distance < 0.0f || result->distance > newResult.distance ) {
 					result->distance = newResult.distance;
 					result->position = newResult.position;
-					result->normalIndices[0] = currentNode.index;
-					result->normalIndices[1] = currentNode.face0;
-					result->normalIndices[2] = currentNode.face1;
+					result->normalIndices[0] = kdNodeData2[nodeIndex * 5];
+					result->normalIndices[1] = kdNodeData2[nodeIndex * 5 + 1];
+					result->normalIndices[2] = kdNodeData2[nodeIndex * 5 + 2];
 				}
 			}
 
-			if( currentNode.left < 0 && currentNode.right < 0 ) {
+			if( left < 0 && right < 0 ) {
 				process--;
 				continue;
 			}
 
-			if( currentNode.left >= 0 ) {
-				stackEntry_t leftNode;
-				leftNode.nodeIndex = currentNode.left;
-				leftNode.axis = ( axis + 1 ) % 3;
-
-				process += ( currentNode.right >= 0 ) ? 1 : 0;
-				nodeStack[process] = leftNode;
-			}
-
-			if( currentNode.right >= 0 ) {
+			if( right >= 0 ) {
 				stackEntry_t rightNode;
-				rightNode.nodeIndex = currentNode.right;
+				rightNode.nodeIndex = right;
 				rightNode.axis = ( axis + 1 ) % 3;
 
 				nodeStack[process] = rightNode;
+			}
+
+			if( left >= 0 ) {
+				stackEntry_t leftNode;
+				leftNode.nodeIndex = left;
+				leftNode.axis = ( axis + 1 ) % 3;
+
+				if( right >= 0 ) {
+					process++;
+				}
+				nodeStack[process] = leftNode;
 			}
 		}
 
@@ -316,7 +374,7 @@ inline void descendKdTree(
 			stackEntry_t next;
 
 			float4 dir = ray - origin;
-			float coords[3] = { currentNode.x, currentNode.y, currentNode.z };
+			float nodeCoord = kdNodeData1[nodeIndex * 3 + axis];
 			float dirCoord;
 
 			switch( axis ) {
@@ -325,27 +383,9 @@ inline void descendKdTree(
 				case 2: dirCoord = dir.z; break;
 			}
 
-			// Ray on "right" side of the plane, proceed with only this part of the tree
-			if( coords[axis] < dirCoord ) {
-				if( currentNode.right >= 0 ) {
-					next.nodeIndex = currentNode.right;
-				}
-				else {
-					process--;
-					continue;
-				}
-			}
-			// Ray on "left" side of the plane, proceed with only this part of the tree
-			else {
-				if( currentNode.left >= 0 ) {
-					next.nodeIndex = currentNode.left;
-				}
-				else {
-					process--;
-					continue;
-				}
-			}
-
+			// Ray on "right" side of the plane, proceed with only this part of the tree,
+			// otherwise proceed with the "left" one.
+			next.nodeIndex = ( nodeCoord < dirCoord ) ? right : left;
 			next.axis = ( axis + 1 ) % 3;
 			nodeStack[process] = next;
 		}
@@ -356,7 +396,7 @@ inline void descendKdTree(
 __kernel void findIntersectionsKdTree(
 	__global float4* origins, __global float4* rays, __global float4* normals,
 	__global float* scNormals,
-	__constant struct kdNode_t* nodes, const uint kdRoot,
+	__global float* kdNodeData1, __global int* kdNodeData2, const uint kdRoot,
 	const float timeSinceStart
 ) {
 	uint workIndex = get_global_id( 0 ) + get_global_id( 1 ) * get_global_size( 1 );
@@ -364,14 +404,19 @@ __kernel void findIntersectionsKdTree(
 	float4 ray = rays[workIndex];
 	hit_t hit;
 	hit.distance = -1.0f;
-	descendKdTree( origin, ray, nodes, nodes[kdRoot], &hit );
+	hit.position = (float4)( 0.0f, 0.0f, 0.0f, -1.0f );
+
+	descendKdTree( origin, ray, kdNodeData1, kdNodeData2, kdRoot, &hit );
+
+
+	origins[workIndex] = hit.position;
+	rays[workIndex] = (float4)( 0.0f );
+	normals[workIndex] = (float4)( 0.0f );
 
 	if( hit.distance > -1.0f ) {
-		origins[workIndex] = hit.position;
-
-		uint nIndex0 = hit.normalIndices[0];
-		uint nIndex1 = hit.normalIndices[1];
-		uint nIndex2 = hit.normalIndices[2];
+		uint nIndex0 = hit.normalIndices[0] * 3; // index
+		uint nIndex1 = hit.normalIndices[1] * 3; // face0
+		uint nIndex2 = hit.normalIndices[2] * 3; // face1
 
 		float4 normal0 = (float4)( scNormals[nIndex0], scNormals[nIndex0 + 1], scNormals[nIndex0 + 2], 0.0f );
 		float4 normal1 = (float4)( scNormals[nIndex1], scNormals[nIndex1 + 1], scNormals[nIndex1 + 2], 0.0f );

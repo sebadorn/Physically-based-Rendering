@@ -25,6 +25,7 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices ) {
 		mNodes.push_back( node );
 	}
 
+	// TODO: Vertice can be part of multiple faces
 	for( unsigned int i = 0; i < indices.size(); i += 3 ) {
 		mNodes[indices[i]]->face0 = mNodes[indices[i + 1]]->index;
 		mNodes[indices[i]]->face1 = mNodes[indices[i + 2]]->index;
