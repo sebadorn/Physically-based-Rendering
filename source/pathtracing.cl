@@ -1,6 +1,22 @@
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
 
+typedef struct stackEntry_t {
+	float bbMin[3];
+	float bbMax[3];
+	int nodeIndex;
+	int axis;
+} stackEntry_t;
+
+
+typedef struct hit_t {
+	float4 position;
+	float distance;
+	int normalIndices[3];
+} hit_t;
+
+
+
 /**
  * Get a random value.
  * @param  {float4} scale
@@ -163,60 +179,10 @@ __kernel void accumulateColors(
 }
 
 
-typedef struct stackEntry_t {
-	int nodeIndex;
-	uint axis;
-} stackEntry_t;
-
-
-typedef struct hit_t {
-	float4 position;
-	float distance;
-	int normalIndices[3];
-} hit_t;
-
-
-inline float checkPlaneIntersection(
-	float4 origin, float4 ray,
-	__global float* kdNodeData1, int nodeIndex,
-	uint axis, float tmax
-) {
-	float4 a = (float4)(
-		kdNodeData1[nodeIndex * 3],
-		kdNodeData1[nodeIndex * 3 + 1],
-		kdNodeData1[nodeIndex * 3 + 2],
-		0.0f
-	);
-	float4 b = (float4)( a.x, a.y, a.z, 0.0f );
-	float4 c = (float4)( a.x, a.y, a.z, 0.0f );
-
-	if( axis == 0 ) {
-		b.y += 1.0f; c.z += 1.0f;
-	}
-	else if( axis == 1 ) {
-		b.x += 1.0f; c.z += 1.0f;
-	}
-	else if( axis == 2 ) {
-		b.x += 1.0f; c.y += 1.0f;
-	}
-
-	float4 direction = ray - origin;
-	float4 planeNormal = cross( ( b - a ), ( c - a ) );
-	float numerator = -dot( planeNormal, origin - a );
-	float denumerator = dot( planeNormal, direction );
-
-	if( fabs( denumerator ) < 0.0000001f ) {
-		return tmax + 1.0f;
-	}
-
-	return numerator / denumerator;
-}
-
-
-inline void checkTriangleIntersection(
+inline void checkFaceIntersection(
 	float4 origin, float4 ray,
 	__global float* kdNodeData1, __global int* kdNodeData2, int nodeIndex,
-	float tmax, hit_t* result
+	hit_t* result
 ) {
 	int face0Index = kdNodeData2[nodeIndex * 5 + 1];
 	int face1Index = kdNodeData2[nodeIndex * 5 + 2];
@@ -242,11 +208,12 @@ inline void checkTriangleIntersection(
 	float4 c = (float4)( face1[0], face1[1], face1[2], 0.0f );
 
 
-	float4 direction = ray - origin;
-	float4 planeNormal = cross( ( b - a ), ( c - a ) );
+	// First test: Intersection with plane of triangle
+	float4 direction = normalize( ray - origin );
+	float4 planeNormal = normalize( cross( ( b - a ), ( c - a ) ) );
 	float denumerator = dot( planeNormal, direction );
 
-	if( fabs( denumerator ) < 0.0000001f ) {
+	if( denumerator == 0.0f ) {
 		return;
 	}
 
@@ -258,6 +225,8 @@ inline void checkTriangleIntersection(
 	}
 
 
+	// The plane has been hit.
+	// Second test: Intersection with actual triangle
 	float4 hit = origin + r * direction;
 	hit.w = 0.0f;
 
@@ -292,8 +261,92 @@ inline void checkTriangleIntersection(
 }
 
 
+/*
+ * Fast Ray-Box Intersection
+ * by Andrew Woo
+ * from "Graphics Gems", Academic Press, 1990
+ */
+
+#define NUMDIM 3
+#define RIGHT 0
+#define LEFT 1
+#define MIDDLE 2
+
+inline bool hitBoundingBox( float* minB, float* maxB, float* origin, float* dir, float* coord ) {
+	bool inside = true;
+	int quadrant[NUMDIM];
+	int whichPlane;
+	int i;
+	float maxT[NUMDIM];
+	float candidatePlane[NUMDIM];
+
+	// Find candidate planes; this loop can be avoided if
+	// rays cast all from the eye(assume perpsective view)
+	for( i = 0; i < NUMDIM; i++ ) {
+		if( origin[i] < minB[i] ) {
+			quadrant[i] = LEFT;
+			candidatePlane[i] = minB[i];
+			inside = false;
+		}
+		else if( origin[i] > maxB[i] ) {
+			quadrant[i] = RIGHT;
+			candidatePlane[i] = maxB[i];
+			inside = false;
+		}
+		else {
+			quadrant[i] = MIDDLE;
+		}
+	}
+
+	// Ray origin inside bounding box
+	if( inside ) {
+		coord = origin;
+		return true;
+	}
+
+
+	// Calculate T distances to candidate planes
+	for( i = 0; i < NUMDIM; i++ ) {
+		if( quadrant[i] != MIDDLE && dir[i] != 0.0f ) {
+			maxT[i] = ( candidatePlane[i] - origin[i] ) / dir[i];
+		}
+		else {
+			maxT[i] = -1.0f;
+		}
+	}
+
+	// Get largest of the maxT's for final choice of intersection
+	whichPlane = 0;
+	for( i = 1; i < NUMDIM; i++ ) {
+		if( maxT[whichPlane] < maxT[i] ) {
+			whichPlane = i;
+		}
+	}
+
+	// Check final candidate actually inside box
+	if( maxT[whichPlane] < 0.0f ) {
+		return false;
+	}
+
+	for( i = 0; i < NUMDIM; i++ ) {
+		if( whichPlane != i ) {
+			coord[i] = origin[i] + maxT[whichPlane] * dir[i];
+
+			if( coord[i] < minB[i] || coord[i] > maxB[i] ) {
+				return false;
+			}
+		}
+		else {
+			coord[i] = candidatePlane[i];
+		}
+	}
+
+	return true;
+}
+
+
 inline void descendKdTree(
-	float4 origin, float4 ray,
+	float4 origin, float4 ray, __global float* bbox,
 	__global float* kdNodeData1, __global int* kdNodeData2, const uint kdRoot,
 	hit_t* result
 ) {
@@ -301,18 +354,23 @@ inline void descendKdTree(
 	// (Recompile after string replacements like %STACK_SIZE%?)
 	stackEntry_t nodeStack[100];
 
+	stackEntry_t node;
+	stackEntry_t nextNode;
+	node.nodeIndex = kdRoot;
+	node.axis = 0;
+	node.bbMin[0] = bbox[0]; node.bbMin[1] = bbox[1]; node.bbMin[2] = bbox[2];
+	node.bbMax[0] = bbox[3]; node.bbMax[1] = bbox[4]; node.bbMax[2] = bbox[5];
+	nodeStack[0] = node;
+
 	int process = 0;
-	float tmin = 0.0f;
-	float tmax = 10000.0f;
-	uint axis = 0;
-
-	stackEntry_t first;
-	first.nodeIndex = kdRoot;
-	first.axis = axis;
-	nodeStack[0] = first;
-
 	int nodeIndex;
 	int left, right;
+
+	float4 dir = normalize( ray - origin );
+	float dirCoords[3] = { dir.x, dir.y, dir.z };
+	float originCoords[3] = { origin.x, origin.y, origin.z };
+	// float rayCoords[3] = { ray.x, ray.y, ray.z };
+	float hitCoords[3];
 
 
 	while( process >= 0 ) {
@@ -321,18 +379,16 @@ inline void descendKdTree(
 			continue;
 		}
 
-		nodeIndex = nodeStack[process].nodeIndex;
-		axis = nodeStack[process].axis;
-		left = kdNodeData2[nodeIndex * 5 + 3];
-		right = kdNodeData2[nodeIndex * 5 + 4];
+		node = nodeStack[process];
+		bool hitsBB = hitBoundingBox( node.bbMin, node.bbMax, originCoords, dirCoords, hitCoords );
 
-		float t = checkPlaneIntersection( origin, ray, kdNodeData1, nodeIndex, axis, tmax );
-
-		// Ray intersects with splitting plane
-		if( t >= tmin && t <= tmax ) { // TODO: adjust tmin and tmax
+		// Ray intersects with bounding box of node
+		if( hitsBB ) {
+			nodeIndex = node.nodeIndex;
 			hit_t newResult;
 			newResult.distance = -1.0f;
-			checkTriangleIntersection( origin, ray, kdNodeData1, kdNodeData2, nodeIndex, tmax, &newResult );
+
+			checkFaceIntersection( origin, ray, kdNodeData1, kdNodeData2, nodeIndex, &newResult );
 
 			if( newResult.distance > -1.0f ) {
 				if( result->distance < 0.0f || result->distance > newResult.distance ) {
@@ -344,50 +400,36 @@ inline void descendKdTree(
 				}
 			}
 
+			left = kdNodeData2[nodeIndex * 5 + 3];
+			right = kdNodeData2[nodeIndex * 5 + 4];
+
 			if( left < 0 && right < 0 ) {
 				process--;
 				continue;
 			}
 
-			if( right >= 0 ) {
-				stackEntry_t rightNode;
-				rightNode.nodeIndex = right;
-				rightNode.axis = ( axis + 1 ) % 3;
-
-				nodeStack[process] = rightNode;
-			}
+			nextNode.axis = ( node.axis + 1 ) % 3;
+			nextNode.bbMin[0] = node.bbMin[0]; nextNode.bbMin[1] = node.bbMin[1]; nextNode.bbMin[2] = node.bbMin[2];
+			nextNode.bbMax[0] = node.bbMax[0]; nextNode.bbMax[1] = node.bbMax[1]; nextNode.bbMax[2] = node.bbMax[2];
 
 			if( left >= 0 ) {
-				stackEntry_t leftNode;
-				leftNode.nodeIndex = left;
-				leftNode.axis = ( axis + 1 ) % 3;
+				nextNode.nodeIndex = left;
+				nextNode.bbMax[node.axis] = kdNodeData1[nodeIndex * 3 + node.axis];
 
-				if( right >= 0 ) {
-					process++;
-				}
-				nodeStack[process] = leftNode;
+				nodeStack[process] = nextNode;
+			}
+
+			if( right >= 0 ) {
+				nextNode.nodeIndex = right;
+				nextNode.bbMax[node.axis] = node.bbMax[node.axis];
+				nextNode.bbMin[node.axis] = kdNodeData1[nodeIndex * 3 + node.axis];
+
+				if( left >= 0 ) { process++; }
+				nodeStack[process] = nextNode;
 			}
 		}
-
-		// Ray doesn't intersect splitting plane
 		else {
-			stackEntry_t next;
-
-			float4 dir = ray - origin;
-			float nodeCoord = kdNodeData1[nodeIndex * 3 + axis];
-			float dirCoord;
-
-			switch( axis ) {
-				case 0: dirCoord = dir.x; break;
-				case 1: dirCoord = dir.y; break;
-				case 2: dirCoord = dir.z; break;
-			}
-
-			// Ray on "right" side of the plane, proceed with only this part of the tree,
-			// otherwise proceed with the "left" one.
-			next.nodeIndex = ( nodeCoord < dirCoord ) ? right : left;
-			next.axis = ( axis + 1 ) % 3;
-			nodeStack[process] = next;
+			process--;
 		}
 	}
 }
@@ -395,148 +437,30 @@ inline void descendKdTree(
 
 __kernel void findIntersectionsKdTree(
 	__global float4* origins, __global float4* rays, __global float4* normals,
-	__global float* scNormals,
+	__global float* scNormals, __global float* bbox,
 	__global float* kdNodeData1, __global int* kdNodeData2, const uint kdRoot,
 	const float timeSinceStart
 ) {
 	uint workIndex = get_global_id( 0 ) + get_global_id( 1 ) * get_global_size( 1 );
 	float4 origin = origins[workIndex];
 	float4 ray = rays[workIndex];
+
+	if( origin.w <= -1.0f ) {
+		return;
+	}
+
 	hit_t hit;
-	hit.distance = -1.0f;
-	hit.position = (float4)( 0.0f, 0.0f, 0.0f, -1.0f );
+	hit.distance = -2.0f;
+	hit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
 
-	descendKdTree( origin, ray, kdNodeData1, kdNodeData2, kdRoot, &hit );
-
+	descendKdTree( origin, ray, bbox, kdNodeData1, kdNodeData2, kdRoot, &hit );
 
 	origins[workIndex] = hit.position;
-	rays[workIndex] = (float4)( 0.0f );
-	normals[workIndex] = (float4)( 0.0f );
 
 	if( hit.distance > -1.0f ) {
 		uint nIndex0 = hit.normalIndices[0] * 3; // index
 		uint nIndex1 = hit.normalIndices[1] * 3; // face0
 		uint nIndex2 = hit.normalIndices[2] * 3; // face1
-
-		float4 normal0 = (float4)( scNormals[nIndex0], scNormals[nIndex0 + 1], scNormals[nIndex0 + 2], 0.0f );
-		float4 normal1 = (float4)( scNormals[nIndex1], scNormals[nIndex1 + 1], scNormals[nIndex1 + 2], 0.0f );
-		float4 normal2 = (float4)( scNormals[nIndex2], scNormals[nIndex2 + 1], scNormals[nIndex2 + 2], 0.0f );
-
-		float4 normal = normalize( ( normal0 + normal1 + normal2 ) / 3.0f );
-
-		rays[workIndex] = cosineWeightedDirection( timeSinceStart, normal );
-		normals[workIndex] = normal;
-	}
-}
-
-
-/**
- * Kernel for finding the closest intersections of the rays with the scene.
- * @param {__global float4*} origins    Origins of the rays.
- * @param {__global float4*} rays       The rays into the scene.
- * @param {__global float4*} normals    Output. Normals of the hit surfaces.
- * @param {__global uint*}   scIndices  Indices of the objects in the scene.
- * @param {__global float*}  scVertices Vertices of the scene.
- * @param {__global float*}  scNormals  Normals of the vertices in the scene.
- * @param {const uint}       numIndices Number of indices.
- */
-__kernel void findIntersections(
-	__global float4* origins, __global float4* rays, __global float4* normals,
-	__global uint* scIndices, __global float* scVertices, __global float* scNormals,
-	const uint numIndices, const float timeSinceStart
-) {
-	uint workIndex = get_global_id( 0 ) + get_global_id( 1 ) * get_global_size( 1 );
-
-	float4 origin = origins[workIndex];
-
-	// Initial rays have a <w> value of 0.0f.
-	// Negative values are only present in rays that previously didn't hit anything.
-	// Those rays aren't of any interest.
-	if( origin.w < -1.0f ) {
-		return;
-	}
-
-	float4 ray = rays[workIndex];
-	float4 dir = ray - origin;
-	dir.w = 0.0f;
-
-	uint index0, index1, index2;
-	float4 a, b, c, planeNormal;
-	float denumerator, numerator, r;
-
-	uint4 normalIndices = (uint4)( 0.0f );
-	float4 closestHit = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
-
-
-	for( uint i = 0; i < numIndices; i += 3 ) {
-		index0 = scIndices[i] * 3;
-		index1 = scIndices[i + 1] * 3;
-		index2 = scIndices[i + 2] * 3;
-
-		a = (float4)( scVertices[index0], scVertices[index0 + 1], scVertices[index0 + 2], 0.0f );
-		b = (float4)( scVertices[index1], scVertices[index1 + 1], scVertices[index1 + 2], 0.0f );
-		c = (float4)( scVertices[index2], scVertices[index2 + 1], scVertices[index2 + 2], 0.0f );
-
-		// First test: Intersection with plane of triangle
-		planeNormal = cross( ( b - a ), ( c - a ) );
-		denumerator = dot( planeNormal, dir );
-
-		if( denumerator == 0.0f ) {
-			continue;
-		}
-
-		numerator = -dot( planeNormal, origin - a );
-		r = numerator / denumerator;
-
-		if( r < 0.0f ) {
-			continue;
-		}
-
-		// The plane has been hit.
-		// Second test: Intersection with actual triangle
-		float4 hit = origin + r * dir;
-		hit.w = 0.0f;
-
-		float4 u = b - a;
-		float4 v = c - a;
-		float4 w = hit - a;
-		u.w = 0.0f;
-		v.w = 0.0f;
-		w.w = 0.0f;
-
-		float uDotU = dot( u, u );
-		float uDotV = dot( u, v );
-		float vDotV = dot( v, v );
-		float wDotV = dot( w, v );
-		float wDotU = dot( w, u );
-		float d = uDotV * uDotV - uDotU * vDotV;
-		float s = ( uDotV * wDotV - vDotV * wDotU ) / d;
-
-		if( s < 0.0f || s > 1.0f ) {
-			continue;
-		}
-
-		float t = ( uDotV * wDotU - uDotU * wDotV ) / d;
-
-		if( t < 0.0f || ( s + t ) > 1.0f ) {
-			continue;
-		}
-
-		if( closestHit.w < -1.0f || length( hit - origin ) < length( closestHit - origin ) ) {
-			closestHit = hit;
-			normalIndices.x = index0;
-			normalIndices.y = index1;
-			normalIndices.z = index2;
-		}
-	}
-
-
-	origins[workIndex] = closestHit;
-
-	if( closestHit.w > -1.0f ) {
-		uint nIndex0 = normalIndices.x;
-		uint nIndex1 = normalIndices.y;
-		uint nIndex2 = normalIndices.z;
 
 		float4 normal0 = (float4)( scNormals[nIndex0], scNormals[nIndex0 + 1], scNormals[nIndex0 + 2], 0.0f );
 		float4 normal1 = (float4)( scNormals[nIndex1], scNormals[nIndex1 + 1], scNormals[nIndex1 + 2], 0.0f );
@@ -599,3 +523,125 @@ __kernel void generateRays(
 	accColors[workIndex] = (float4)( 0.0f );
 	colorMasks[workIndex] = (float4)( 1.0f );
 }
+
+
+
+
+// /**
+//  * Kernel for finding the closest intersections of the rays with the scene.
+//  * @param {__global float4*} origins    Origins of the rays.
+//  * @param {__global float4*} rays       The rays into the scene.
+//  * @param {__global float4*} normals    Output. Normals of the hit surfaces.
+//  * @param {__global uint*}   scIndices  Indices of the objects in the scene.
+//  * @param {__global float*}  scVertices Vertices of the scene.
+//  * @param {__global float*}  scNormals  Normals of the vertices in the scene.
+//  * @param {const uint}       numIndices Number of indices.
+//  */
+// __kernel void findIntersections(
+// 	__global float4* origins, __global float4* rays, __global float4* normals,
+// 	__global uint* scIndices, __global float* scVertices, __global float* scNormals,
+// 	const uint numIndices, const float timeSinceStart
+// ) {
+// 	uint workIndex = get_global_id( 0 ) + get_global_id( 1 ) * get_global_size( 1 );
+
+// 	float4 origin = origins[workIndex];
+
+// 	// Initial rays have a <w> value of 0.0f.
+// 	// Negative values are only present in rays that previously didn't hit anything.
+// 	// Those rays aren't of any interest.
+// 	if( origin.w < -1.0f ) {
+// 		return;
+// 	}
+
+// 	float4 ray = rays[workIndex];
+// 	float4 dir = ray - origin;
+// 	dir.w = 0.0f;
+
+// 	uint index0, index1, index2;
+// 	float4 a, b, c, planeNormal;
+// 	float denumerator, numerator, r;
+
+// 	uint4 normalIndices = (uint4)( 0.0f );
+// 	float4 closestHit = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
+
+
+// 	for( uint i = 0; i < numIndices; i += 3 ) {
+// 		index0 = scIndices[i] * 3;
+// 		index1 = scIndices[i + 1] * 3;
+// 		index2 = scIndices[i + 2] * 3;
+
+// 		a = (float4)( scVertices[index0], scVertices[index0 + 1], scVertices[index0 + 2], 0.0f );
+// 		b = (float4)( scVertices[index1], scVertices[index1 + 1], scVertices[index1 + 2], 0.0f );
+// 		c = (float4)( scVertices[index2], scVertices[index2 + 1], scVertices[index2 + 2], 0.0f );
+
+// 		// First test: Intersection with plane of triangle
+// 		planeNormal = cross( ( b - a ), ( c - a ) );
+// 		denumerator = dot( planeNormal, dir );
+
+// 		if( denumerator == 0.0f ) {
+// 			continue;
+// 		}
+
+// 		numerator = -dot( planeNormal, origin - a );
+// 		r = numerator / denumerator;
+
+// 		if( r < 0.0f ) {
+// 			continue;
+// 		}
+
+// 		// The plane has been hit.
+// 		// Second test: Intersection with actual triangle
+// 		float4 hit = origin + r * dir;
+// 		hit.w = 0.0f;
+
+// 		float4 u = b - a;
+// 		float4 v = c - a;
+// 		float4 w = hit - a;
+// 		u.w = 0.0f;
+// 		v.w = 0.0f;
+// 		w.w = 0.0f;
+
+// 		float uDotU = dot( u, u );
+// 		float uDotV = dot( u, v );
+// 		float vDotV = dot( v, v );
+// 		float wDotV = dot( w, v );
+// 		float wDotU = dot( w, u );
+// 		float d = uDotV * uDotV - uDotU * vDotV;
+// 		float s = ( uDotV * wDotV - vDotV * wDotU ) / d;
+
+// 		if( s < 0.0f || s > 1.0f ) {
+// 			continue;
+// 		}
+
+// 		float t = ( uDotV * wDotU - uDotU * wDotV ) / d;
+
+// 		if( t < 0.0f || ( s + t ) > 1.0f ) {
+// 			continue;
+// 		}
+
+// 		if( closestHit.w < -1.0f || length( hit - origin ) < length( closestHit - origin ) ) {
+// 			closestHit = hit;
+// 			normalIndices.x = index0;
+// 			normalIndices.y = index1;
+// 			normalIndices.z = index2;
+// 		}
+// 	}
+
+
+// 	origins[workIndex] = closestHit;
+
+// 	if( closestHit.w > -1.0f ) {
+// 		uint nIndex0 = normalIndices.x;
+// 		uint nIndex1 = normalIndices.y;
+// 		uint nIndex2 = normalIndices.z;
+
+// 		float4 normal0 = (float4)( scNormals[nIndex0], scNormals[nIndex0 + 1], scNormals[nIndex0 + 2], 0.0f );
+// 		float4 normal1 = (float4)( scNormals[nIndex1], scNormals[nIndex1 + 1], scNormals[nIndex1 + 2], 0.0f );
+// 		float4 normal2 = (float4)( scNormals[nIndex2], scNormals[nIndex2 + 1], scNormals[nIndex2 + 2], 0.0f );
+
+// 		float4 normal = normalize( ( normal0 + normal1 + normal2 ) / 3.0f );
+
+// 		rays[workIndex] = cosineWeightedDirection( timeSinceStart, normal );
+// 		normals[workIndex] = normal;
+// 	}
+// }

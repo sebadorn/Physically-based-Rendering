@@ -97,6 +97,7 @@ class GLWidget : public QGLWidget {
 		bool mDoRendering;
 		int mSelectedLight;
 		cl_float mFOV;
+		cl_float* mBoundingBox;
 
 		bool mViewBoundingBox;
 		bool mViewKdTree;
@@ -137,6 +138,7 @@ class GLWidget : public QGLWidget {
 		cl_mem mBufScIndices;
 		cl_mem mBufScVertices;
 		cl_mem mBufScNormals;
+		cl_mem mBufBoundingBox;
 
 		cl_mem mBufKdNodes;
 		cl_mem mBufKdNodeData1;
