@@ -281,7 +281,7 @@ inline bool hitBoundingBox( float* minB, float* maxB, float* origin, float* dir,
 	float candidatePlane[NUMDIM];
 
 	// Find candidate planes; this loop can be avoided if
-	// rays cast all from the eye(assume perpsective view)
+	// rays cast all from the eye (assume perspective view)
 	for( i = 0; i < NUMDIM; i++ ) {
 		if( origin[i] < minB[i] ) {
 			quadrant[i] = LEFT;
@@ -352,7 +352,7 @@ inline void descendKdTree(
 ) {
 	// Evil, don't do this. Has to be changed with model.
 	// (Recompile after string replacements like %STACK_SIZE%?)
-	stackEntry_t nodeStack[100];
+	stackEntry_t nodeStack[40];
 
 	stackEntry_t node;
 	stackEntry_t nextNode;
@@ -372,6 +372,9 @@ inline void descendKdTree(
 	// float rayCoords[3] = { ray.x, ray.y, ray.z };
 	float hitCoords[3];
 
+	hit_t newResult;
+	bool hitsBB;
+
 
 	while( process >= 0 ) {
 		if( nodeStack[process].nodeIndex == -1 ) {
@@ -380,12 +383,11 @@ inline void descendKdTree(
 		}
 
 		node = nodeStack[process];
-		bool hitsBB = hitBoundingBox( node.bbMin, node.bbMax, originCoords, dirCoords, hitCoords );
+		hitsBB = hitBoundingBox( node.bbMin, node.bbMax, originCoords, dirCoords, hitCoords );
 
 		// Ray intersects with bounding box of node
 		if( hitsBB ) {
 			nodeIndex = node.nodeIndex;
-			hit_t newResult;
 			newResult.distance = -1.0f;
 
 			checkFaceIntersection( origin, ray, kdNodeData1, kdNodeData2, nodeIndex, &newResult );
@@ -409,8 +411,12 @@ inline void descendKdTree(
 			}
 
 			nextNode.axis = ( node.axis + 1 ) % 3;
-			nextNode.bbMin[0] = node.bbMin[0]; nextNode.bbMin[1] = node.bbMin[1]; nextNode.bbMin[2] = node.bbMin[2];
-			nextNode.bbMax[0] = node.bbMax[0]; nextNode.bbMax[1] = node.bbMax[1]; nextNode.bbMax[2] = node.bbMax[2];
+			nextNode.bbMin[0] = node.bbMin[0];
+			nextNode.bbMin[1] = node.bbMin[1];
+			nextNode.bbMin[2] = node.bbMin[2];
+			nextNode.bbMax[0] = node.bbMax[0];
+			nextNode.bbMax[1] = node.bbMax[1];
+			nextNode.bbMax[2] = node.bbMax[2];
 
 			if( left >= 0 ) {
 				nextNode.nodeIndex = left;
