@@ -9,7 +9,7 @@ using namespace boost::property_tree;
  */
 ModelLoader::ModelLoader() {
 	// Doc: http://assimp.sourceforge.net/lib_html/postprocess_8h.html
-	mAssimpFlags = //aiProcess_JoinIdenticalVertices |
+	mAssimpFlags = aiProcess_JoinIdenticalVertices |
 	               aiProcess_Triangulate |
 	               aiProcess_GenNormals;
 	               //aiProcess_SortByPType |

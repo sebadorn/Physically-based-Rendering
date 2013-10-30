@@ -36,35 +36,48 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices ) {
 		c = indices[i + 2];
 
 		// Tell each node of this face, that it is a part of this face
-		mNodes[a]->faces.push_back( b ); mNodes[a]->faces.push_back( c );
-		mNodes[b]->faces.push_back( a ); mNodes[b]->faces.push_back( c );
-		mNodes[c]->faces.push_back( a ); mNodes[c]->faces.push_back( b );
+		mNodes[a]->faces.push_back( b );
+		mNodes[a]->faces.push_back( c );
+		mNodes[b]->faces.push_back( a );
+		mNodes[b]->faces.push_back( c );
+		mNodes[c]->faces.push_back( a );
+		mNodes[c]->faces.push_back( b );
 	}
 
 	// Remove duplicates
+	bool alreadyInList;
+
 	for( i = 0; i < mNodes.size(); i++ ) {
 		kdNode_t* node = mNodes[i];
 		vector<cl_int> purged = vector<cl_int>();
 
 		for( j = 0; j < node->faces.size(); j += 2 ) {
+			alreadyInList = false;
 			b = node->faces[j];
 			c = node->faces[j + 1];
 
 			for( k = 0; k < node->faces.size(); k += 2 ) {
 				if(
-					( node->faces[k] != b || node->faces[k + 1] != c ) &&
-					( node->faces[k] != c || node->faces[k + 1] != b )
+					k != j &&
+					( node->faces[k] == b && node->faces[k + 1] == c ) ||
+					( node->faces[k] == c && node->faces[k + 1] == b )
 				) {
-					purged.push_back( b );
-					purged.push_back( c );
+					alreadyInList = true;
+					break;
 				}
+			}
+
+			if( !alreadyInList ) {
+				purged.push_back( b );
+				purged.push_back( c );
 			}
 		}
 
 		node->faces = purged;
 	}
 
-	mRoot = mNodes[this->makeTree( mNodes, 0 )];
+	int rootIndex = this->makeTree( mNodes, 0 );
+	mRoot = mNodes[rootIndex];
 }
 
 
@@ -118,11 +131,6 @@ bool KdTree::compFunc2( kdNode_t* a, kdNode_t* b ) {
  * @return {kdNode_t*}                     The object that is the median.
  */
 kdNode_t* KdTree::findMedian( vector<kdNode_t*>* nodes, int axis ) {
-	if( nodes->size() == 0 ) {
-		kdNode_t* end;
-		end->index = -1;
-		return end;
-	}
 	if( nodes->size() == 1 ) {
 		return (*nodes)[0];
 	}
@@ -146,7 +154,7 @@ kdNode_t* KdTree::findMedian( vector<kdNode_t*>* nodes, int axis ) {
 
 	}
 
-	int index = round( nodes->size() / 2 ) - 1;
+	int index = floor( nodes->size() / 2.0f );
 	kdNode_t* median = (*nodes)[index];
 
 	return median;
@@ -190,15 +198,11 @@ int KdTree::makeTree( vector<kdNode_t*> nodes, int axis ) {
 
 	kdNode_t* median = this->findMedian( &nodes, axis );
 
-	if( median->index == -1 ) {
-		return -1;
-	}
-
 	vector<kdNode_t*> left;
 	vector<kdNode_t*> right;
 	bool leftSide = true;
 
-	for( int i = 0; i < nodes.size(); i++ ) {
+	for( unsigned int i = 0; i < nodes.size(); i++ ) {
 		if( leftSide ) {
 			if( nodes[i] == median ) {
 				leftSide = false;
@@ -212,15 +216,9 @@ int KdTree::makeTree( vector<kdNode_t*> nodes, int axis ) {
 		}
 	}
 
-	if( nodes.size() == 2 ) {
-		median->left = ( left.size() == 0 ) ? -1 : left[0]->index;
-		median->right = ( right.size() == 0 ) ? -1 : right[0]->index;
-	}
-	else {
-		axis = ( axis + 1 ) % KD_DIM;
-		median->left = this->makeTree( left, axis );
-		median->right = this->makeTree( right, axis );
-	}
+	axis = ( axis + 1 ) % KD_DIM;
+	median->left = this->makeTree( left, axis );
+	median->right = this->makeTree( right, axis );
 
 	return median->index;
 }
@@ -276,7 +274,11 @@ void KdTree::visualize( float* bbMin, float* bbMax, vector<float>* vertices, vec
  * @param {std::vector<unsigned int>*} indices  Vector to put the indices into.
  * @param {unsigned int}               axis     Current axis.
  */
-void KdTree::visualizeNextNode( kdNode_t* node, float* bbMin, float* bbMax, vector<float>* vertices, vector<unsigned int>* indices, unsigned int axis ) {
+void KdTree::visualizeNextNode(
+	kdNode_t* node, float* bbMin, float* bbMax,
+	vector<float>* vertices, vector<unsigned int>* indices,
+	unsigned int axis
+) {
 	if( node->index == -1 ) {
 		return;
 	}
@@ -348,12 +350,18 @@ void KdTree::visualizeNextNode( kdNode_t* node, float* bbMin, float* bbMax, vect
 
 	// Proceed with left side
 	if( node->left > -1 ) {
-		this->visualizeNextNode( mNodes[node->left], bbMinLeft, bbMaxLeft, vertices, indices, axis );
+		this->visualizeNextNode(
+			mNodes[node->left], bbMinLeft, bbMaxLeft,
+			vertices, indices, axis
+		);
 	}
 
 	// Proceed width right side
 	if( node->right > -1 ) {
-		this->visualizeNextNode( mNodes[node->right], bbMinRight, bbMaxRight, vertices, indices, axis );
+		this->visualizeNextNode(
+			mNodes[node->right], bbMinRight, bbMaxRight,
+			vertices, indices, axis
+		);
 	}
 }
 

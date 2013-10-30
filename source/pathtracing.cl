@@ -51,12 +51,9 @@ inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	float4 sdir, tdir;
 
 	// TODO: What is happening here?
-	if( fabs( normal.x ) < 0.5f ) {
-		sdir = cross( normal, (float4)( 1.0f, 0.0f, 0.0f, 0.0f ) );
-	}
-	else {
-		sdir = cross( normal, (float4)( 0.0f, 1.0f, 0.0f, 0.0f ) );
-	}
+	sdir = ( fabs( normal.x ) < 0.5f )
+	     ? cross( normal, (float4)( 1.0f, 0.0f, 0.0f, 0.0f ) )
+	     : cross( normal, (float4)( 0.0f, 1.0f, 0.0f, 0.0f ) );
 
 	tdir = cross( normal, sdir );
 
@@ -184,30 +181,6 @@ inline void checkFaceIntersection(
 	float4 a, float4 b, float4 c,
 	hit_t* result
 ) {
-	int face0Index = kdNodeData2[nodeIndex * 5 + 1];
-	int face1Index = kdNodeData2[nodeIndex * 5 + 2];
-
-	float face0[3] = {
-		kdNodeData1[face0Index * 3],
-		kdNodeData1[face0Index * 3 + 1],
-		kdNodeData1[face0Index * 3 + 2]
-	};
-	float face1[3] = {
-		kdNodeData1[face1Index * 3],
-		kdNodeData1[face1Index * 3 + 1],
-		kdNodeData1[face1Index * 3 + 2]
-	};
-
-	float4 a = (float4)(
-		kdNodeData1[nodeIndex * 3],
-		kdNodeData1[nodeIndex * 3 + 1],
-		kdNodeData1[nodeIndex * 3 + 2],
-		0.0f
-	);
-	float4 b = (float4)( face0[0], face0[1], face0[2], 0.0f );
-	float4 c = (float4)( face1[0], face1[1], face1[2], 0.0f );
-
-
 	// First test: Intersection with plane of triangle
 	float4 direction = normalize( ray - origin );
 	float4 planeNormal = normalize( cross( ( b - a ), ( c - a ) ) );
@@ -283,6 +256,8 @@ inline bool hitBoundingBox( float* minB, float* maxB, float* origin, float* dir,
 	// Find candidate planes; this loop can be avoided if
 	// rays cast all from the eye (assume perspective view)
 	for( i = 0; i < NUMDIM; i++ ) {
+		quadrant[i] = MIDDLE;
+
 		if( origin[i] < minB[i] ) {
 			quadrant[i] = LEFT;
 			candidatePlane[i] = minB[i];
@@ -292,9 +267,6 @@ inline bool hitBoundingBox( float* minB, float* maxB, float* origin, float* dir,
 			quadrant[i] = RIGHT;
 			candidatePlane[i] = maxB[i];
 			inside = false;
-		}
-		else {
-			quadrant[i] = MIDDLE;
 		}
 	}
 
@@ -307,20 +279,15 @@ inline bool hitBoundingBox( float* minB, float* maxB, float* origin, float* dir,
 
 	// Calculate T distances to candidate planes
 	for( i = 0; i < NUMDIM; i++ ) {
-		if( quadrant[i] != MIDDLE && dir[i] != 0.0f ) {
-			maxT[i] = ( candidatePlane[i] - origin[i] ) / dir[i];
-		}
-		else {
-			maxT[i] = -1.0f;
-		}
+		maxT[i] = ( quadrant[i] != MIDDLE && dir[i] != 0.0f )
+		        ? ( candidatePlane[i] - origin[i] ) / dir[i]
+		        : -1.0f;
 	}
 
 	// Get largest of the maxT's for final choice of intersection
 	whichPlane = 0;
 	for( i = 1; i < NUMDIM; i++ ) {
-		if( maxT[whichPlane] < maxT[i] ) {
-			whichPlane = i;
-		}
+		whichPlane = ( maxT[whichPlane] < maxT[i] ) ? i : whichPlane;
 	}
 
 	// Check final candidate actually inside box
@@ -329,15 +296,12 @@ inline bool hitBoundingBox( float* minB, float* maxB, float* origin, float* dir,
 	}
 
 	for( i = 0; i < NUMDIM; i++ ) {
-		if( whichPlane != i ) {
-			coord[i] = origin[i] + maxT[whichPlane] * dir[i];
+		coord[i] = ( whichPlane != i )
+		         ? origin[i] + maxT[whichPlane] * dir[i]
+		         : candidatePlane[i];
 
-			if( coord[i] < minB[i] || coord[i] > maxB[i] ) {
-				return false;
-			}
-		}
-		else {
-			coord[i] = candidatePlane[i];
+		if( coord[i] < minB[i] || coord[i] > maxB[i] ) {
+			return false;
 		}
 	}
 
@@ -371,11 +335,11 @@ inline void descendKdTree(
 	float4 dir = normalize( ray - origin );
 	float dirCoords[3] = { dir.x, dir.y, dir.z };
 	float originCoords[3] = { origin.x, origin.y, origin.z };
-	// float rayCoords[3] = { ray.x, ray.y, ray.z };
 	float hitCoords[3];
 
 	hit_t newResult;
 	bool hitsBB;
+	int vIndexB, vIndexC;
 
 
 	while( process >= 0 ) {
@@ -390,8 +354,6 @@ inline void descendKdTree(
 		// Ray intersects with bounding box of node
 		if( hitsBB ) {
 			nodeIndex = node.nodeIndex;
-			newResult.distance = -1.0f;
-
 			faceIndex = kdNodeData2[nodeIndex * 4 + 3];
 
 			a = (float4)(
@@ -404,8 +366,8 @@ inline void descendKdTree(
 			// Check all faces this vertex belongs to
 			i = 0;
 			while( i < kdNodeData3[faceIndex] ) {
-				int vIndexB = kdNodeData3[faceIndex + i * 2 + 1];
-				int vIndexC = kdNodeData3[faceIndex + i * 2 + 2];
+				vIndexB = kdNodeData3[faceIndex + i * 2 + 1] * 3;
+				vIndexC = kdNodeData3[faceIndex + i * 2 + 2] * 3;
 
 				b = (float4)(
 					kdNodeData1[vIndexB],
@@ -420,16 +382,19 @@ inline void descendKdTree(
 					0.0f
 				);
 
+				newResult.distance = -1.0f;
+
 				checkFaceIntersection( origin, ray, a, b, c, &newResult );
 
-				if( newResult.distance > -1.0f ) {
-					if( result->distance < 0.0f || result->distance > newResult.distance ) {
-						result->distance = newResult.distance;
-						result->position = newResult.position;
-						result->normalIndices[0] = kdNodeData2[nodeIndex * 4];
-						result->normalIndices[1] = vIndexB;
-						result->normalIndices[2] = vIndexC;
-					}
+				if(
+					newResult.distance > -1.0f &&
+					( result->distance < 0.0f || result->distance > newResult.distance )
+				) {
+					result->distance = newResult.distance;
+					result->position = newResult.position;
+					result->normalIndices[0] = kdNodeData2[nodeIndex * 4];
+					result->normalIndices[1] = vIndexB;
+					result->normalIndices[2] = vIndexC;
 				}
 
 				i++;
@@ -454,21 +419,14 @@ inline void descendKdTree(
 			nextNode.bbMax[1] = node.bbMax[1];
 			nextNode.bbMax[2] = node.bbMax[2];
 
-			if( left >= 0 ) {
-				nextNode.nodeIndex = left;
-				nextNode.bbMax[node.axis] = kdNodeData1[nodeIndex * 3 + node.axis];
+			nextNode.nodeIndex = right;
+			nextNode.bbMin[node.axis] = kdNodeData1[nodeIndex * 3 + node.axis];
+			nodeStack[process] = nextNode;
 
-				nodeStack[process] = nextNode;
-			}
-
-			if( right >= 0 ) {
-				nextNode.nodeIndex = right;
-				nextNode.bbMax[node.axis] = node.bbMax[node.axis];
-				nextNode.bbMin[node.axis] = kdNodeData1[nodeIndex * 3 + node.axis];
-
-				if( left >= 0 ) { process++; }
-				nodeStack[process] = nextNode;
-			}
+			nextNode.nodeIndex = left;
+			nextNode.bbMin[node.axis] = node.bbMin[node.axis];
+			nextNode.bbMax[node.axis] = kdNodeData1[nodeIndex * 3 + node.axis];
+			nodeStack[++process] = nextNode;
 		}
 		else {
 			process--;
@@ -501,14 +459,15 @@ __kernel void findIntersectionsKdTree(
 
 	if( hit.distance > -1.0f ) {
 		uint nIndex0 = hit.normalIndices[0] * 3; // index
-		uint nIndex1 = hit.normalIndices[1] * 3; // face0
-		uint nIndex2 = hit.normalIndices[2] * 3; // face1
+		// uint nIndex1 = hit.normalIndices[1] * 3; // face0
+		// uint nIndex2 = hit.normalIndices[2] * 3; // face1
 
 		float4 normal0 = (float4)( scNormals[nIndex0], scNormals[nIndex0 + 1], scNormals[nIndex0 + 2], 0.0f );
-		float4 normal1 = (float4)( scNormals[nIndex1], scNormals[nIndex1 + 1], scNormals[nIndex1 + 2], 0.0f );
-		float4 normal2 = (float4)( scNormals[nIndex2], scNormals[nIndex2 + 1], scNormals[nIndex2 + 2], 0.0f );
+		// float4 normal1 = (float4)( scNormals[nIndex1], scNormals[nIndex1 + 1], scNormals[nIndex1 + 2], 0.0f );
+		// float4 normal2 = (float4)( scNormals[nIndex2], scNormals[nIndex2 + 1], scNormals[nIndex2 + 2], 0.0f );
 
-		float4 normal = normalize( ( normal0 + normal1 + normal2 ) / 3.0f );
+		// float4 normal = normalize( ( normal0 + normal1 + normal2 ) / 3.0f );
+		float4 normal = normalize( normal0 );
 
 		rays[workIndex] = cosineWeightedDirection( timeSinceStart, normal );
 		normals[workIndex] = normal;

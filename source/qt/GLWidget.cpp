@@ -285,16 +285,12 @@ void GLWidget::initGlew() {
  * Init the needed OpenCL buffers: Faces, vertices, camera eye and rays.
  */
 void GLWidget::initOpenCLBuffers() {
-	mBufScFaces = mCL->createBuffer( mFaces, sizeof( cl_uint ) * mFaces.size() );
-	mBufScVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
-	mBufScNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
-	mBufBoundingBox = mCL->createBuffer( mBoundingBox, sizeof( cl_float ) * 6 );
-
+	int pixels = width() * height();
 
 	vector<kdNode_t> kdNodes = mKdTree->getNodes();
 	vector<cl_float> kdData1;
 	vector<cl_int> kdData2;
-	vector<cl_int> kdData3; // Faces
+	vector<cl_int> kdData3;
 
 	for( uint i = 0; i < kdNodes.size(); i++ ) {
 		// Vertice coordinates
@@ -306,7 +302,9 @@ void GLWidget::initOpenCLBuffers() {
 		kdData2.push_back( kdNodes[i].index );
 		kdData2.push_back( kdNodes[i].left );
 		kdData2.push_back( kdNodes[i].right );
-		kdData2.push_back( kdData3.size() ); // Index of faces of this node in kdData3
+
+		// Index of faces of this node in kdData3
+		kdData2.push_back( kdData3.size() );
 
 		// Faces
 		kdData3.push_back( kdNodes[i].faces.size() / 2 );
@@ -320,17 +318,21 @@ void GLWidget::initOpenCLBuffers() {
 	mBufKdNodeData2 = mCL->createBuffer( kdData2, sizeof( cl_int ) * kdData2.size() );
 	mBufKdNodeData3 = mCL->createBuffer( kdData3, sizeof( cl_int ) * kdData3.size() );
 
+	mBufScFaces = mCL->createBuffer( mFaces, sizeof( cl_uint ) * mFaces.size() );
+	mBufScVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
+	mBufScNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
+	mBufBoundingBox = mCL->createBuffer( mBoundingBox, sizeof( cl_float ) * 6 );
 
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
 	mBufVecW = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
 	mBufVecU = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
 	mBufVecV = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
 
-	mBufOrigins = mCL->createEmptyBuffer( sizeof( cl_float4 ) * width() * height(), CL_MEM_READ_WRITE );
-	mBufRays = mCL->createEmptyBuffer( sizeof( cl_float4 ) * width() * height(), CL_MEM_READ_WRITE );
-	mBufNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * width() * height(), CL_MEM_READ_WRITE );
-	mBufAccColors = mCL->createEmptyBuffer( sizeof( cl_float4 ) * width() * height(), CL_MEM_READ_WRITE );
-	mBufColorMasks = mCL->createEmptyBuffer( sizeof( cl_float4 ) * width() * height(), CL_MEM_READ_WRITE );
+	mBufOrigins = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
+	mBufRays = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
+	mBufNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
+	mBufAccColors = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
+	mBufColorMasks = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
 }
 
 
@@ -664,7 +666,7 @@ void GLWidget::paintScene() {
 		glUniform4fv( glGetUniformLocation( mGLProgramSimple, "fragColor" ), 1, color );
 
 		glBindVertexArray( mVA[VA_OVERLAY] );
-		glDrawArrays( GL_TRIANGLES, 0, mFaces.size() );
+		glDrawElements( GL_TRIANGLES, mFaces.size(), GL_UNSIGNED_INT, NULL );
 
 		glBindVertexArray( 0 );
 		glUseProgram( 0 );
