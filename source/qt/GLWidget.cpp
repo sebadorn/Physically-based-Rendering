@@ -160,7 +160,7 @@ void GLWidget::clAccumulateColors( float timeSinceStart ) {
  */
 void GLWidget::clFindIntersections( float timeSinceStart ) {
 	uint i = 0;
-	cl_uint numIndices = mIndices.size();
+	cl_uint numFaces = mFaces.size();
 
 	mCL->setKernelArg( mKernelIntersections, i, sizeof( cl_mem ), &mBufOrigins );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufRays );
@@ -170,6 +170,7 @@ void GLWidget::clFindIntersections( float timeSinceStart ) {
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufBoundingBox );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData1 );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData2 );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData3 );
 
 	cl_uint rootNode = mKdTree->getRootNode()->index;
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_uint ), &rootNode );
@@ -281,10 +282,10 @@ void GLWidget::initGlew() {
 
 
 /**
- * Init the needed OpenCL buffers: Indices, vertices, camera eye and rays.
+ * Init the needed OpenCL buffers: Faces, vertices, camera eye and rays.
  */
 void GLWidget::initOpenCLBuffers() {
-	mBufScIndices = mCL->createBuffer( mIndices, sizeof( cl_uint ) * mIndices.size() );
+	mBufScFaces = mCL->createBuffer( mFaces, sizeof( cl_uint ) * mFaces.size() );
 	mBufScVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
 	mBufScNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
 	mBufBoundingBox = mCL->createBuffer( mBoundingBox, sizeof( cl_float ) * 6 );
@@ -293,16 +294,31 @@ void GLWidget::initOpenCLBuffers() {
 	vector<kdNode_t> kdNodes = mKdTree->getNodes();
 	vector<cl_float> kdData1;
 	vector<cl_int> kdData2;
+	vector<cl_int> kdData3; // Faces
 
 	for( uint i = 0; i < kdNodes.size(); i++ ) {
-		kdData1.push_back( kdNodes[i].x ); kdData1.push_back( kdNodes[i].y ); kdData1.push_back( kdNodes[i].z );
+		// Vertice coordinates
+		kdData1.push_back( kdNodes[i].x );
+		kdData1.push_back( kdNodes[i].y );
+		kdData1.push_back( kdNodes[i].z );
+
+		// Index of self and children
 		kdData2.push_back( kdNodes[i].index );
-		kdData2.push_back( kdNodes[i].face0 ); kdData2.push_back( kdNodes[i].face1 );
-		kdData2.push_back( kdNodes[i].left ); kdData2.push_back( kdNodes[i].right );
+		kdData2.push_back( kdNodes[i].left );
+		kdData2.push_back( kdNodes[i].right );
+		kdData2.push_back( kdData3.size() ); // Index of faces of this node in kdData3
+
+		// Faces
+		kdData3.push_back( kdNodes[i].faces.size() / 2 );
+		for( uint j = 0; j < kdNodes[i].faces.size(); j += 2 ) {
+			kdData3.push_back( kdNodes[i].faces[j] );
+			kdData3.push_back( kdNodes[i].faces[j + 1] );
+		}
 	}
 
 	mBufKdNodeData1 = mCL->createBuffer( kdData1, sizeof( cl_float ) * kdData1.size() );
 	mBufKdNodeData2 = mCL->createBuffer( kdData2, sizeof( cl_int ) * kdData2.size() );
+	mBufKdNodeData3 = mCL->createBuffer( kdData3, sizeof( cl_int ) * kdData3.size() );
 
 
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
@@ -415,7 +431,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 	ModelLoader* ml = new ModelLoader();
 	ml->loadModel( filepath, filename );
-	mIndices = ml->mIndices;
+	mFaces = ml->mFaces;
 	mVertices = ml->mVertices;
 	mNormals = ml->mNormals;
 
@@ -424,7 +440,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 	// CLEAN UP
 	boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
-	mKdTree = new KdTree( mVertices, mIndices );
+	mKdTree = new KdTree( mVertices, mFaces );
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - start;
 
 	vector<GLfloat> verticesKdTree;
@@ -441,7 +457,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	);
 	Logger::logInfo( msg );
 
-	this->setShaderBuffersForOverlay( mVertices, mIndices );
+	this->setShaderBuffersForOverlay( mVertices, mFaces );
 	this->setShaderBuffersForBoundingBox( ml->mBoundingBox );
 	this->setShaderBuffersForKdTree( verticesKdTree, indicesKdTree );
 	this->setShaderBuffersForTracer();
@@ -648,7 +664,7 @@ void GLWidget::paintScene() {
 		glUniform4fv( glGetUniformLocation( mGLProgramSimple, "fragColor" ), 1, color );
 
 		glBindVertexArray( mVA[VA_OVERLAY] );
-		glDrawArrays( GL_TRIANGLES, 0, mIndices.size() );
+		glDrawArrays( GL_TRIANGLES, 0, mFaces.size() );
 
 		glBindVertexArray( 0 );
 		glUseProgram( 0 );

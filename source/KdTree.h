@@ -16,14 +16,9 @@ using namespace std;
 
 
 typedef struct kdNode_t {
-	cl_float x;
-	cl_float y;
-	cl_float z;
-	cl_int index;
-	cl_int face0;
-	cl_int face1;
-	cl_int left;
-	cl_int right;
+	vector<cl_int> faces;
+	cl_float x, y, z;
+	cl_int index, left, right;
 } kdNode_t;
 
 

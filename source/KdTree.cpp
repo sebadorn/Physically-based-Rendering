@@ -13,7 +13,10 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices ) {
 		return;
 	}
 
-	for( unsigned int i = 0; i < vertices.size(); i += 3 ) {
+	unsigned int a, b, c;
+	unsigned int i, j, k;
+
+	for( i = 0; i < vertices.size(); i += 3 ) {
 		kdNode_t* node = new kdNode_t;
 		node->index = i / 3;
 		node->x = vertices[i];
@@ -25,14 +28,40 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices ) {
 		mNodes.push_back( node );
 	}
 
-	// TODO: Vertice can be part of multiple faces
-	for( unsigned int i = 0; i < indices.size(); i += 3 ) {
-		mNodes[indices[i]]->face0 = mNodes[indices[i + 1]]->index;
-		mNodes[indices[i]]->face1 = mNodes[indices[i + 2]]->index;
-		mNodes[indices[i + 1]]->face0 = mNodes[indices[i]]->index;
-		mNodes[indices[i + 1]]->face1 = mNodes[indices[i + 2]]->index;
-		mNodes[indices[i + 2]]->face0 = mNodes[indices[i]]->index;
-		mNodes[indices[i + 2]]->face1 = mNodes[indices[i + 1]]->index;
+	// Add faces to nodes
+	for( i = 0; i < indices.size(); i += 3 ) {
+		// face
+		a = indices[i];
+		b = indices[i + 1];
+		c = indices[i + 2];
+
+		// Tell each node of this face, that it is a part of this face
+		mNodes[a]->faces.push_back( b ); mNodes[a]->faces.push_back( c );
+		mNodes[b]->faces.push_back( a ); mNodes[b]->faces.push_back( c );
+		mNodes[c]->faces.push_back( a ); mNodes[c]->faces.push_back( b );
+	}
+
+	// Remove duplicates
+	for( i = 0; i < mNodes.size(); i++ ) {
+		kdNode_t* node = mNodes[i];
+		vector<cl_int> purged = vector<cl_int>();
+
+		for( j = 0; j < node->faces.size(); j += 2 ) {
+			b = node->faces[j];
+			c = node->faces[j + 1];
+
+			for( k = 0; k < node->faces.size(); k += 2 ) {
+				if(
+					( node->faces[k] != b || node->faces[k + 1] != c ) &&
+					( node->faces[k] != c || node->faces[k + 1] != b )
+				) {
+					purged.push_back( b );
+					purged.push_back( c );
+				}
+			}
+		}
+
+		node->faces = purged;
 	}
 
 	mRoot = mNodes[this->makeTree( mNodes, 0 )];

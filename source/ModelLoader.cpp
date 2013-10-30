@@ -342,7 +342,7 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 	// glGenVertexArrays( 1, &vertexArrayID );
 	// glBindVertexArray( vertexArrayID );
 
-	mIndices = vector<GLuint>();
+	mFaces = vector<GLuint>();
 	mVertices = vector<GLfloat>();
 	mNormals = vector<GLfloat>();
 
@@ -360,9 +360,9 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 
 		for( uint j = 0; j < mesh->mNumFaces; j++ ) {
 			const aiFace* face = &mesh->mFaces[j];
-			mIndices.push_back( face->mIndices[0] );
-			mIndices.push_back( face->mIndices[1] );
-			mIndices.push_back( face->mIndices[2] );
+			mFaces.push_back( face->mIndices[0] );
+			mFaces.push_back( face->mIndices[1] );
+			mFaces.push_back( face->mIndices[2] );
 		}
 
 		for( uint j = 0; j < mesh->mNumVertices; j++ ) {

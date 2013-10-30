@@ -181,7 +181,7 @@ __kernel void accumulateColors(
 
 inline void checkFaceIntersection(
 	float4 origin, float4 ray,
-	__global float* kdNodeData1, __global int* kdNodeData2, int nodeIndex,
+	float4 a, float4 b, float4 c,
 	hit_t* result
 ) {
 	int face0Index = kdNodeData2[nodeIndex * 5 + 1];
@@ -347,12 +347,12 @@ inline bool hitBoundingBox( float* minB, float* maxB, float* origin, float* dir,
 
 inline void descendKdTree(
 	float4 origin, float4 ray, __global float* bbox,
-	__global float* kdNodeData1, __global int* kdNodeData2, const uint kdRoot,
-	hit_t* result
+	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
+	const uint kdRoot, hit_t* result
 ) {
 	// Evil, don't do this. Has to be changed with model.
 	// (Recompile after string replacements like %STACK_SIZE%?)
-	stackEntry_t nodeStack[40];
+	stackEntry_t nodeStack[64];
 
 	stackEntry_t node;
 	stackEntry_t nextNode;
@@ -365,6 +365,8 @@ inline void descendKdTree(
 	int process = 0;
 	int nodeIndex;
 	int left, right;
+	int faceIndex, i;
+	float4 a, b, c;
 
 	float4 dir = normalize( ray - origin );
 	float dirCoords[3] = { dir.x, dir.y, dir.z };
@@ -390,20 +392,54 @@ inline void descendKdTree(
 			nodeIndex = node.nodeIndex;
 			newResult.distance = -1.0f;
 
-			checkFaceIntersection( origin, ray, kdNodeData1, kdNodeData2, nodeIndex, &newResult );
+			faceIndex = kdNodeData2[nodeIndex * 4 + 3];
 
-			if( newResult.distance > -1.0f ) {
-				if( result->distance < 0.0f || result->distance > newResult.distance ) {
-					result->distance = newResult.distance;
-					result->position = newResult.position;
-					result->normalIndices[0] = kdNodeData2[nodeIndex * 5];
-					result->normalIndices[1] = kdNodeData2[nodeIndex * 5 + 1];
-					result->normalIndices[2] = kdNodeData2[nodeIndex * 5 + 2];
+			a = (float4)(
+				kdNodeData1[nodeIndex * 3],
+				kdNodeData1[nodeIndex * 3 + 1],
+				kdNodeData1[nodeIndex * 3 + 2],
+				0.0f
+			);
+
+			// Check all faces this vertex belongs to
+			i = 0;
+			while( i < kdNodeData3[faceIndex] ) {
+				int vIndexB = kdNodeData3[faceIndex + i * 2 + 1];
+				int vIndexC = kdNodeData3[faceIndex + i * 2 + 2];
+
+				b = (float4)(
+					kdNodeData1[vIndexB],
+					kdNodeData1[vIndexB + 1],
+					kdNodeData1[vIndexB + 2],
+					0.0f
+				);
+				c = (float4)(
+					kdNodeData1[vIndexC],
+					kdNodeData1[vIndexC + 1],
+					kdNodeData1[vIndexC + 2],
+					0.0f
+				);
+
+				checkFaceIntersection( origin, ray, a, b, c, &newResult );
+
+				if( newResult.distance > -1.0f ) {
+					if( result->distance < 0.0f || result->distance > newResult.distance ) {
+						result->distance = newResult.distance;
+						result->position = newResult.position;
+						result->normalIndices[0] = kdNodeData2[nodeIndex * 4];
+						result->normalIndices[1] = vIndexB;
+						result->normalIndices[2] = vIndexC;
+					}
 				}
+
+				i++;
 			}
 
-			left = kdNodeData2[nodeIndex * 5 + 3];
-			right = kdNodeData2[nodeIndex * 5 + 4];
+
+			// Proceed with children (if existant)
+
+			left = kdNodeData2[nodeIndex * 4 + 1];
+			right = kdNodeData2[nodeIndex * 4 + 2];
 
 			if( left < 0 && right < 0 ) {
 				process--;
@@ -444,8 +480,8 @@ inline void descendKdTree(
 __kernel void findIntersectionsKdTree(
 	__global float4* origins, __global float4* rays, __global float4* normals,
 	__global float* scNormals, __global float* bbox,
-	__global float* kdNodeData1, __global int* kdNodeData2, const uint kdRoot,
-	const float timeSinceStart
+	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
+	const uint kdRoot, const float timeSinceStart
 ) {
 	uint workIndex = get_global_id( 0 ) + get_global_id( 1 ) * get_global_size( 1 );
 	float4 origin = origins[workIndex];
@@ -459,7 +495,7 @@ __kernel void findIntersectionsKdTree(
 	hit.distance = -2.0f;
 	hit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
 
-	descendKdTree( origin, ray, bbox, kdNodeData1, kdNodeData2, kdRoot, &hit );
+	descendKdTree( origin, ray, bbox, kdNodeData1, kdNodeData2, kdNodeData3, kdRoot, &hit );
 
 	origins[workIndex] = hit.position;
 

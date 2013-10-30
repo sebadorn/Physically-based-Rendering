@@ -130,12 +130,12 @@ class GLWidget : public QGLWidget {
 		boost::posix_time::ptime mTimeSinceStart;
 
 		std::vector<GLfloat> mVertices;
-		std::vector<GLuint> mIndices;
+		std::vector<GLuint> mFaces;
 		std::vector<GLfloat> mNormals;
 
 		std::vector<float> mTextureOut;
 
-		cl_mem mBufScIndices;
+		cl_mem mBufScFaces;
 		cl_mem mBufScVertices;
 		cl_mem mBufScNormals;
 		cl_mem mBufBoundingBox;
@@ -143,6 +143,7 @@ class GLWidget : public QGLWidget {
 		cl_mem mBufKdNodes;
 		cl_mem mBufKdNodeData1;
 		cl_mem mBufKdNodeData2;
+		cl_mem mBufKdNodeData3;
 
 		cl_mem mBufEye;
 		cl_mem mBufVecW;
