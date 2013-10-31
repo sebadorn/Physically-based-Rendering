@@ -294,9 +294,9 @@ void GLWidget::initOpenCLBuffers() {
 
 	for( uint i = 0; i < kdNodes.size(); i++ ) {
 		// Vertice coordinates
-		kdData1.push_back( kdNodes[i].x );
-		kdData1.push_back( kdNodes[i].y );
-		kdData1.push_back( kdNodes[i].z );
+		kdData1.push_back( kdNodes[i].pos[0] );
+		kdData1.push_back( kdNodes[i].pos[1] );
+		kdData1.push_back( kdNodes[i].pos[2] );
 
 		// Index of self and children
 		kdData2.push_back( kdNodes[i].index );
@@ -440,16 +440,17 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	vector<cl_float> bbox = ml->mBoundingBox;
 	mBoundingBox = &bbox[0];
 
+	cl_float bbMin[3] = { mBoundingBox[0], mBoundingBox[1], mBoundingBox[2] };
+	cl_float bbMax[3] = { mBoundingBox[3], mBoundingBox[4], mBoundingBox[5] };
+
 	// CLEAN UP
 	boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
-	mKdTree = new KdTree( mVertices, mFaces );
+	mKdTree = new KdTree( mVertices, mFaces, bbMin, bbMax );
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - start;
 
 	vector<GLfloat> verticesKdTree;
 	vector<GLuint> indicesKdTree;
-	float bbMin[3] = { ml->mBoundingBox[0], ml->mBoundingBox[1], ml->mBoundingBox[2] };
-	float bbMax[3] = { ml->mBoundingBox[3], ml->mBoundingBox[4], ml->mBoundingBox[5] };
-	mKdTree->visualize( bbMin, bbMax, &verticesKdTree, &indicesKdTree );
+	mKdTree->visualize( &verticesKdTree, &indicesKdTree );
 	mKdTreeNumIndices = indicesKdTree.size();
 
 	char msg[80];

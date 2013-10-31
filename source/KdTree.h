@@ -17,32 +17,33 @@ using namespace std;
 
 typedef struct kdNode_t {
 	vector<cl_int> faces;
-	cl_float x, y, z;
-	cl_int index, left, right;
+	cl_float pos[3];
+	cl_float bbMax[3];
+	cl_float bbMin[3];
+	cl_int index;
+	cl_int left;
+	cl_int right;
 } kdNode_t;
 
 
 class KdTree {
 
 	public:
-		KdTree( vector<float> vertices, vector<unsigned int> indices );
+		KdTree( vector<float> vertices, vector<unsigned int> indices, cl_float* bbMin, cl_float* bbMax );
 		~KdTree();
 
 		kdNode_t* getRootNode();
 		vector<kdNode_t> getNodes();
 		void print();
-		void visualize(
-			float* bbMin, float* bbMax,
-			vector<float>* vertices, vector<unsigned int>* indices
-		);
+		void visualize( vector<float>* vertices, vector<unsigned int>* indices );
 
 	protected:
 		kdNode_t* findMedian( vector<kdNode_t*>* nodes, int axis );
-		int makeTree( vector<kdNode_t*> t, int axis );
+		int makeTree( vector<kdNode_t*> t, int axis, cl_float* bbMin, cl_float* bbMax );
 		void printNode( kdNode_t* node );
 		void visualizeNextNode(
-			kdNode_t* node, float* bbMin, float* bbMax,
-			vector<float>* vertices, vector<unsigned int>* indices, unsigned int axis
+			kdNode_t* node, unsigned int axis,
+			vector<float>* vertices, vector<unsigned int>* indices
 		);
 
 	private:
