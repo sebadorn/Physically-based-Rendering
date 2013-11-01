@@ -165,6 +165,9 @@ void GLWidget::clFindIntersections( float timeSinceStart ) {
 	mCL->setKernelArg( mKernelIntersections, i, sizeof( cl_mem ), &mBufOrigins );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufRays );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufNormals );
+
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScVertices );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScFaces );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
 
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufBoundingBox );
@@ -304,13 +307,18 @@ void GLWidget::initOpenCLBuffers() {
 		kdData2.push_back( kdNodes[i].right );
 
 		// Index of faces of this node in kdData3
-		kdData2.push_back( kdData3.size() );
+		if( kdNodes[i].faces.size() > 0 ) {
+			kdData2.push_back( kdData3.size() );
+		}
+		else {
+			kdData2.push_back( -1 );
+		}
 
 		// Faces
-		kdData3.push_back( kdNodes[i].faces.size() / 2 );
-		for( uint j = 0; j < kdNodes[i].faces.size(); j += 2 ) {
+		kdData3.push_back( kdNodes[i].faces.size() );
+
+		for( uint j = 0; j < kdNodes[i].faces.size(); j ++ ) {
 			kdData3.push_back( kdNodes[i].faces[j] );
-			kdData3.push_back( kdNodes[i].faces[j + 1] );
 		}
 	}
 

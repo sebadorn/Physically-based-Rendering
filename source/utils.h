@@ -2,6 +2,10 @@
 #define UTILS_H
 
 #define PI 3.14159265359
+#define BB_NUMDIM 3
+#define BB_RIGHT 0
+#define BB_LEFT 1
+#define BB_MIDDLE 2
 
 #include <fstream>
 #include <string>
@@ -16,6 +20,75 @@ namespace utils {
 	 */
 	inline float degToRad( float deg ) {
 		return ( deg * PI / 180.0f );
+	}
+
+
+	/**
+	 * Fast Ray-Box Intersection
+	 * by Andrew Woo
+	 * from "Graphics Gems", Academic Press, 1990
+	 */
+	inline bool hitBoundingBox( float* minB, float* maxB, float* origin, float* dir, float* coord ) {
+		bool inside = true;
+		int quadrant[BB_NUMDIM];
+		int whichPlane;
+		int i;
+		float maxT[BB_NUMDIM];
+		float candidatePlane[BB_NUMDIM];
+
+		// Find candidate planes; this loop can be avoided if
+		// rays cast all from the eye (assume perspective view)
+		for( i = 0; i < BB_NUMDIM; i++ ) {
+			quadrant[i] = BB_MIDDLE;
+
+			if( origin[i] <= minB[i] ) {
+				quadrant[i] = BB_LEFT;
+				candidatePlane[i] = minB[i];
+				inside = false;
+			}
+			else if( origin[i] >= maxB[i] ) {
+				quadrant[i] = BB_RIGHT;
+				candidatePlane[i] = maxB[i];
+				inside = false;
+			}
+		}
+
+		// Ray origin inside bounding box
+		if( inside ) {
+			coord = origin;
+			return true;
+		}
+
+
+		// Calculate T distances to candidate planes
+		for( i = 0; i < BB_NUMDIM; i++ ) {
+			maxT[i] = ( quadrant[i] != BB_MIDDLE && dir[i] != 0.0f )
+			        ? ( candidatePlane[i] - origin[i] ) / dir[i]
+			        : -1.0f;
+		}
+
+		// Get largest of the maxT's for final choice of intersection
+		whichPlane = 0;
+		for( i = 1; i < BB_NUMDIM; i++ ) {
+			whichPlane = ( maxT[whichPlane] < maxT[i] ) ? i : whichPlane;
+		}
+
+		// Check final candidate actually inside box
+		if( maxT[whichPlane] < 0.0f ) {
+			return false;
+		}
+
+		for( i = 0; i < BB_NUMDIM; i++ ) {
+			coord[i] = ( whichPlane != i )
+			         ? origin[i] + maxT[whichPlane] * dir[i]
+			         : candidatePlane[i];
+
+			if( coord[i] < minB[i] || coord[i] > maxB[i] ) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 
