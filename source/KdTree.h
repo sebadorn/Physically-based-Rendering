@@ -54,6 +54,8 @@ class KdTree {
 
 		kdNode_t* mRoot;
 		vector<kdNode_t*> mNodes;
+		vector<kdNode_t*> mLeaves;
+		int mLeafIndex;
 
 };
 
