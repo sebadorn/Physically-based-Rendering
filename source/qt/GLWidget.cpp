@@ -333,7 +333,7 @@ void GLWidget::initOpenCLBuffers() {
 
 		// Ropes
 		if( kdNodes[i].left < 0 && kdNodes[i].right < 0 ) {
-			kdData2.push_back( i );
+			kdData2.push_back( kdRopes.size() );
 
 			for( uint j = 0; j < kdNodes[i].ropes.size(); j++ ) {
 				kdRopes.push_back( kdNodes[i].ropes[j] );
