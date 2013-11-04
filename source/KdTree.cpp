@@ -116,10 +116,6 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices, cl_float* 
 
 	cl_int ropesInit[6] = { -1, -1, -1, -1, -1, -1 };
 	this->processNode( mRoot, vector<cl_int>( ropesInit, ropesInit + 6 ) );
-
-	// for( i = 0; i < mLeaves.size(); i++ ) {
-	// 	cout << mLeaves[i]->index << ": " << mLeaves[i]->faces.size() << endl;
-	// }
 }
 
 
@@ -139,8 +135,8 @@ void KdTree::processNode( kdNode_t* node, vector<cl_int> ropes ) {
 		return;
 	}
 
-	int sideLeft = node->axis * 2;
-	int sideRight = node->axis * 2 + 1;
+	cl_int sideLeft = node->axis * 2;
+	cl_int sideRight = node->axis * 2 + 1;
 
 	vector<cl_int> ropesLeft( ropes.begin(), ropes.end() );
 	ropesLeft[sideRight] = node->right;
@@ -149,6 +145,13 @@ void KdTree::processNode( kdNode_t* node, vector<cl_int> ropes ) {
 	vector<cl_int> ropesRight( ropes.begin(), ropes.end() );
 	ropesRight[sideLeft] = node->left;
 	this->processNode( mNodes[node->right], ropesRight );
+}
+
+
+void KdTree::optimizeRope( cl_int* rope, cl_int side, float* bbMin, float* bbMax ) {
+	while( mNodes[*rope]->left >= 0 && mNodes[*rope]->right >= 0 ) {
+		// TODO
+	}
 }
 
 

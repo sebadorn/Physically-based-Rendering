@@ -177,7 +177,7 @@ __kernel void accumulateColors(
 inline void checkFaceIntersection(
 	float4 origin, float4 ray,
 	float4 a, float4 b, float4 c,
-	hit_t* result
+	hit_t* result, float* exitDistance
 ) {
 	// First test: Intersection with plane of triangle
 	float4 direction = normalize( ray - origin );
@@ -229,6 +229,8 @@ inline void checkFaceIntersection(
 
 	result->position = hit;
 	result->distance = length( hit - origin );
+
+	*exitDistance = r;
 }
 
 
@@ -348,11 +350,10 @@ inline void checkFaces(
 		);
 
 		newResult.distance = -1.0f;
-		checkFaceIntersection( origin, ray, a, b, c, &newResult );
+		checkFaceIntersection( origin, ray, a, b, c, &newResult, &exitDistance );
 
 		if( newResult.distance > -1.0f ) {
-			float distance = length( newResult.position - origin );
-			exitDistance = &distance;
+			// *exitDistance = newResult.distance;
 
 			if( result->distance < 0.0f || result->distance > newResult.distance ) {
 				result->distance = newResult.distance;
@@ -396,9 +397,7 @@ inline bool intersectBoundingBox(
 		p_near_result = ( p_near_comp > p_near_result ) ? p_near_comp : p_near_result;
 		p_far_result = ( p_far_comp < p_far_result ) ? p_far_comp : p_far_result;
 
-		if( p_near_result > p_far_result ) {
-			intersection = false;
-		}
+		intersection = ( p_near_result > p_far_result ) ? false : intersection;
 	}
 
 	*p_near = p_near_result;
@@ -408,6 +407,8 @@ inline bool intersectBoundingBox(
 }
 
 
+#define DELTA_PRECISION 0.000001f
+
 inline void traverseKdTree(
 	float4 origin, float4 ray, const uint kdRoot,
 	__global float* scVertices, __global uint* scFaces,
@@ -415,39 +416,24 @@ inline void traverseKdTree(
 	__global int* kdNodeRopes, hit_t* result
 ) {
 	float4 dir = normalize( ray - origin );
-	float4 a, b, c;
+	float hitCoords[3];
 
 	int nodeIndex = kdRoot;
-	int left, right, axis;
-
-	hit_t newResult;
-
-	float dirCoords[3] = { dir.x, dir.y, dir.z };
-	float originCoords[3] = { origin.x, origin.y, origin.z };
-	float hitCoords[3], exitCoords[3];
-
+	int left, right, axis, faceIndex, ropeIndex;
 
 	// Get entry  and exit point of ray into bounding box
 	float bbMin[3] = { kdNodeData1[nodeIndex * 9 + 3], kdNodeData1[nodeIndex * 9 + 4], kdNodeData1[nodeIndex * 9 + 5] };
 	float bbMax[3] = { kdNodeData1[nodeIndex * 9 + 6], kdNodeData1[nodeIndex * 9 + 7], kdNodeData1[nodeIndex * 9 + 8] };
 
-	float tNear = 0.0f;
-	float tFar = 0.0f;
+	float tNear, tFar;
+	float entryDistance, exitDistance;
 
-	bool hitsBB = intersectBoundingBox( origin, dir, bbMin, bbMax, &tNear, &tFar );
-	float4 hitNear = origin + tNear * dir;
-	float4 hitFar = origin + tFar * dir;
-
-	hitCoords[0] = hitNear.x;
-	hitCoords[1] = hitNear.y;
-	hitCoords[2] = hitNear.z;
-
-	float entryDistance = length( hitNear - origin );
-	float exitDistance = length( hitFar - origin );
-
-	if( !hitsBB ) {
+	if( !intersectBoundingBox( origin, dir, bbMin, bbMax, &entryDistance, &exitDistance ) ) {
 		return;
 	}
+
+	float4 hitNear = origin + entryDistance * dir;
+	float4 hitFar = origin + exitDistance * dir;
 
 	int i = 0;
 
@@ -466,18 +452,23 @@ inline void traverseKdTree(
 		bbMax[1] = kdNodeData1[nodeIndex * 9 + 7];
 		bbMax[2] = kdNodeData1[nodeIndex * 9 + 8];
 
-		hitBoundingBox( bbMin, bbMax, originCoords, dirCoords, hitCoords );
+		intersectBoundingBox( origin, dir, bbMin, bbMax, &tNear, &tFar );
+
+		hitNear = origin + tNear * dir;
+		hitCoords[0] = hitNear.x;
+		hitCoords[1] = hitNear.y;
+		hitCoords[2] = hitNear.z;
 
 		// Find a leaf node for this ray
 		while( left >= 0 && right >= 0 ) {
-			nodeIndex = ( hitCoords[axis] < kdNodeData1[nodeIndex + axis] ) ? left : right;
+			nodeIndex = ( hitCoords[axis] < kdNodeData1[nodeIndex * 9 + axis] ) ? left : right;
 			left = kdNodeData2[nodeIndex * 6 + 1];
 			right = kdNodeData2[nodeIndex * 6 + 2];
 			axis = kdNodeData2[nodeIndex * 6 + 3];
 		}
 
 		// At a leaf node now, check triangle faces
-		int faceIndex = kdNodeData2[nodeIndex * 6 + 4];
+		faceIndex = kdNodeData2[nodeIndex * 6 + 4];
 
 		checkFaces(
 			faceIndex, origin, ray,
@@ -494,34 +485,29 @@ inline void traverseKdTree(
 		bbMax[1] = kdNodeData1[nodeIndex * 9 + 7];
 		bbMax[2] = kdNodeData1[nodeIndex * 9 + 8];
 
-		intersectBoundingBox( origin, dir, bbMin, bbMax, &tNear, &tFar );
-
-		hitNear = origin + tNear * dir;
-		hitFar = origin + tFar * dir;
-		entryDistance = length( hitNear - origin );
+		intersectBoundingBox( origin, dir, bbMin, bbMax, &tNear, &entryDistance );
+		hitFar = origin + entryDistance * dir;
 
 
-		// Follow rope
-		int ropeIndex = kdNodeData2[nodeIndex * 6 + 5];
-		float deltaPrecision = 0.00001f;
+		// Follow the rope
+		ropeIndex = kdNodeData2[nodeIndex * 6 + 5];
 
-
-		if( fabs( hitFar.x - bbMin[0] ) < deltaPrecision ) { // left
+		if( fabs( hitFar.x - bbMin[0] ) < DELTA_PRECISION ) { // left
 			nodeIndex = kdNodeRopes[ropeIndex];
 		}
-		else if( fabs( hitFar.x - bbMax[0] ) < deltaPrecision ) { // right
+		else if( fabs( hitFar.x - bbMax[0] ) < DELTA_PRECISION ) { // right
 			nodeIndex = kdNodeRopes[ropeIndex + 1];
 		}
-		else if( fabs( hitFar.y - bbMin[1] ) < deltaPrecision ) { // bottom
+		else if( fabs( hitFar.y - bbMin[1] ) < DELTA_PRECISION ) { // bottom
 			nodeIndex = kdNodeRopes[ropeIndex + 2];
 		}
-		else if( fabs( hitFar.y - bbMax[1] ) < deltaPrecision ) { // top
+		else if( fabs( hitFar.y - bbMax[1] ) < DELTA_PRECISION ) { // top
 			nodeIndex = kdNodeRopes[ropeIndex + 3];
 		}
-		else if( fabs( hitFar.z - bbMin[2] ) < deltaPrecision ) { // back
+		else if( fabs( hitFar.z - bbMin[2] ) < DELTA_PRECISION ) { // back
 			nodeIndex = kdNodeRopes[ropeIndex + 4];
 		}
-		else if( fabs( hitFar.z - bbMax[2] ) < deltaPrecision ) { // front
+		else if( fabs( hitFar.z - bbMax[2] ) < DELTA_PRECISION ) { // front
 			nodeIndex = kdNodeRopes[ropeIndex + 5];
 		}
 		else {

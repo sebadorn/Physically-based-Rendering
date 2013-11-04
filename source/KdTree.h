@@ -43,6 +43,7 @@ class KdTree {
 	protected:
 		kdNode_t* findMedian( vector<kdNode_t*>* nodes, int axis );
 		int makeTree( vector<kdNode_t*> t, int axis, cl_float* bbMin, cl_float* bbMax );
+		void optimizeRope( cl_int* rope, cl_int side, float* bbMin, float* bbMax );
 		void printNode( kdNode_t* node );
 		void processNode( kdNode_t* node, vector<cl_int> ropes );
 		void visualizeNextNode(
