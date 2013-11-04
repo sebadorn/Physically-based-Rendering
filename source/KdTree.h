@@ -18,9 +18,11 @@ using namespace std;
 
 typedef struct kdNode_t {
 	vector<cl_int> faces;
+	vector<cl_int> ropes;
 	cl_float pos[3];
 	cl_float bbMax[3];
 	cl_float bbMin[3];
+	cl_int axis;
 	cl_int index;
 	cl_int left;
 	cl_int right;
@@ -42,6 +44,7 @@ class KdTree {
 		kdNode_t* findMedian( vector<kdNode_t*>* nodes, int axis );
 		int makeTree( vector<kdNode_t*> t, int axis, cl_float* bbMin, cl_float* bbMax );
 		void printNode( kdNode_t* node );
+		void processNode( kdNode_t* node, vector<cl_int> ropes );
 		void visualizeNextNode(
 			kdNode_t* node, unsigned int axis,
 			vector<float>* vertices, vector<unsigned int>* indices

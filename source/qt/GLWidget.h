@@ -138,12 +138,12 @@ class GLWidget : public QGLWidget {
 		cl_mem mBufScFaces;
 		cl_mem mBufScVertices;
 		cl_mem mBufScNormals;
-		cl_mem mBufBoundingBox;
 
 		cl_mem mBufKdNodes;
 		cl_mem mBufKdNodeData1;
 		cl_mem mBufKdNodeData2;
 		cl_mem mBufKdNodeData3;
+		cl_mem mBufKdNodeRopes;
 
 		cl_mem mBufEye;
 		cl_mem mBufVecW;

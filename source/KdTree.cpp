@@ -71,6 +71,7 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices, cl_float* 
 		};
 		float hit[3];
 
+
 		for( j = 0; j < mLeaves.size(); j++ ) {
 			kdNode_t* l = mLeaves[j];
 
@@ -113,6 +114,9 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices, cl_float* 
 		}
 	}
 
+	cl_int ropesInit[6] = { -1, -1, -1, -1, -1, -1 };
+	this->processNode( mRoot, vector<cl_int>( ropesInit, ropesInit + 6 ) );
+
 	// for( i = 0; i < mLeaves.size(); i++ ) {
 	// 	cout << mLeaves[i]->index << ": " << mLeaves[i]->faces.size() << endl;
 	// }
@@ -126,6 +130,25 @@ KdTree::~KdTree() {
 	for( unsigned int i = 0; i < mNodes.size(); i++ ) {
 		delete mNodes[i];
 	}
+}
+
+
+void KdTree::processNode( kdNode_t* node, vector<cl_int> ropes ) {
+	if( node->left == -1 && node->right == -1 ) {
+		node->ropes = ropes;
+		return;
+	}
+
+	int sideLeft = node->axis * 2;
+	int sideRight = node->axis * 2 + 1;
+
+	vector<cl_int> ropesLeft( ropes.begin(), ropes.end() );
+	ropesLeft[sideRight] = node->right;
+	this->processNode( mNodes[node->left], ropesLeft );
+
+	vector<cl_int> ropesRight( ropes.begin(), ropes.end() );
+	ropesRight[sideLeft] = node->left;
+	this->processNode( mNodes[node->right], ropesRight );
 }
 
 
@@ -237,6 +260,7 @@ int KdTree::makeTree( vector<kdNode_t*> nodes, int axis, cl_float* bbMin, cl_flo
 
 		kdNode_t* leaf = new kdNode_t;
 		leaf->index = mLeafIndex;
+		leaf->axis = -1;
 		leaf->bbMin[0] = bbMin[0];
 		leaf->bbMin[1] = bbMin[1];
 		leaf->bbMin[2] = bbMin[2];
@@ -252,6 +276,7 @@ int KdTree::makeTree( vector<kdNode_t*> nodes, int axis, cl_float* bbMin, cl_flo
 	}
 
 	kdNode_t* median = this->findMedian( &nodes, axis );
+	median->axis = axis;
 	median->bbMin[0] = bbMin[0];
 	median->bbMin[1] = bbMin[1];
 	median->bbMin[2] = bbMin[2];

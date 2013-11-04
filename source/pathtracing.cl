@@ -1,12 +1,10 @@
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
 
-typedef struct stackEntry_t {
-	float bbMin[3];
-	float bbMax[3];
-	int nodeIndex;
-	int axis;
-} stackEntry_t;
+// typedef struct stackEntry_t {
+// 	int nodeIndex;
+// 	int axis;
+// } stackEntry_t;
 
 
 typedef struct hit_t {
@@ -245,10 +243,14 @@ inline void checkFaceIntersection(
 #define LEFT 1
 #define MIDDLE 2
 
-inline bool hitBoundingBox( float* minB, float* maxB, float* origin, float* dir, float* coord ) {
+inline bool hitBoundingBox(
+	float* minB, float* maxB,
+	float* origin, float* dir,
+	float* coord
+) {
 	bool inside = true;
 	int quadrant[NUMDIM];
-	int whichPlane;
+	int entryPlane;
 	int i;
 	float maxT[NUMDIM];
 	float candidatePlane[NUMDIM];
@@ -285,19 +287,19 @@ inline bool hitBoundingBox( float* minB, float* maxB, float* origin, float* dir,
 	}
 
 	// Get largest of the maxT's for final choice of intersection
-	whichPlane = 0;
+	entryPlane = 0;
 	for( i = 1; i < NUMDIM; i++ ) {
-		whichPlane = ( maxT[whichPlane] < maxT[i] ) ? i : whichPlane;
+		entryPlane = ( maxT[entryPlane] < maxT[i] ) ? i : entryPlane;
 	}
 
 	// Check final candidate actually inside box
-	if( maxT[whichPlane] < 0.0f ) {
+	if( maxT[entryPlane] < 0.0f ) {
 		return false;
 	}
 
 	for( i = 0; i < NUMDIM; i++ ) {
-		coord[i] = ( whichPlane != i )
-		         ? origin[i] + maxT[whichPlane] * dir[i]
+		coord[i] = ( entryPlane != i )
+		         ? origin[i] + maxT[entryPlane] * dir[i]
 		         : candidatePlane[i];
 
 		if( coord[i] < minB[i] || coord[i] > maxB[i] ) {
@@ -309,129 +311,293 @@ inline bool hitBoundingBox( float* minB, float* maxB, float* origin, float* dir,
 }
 
 
-inline void descendKdTree(
-	float4 origin, float4 ray, __global float* bbox,
+// inline void descendKdTree(
+// 	float4 origin, float4 ray,
+// 	__global float* scVertices, __global uint* scFaces,
+// 	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
+// 	const uint kdRoot, hit_t* result
+// ) {
+// 	// Evil, don't do this. Has to be changed with model.
+// 	// (Recompile after string replacements like %STACK_SIZE%?)
+// 	stackEntry_t nodeStack[100];
+
+// 	stackEntry_t node;
+// 	stackEntry_t nextNode;
+// 	node.nodeIndex = kdRoot;
+// 	node.axis = 0;
+// 	nodeStack[0] = node;
+
+// 	int process = 0;
+// 	int nodeIndex;
+// 	int left, right;
+// 	int faceIndex, i;
+// 	float4 a, b, c;
+
+// 	float4 dir = normalize( ray - origin );
+// 	float dirCoords[3] = { dir.x, dir.y, dir.z };
+// 	float originCoords[3] = { origin.x, origin.y, origin.z };
+// 	float hitCoords[3];
+
+// 	hit_t newResult;
+// 	bool hitsBB;
+// 	int vIndexB, vIndexC;
+
+
+// 	while( process >= 0 ) {
+// 		if( nodeStack[process].nodeIndex == -1 ) {
+// 			process--;
+// 			continue;
+// 		}
+
+// 		node = nodeStack[process];
+// 		nodeIndex = node.nodeIndex;
+
+// 		float bbMin[3] = { kdNodeData1[nodeIndex * 9 + 3], kdNodeData1[nodeIndex * 9 + 4], kdNodeData1[nodeIndex * 9 + 5] };
+// 		float bbMax[3] = { kdNodeData1[nodeIndex * 9 + 6], kdNodeData1[nodeIndex * 9 + 7], kdNodeData1[nodeIndex * 9 + 8] };
+
+// 		hitsBB = hitBoundingBox( bbMin, bbMax, originCoords, dirCoords, hitCoords );
+
+// 		// Ray intersects with bounding box of node
+// 		if( hitsBB ) {
+// 			left = kdNodeData2[nodeIndex * 5 + 1];
+// 			right = kdNodeData2[nodeIndex * 5 + 2];
+// 			faceIndex = kdNodeData2[nodeIndex * 5 + 3];
+
+// 			// leaf node
+// 			if( left < 0 && right < 0 ) {
+// 				i = 1;
+// 				int numFaces = kdNodeData3[faceIndex];
+
+// 				while( i <= numFaces ) {
+// 					int f = kdNodeData3[faceIndex + i];
+// 					int aIndex = scFaces[f] * 3;
+// 					int bIndex = scFaces[f + 1] * 3;
+// 					int cIndex = scFaces[f + 2] * 3;
+
+// 					a = (float4)(
+// 						scVertices[aIndex],
+// 						scVertices[aIndex + 1],
+// 						scVertices[aIndex + 2],
+// 						0.0f
+// 					);
+// 					b = (float4)(
+// 						scVertices[bIndex],
+// 						scVertices[bIndex + 1],
+// 						scVertices[bIndex + 2],
+// 						0.0f
+// 					);
+// 					c = (float4)(
+// 						scVertices[cIndex],
+// 						scVertices[cIndex + 1],
+// 						scVertices[cIndex + 2],
+// 						0.0f
+// 					);
+
+// 					newResult.distance = -1.0f;
+// 					checkFaceIntersection( origin, ray, a, b, c, &newResult );
+
+// 					if(
+// 						newResult.distance > -1.0f &&
+// 						( result->distance < 0.0f || result->distance > newResult.distance )
+// 					) {
+// 						result->distance = newResult.distance;
+// 						result->position = newResult.position;
+// 						result->normalIndices[0] = aIndex;
+// 						result->normalIndices[1] = bIndex;
+// 						result->normalIndices[2] = cIndex;
+// 					}
+
+// 					i++;
+// 				}
+
+// 				process--;
+// 				continue;
+// 			}
+
+
+// 			// Proceed with children
+
+// 			nextNode.axis = ( node.axis + 1 ) % 3;
+
+// 			nextNode.nodeIndex = right;
+// 			nodeStack[process] = nextNode;
+
+// 			nextNode.nodeIndex = left;
+// 			nodeStack[++process] = nextNode;
+// 		}
+// 		else {
+// 			process--;
+// 		}
+// 	}
+// }
+
+
+inline void checkFaces(
+	int faceIndex, float4 origin, float4 ray,
+	__global float* scVertices, __global uint* scFaces, __global int* kdNodeData3,
+	hit_t* result, float* exitDistance
+) {
+	float4 a, b, c;
+	hit_t newResult;
+
+	int i = 1;
+	int numFaces = kdNodeData3[faceIndex];
+
+	while( i <= numFaces ) {
+		int f = kdNodeData3[faceIndex + i];
+		int aIndex = scFaces[f] * 3;
+		int bIndex = scFaces[f + 1] * 3;
+		int cIndex = scFaces[f + 2] * 3;
+
+		a = (float4)(
+			scVertices[aIndex],
+			scVertices[aIndex + 1],
+			scVertices[aIndex + 2],
+			0.0f
+		);
+		b = (float4)(
+			scVertices[bIndex],
+			scVertices[bIndex + 1],
+			scVertices[bIndex + 2],
+			0.0f
+		);
+		c = (float4)(
+			scVertices[cIndex],
+			scVertices[cIndex + 1],
+			scVertices[cIndex + 2],
+			0.0f
+		);
+
+		newResult.distance = -1.0f;
+		checkFaceIntersection( origin, ray, a, b, c, &newResult );
+
+		if( newResult.distance > -1.0f ) {
+			float distance = length( newResult.position - origin );
+			exitDistance = &distance;
+
+			if( result->distance < 0.0f || result->distance > newResult.distance ) {
+				result->distance = newResult.distance;
+				result->position = newResult.position;
+				result->normalIndices[0] = aIndex;
+				result->normalIndices[1] = bIndex;
+				result->normalIndices[2] = cIndex;
+			}
+		}
+
+		i++;
+	}
+}
+
+
+inline void traverseKdTree(
+	float4 origin, float4 ray, const uint kdRoot,
 	__global float* scVertices, __global uint* scFaces,
 	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
-	const uint kdRoot, hit_t* result
+	__global int* kdNodeRopes, hit_t* result
 ) {
-	// Evil, don't do this. Has to be changed with model.
-	// (Recompile after string replacements like %STACK_SIZE%?)
-	stackEntry_t nodeStack[100];
-
-	stackEntry_t node;
-	stackEntry_t nextNode;
-	node.nodeIndex = kdRoot;
-	node.axis = 0;
-	node.bbMin[0] = bbox[0]; node.bbMin[1] = bbox[1]; node.bbMin[2] = bbox[2];
-	node.bbMax[0] = bbox[3]; node.bbMax[1] = bbox[4]; node.bbMax[2] = bbox[5];
-	nodeStack[0] = node;
-
-	int process = 0;
-	int nodeIndex;
-	int left, right;
-	int faceIndex, i;
+	float4 dir = ray - origin;
 	float4 a, b, c;
 
-	float4 dir = normalize( ray - origin );
+	int nodeIndex = kdRoot;
+	int left, right, axis;
+
+	hit_t newResult;
+
 	float dirCoords[3] = { dir.x, dir.y, dir.z };
 	float originCoords[3] = { origin.x, origin.y, origin.z };
 	float hitCoords[3];
 
-	hit_t newResult;
-	bool hitsBB;
-	int vIndexB, vIndexC;
+
+	// Get entry point of ray into bounding box
+	float bbMin[3] = { kdNodeData1[nodeIndex * 9 + 3], kdNodeData1[nodeIndex * 9 + 4], kdNodeData1[nodeIndex * 9 + 5] };
+	float bbMax[3] = { kdNodeData1[nodeIndex * 9 + 6], kdNodeData1[nodeIndex * 9 + 7], kdNodeData1[nodeIndex * 9 + 8] };
+	bool hitsBB = hitBoundingBox( bbMin, bbMax, originCoords, dirCoords, hitCoords );
+
+	if( !hitsBB ) {
+		return;
+	}
+
+	float4 entryHit = (float4)( hitCoords[0], hitCoords[1], hitCoords[2], 0.0f );
 
 
-	while( process >= 0 ) {
-		if( nodeStack[process].nodeIndex == -1 ) {
-			process--;
-			continue;
+	// Get exit point of ray from bounding box
+	float exitCoords[3];
+	float newDirCoords[3] = { -dirCoords[0], -dirCoords[1], -dirCoords[2] };
+	float newOriginCoords[3] = {
+		hitCoords[0] + 20.0f * dirCoords[0],
+		hitCoords[1] + 20.0f * dirCoords[1],
+		hitCoords[2] + 20.0f * dirCoords[2]
+	};
+	hitBoundingBox( bbMin, bbMax, newOriginCoords, newDirCoords, exitCoords );
+	float4 exitHit = (float4)( exitCoords[0], exitCoords[1], exitCoords[2], 0.0f );
+
+
+	float entryDistance = length( entryHit - origin );
+	float exitDistance = length( exitHit - origin );
+
+
+	// Main loop
+	while( entryDistance < exitDistance ) {
+		left = kdNodeData2[nodeIndex * 6 + 1];
+		right = kdNodeData2[nodeIndex * 6 + 2];
+		axis = kdNodeData2[nodeIndex * 6 + 3];
+
+		// Find a leaf node for this ray
+		while( left >= 0 && right >= 0 ) {
+			nodeIndex = ( hitCoords[axis] < kdNodeData1[nodeIndex + axis] ) ? left : right;
+			left = kdNodeData2[nodeIndex * 6 + 1];
+			right = kdNodeData2[nodeIndex * 6 + 2];
+			axis = ( axis + 1 ) % 3;
 		}
 
-		node = nodeStack[process];
-		hitsBB = hitBoundingBox( node.bbMin, node.bbMax, originCoords, dirCoords, hitCoords );
+		// At a leaf node now, check triangle faces
+		int faceIndex = kdNodeData2[nodeIndex * 6 + 4];
+		checkFaces(
+			faceIndex, origin, ray, scVertices, scFaces, kdNodeData3,
+			result, &exitDistance
+		);
 
-		// Ray intersects with bounding box of node
-		if( hitsBB ) {
-			nodeIndex = node.nodeIndex;
-			left = kdNodeData2[nodeIndex * 4 + 1];
-			right = kdNodeData2[nodeIndex * 4 + 2];
-			faceIndex = kdNodeData2[nodeIndex * 4 + 3];
+		// Get entry point of ray into bounding box
+		float bbMin[3] = { kdNodeData1[nodeIndex * 9 + 3], kdNodeData1[nodeIndex * 9 + 4], kdNodeData1[nodeIndex * 9 + 5] };
+		float bbMax[3] = { kdNodeData1[nodeIndex * 9 + 6], kdNodeData1[nodeIndex * 9 + 7], kdNodeData1[nodeIndex * 9 + 8] };
+		hitBoundingBox( bbMin, bbMax, originCoords, dirCoords, hitCoords );
 
-			// leaf node
-			if( left < 0 && right < 0 ) {
-				i = 1;
-				int numFaces = kdNodeData3[faceIndex];
+		// Get exit point of ray from bounding box
+		float newOriginCoords[3] = {
+			hitCoords[0] + 20.0f * dirCoords[0],
+			hitCoords[1] + 20.0f * dirCoords[1],
+			hitCoords[2] + 20.0f * dirCoords[2]
+		};
+		hitBoundingBox( bbMin, bbMax, newOriginCoords, newDirCoords, exitCoords );
+		exitHit = (float4)( exitCoords[0], exitCoords[1], exitCoords[2], 0.0f );
 
-				while( i <= numFaces ) {
-					int f = kdNodeData3[faceIndex + i];
-					int aIndex = scFaces[f] * 3;
-					int bIndex = scFaces[f + 1] * 3;
-					int cIndex = scFaces[f + 2] * 3;
+		entryDistance = length( exitHit - origin );
 
-					a = (float4)(
-						scVertices[aIndex],
-						scVertices[aIndex + 1],
-						scVertices[aIndex + 2],
-						0.0f
-					);
-					b = (float4)(
-						scVertices[bIndex],
-						scVertices[bIndex + 1],
-						scVertices[bIndex + 2],
-						0.0f
-					);
-					c = (float4)(
-						scVertices[cIndex],
-						scVertices[cIndex + 1],
-						scVertices[cIndex + 2],
-						0.0f
-					);
-
-					newResult.distance = -1.0f;
-					checkFaceIntersection( origin, ray, a, b, c, &newResult );
-
-					if(
-						newResult.distance > -1.0f &&
-						( result->distance < 0.0f || result->distance > newResult.distance )
-					) {
-						result->distance = newResult.distance;
-						result->position = newResult.position;
-						result->normalIndices[0] = aIndex;
-						result->normalIndices[1] = bIndex;
-						result->normalIndices[2] = cIndex;
-					}
-
-					i++;
-				}
-
-				process--;
-				continue;
-			}
-
-
-			// Proceed with children
-
-			nextNode.axis = ( node.axis + 1 ) % 3;
-			nextNode.bbMin[0] = node.bbMin[0];
-			nextNode.bbMin[1] = node.bbMin[1];
-			nextNode.bbMin[2] = node.bbMin[2];
-			nextNode.bbMax[0] = node.bbMax[0];
-			nextNode.bbMax[1] = node.bbMax[1];
-			nextNode.bbMax[2] = node.bbMax[2];
-
-			nextNode.nodeIndex = right;
-			nextNode.bbMin[node.axis] = kdNodeData1[nodeIndex * 3 + node.axis];
-			nodeStack[process] = nextNode;
-
-			nextNode.nodeIndex = left;
-			nextNode.bbMin[node.axis] = node.bbMin[node.axis];
-			nextNode.bbMax[node.axis] = kdNodeData1[nodeIndex * 3 + node.axis];
-			nodeStack[++process] = nextNode;
+		// Follow rope
+		if( exitHit.x == bbMin[0] ) { // left
+			nodeIndex = kdNodeRopes[nodeIndex * 6];
+		}
+		else if( exitHit.x == bbMax[0] ) { // right
+			nodeIndex = kdNodeRopes[nodeIndex * 6 + 1];
+		}
+		else if( exitHit.y == bbMin[1] ) { // bottom
+			nodeIndex = kdNodeRopes[nodeIndex * 6 + 2];
+		}
+		else if( exitHit.y == bbMax[1] ) { // top
+			nodeIndex = kdNodeRopes[nodeIndex * 6 + 3];
+		}
+		else if( exitHit.z == bbMin[2] ) { // back
+			nodeIndex = kdNodeRopes[nodeIndex * 6 + 4];
+		}
+		else if( exitHit.z == bbMax[2] ) { // front
+			nodeIndex = kdNodeRopes[nodeIndex * 6 + 5];
 		}
 		else {
-			process--;
+			return;
+		}
+
+		if( nodeIndex < 0 ) {
+			return;
 		}
 	}
 }
@@ -440,8 +606,8 @@ inline void descendKdTree(
 __kernel void findIntersectionsKdTree(
 	__global float4* origins, __global float4* rays, __global float4* normals,
 	__global float* scVertices, __global uint* scFaces, __global float* scNormals,
-	__global float* bbox,
 	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
+	__global int* kdNodeRopes,
 	const uint kdRoot, const float timeSinceStart
 ) {
 	uint workIndex = get_global_id( 0 ) + get_global_id( 1 ) * get_global_size( 1 );
@@ -456,16 +622,24 @@ __kernel void findIntersectionsKdTree(
 	hit.distance = -2.0f;
 	hit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
 
-	descendKdTree(
-		origin, ray, bbox,
+	traverseKdTree(
+		origin, ray, kdRoot,
 		scVertices, scFaces,
-		kdNodeData1, kdNodeData2, kdNodeData3,
-		kdRoot, &hit
+		kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes,
+		&hit
 	);
+
+	// descendKdTree(
+	// 	origin, ray,
+	// 	scVertices, scFaces,
+	// 	kdNodeData1, kdNodeData2, kdNodeData3,
+	// 	kdRoot, &hit
+	// );
 
 	origins[workIndex] = hit.position;
 
 	if( hit.distance > -1.0f ) {
+		// TODO: Weight accordingly to distance to hit
 		uint nIndex0 = hit.normalIndices[0]; // vertex a of the face
 		uint nIndex1 = hit.normalIndices[1]; // vertex b of the face
 		uint nIndex2 = hit.normalIndices[2]; // vertex c of the face
@@ -531,125 +705,3 @@ __kernel void generateRays(
 	accColors[workIndex] = (float4)( 0.0f );
 	colorMasks[workIndex] = (float4)( 1.0f );
 }
-
-
-
-
-// /**
-//  * Kernel for finding the closest intersections of the rays with the scene.
-//  * @param {__global float4*} origins    Origins of the rays.
-//  * @param {__global float4*} rays       The rays into the scene.
-//  * @param {__global float4*} normals    Output. Normals of the hit surfaces.
-//  * @param {__global uint*}   scIndices  Indices of the objects in the scene.
-//  * @param {__global float*}  scVertices Vertices of the scene.
-//  * @param {__global float*}  scNormals  Normals of the vertices in the scene.
-//  * @param {const uint}       numIndices Number of indices.
-//  */
-// __kernel void findIntersections(
-// 	__global float4* origins, __global float4* rays, __global float4* normals,
-// 	__global uint* scIndices, __global float* scVertices, __global float* scNormals,
-// 	const uint numIndices, const float timeSinceStart
-// ) {
-// 	uint workIndex = get_global_id( 0 ) + get_global_id( 1 ) * get_global_size( 1 );
-
-// 	float4 origin = origins[workIndex];
-
-// 	// Initial rays have a <w> value of 0.0f.
-// 	// Negative values are only present in rays that previously didn't hit anything.
-// 	// Those rays aren't of any interest.
-// 	if( origin.w < -1.0f ) {
-// 		return;
-// 	}
-
-// 	float4 ray = rays[workIndex];
-// 	float4 dir = ray - origin;
-// 	dir.w = 0.0f;
-
-// 	uint index0, index1, index2;
-// 	float4 a, b, c, planeNormal;
-// 	float denumerator, numerator, r;
-
-// 	uint4 normalIndices = (uint4)( 0.0f );
-// 	float4 closestHit = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
-
-
-// 	for( uint i = 0; i < numIndices; i += 3 ) {
-// 		index0 = scIndices[i] * 3;
-// 		index1 = scIndices[i + 1] * 3;
-// 		index2 = scIndices[i + 2] * 3;
-
-// 		a = (float4)( scVertices[index0], scVertices[index0 + 1], scVertices[index0 + 2], 0.0f );
-// 		b = (float4)( scVertices[index1], scVertices[index1 + 1], scVertices[index1 + 2], 0.0f );
-// 		c = (float4)( scVertices[index2], scVertices[index2 + 1], scVertices[index2 + 2], 0.0f );
-
-// 		// First test: Intersection with plane of triangle
-// 		planeNormal = cross( ( b - a ), ( c - a ) );
-// 		denumerator = dot( planeNormal, dir );
-
-// 		if( denumerator == 0.0f ) {
-// 			continue;
-// 		}
-
-// 		numerator = -dot( planeNormal, origin - a );
-// 		r = numerator / denumerator;
-
-// 		if( r < 0.0f ) {
-// 			continue;
-// 		}
-
-// 		// The plane has been hit.
-// 		// Second test: Intersection with actual triangle
-// 		float4 hit = origin + r * dir;
-// 		hit.w = 0.0f;
-
-// 		float4 u = b - a;
-// 		float4 v = c - a;
-// 		float4 w = hit - a;
-// 		u.w = 0.0f;
-// 		v.w = 0.0f;
-// 		w.w = 0.0f;
-
-// 		float uDotU = dot( u, u );
-// 		float uDotV = dot( u, v );
-// 		float vDotV = dot( v, v );
-// 		float wDotV = dot( w, v );
-// 		float wDotU = dot( w, u );
-// 		float d = uDotV * uDotV - uDotU * vDotV;
-// 		float s = ( uDotV * wDotV - vDotV * wDotU ) / d;
-
-// 		if( s < 0.0f || s > 1.0f ) {
-// 			continue;
-// 		}
-
-// 		float t = ( uDotV * wDotU - uDotU * wDotV ) / d;
-
-// 		if( t < 0.0f || ( s + t ) > 1.0f ) {
-// 			continue;
-// 		}
-
-// 		if( closestHit.w < -1.0f || length( hit - origin ) < length( closestHit - origin ) ) {
-// 			closestHit = hit;
-// 			normalIndices.x = index0;
-// 			normalIndices.y = index1;
-// 			normalIndices.z = index2;
-// 		}
-// 	}
-
-
-// 	origins[workIndex] = closestHit;
-
-// 	if( closestHit.w > -1.0f ) {
-// 		uint nIndex0 = normalIndices.x;
-// 		uint nIndex1 = normalIndices.y;
-// 		uint nIndex2 = normalIndices.z;
-
-// 		float4 normal0 = (float4)( scNormals[nIndex0], scNormals[nIndex0 + 1], scNormals[nIndex0 + 2], 0.0f );
-// 		float4 normal1 = (float4)( scNormals[nIndex1], scNormals[nIndex1 + 1], scNormals[nIndex1 + 2], 0.0f );
-// 		float4 normal2 = (float4)( scNormals[nIndex2], scNormals[nIndex2 + 1], scNormals[nIndex2 + 2], 0.0f );
-
-// 		float4 normal = normalize( ( normal0 + normal1 + normal2 ) / 3.0f );
-
-// 		rays[workIndex] = cosineWeightedDirection( timeSinceStart, normal );
-// 		normals[workIndex] = normal;
-// 	}
-// }

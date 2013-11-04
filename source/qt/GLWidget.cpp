@@ -170,10 +170,10 @@ void GLWidget::clFindIntersections( float timeSinceStart ) {
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScFaces );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
 
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufBoundingBox );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData1 );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData2 );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData3 );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeRopes );
 
 	cl_uint rootNode = mKdTree->getRootNode()->index;
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_uint ), &rootNode );
@@ -291,9 +291,10 @@ void GLWidget::initOpenCLBuffers() {
 	int pixels = width() * height();
 
 	vector<kdNode_t> kdNodes = mKdTree->getNodes();
-	vector<cl_float> kdData1;
-	vector<cl_int> kdData2;
-	vector<cl_int> kdData3;
+	vector<cl_float> kdData1; // [x, y, z, bbMin(x,y,z), bbMax(x,y,z)]
+	vector<cl_int> kdData2; // [index, left, right, axis, facesIndex, ropesIndex]
+	vector<cl_int> kdData3; // [numFaces, a, b, c ...]
+	vector<cl_int> kdRopes; // [left, right, front, back, top, bottom]
 
 	for( uint i = 0; i < kdNodes.size(); i++ ) {
 		// Vertice coordinates
@@ -301,10 +302,19 @@ void GLWidget::initOpenCLBuffers() {
 		kdData1.push_back( kdNodes[i].pos[1] );
 		kdData1.push_back( kdNodes[i].pos[2] );
 
+		// Bounding box
+		kdData1.push_back( kdNodes[i].bbMin[0] );
+		kdData1.push_back( kdNodes[i].bbMin[1] );
+		kdData1.push_back( kdNodes[i].bbMin[2] );
+		kdData1.push_back( kdNodes[i].bbMax[0] );
+		kdData1.push_back( kdNodes[i].bbMax[1] );
+		kdData1.push_back( kdNodes[i].bbMax[2] );
+
 		// Index of self and children
 		kdData2.push_back( kdNodes[i].index );
 		kdData2.push_back( kdNodes[i].left );
 		kdData2.push_back( kdNodes[i].right );
+		kdData2.push_back( kdNodes[i].axis );
 
 		// Index of faces of this node in kdData3
 		if( kdNodes[i].faces.size() > 0 ) {
@@ -317,19 +327,31 @@ void GLWidget::initOpenCLBuffers() {
 		// Faces
 		kdData3.push_back( kdNodes[i].faces.size() );
 
-		for( uint j = 0; j < kdNodes[i].faces.size(); j ++ ) {
+		for( uint j = 0; j < kdNodes[i].faces.size(); j++ ) {
 			kdData3.push_back( kdNodes[i].faces[j] );
+		}
+
+		// Ropes
+		if( kdNodes[i].left < 0 && kdNodes[i].right < 0 ) {
+			kdData2.push_back( i );
+
+			for( uint j = 0; j < kdNodes[i].ropes.size(); j++ ) {
+				kdRopes.push_back( kdNodes[i].ropes[j] );
+			}
+		}
+		else {
+			kdData2.push_back( -1 );
 		}
 	}
 
 	mBufKdNodeData1 = mCL->createBuffer( kdData1, sizeof( cl_float ) * kdData1.size() );
 	mBufKdNodeData2 = mCL->createBuffer( kdData2, sizeof( cl_int ) * kdData2.size() );
 	mBufKdNodeData3 = mCL->createBuffer( kdData3, sizeof( cl_int ) * kdData3.size() );
+	mBufKdNodeRopes = mCL->createBuffer( kdRopes, sizeof( cl_int ) * kdRopes.size() );
 
 	mBufScFaces = mCL->createBuffer( mFaces, sizeof( cl_uint ) * mFaces.size() );
 	mBufScVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
 	mBufScNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
-	mBufBoundingBox = mCL->createBuffer( mBoundingBox, sizeof( cl_float ) * 6 );
 
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
 	mBufVecW = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
