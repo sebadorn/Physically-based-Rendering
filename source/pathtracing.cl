@@ -4,8 +4,9 @@ __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_T
 
 typedef struct hit_t {
 	float4 position;
+	float4 normal;
 	float distance;
-	int normalIndices[3];
+	// int normalIndices[3];
 } hit_t;
 
 
@@ -100,11 +101,10 @@ float shadow(
 }
 
 
-inline void checkFaceIntersection(
+inline float checkFaceIntersection(
 	float4 origin, float4 ray,
 	float4 a, float4 b, float4 c,
-	float tNear, float tFar,
-	hit_t* result, float* exitDistance
+	float tNear, float tFar, hit_t* result
 ) {
 	// First test: Intersection with plane of triangle
 	float4 direction = normalize( ray - origin );
@@ -112,14 +112,14 @@ inline void checkFaceIntersection(
 	float denumerator = dot( planeNormal, direction );
 
 	if( denumerator == 0.0f ) {
-		return;
+		return -1.0f;
 	}
 
 	float numerator = -dot( planeNormal, origin - a );
 	float r = numerator / denumerator;
 
 	if( r < tNear || r > tFar ) {
-		return;
+		return -1.0f;
 	}
 
 
@@ -145,27 +145,27 @@ inline void checkFaceIntersection(
 	float s = ( uDotV * wDotV - vDotV * wDotU ) / d;
 
 	if( s < 0.0f || s > 1.0f ) {
-		return;
+		return -1.0f;
 	}
 
 	float t = ( uDotV * wDotU - uDotU * wDotV ) / d;
 
 	if( t < 0.0f || ( s + t ) > 1.0f ) {
-		return;
+		return -1.0f;
 	}
 
 	result->position = hit;
 	result->distance = length( hit - origin );
 
-	*exitDistance = r;
+	return r;
 }
 
 
 inline void checkFaces(
 	int faceIndex, float4 origin, float4 ray,
-	__global float* scVertices, __global uint* scFaces, __global int* kdNodeData3,
-	float tNear, float tFar,
-	hit_t* result, float* exitDistance
+	__global float* scVertices, __global uint* scFaces,
+	__global int* kdNodeData3,
+	float tNear, float tFar, hit_t* result, float* exitDistance
 ) {
 	float4 a, b, c;
 	hit_t newResult;
@@ -199,15 +199,19 @@ inline void checkFaces(
 		);
 
 		newResult.distance = -1.0f;
-		checkFaceIntersection( origin, ray, a, b, c, tNear, tFar, &newResult, exitDistance );
+		float r = checkFaceIntersection( origin, ray, a, b, c, tNear, tFar, &newResult );
 
 		if( newResult.distance > -1.0f ) {
+			*exitDistance = r;
+			tFar = r;
+
 			if( result->distance < 0.0f || result->distance > newResult.distance ) {
 				result->distance = newResult.distance;
 				result->position = newResult.position;
-				result->normalIndices[0] = aIndex;
-				result->normalIndices[1] = bIndex;
-				result->normalIndices[2] = cIndex;
+				result->normal = normalize( cross( ( b - a ), ( c - a ) ) ); // TODO: clean up
+				// result->normalIndices[0] = aIndex;
+				// result->normalIndices[1] = bIndex;
+				// result->normalIndices[2] = cIndex;
 			}
 		}
 
@@ -222,24 +226,35 @@ inline void checkFaces(
  */
 inline bool intersectBoundingBox(
 	float4* origin, float4* direction, float* bbMin, float* bbMax,
-	float* p_near, float* p_far
+	float* p_near, float* p_far, int* exitRope
 ) {
 	float p_near_result = -FLT_MAX;
 	float p_far_result = FLT_MAX;
 	float p_near_comp, p_far_comp;
 
-	float dir[3] = { direction->x, direction->y, direction->z };
+	float invDir[3] = {
+		1.0f / direction->x,
+		1.0f / direction->y,
+		1.0f / direction->z
+	};
 	float originCoords[3] = { origin->x, origin->y, origin->z };
 
+	int swapped;
+	*exitRope = 0;
+
 	for( int i = 0; i < 3; i++ ) {
-		p_near_comp = ( bbMin[i] - originCoords[i] ) / dir[i];
-		p_far_comp = ( bbMax[i] - originCoords[i] ) / dir[i];
+		p_near_comp = ( bbMin[i] - originCoords[i] ) * invDir[i];
+		p_far_comp = ( bbMax[i] - originCoords[i] ) * invDir[i];
+		swapped = 1;
 
 		if( p_near_comp > p_far_comp ) {
 			float temp = p_near_comp;
 			p_near_comp = p_far_comp;
 			p_far_comp = temp;
+			swapped = 0;
 		}
+
+		*exitRope = ( p_far_comp < p_far_result ) ? i * 2 + swapped : *exitRope;
 
 		p_near_result = ( p_near_comp > p_near_result ) ? p_near_comp : p_near_result;
 		p_far_result = ( p_far_comp < p_far_result ) ? p_far_comp : p_far_result;
@@ -276,9 +291,10 @@ inline void traverseKdTree(
 		kdNodeData1[nodeIndex * 9 + 8]
 	};
 
-	float entryDistance, exitDistance, tNear;
+	float entryDistance, exitDistance, tNear, tFar;
+	int exitRope;
 
-	if( !intersectBoundingBox( &origin, &dir, bbMin, bbMax, &entryDistance, &exitDistance ) ) {
+	if( !intersectBoundingBox( &origin, &dir, bbMin, bbMax, &entryDistance, &exitDistance, &exitRope ) ) {
 		return;
 	}
 
@@ -290,7 +306,7 @@ inline void traverseKdTree(
 
 
 	while( entryDistance < exitDistance ) {
-		if( i++ > 100 ) { return; } // TODO: REMOVE
+		if( i++ > 200 ) { return; } // TODO: REMOVE
 
 		hitNear = origin + entryDistance * dir;
 		hitCoords[0] = hitNear.x;
@@ -310,6 +326,17 @@ inline void traverseKdTree(
 		}
 
 
+		// At a leaf node now, check triangle faces
+		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
+
+		checkFaces(
+			faceIndex, origin, ray,
+			scVertices, scFaces, kdNodeData3,
+			entryDistance, exitDistance,
+			result, &exitDistance
+		);
+
+
 		// Get exit point of ray from bounding box
 		bbMin[0] = kdNodeData1[nodeIndex * 9 + 3];
 		bbMin[1] = kdNodeData1[nodeIndex * 9 + 4];
@@ -318,23 +345,13 @@ inline void traverseKdTree(
 		bbMax[1] = kdNodeData1[nodeIndex * 9 + 7];
 		bbMax[2] = kdNodeData1[nodeIndex * 9 + 8];
 
-		intersectBoundingBox( &origin, &dir, bbMin, bbMax, &tNear, &entryDistance );
+		intersectBoundingBox( &origin, &dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
 		hitFar = origin + entryDistance * dir;
-
-
-		// At a leaf node now, check triangle faces
-		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
-
-		checkFaces(
-			faceIndex, origin, ray,
-			scVertices, scFaces, kdNodeData3,
-			tNear, entryDistance,
-			result, &exitDistance
-		);
 
 
 		// Follow the rope
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
+		// nodeIndex = kdNodeRopes[ropeIndex + exitRope];
 
 		if( fabs( hitFar.x - bbMin[0] ) < DELTA_PRECISION ) { // left
 			nodeIndex = kdNodeRopes[ropeIndex];
@@ -359,6 +376,8 @@ inline void traverseKdTree(
 		}
 
 		if( nodeIndex < 0 ) {
+			// Per algorithm description in original paper, but why?
+			// result->distance = -2.0f;
 			return;
 		}
 	}
@@ -463,19 +482,19 @@ __kernel void findIntersectionsKdTree(
 	origins[workIndex] = hit.position;
 
 	if( hit.distance > -1.0f ) {
-		// TODO: Weight accordingly to distance to hit
-		uint nIndex0 = hit.normalIndices[0]; // vertex a of the face
-		uint nIndex1 = hit.normalIndices[1]; // vertex b of the face
-		uint nIndex2 = hit.normalIndices[2]; // vertex c of the face
+		// // TODO: Weight accordingly to distance to hit
+		// uint nIndex0 = hit.normalIndices[0]; // vertex a of the face
+		// uint nIndex1 = hit.normalIndices[1]; // vertex b of the face
+		// uint nIndex2 = hit.normalIndices[2]; // vertex c of the face
 
-		float4 normal0 = (float4)( scNormals[nIndex0], scNormals[nIndex0 + 1], scNormals[nIndex0 + 2], 0.0f );
-		float4 normal1 = (float4)( scNormals[nIndex1], scNormals[nIndex1 + 1], scNormals[nIndex1 + 2], 0.0f );
-		float4 normal2 = (float4)( scNormals[nIndex2], scNormals[nIndex2 + 1], scNormals[nIndex2 + 2], 0.0f );
+		// float4 normal0 = (float4)( scNormals[nIndex0], scNormals[nIndex0 + 1], scNormals[nIndex0 + 2], 0.0f );
+		// float4 normal1 = (float4)( scNormals[nIndex1], scNormals[nIndex1 + 1], scNormals[nIndex1 + 2], 0.0f );
+		// float4 normal2 = (float4)( scNormals[nIndex2], scNormals[nIndex2 + 1], scNormals[nIndex2 + 2], 0.0f );
 
-		float4 normal = normalize( ( normal0 + normal1 + normal2 ) / 3.0f );
+		// float4 normal = normalize( ( normal0 + normal1 + normal2 ) / 3.0f );
 
-		rays[workIndex] = cosineWeightedDirection( timeSinceStart, normal );
-		normals[workIndex] = normal;
+		rays[workIndex] = cosineWeightedDirection( timeSinceStart, hit.normal );
+		normals[workIndex] = hit.normal;
 	}
 }
 

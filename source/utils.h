@@ -7,6 +7,7 @@
 #define BB_LEFT 1
 #define BB_MIDDLE 2
 
+#include <cfloat>
 #include <fstream>
 #include <string>
 
@@ -23,12 +24,51 @@ namespace utils {
 	}
 
 
+	inline bool hitBoundingBox(
+		float* bbMin, float* bbMax, float* origin, float* dir,
+		float* p_near, float* p_far
+	) {
+		float p_near_result = -FLT_MAX;
+		float p_far_result = FLT_MAX;
+		float p_near_comp, p_far_comp;
+
+		float invDir[3] = {
+			1.0f / dir[0],
+			1.0f / dir[1],
+			1.0f / dir[2]
+		};
+
+		for( int i = 0; i < 3; i++ ) {
+			p_near_comp = ( bbMin[i] - origin[i] ) * invDir[i];
+			p_far_comp = ( bbMax[i] - origin[i] ) * invDir[i];
+
+			if( p_near_comp > p_far_comp ) {
+				float temp = p_near_comp;
+				p_near_comp = p_far_comp;
+				p_far_comp = temp;
+			}
+
+			p_near_result = ( p_near_comp > p_near_result ) ? p_near_comp : p_near_result;
+			p_far_result = ( p_far_comp < p_far_result ) ? p_far_comp : p_far_result;
+
+			if( p_near_result > p_far_result ) {
+				return false;
+			}
+		}
+
+		*p_near = p_near_result;
+		*p_far = p_far_result;
+
+		return true;
+	}
+
+
 	/**
 	 * Fast Ray-Box Intersection
 	 * by Andrew Woo
 	 * from "Graphics Gems", Academic Press, 1990
 	 */
-	inline bool hitBoundingBox( float* minB, float* maxB, float* origin, float* dir, float* coord ) {
+	inline bool hitBoundingBoxWoo( float* minB, float* maxB, float* origin, float* dir, float* coord ) {
 		bool inside = true;
 		int quadrant[BB_NUMDIM];
 		int whichPlane;
@@ -41,12 +81,12 @@ namespace utils {
 		for( i = 0; i < BB_NUMDIM; i++ ) {
 			quadrant[i] = BB_MIDDLE;
 
-			if( origin[i] <= minB[i] ) {
+			if( origin[i] < minB[i] ) {
 				quadrant[i] = BB_LEFT;
 				candidatePlane[i] = minB[i];
 				inside = false;
 			}
-			else if( origin[i] >= maxB[i] ) {
+			else if( origin[i] > maxB[i] ) {
 				quadrant[i] = BB_RIGHT;
 				candidatePlane[i] = maxB[i];
 				inside = false;

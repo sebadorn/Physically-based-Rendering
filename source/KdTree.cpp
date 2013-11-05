@@ -78,31 +78,38 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices, cl_float* 
 			if( find( l->faces.begin(), l->faces.end(), i ) == l->faces.end() ) {
 				bool add = false;
 				float distanceLimit, distanceHit;
+				float tNear, tFar;
 
-				if( utils::hitBoundingBox( l->bbMin, l->bbMax, a, abDir, hit ) ) {
-					float d[3] = { hit[0] - a[0], hit[1] - a[1], hit[2] - a[2] };
-					distanceLimit = sqrt( abDir[0] * abDir[0] + abDir[1] * abDir[1] + abDir[2] * abDir[2] );
-					distanceHit = sqrt( d[0] * d[0] + d[1] * d[1] + d[2] * d[2] );
+				if( utils::hitBoundingBox( l->bbMin, l->bbMax, a, abDir, &tNear, &tFar ) ) {
+				// if( utils::hitBoundingBoxWoo( l->bbMin, l->bbMax, a, abDir, hit ) ) {
+					// float d[3] = { hit[0] - a[0], hit[1] - a[1], hit[2] - a[2] };
+					// distanceLimit = sqrt( abDir[0] * abDir[0] + abDir[1] * abDir[1] + abDir[2] * abDir[2] );
+					// distanceHit = sqrt( d[0] * d[0] + d[1] * d[1] + d[2] * d[2] );
 
-					if( distanceHit <= distanceLimit ) {
+					// if( distanceHit <= distanceLimit ) {
+					if( tNear >= 0.0f && tNear <= 1.0f ) {
 						add = true;
 					}
 				}
-				if( !add && utils::hitBoundingBox( l->bbMin, l->bbMax, b, bcDir, hit ) ) {
-					float d[3] = { hit[0] - b[0], hit[1] - b[1], hit[2] - b[2] };
-					distanceLimit = sqrt( bcDir[0] * bcDir[0] + bcDir[1] * bcDir[1] + bcDir[2] * bcDir[2] );
-					distanceHit = sqrt( d[0] * d[0] + d[1] * d[1] + d[2] * d[2] );
+				if( !add && utils::hitBoundingBox( l->bbMin, l->bbMax, b, bcDir, &tNear, &tFar ) ) {
+				// if( !add && utils::hitBoundingBoxWoo( l->bbMin, l->bbMax, b, bcDir, hit ) ) {
+					// float d[3] = { hit[0] - b[0], hit[1] - b[1], hit[2] - b[2] };
+					// distanceLimit = sqrt( bcDir[0] * bcDir[0] + bcDir[1] * bcDir[1] + bcDir[2] * bcDir[2] );
+					// distanceHit = sqrt( d[0] * d[0] + d[1] * d[1] + d[2] * d[2] );
 
-					if( distanceHit <= distanceLimit ) {
+					if( tNear >= 0.0f && tNear <= 1.0f ) {
+					// if( distanceHit <= distanceLimit ) {
 						add = true;
 					}
 				}
-				if( !add && utils::hitBoundingBox( l->bbMin, l->bbMax, c, caDir, hit ) ) {
-					float d[3] = { hit[0] - c[0], hit[1] - c[1], hit[2] - c[2] };
-					distanceLimit = sqrt( caDir[0] * caDir[0] + caDir[1] * caDir[1] + caDir[2] * caDir[2] );
-					distanceHit = sqrt( d[0] * d[0] + d[1] * d[1] + d[2] * d[2] );
+				if( !add && utils::hitBoundingBox( l->bbMin, l->bbMax, c, caDir, &tNear, &tFar ) ) {
+				// if( !add && utils::hitBoundingBoxWoo( l->bbMin, l->bbMax, c, caDir, hit ) ) {
+					// float d[3] = { hit[0] - c[0], hit[1] - c[1], hit[2] - c[2] };
+					// distanceLimit = sqrt( caDir[0] * caDir[0] + caDir[1] * caDir[1] + caDir[2] * caDir[2] );
+					// distanceHit = sqrt( d[0] * d[0] + d[1] * d[1] + d[2] * d[2] );
 
-					if( distanceHit <= distanceLimit ) {
+					// if( distanceHit <= distanceLimit ) {
+					if( tNear >= 0.0f && tNear <= 1.0f ) {
 						add = true;
 					}
 				}
@@ -113,6 +120,10 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices, cl_float* 
 			}
 		}
 	}
+
+	// for( int i = 0; i < mLeaves.size(); i++ ) {
+	// 	cout << i << ": " << mLeaves[i]->faces.size() << endl;
+	// }
 
 	cl_int ropesInit[6] = { -1, -1, -1, -1, -1, -1 };
 	this->processNode( mRoot, vector<cl_int>( ropesInit, ropesInit + 6 ) );
