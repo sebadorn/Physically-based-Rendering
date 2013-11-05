@@ -149,11 +149,11 @@ void KdTree::processNode( kdNode_t* node, vector<cl_int> ropes ) {
 	cl_int sideLeft = node->axis * 2;
 	cl_int sideRight = node->axis * 2 + 1;
 
-	vector<cl_int> ropesLeft( ropes.begin(), ropes.end() );
+	vector<cl_int> ropesLeft( ropes );
 	ropesLeft[sideRight] = node->right;
 	this->processNode( mNodes[node->left], ropesLeft );
 
-	vector<cl_int> ropesRight( ropes.begin(), ropes.end() );
+	vector<cl_int> ropesRight( ropes );
 	ropesRight[sideLeft] = node->left;
 	this->processNode( mNodes[node->right], ropesRight );
 }

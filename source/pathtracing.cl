@@ -306,7 +306,7 @@ inline void traverseKdTree(
 
 
 	while( entryDistance < exitDistance ) {
-		if( i++ > 200 ) { return; } // TODO: REMOVE
+		if( i++ > 100 ) { return; } // TODO: REMOVE
 
 		hitNear = origin + entryDistance * dir;
 		hitCoords[0] = hitNear.x;
@@ -353,6 +353,7 @@ inline void traverseKdTree(
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
 		// nodeIndex = kdNodeRopes[ropeIndex + exitRope];
 
+		// TODO: replace with the one-liner above ... as soon as it works
 		if( fabs( hitFar.x - bbMin[0] ) < DELTA_PRECISION ) { // left
 			nodeIndex = kdNodeRopes[ropeIndex];
 		}

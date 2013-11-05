@@ -1,8 +1,8 @@
 ## ToDo
 
+* `Critical` Get kd-tree to work properly
 * `Improve` PT: colors
 * `Improve` PT: shadows
-* `Improve` kd-tree or octree for intersection test
 * `Improve` Can currently only handle single mesh models
 * `Improve` Keep work group sizes down (64-256), even for bigger textures (GPU limit at 1024)
 * `Improve` Flexible width and height
