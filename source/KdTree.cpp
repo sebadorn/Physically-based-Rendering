@@ -130,7 +130,7 @@ KdTree::~KdTree() {
 
 
 void KdTree::processNode( kdNode_t* node, vector<cl_int> ropes ) {
-	if( node->left == -1 && node->right == -1 ) {
+	if( node->left < 0 && node->right < 0 ) {
 		node->ropes = ropes;
 		return;
 	}

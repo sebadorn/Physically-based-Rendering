@@ -1,11 +1,6 @@
+#define DELTA_PRECISION 0.00001f
+
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
-
-
-// typedef struct stackEntry_t {
-// 	int nodeIndex;
-// 	int axis;
-// } stackEntry_t;
-
 
 typedef struct hit_t {
 	float4 position;
@@ -105,6 +100,271 @@ float shadow(
 }
 
 
+inline void checkFaceIntersection(
+	float4 origin, float4 ray,
+	float4 a, float4 b, float4 c,
+	float tNear, float tFar,
+	hit_t* result, float* exitDistance
+) {
+	// First test: Intersection with plane of triangle
+	float4 direction = normalize( ray - origin );
+	float4 planeNormal = normalize( cross( ( b - a ), ( c - a ) ) );
+	float denumerator = dot( planeNormal, direction );
+
+	if( denumerator == 0.0f ) {
+		return;
+	}
+
+	float numerator = -dot( planeNormal, origin - a );
+	float r = numerator / denumerator;
+
+	if( r < tNear || r > tFar ) {
+		return;
+	}
+
+
+	// The plane has been hit.
+	// Second test: Intersection with actual triangle
+	float4 hit = origin + r * direction;
+	hit.w = 0.0f;
+
+	float4 u = b - a;
+	float4 v = c - a;
+	float4 w = hit - a;
+	u.w = 0.0f;
+	v.w = 0.0f;
+	w.w = 0.0f;
+
+	float uDotU = dot( u, u );
+	float uDotV = dot( u, v );
+	float vDotV = dot( v, v );
+	float wDotV = dot( w, v );
+	float wDotU = dot( w, u );
+
+	float d = uDotV * uDotV - uDotU * vDotV;
+	float s = ( uDotV * wDotV - vDotV * wDotU ) / d;
+
+	if( s < 0.0f || s > 1.0f ) {
+		return;
+	}
+
+	float t = ( uDotV * wDotU - uDotU * wDotV ) / d;
+
+	if( t < 0.0f || ( s + t ) > 1.0f ) {
+		return;
+	}
+
+	result->position = hit;
+	result->distance = length( hit - origin );
+
+	*exitDistance = r;
+}
+
+
+inline void checkFaces(
+	int faceIndex, float4 origin, float4 ray,
+	__global float* scVertices, __global uint* scFaces, __global int* kdNodeData3,
+	float tNear, float tFar,
+	hit_t* result, float* exitDistance
+) {
+	float4 a, b, c;
+	hit_t newResult;
+
+	int i = 1;
+	int numFaces = kdNodeData3[faceIndex];
+
+	while( i <= numFaces ) {
+		int f = kdNodeData3[faceIndex + i];
+		int aIndex = scFaces[f] * 3;
+		int bIndex = scFaces[f + 1] * 3;
+		int cIndex = scFaces[f + 2] * 3;
+
+		a = (float4)(
+			scVertices[aIndex],
+			scVertices[aIndex + 1],
+			scVertices[aIndex + 2],
+			0.0f
+		);
+		b = (float4)(
+			scVertices[bIndex],
+			scVertices[bIndex + 1],
+			scVertices[bIndex + 2],
+			0.0f
+		);
+		c = (float4)(
+			scVertices[cIndex],
+			scVertices[cIndex + 1],
+			scVertices[cIndex + 2],
+			0.0f
+		);
+
+		newResult.distance = -1.0f;
+		checkFaceIntersection( origin, ray, a, b, c, tNear, tFar, &newResult, exitDistance );
+
+		if( newResult.distance > -1.0f ) {
+			if( result->distance < 0.0f || result->distance > newResult.distance ) {
+				result->distance = newResult.distance;
+				result->position = newResult.position;
+				result->normalIndices[0] = aIndex;
+				result->normalIndices[1] = bIndex;
+				result->normalIndices[2] = cIndex;
+			}
+		}
+
+		i++;
+	}
+}
+
+
+/**
+ * Source: https://github.com/unvirtual/cukd/blob/master/utils/intersection.h
+ * which is based on: http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
+ */
+inline bool intersectBoundingBox(
+	float4* origin, float4* direction, float* bbMin, float* bbMax,
+	float* p_near, float* p_far
+) {
+	float p_near_result = -FLT_MAX;
+	float p_far_result = FLT_MAX;
+	float p_near_comp, p_far_comp;
+
+	float dir[3] = { direction->x, direction->y, direction->z };
+	float originCoords[3] = { origin->x, origin->y, origin->z };
+
+	for( int i = 0; i < 3; i++ ) {
+		p_near_comp = ( bbMin[i] - originCoords[i] ) / dir[i];
+		p_far_comp = ( bbMax[i] - originCoords[i] ) / dir[i];
+
+		if( p_near_comp > p_far_comp ) {
+			float temp = p_near_comp;
+			p_near_comp = p_far_comp;
+			p_far_comp = temp;
+		}
+
+		p_near_result = ( p_near_comp > p_near_result ) ? p_near_comp : p_near_result;
+		p_far_result = ( p_far_comp < p_far_result ) ? p_far_comp : p_far_result;
+
+		if( p_near_result > p_far_result ) {
+			return false;
+		}
+	}
+
+	*p_near = p_near_result;
+	*p_far = p_far_result;
+
+	return true;
+}
+
+
+inline void traverseKdTree(
+	float4 origin, float4 ray, const uint kdRoot,
+	__global float* scVertices, __global uint* scFaces,
+	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
+	__global int* kdNodeRopes, hit_t* result
+) {
+	float4 dir = normalize( ray - origin );
+	int nodeIndex = kdRoot;
+
+	float bbMin[3] = {
+		kdNodeData1[nodeIndex * 9 + 3],
+		kdNodeData1[nodeIndex * 9 + 4],
+		kdNodeData1[nodeIndex * 9 + 5]
+	};
+	float bbMax[3] = {
+		kdNodeData1[nodeIndex * 9 + 6],
+		kdNodeData1[nodeIndex * 9 + 7],
+		kdNodeData1[nodeIndex * 9 + 8]
+	};
+
+	float entryDistance, exitDistance, tNear;
+
+	if( !intersectBoundingBox( &origin, &dir, bbMin, bbMax, &entryDistance, &exitDistance ) ) {
+		return;
+	}
+
+	float4 hitNear, hitFar;
+	float hitCoords[3];
+	int left, right, axis, faceIndex, ropeIndex;
+
+	int i = 0;
+
+
+	while( entryDistance < exitDistance ) {
+		if( i++ > 100 ) { return; } // TODO: REMOVE
+
+		hitNear = origin + entryDistance * dir;
+		hitCoords[0] = hitNear.x;
+		hitCoords[1] = hitNear.y;
+		hitCoords[2] = hitNear.z;
+
+		left = kdNodeData2[nodeIndex * 5];
+		right = kdNodeData2[nodeIndex * 5 + 1];
+		axis = kdNodeData2[nodeIndex * 5 + 2];
+
+		// Find a leaf node for this ray
+		while( left >= 0 && right >= 0 ) {
+			nodeIndex = ( hitCoords[axis] < kdNodeData1[nodeIndex * 9 + axis] ) ? left : right;
+			left = kdNodeData2[nodeIndex * 5];
+			right = kdNodeData2[nodeIndex * 5 + 1];
+			axis = kdNodeData2[nodeIndex * 5 + 2];
+		}
+
+
+		// Get exit point of ray from bounding box
+		bbMin[0] = kdNodeData1[nodeIndex * 9 + 3];
+		bbMin[1] = kdNodeData1[nodeIndex * 9 + 4];
+		bbMin[2] = kdNodeData1[nodeIndex * 9 + 5];
+		bbMax[0] = kdNodeData1[nodeIndex * 9 + 6];
+		bbMax[1] = kdNodeData1[nodeIndex * 9 + 7];
+		bbMax[2] = kdNodeData1[nodeIndex * 9 + 8];
+
+		intersectBoundingBox( &origin, &dir, bbMin, bbMax, &tNear, &entryDistance );
+		hitFar = origin + entryDistance * dir;
+
+
+		// At a leaf node now, check triangle faces
+		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
+
+		checkFaces(
+			faceIndex, origin, ray,
+			scVertices, scFaces, kdNodeData3,
+			tNear, entryDistance,
+			result, &exitDistance
+		);
+
+
+		// Follow the rope
+		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
+
+		if( fabs( hitFar.x - bbMin[0] ) < DELTA_PRECISION ) { // left
+			nodeIndex = kdNodeRopes[ropeIndex];
+		}
+		else if( fabs( hitFar.x - bbMax[0] ) < DELTA_PRECISION ) { // right
+			nodeIndex = kdNodeRopes[ropeIndex + 1];
+		}
+		else if( fabs( hitFar.y - bbMin[1] ) < DELTA_PRECISION ) { // bottom
+			nodeIndex = kdNodeRopes[ropeIndex + 2];
+		}
+		else if( fabs( hitFar.y - bbMax[1] ) < DELTA_PRECISION ) { // top
+			nodeIndex = kdNodeRopes[ropeIndex + 3];
+		}
+		else if( fabs( hitFar.z - bbMin[2] ) < DELTA_PRECISION ) { // back
+			nodeIndex = kdNodeRopes[ropeIndex + 4];
+		}
+		else if( fabs( hitFar.z - bbMax[2] ) < DELTA_PRECISION ) { // front
+			nodeIndex = kdNodeRopes[ropeIndex + 5];
+		}
+		else {
+			return;
+		}
+
+		if( nodeIndex < 0 ) {
+			return;
+		}
+	}
+}
+
+
 
 // KERNELS
 
@@ -174,353 +434,6 @@ __kernel void accumulateColors(
 }
 
 
-inline void checkFaceIntersection(
-	float4 origin, float4 ray,
-	float4 a, float4 b, float4 c,
-	hit_t* result, float* exitDistance
-) {
-	// First test: Intersection with plane of triangle
-	float4 direction = normalize( ray - origin );
-	float4 planeNormal = normalize( cross( ( b - a ), ( c - a ) ) );
-	float denumerator = dot( planeNormal, direction );
-
-	if( denumerator == 0.0f ) {
-		return;
-	}
-
-	float numerator = -dot( planeNormal, origin - a );
-	float r = numerator / denumerator;
-
-	if( r < 0.0f ) {
-		return;
-	}
-
-
-	// The plane has been hit.
-	// Second test: Intersection with actual triangle
-	float4 hit = origin + r * direction;
-	hit.w = 0.0f;
-
-	float4 u = b - a;
-	float4 v = c - a;
-	float4 w = hit - a;
-	u.w = 0.0f;
-	v.w = 0.0f;
-	w.w = 0.0f;
-
-	float uDotU = dot( u, u );
-	float uDotV = dot( u, v );
-	float vDotV = dot( v, v );
-	float wDotV = dot( w, v );
-	float wDotU = dot( w, u );
-
-	float d = uDotV * uDotV - uDotU * vDotV;
-	float s = ( uDotV * wDotV - vDotV * wDotU ) / d;
-
-	if( s < 0.0f || s > 1.0f ) {
-		return;
-	}
-
-	float t = ( uDotV * wDotU - uDotU * wDotV ) / d;
-
-	if( t < 0.0f || ( s + t ) > 1.0f ) {
-		return;
-	}
-
-	result->position = hit;
-	result->distance = length( hit - origin );
-
-	*exitDistance = r;
-}
-
-
-/*
- * Fast Ray-Box Intersection
- * by Andrew Woo
- * from "Graphics Gems", Academic Press, 1990
- */
-
-#define NUMDIM 3
-#define RIGHT 0
-#define LEFT 1
-#define MIDDLE 2
-
-inline bool hitBoundingBox(
-	float* minB, float* maxB,
-	float* origin, float* dir,
-	float* coord
-) {
-	bool inside = true;
-	int quadrant[NUMDIM];
-	int entryPlane;
-	int i;
-	float maxT[NUMDIM];
-	float candidatePlane[NUMDIM];
-
-	// Find candidate planes; this loop can be avoided if
-	// rays cast all from the eye (assume perspective view)
-	for( i = 0; i < NUMDIM; i++ ) {
-		quadrant[i] = MIDDLE;
-
-		if( origin[i] < minB[i] ) {
-			quadrant[i] = LEFT;
-			candidatePlane[i] = minB[i];
-			inside = false;
-		}
-		else if( origin[i] > maxB[i] ) {
-			quadrant[i] = RIGHT;
-			candidatePlane[i] = maxB[i];
-			inside = false;
-		}
-	}
-
-	// Ray origin inside bounding box
-	if( inside ) {
-		coord = origin;
-		return true;
-	}
-
-
-	// Calculate T distances to candidate planes
-	for( i = 0; i < NUMDIM; i++ ) {
-		maxT[i] = ( quadrant[i] != MIDDLE && dir[i] != 0.0f )
-		        ? ( candidatePlane[i] - origin[i] ) / dir[i]
-		        : -1.0f;
-	}
-
-	// Get largest of the maxT's for final choice of intersection
-	entryPlane = 0;
-	for( i = 1; i < NUMDIM; i++ ) {
-		entryPlane = ( maxT[entryPlane] < maxT[i] ) ? i : entryPlane;
-	}
-
-	// Check final candidate actually inside box
-	if( maxT[entryPlane] < 0.0f ) {
-		return false;
-	}
-
-	for( i = 0; i < NUMDIM; i++ ) {
-		coord[i] = ( entryPlane != i )
-		         ? origin[i] + maxT[entryPlane] * dir[i]
-		         : candidatePlane[i];
-
-		if( coord[i] < minB[i] || coord[i] > maxB[i] ) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
-
-inline void checkFaces(
-	int faceIndex, float4 origin, float4 ray,
-	__global float* scVertices, __global uint* scFaces, __global int* kdNodeData3,
-	hit_t* result, float* exitDistance
-) {
-	float4 a, b, c;
-	hit_t newResult;
-
-	int i = 1;
-	int numFaces = kdNodeData3[faceIndex];
-
-	while( i <= numFaces ) {
-		int f = kdNodeData3[faceIndex + i];
-		int aIndex = scFaces[f] * 3;
-		int bIndex = scFaces[f + 1] * 3;
-		int cIndex = scFaces[f + 2] * 3;
-
-		a = (float4)(
-			scVertices[aIndex],
-			scVertices[aIndex + 1],
-			scVertices[aIndex + 2],
-			0.0f
-		);
-		b = (float4)(
-			scVertices[bIndex],
-			scVertices[bIndex + 1],
-			scVertices[bIndex + 2],
-			0.0f
-		);
-		c = (float4)(
-			scVertices[cIndex],
-			scVertices[cIndex + 1],
-			scVertices[cIndex + 2],
-			0.0f
-		);
-
-		newResult.distance = -1.0f;
-		checkFaceIntersection( origin, ray, a, b, c, &newResult, &exitDistance );
-
-		if( newResult.distance > -1.0f ) {
-			// *exitDistance = newResult.distance;
-
-			if( result->distance < 0.0f || result->distance > newResult.distance ) {
-				result->distance = newResult.distance;
-				result->position = newResult.position;
-				result->normalIndices[0] = aIndex;
-				result->normalIndices[1] = bIndex;
-				result->normalIndices[2] = cIndex;
-			}
-		}
-
-		i++;
-	}
-}
-
-
-// Source: https://github.com/unvirtual/cukd/blob/master/utils/intersection.h
-// which is based on: http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
-
-inline bool intersectBoundingBox(
-	float4 origin, float4 direction, float* bbMin, float* bbMax,
-	float* p_near, float* p_far
-) {
-	bool intersection = true;
-	float p_near_result = -FLT_MAX;
-	float p_far_result = FLT_MAX;
-	float p_near_comp, p_far_comp;
-
-	float dir[3] = { direction.x, direction.y, direction.z };
-	float originCoords[3] = { origin.x, origin.y, origin.z };
-
-	for( int i = 0; i < 3; i++ ) {
-		p_near_comp = ( bbMin[i] - originCoords[i] ) / dir[i];
-		p_far_comp = ( bbMax[i] - originCoords[i] ) / dir[i];
-
-		if( p_near_comp > p_far_comp ) {
-			float temp = p_near_comp;
-			p_near_comp = p_far_comp;
-			p_far_comp = temp;
-		}
-
-		p_near_result = ( p_near_comp > p_near_result ) ? p_near_comp : p_near_result;
-		p_far_result = ( p_far_comp < p_far_result ) ? p_far_comp : p_far_result;
-
-		intersection = ( p_near_result > p_far_result ) ? false : intersection;
-	}
-
-	*p_near = p_near_result;
-	*p_far = p_far_result;
-
-	return intersection;
-}
-
-
-#define DELTA_PRECISION 0.000001f
-
-inline void traverseKdTree(
-	float4 origin, float4 ray, const uint kdRoot,
-	__global float* scVertices, __global uint* scFaces,
-	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
-	__global int* kdNodeRopes, hit_t* result
-) {
-	float4 dir = normalize( ray - origin );
-	float hitCoords[3];
-
-	int nodeIndex = kdRoot;
-	int left, right, axis, faceIndex, ropeIndex;
-
-	// Get entry  and exit point of ray into bounding box
-	float bbMin[3] = { kdNodeData1[nodeIndex * 9 + 3], kdNodeData1[nodeIndex * 9 + 4], kdNodeData1[nodeIndex * 9 + 5] };
-	float bbMax[3] = { kdNodeData1[nodeIndex * 9 + 6], kdNodeData1[nodeIndex * 9 + 7], kdNodeData1[nodeIndex * 9 + 8] };
-
-	float tNear, tFar;
-	float entryDistance, exitDistance;
-
-	if( !intersectBoundingBox( origin, dir, bbMin, bbMax, &entryDistance, &exitDistance ) ) {
-		return;
-	}
-
-	float4 hitNear = origin + entryDistance * dir;
-	float4 hitFar = origin + exitDistance * dir;
-
-	int i = 0;
-
-	// Main loop
-	while( entryDistance < exitDistance ) {
-		if( i++ > 60 ) { return; } // TODO: REMOVE
-
-		left = kdNodeData2[nodeIndex * 6 + 1];
-		right = kdNodeData2[nodeIndex * 6 + 2];
-		axis = kdNodeData2[nodeIndex * 6 + 3];
-
-		bbMin[0] = kdNodeData1[nodeIndex * 9 + 3];
-		bbMin[1] = kdNodeData1[nodeIndex * 9 + 4];
-		bbMin[2] = kdNodeData1[nodeIndex * 9 + 5];
-		bbMax[0] = kdNodeData1[nodeIndex * 9 + 6];
-		bbMax[1] = kdNodeData1[nodeIndex * 9 + 7];
-		bbMax[2] = kdNodeData1[nodeIndex * 9 + 8];
-
-		intersectBoundingBox( origin, dir, bbMin, bbMax, &tNear, &tFar );
-
-		hitNear = origin + tNear * dir;
-		hitCoords[0] = hitNear.x;
-		hitCoords[1] = hitNear.y;
-		hitCoords[2] = hitNear.z;
-
-		// Find a leaf node for this ray
-		while( left >= 0 && right >= 0 ) {
-			nodeIndex = ( hitCoords[axis] < kdNodeData1[nodeIndex * 9 + axis] ) ? left : right;
-			left = kdNodeData2[nodeIndex * 6 + 1];
-			right = kdNodeData2[nodeIndex * 6 + 2];
-			axis = kdNodeData2[nodeIndex * 6 + 3];
-		}
-
-		// At a leaf node now, check triangle faces
-		faceIndex = kdNodeData2[nodeIndex * 6 + 4];
-
-		checkFaces(
-			faceIndex, origin, ray,
-			scVertices, scFaces, kdNodeData3,
-			result, &exitDistance
-		);
-
-
-		// Get exit point of ray from bounding box
-		bbMin[0] = kdNodeData1[nodeIndex * 9 + 3];
-		bbMin[1] = kdNodeData1[nodeIndex * 9 + 4];
-		bbMin[2] = kdNodeData1[nodeIndex * 9 + 5];
-		bbMax[0] = kdNodeData1[nodeIndex * 9 + 6];
-		bbMax[1] = kdNodeData1[nodeIndex * 9 + 7];
-		bbMax[2] = kdNodeData1[nodeIndex * 9 + 8];
-
-		intersectBoundingBox( origin, dir, bbMin, bbMax, &tNear, &entryDistance );
-		hitFar = origin + entryDistance * dir;
-
-
-		// Follow the rope
-		ropeIndex = kdNodeData2[nodeIndex * 6 + 5];
-
-		if( fabs( hitFar.x - bbMin[0] ) < DELTA_PRECISION ) { // left
-			nodeIndex = kdNodeRopes[ropeIndex];
-		}
-		else if( fabs( hitFar.x - bbMax[0] ) < DELTA_PRECISION ) { // right
-			nodeIndex = kdNodeRopes[ropeIndex + 1];
-		}
-		else if( fabs( hitFar.y - bbMin[1] ) < DELTA_PRECISION ) { // bottom
-			nodeIndex = kdNodeRopes[ropeIndex + 2];
-		}
-		else if( fabs( hitFar.y - bbMax[1] ) < DELTA_PRECISION ) { // top
-			nodeIndex = kdNodeRopes[ropeIndex + 3];
-		}
-		else if( fabs( hitFar.z - bbMin[2] ) < DELTA_PRECISION ) { // back
-			nodeIndex = kdNodeRopes[ropeIndex + 4];
-		}
-		else if( fabs( hitFar.z - bbMax[2] ) < DELTA_PRECISION ) { // front
-			nodeIndex = kdNodeRopes[ropeIndex + 5];
-		}
-		else {
-			return;
-		}
-
-		if( nodeIndex < 0 ) {
-			return;
-		}
-	}
-}
-
-
 __kernel void findIntersectionsKdTree(
 	__global float4* origins, __global float4* rays, __global float4* normals,
 	__global float* scVertices, __global uint* scFaces, __global float* scNormals,
@@ -546,13 +459,6 @@ __kernel void findIntersectionsKdTree(
 		kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes,
 		&hit
 	);
-
-	// descendKdTree(
-	// 	origin, ray,
-	// 	scVertices, scFaces,
-	// 	kdNodeData1, kdNodeData2, kdNodeData3,
-	// 	kdRoot, &hit
-	// );
 
 	origins[workIndex] = hit.position;
 

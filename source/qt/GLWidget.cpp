@@ -311,7 +311,6 @@ void GLWidget::initOpenCLBuffers() {
 		kdData1.push_back( kdNodes[i].bbMax[2] );
 
 		// Index of self and children
-		kdData2.push_back( kdNodes[i].index );
 		kdData2.push_back( kdNodes[i].left );
 		kdData2.push_back( kdNodes[i].right );
 		kdData2.push_back( kdNodes[i].axis );
