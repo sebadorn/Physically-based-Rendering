@@ -101,6 +101,49 @@ float shadow(
 }
 
 
+#define EPSILON 0.000001f
+
+// No backside culling
+inline float checkFaceIntersection_MoellerTrumbore(
+	float4 origin, float4 dir, float4 a, float4 b, float4 c,
+	float tNear, float tFar, hit_t* result
+) {
+	float4 edge1 = b - a;
+	float4 edge2 = c - a;
+	float4 pVec = cross( dir, edge2 );
+	float det = dot( edge1, pVec );
+
+	if( det > -EPSILON && det < EPSILON ) {
+		return -1.0f;
+	}
+
+	float invDet = 1.0f / det;
+	float4 tVec = origin - a;
+	float u = dot( tVec, pVec ) * invDet;
+
+	if( u < 0.0f || u > 1.0f ) {
+		return -1.0f;
+	}
+
+	float4 qVec = cross( tVec, edge1 );
+
+	v = dot( dir, qVec ) * invDet;
+
+	if( v < 0.0f || u + v > 1.0f ) {
+		return -1.0f;
+	}
+
+	float t = dot( edge2, qVec ) * invDet;
+
+	if( t < tNear || t > tFar ) {
+		return -1.0f;
+	}
+
+	result->position = origin + t * dir;
+	result->distance = length( result->position - origin );
+}
+
+
 inline float checkFaceIntersection(
 	float4 origin, float4 ray,
 	float4 a, float4 b, float4 c,
@@ -267,7 +310,7 @@ inline bool intersectBoundingBox(
 	*p_near = p_near_result;
 	*p_far = p_far_result;
 
-	return true;
+	return ( p_near_result >= 0.0f && p_far_result >= 0.0f ); // return true;
 }
 
 

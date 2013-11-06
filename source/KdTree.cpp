@@ -8,7 +8,7 @@ using namespace std;
  * @param {std::vector<float>}        vertices Vertices of the model.
  * @param {std::vector<unsigned int>} indices  Indices describing the faces (triangles) of the model.
  */
-KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices, cl_float* bbMin, cl_float* bbMax ) {
+KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> indices, cl_float* bbMin, cl_float* bbMax ) {
 	if( vertices.size() <= 0 || indices.size() <= 0 ) {
 		return;
 	}
@@ -32,44 +32,44 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices, cl_float* 
 
 
 	// Generate kd-tree
-	int rootIndex = this->makeTree( mNodes, 0, bbMin, bbMax );
+	cl_int rootIndex = this->makeTree( mNodes, 0, bbMin, bbMax );
 	mNodes.insert( mNodes.end(), mLeaves.begin(), mLeaves.end() );
 	mRoot = mNodes[rootIndex];
 
 
 	// Associate faces with leave nodes
 	for( i = 0; i < indices.size(); i += 3 ) {
-		float a[3] = {
+		cl_float a[3] = {
 			vertices[indices[i] * 3],
 			vertices[indices[i] * 3 + 1],
 			vertices[indices[i] * 3 + 2]
 		};
-		float b[3] = {
+		cl_float b[3] = {
 			vertices[indices[i + 1] * 3],
 			vertices[indices[i + 1] * 3 + 1],
 			vertices[indices[i + 1] * 3 + 2]
 		};
-		float c[3] = {
+		cl_float c[3] = {
 			vertices[indices[i + 2] * 3],
 			vertices[indices[i + 2] * 3 + 1],
 			vertices[indices[i + 2] * 3 + 2]
 		};
-		float abDir[3] = {
+		cl_float abDir[3] = {
 			b[0] - a[0],
 			b[1] - a[1],
 			b[2] - a[2]
 		};
-		float bcDir[3] = {
+		cl_float bcDir[3] = {
 			c[0] - b[0],
 			c[1] - b[1],
 			c[2] - b[2]
 		};
-		float caDir[3] = {
+		cl_float caDir[3] = {
 			a[0] - c[0],
 			a[1] - c[1],
 			a[2] - c[2]
 		};
-		float hit[3];
+		cl_float hit[3];
 
 
 		for( j = 0; j < mLeaves.size(); j++ ) {
@@ -77,11 +77,11 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices, cl_float* 
 
 			if( find( l->faces.begin(), l->faces.end(), i ) == l->faces.end() ) {
 				bool add = false;
-				float distanceLimit, distanceHit;
+				// float distanceLimit, distanceHit;
 				float tNear, tFar;
 
 				if( utils::hitBoundingBox( l->bbMin, l->bbMax, a, abDir, &tNear, &tFar ) ) {
-				// if( utils::hitBoundingBoxWoo( l->bbMin, l->bbMax, a, abDir, hit ) ) {
+				// if( utils::hitBoundingBox_Woo( l->bbMin, l->bbMax, a, abDir, hit ) ) {
 					// float d[3] = { hit[0] - a[0], hit[1] - a[1], hit[2] - a[2] };
 					// distanceLimit = sqrt( abDir[0] * abDir[0] + abDir[1] * abDir[1] + abDir[2] * abDir[2] );
 					// distanceHit = sqrt( d[0] * d[0] + d[1] * d[1] + d[2] * d[2] );
@@ -92,7 +92,7 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices, cl_float* 
 					}
 				}
 				if( !add && utils::hitBoundingBox( l->bbMin, l->bbMax, b, bcDir, &tNear, &tFar ) ) {
-				// if( !add && utils::hitBoundingBoxWoo( l->bbMin, l->bbMax, b, bcDir, hit ) ) {
+				// if( !add && utils::hitBoundingBox_Woo( l->bbMin, l->bbMax, b, bcDir, hit ) ) {
 					// float d[3] = { hit[0] - b[0], hit[1] - b[1], hit[2] - b[2] };
 					// distanceLimit = sqrt( bcDir[0] * bcDir[0] + bcDir[1] * bcDir[1] + bcDir[2] * bcDir[2] );
 					// distanceHit = sqrt( d[0] * d[0] + d[1] * d[1] + d[2] * d[2] );
@@ -103,7 +103,7 @@ KdTree::KdTree( vector<float> vertices, vector<unsigned int> indices, cl_float* 
 					}
 				}
 				if( !add && utils::hitBoundingBox( l->bbMin, l->bbMax, c, caDir, &tNear, &tFar ) ) {
-				// if( !add && utils::hitBoundingBoxWoo( l->bbMin, l->bbMax, c, caDir, hit ) ) {
+				// if( !add && utils::hitBoundingBox_Woo( l->bbMin, l->bbMax, c, caDir, hit ) ) {
 					// float d[3] = { hit[0] - c[0], hit[1] - c[1], hit[2] - c[2] };
 					// distanceLimit = sqrt( caDir[0] * caDir[0] + caDir[1] * caDir[1] + caDir[2] * caDir[2] );
 					// distanceHit = sqrt( d[0] * d[0] + d[1] * d[1] + d[2] * d[2] );
@@ -146,6 +146,10 @@ void KdTree::processNode( kdNode_t* node, vector<cl_int> ropes ) {
 		return;
 	}
 
+	for( int i = 0; i < 6; i++ ) {
+		this->optimizeRope( &(ropes[i]), i, node->bbMin, node->bbMax );
+	}
+
 	cl_int sideLeft = node->axis * 2;
 	cl_int sideRight = node->axis * 2 + 1;
 
@@ -159,9 +163,25 @@ void KdTree::processNode( kdNode_t* node, vector<cl_int> ropes ) {
 }
 
 
-void KdTree::optimizeRope( cl_int* rope, cl_int side, float* bbMin, float* bbMax ) {
+void KdTree::optimizeRope( cl_int* rope, cl_int side, cl_float* bbMin, cl_float* bbMax ) {
 	while( mNodes[*rope]->left >= 0 && mNodes[*rope]->right >= 0 ) {
-		// TODO
+		int axis = mNodes[*rope]->axis;
+
+		// split axis of rope parallel to side
+		if( axis == side || axis == side - 1 ) {
+			*rope = ( axis == side - 1 ) ? mNodes[*rope]->left : mNodes[*rope]->right;
+		}
+		// split plane of rope above bbMin
+		else if( mNodes[*rope]->pos[axis] > bbMin[axis] ) {
+			*rope = mNodes[*rope]->right;
+		}
+		// split plane of rope below bbMax
+		else if( mNodes[*rope]->pos[axis] < bbMax[axis] ) {
+			*rope = mNodes[*rope]->left;
+		}
+		else {
+			break;
+		}
 	}
 }
 
@@ -205,7 +225,7 @@ bool KdTree::compFunc2( kdNode_t* a, kdNode_t* b ) {
  * @param  {int}                     axis  Index of the axis to compare.
  * @return {kdNode_t*}                     The object that is the median.
  */
-kdNode_t* KdTree::findMedian( vector<kdNode_t*>* nodes, int axis ) {
+kdNode_t* KdTree::findMedian( vector<kdNode_t*>* nodes, cl_int axis ) {
 	if( nodes->size() == 1 ) {
 		return (*nodes)[0];
 	}
@@ -229,7 +249,7 @@ kdNode_t* KdTree::findMedian( vector<kdNode_t*>* nodes, int axis ) {
 
 	}
 
-	int index = floor( nodes->size() / 2.0f );
+	cl_int index = floor( nodes->size() / 2.0f );
 	kdNode_t* median = (*nodes)[index];
 
 	return median;
@@ -266,7 +286,7 @@ kdNode_t* KdTree::getRootNode() {
  * @param  {int}                    axis  Axis to use as criterium.
  * @return {int}                          Top element for this part of the tree.
  */
-int KdTree::makeTree( vector<kdNode_t*> nodes, int axis, cl_float* bbMin, cl_float* bbMax ) {
+cl_int KdTree::makeTree( vector<kdNode_t*> nodes, cl_int axis, cl_float* bbMin, cl_float* bbMax ) {
 	// No more nodes to split planes.
 	// We have reached a leaf node.
 	if( nodes.size() == 0 ) {
@@ -370,7 +390,7 @@ void KdTree::printNode( kdNode_t* node ) {
  * @param {std::vector<float>*}        vertices Vector to put the vertices into.
  * @param {std::vector<unsigned int>*} indices  Vector to put the indices into.
  */
-void KdTree::visualize( vector<float>* vertices, vector<unsigned int>* indices ) {
+void KdTree::visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) {
 	this->visualizeNextNode( mRoot, 0, vertices, indices );
 }
 
@@ -385,14 +405,13 @@ void KdTree::visualize( vector<float>* vertices, vector<unsigned int>* indices )
  * @param {unsigned int}               axis     Current axis.
  */
 void KdTree::visualizeNextNode(
-	kdNode_t* node, unsigned int axis,
-	vector<float>* vertices, vector<unsigned int>* indices
+	kdNode_t* node, cl_uint axis, vector<cl_float>* vertices, vector<cl_uint>* indices
 ) {
 	if( node->left == -1 && node->right == -1 ) {
 		return;
 	}
 
-	float a[3], b[3], c[3], d[3];
+	cl_float a[3], b[3], c[3], d[3];
 
 	a[axis] = b[axis] = c[axis] = d[axis] = node->pos[axis];
 
@@ -430,7 +449,7 @@ void KdTree::visualizeNextNode(
 	vertices->insert( vertices->end(), c, c + 3 );
 	vertices->insert( vertices->end(), d, d + 3 );
 
-	unsigned int newIndices[8] = {
+	cl_uint newIndices[8] = {
 		i, i+1,
 		i+1, i+2,
 		i+2, i+3,
@@ -442,17 +461,11 @@ void KdTree::visualizeNextNode(
 
 	// Proceed with left side
 	if( node->left > -1 ) {
-		this->visualizeNextNode(
-			mNodes[node->left], axis,
-			vertices, indices
-		);
+		this->visualizeNextNode( mNodes[node->left], axis, vertices, indices );
 	}
 
 	// Proceed width right side
 	if( node->right > -1 ) {
-		this->visualizeNextNode(
-			mNodes[node->right], axis,
-			vertices, indices
-		);
+		this->visualizeNextNode( mNodes[node->right], axis, vertices, indices );
 	}
 }

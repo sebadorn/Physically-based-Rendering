@@ -32,23 +32,23 @@ typedef struct kdNode_t {
 class KdTree {
 
 	public:
-		KdTree( vector<float> vertices, vector<unsigned int> indices, cl_float* bbMin, cl_float* bbMax );
+		KdTree( vector<cl_float> vertices, vector<cl_uint> indices, cl_float* bbMin, cl_float* bbMax );
 		~KdTree();
 
 		kdNode_t* getRootNode();
 		vector<kdNode_t> getNodes();
 		void print();
-		void visualize( vector<float>* vertices, vector<unsigned int>* indices );
+		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	protected:
-		kdNode_t* findMedian( vector<kdNode_t*>* nodes, int axis );
-		int makeTree( vector<kdNode_t*> t, int axis, cl_float* bbMin, cl_float* bbMax );
-		void optimizeRope( cl_int* rope, cl_int side, float* bbMin, float* bbMax );
+		kdNode_t* findMedian( vector<kdNode_t*>* nodes, cl_int axis );
+		cl_int makeTree( vector<kdNode_t*> t, cl_int axis, cl_float* bbMin, cl_float* bbMax );
+		void optimizeRope( cl_int* rope, cl_int side, cl_float* bbMin, cl_float* bbMax );
 		void printNode( kdNode_t* node );
 		void processNode( kdNode_t* node, vector<cl_int> ropes );
 		void visualizeNextNode(
-			kdNode_t* node, unsigned int axis,
-			vector<float>* vertices, vector<unsigned int>* indices
+			kdNode_t* node, cl_uint axis,
+			vector<cl_float>* vertices, vector<cl_uint>* indices
 		);
 
 	private:
@@ -59,7 +59,7 @@ class KdTree {
 		kdNode_t* mRoot;
 		vector<kdNode_t*> mNodes;
 		vector<kdNode_t*> mLeaves;
-		int mLeafIndex;
+		cl_int mLeafIndex;
 
 };
 

@@ -59,7 +59,7 @@ namespace utils {
 		*p_near = p_near_result;
 		*p_far = p_far_result;
 
-		return true;
+		return ( p_near_result >= 0.0f && p_far_result >= 0.0f ); // return true;
 	}
 
 
@@ -68,7 +68,7 @@ namespace utils {
 	 * by Andrew Woo
 	 * from "Graphics Gems", Academic Press, 1990
 	 */
-	inline bool hitBoundingBoxWoo( float* minB, float* maxB, float* origin, float* dir, float* coord ) {
+	inline bool hitBoundingBox_Woo( float* minB, float* maxB, float* origin, float* dir, float* coord ) {
 		bool inside = true;
 		int quadrant[BB_NUMDIM];
 		int whichPlane;
