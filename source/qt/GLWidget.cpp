@@ -16,6 +16,7 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mKernelIntersections = mCL->createKernel( "findIntersectionsKdTree" );
 	mKernelColors = mCL->createKernel( "accumulateColors" );
 
+	mNumBounces = Cfg::get().value<int>( Cfg::RENDER_BOUNCES );
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
 	mModelMatrix = glm::mat4( 1.0f );
 
@@ -650,7 +651,7 @@ void GLWidget::paintGL() {
 		this->clInitRays();
 		mCL->updateImageReadOnly( width(), height(), &mTextureOut[0] );
 
-		for( uint bounce = 0; bounce < 3; bounce++ ) {
+		for( uint bounce = 0; bounce < mNumBounces; bounce++ ) {
 			this->clFindIntersections( timeSinceStart + bounce );
 			this->clAccumulateColors( timeSinceStart );
 		}

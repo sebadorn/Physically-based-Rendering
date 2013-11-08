@@ -27,6 +27,7 @@ class Cfg {
 		static const char* IMPORT_PATH;
 		static const char* LOGGING;
 		static const char* RENDER_ANTIALIAS;
+		static const char* RENDER_BOUNCES;
 		static const char* RENDER_INTERVAL;
 		static const char* OPENCL_PROGRAM;
 		static const char* PERS_FOV;

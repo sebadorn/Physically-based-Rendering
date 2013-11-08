@@ -23,12 +23,15 @@
 
 ## Libraries/headers
 
-* freeglut3
+* freeglut3-dev
 * libassimp-dev
 * libboost-dev
 * libdevil-dev
-* libqt4-dev
+* libglew-dev
 * libglm-dev
+* libqt4-dev
+* libxi-dev
+* libxmu-dev
 * opencl-headers
 
 

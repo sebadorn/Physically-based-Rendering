@@ -59,7 +59,7 @@ namespace utils {
 		*p_near = p_near_result;
 		*p_far = p_far_result;
 
-		return ( p_near_result >= 0.0f && p_far_result >= 0.0f ); // return true;
+		return true;
 	}
 
 

@@ -8,6 +8,7 @@
 		},
 		// Doesn't really mean anything, since it gets
 		// overwritten with the first mouse movement
+		// so ... TODO
 		"center": {
 			"x": 0.0,
 			"y": 0.0,
@@ -28,8 +29,11 @@
 	"render": {
 		// AA through jittering
 		"antialiasing": true,
-		// render every 16.666 ms ~ 60 FPS
+		// Number of times a light ray bounces
+		"bounces": 3,
+		// Render interval in [ms] (16.666 ms ~ 60 FPS)
 		"interval": 100.0,
+		// Camera perspective
 		"perspective": {
 			"fov": 50.0,
 			"zfar": 100.0,

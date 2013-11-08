@@ -96,6 +96,7 @@ class GLWidget : public QGLWidget {
 	private:
 		bool mDoRendering;
 		int mSelectedLight;
+		int mNumBounces;
 		cl_float mFOV;
 		cl_float* mBoundingBox;
 

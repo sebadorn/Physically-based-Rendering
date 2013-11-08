@@ -1,4 +1,4 @@
-#define DELTA_PRECISION 0.00001f
+#define DELTA_PRECISION 0.000001f
 
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
@@ -41,7 +41,7 @@ inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
 	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
 	float r = sqrt( u );
-	float angle = M_PI * 2.0f * v;
+	float angle = 6.28318530718f * v; // M_PI * 2.0f * v
 	float4 sdir, tdir;
 
 	// TODO: What is happening here?
@@ -127,7 +127,7 @@ inline float checkFaceIntersection_MoellerTrumbore(
 
 	float4 qVec = cross( tVec, edge1 );
 
-	v = dot( dir, qVec ) * invDet;
+	float v = dot( dir, qVec ) * invDet;
 
 	if( v < 0.0f || u + v > 1.0f ) {
 		return -1.0f;
@@ -141,16 +141,17 @@ inline float checkFaceIntersection_MoellerTrumbore(
 
 	result->position = origin + t * dir;
 	result->distance = length( result->position - origin );
+
+	return t;
 }
 
 
 inline float checkFaceIntersection(
-	float4 origin, float4 ray,
+	float4 origin, float4 direction,
 	float4 a, float4 b, float4 c,
 	float tNear, float tFar, hit_t* result
 ) {
 	// First test: Intersection with plane of triangle
-	float4 direction = normalize( ray - origin );
 	float4 planeNormal = normalize( cross( ( b - a ), ( c - a ) ) );
 	float denumerator = dot( planeNormal, direction );
 
@@ -199,6 +200,7 @@ inline float checkFaceIntersection(
 
 	result->position = hit;
 	result->distance = length( hit - origin );
+	result->normal = planeNormal;
 
 	return r;
 }
@@ -211,12 +213,13 @@ inline void checkFaces(
 	float tNear, float tFar, hit_t* result, float* exitDistance
 ) {
 	float4 a, b, c;
+	float4 dir = normalize( ray - origin );
 	hit_t newResult;
 
-	int i = 1;
+	int i = 0;
 	int numFaces = kdNodeData3[faceIndex];
 
-	while( i <= numFaces ) {
+	while( ++i <= numFaces ) {
 		int f = kdNodeData3[faceIndex + i];
 		int aIndex = scFaces[f] * 3;
 		int bIndex = scFaces[f + 1] * 3;
@@ -242,7 +245,7 @@ inline void checkFaces(
 		);
 
 		newResult.distance = -1.0f;
-		float r = checkFaceIntersection( origin, ray, a, b, c, tNear, tFar, &newResult );
+		float r = checkFaceIntersection( origin, dir, a, b, c, tNear, tFar, &newResult );
 
 		if( newResult.distance > -1.0f ) {
 			*exitDistance = r;
@@ -251,14 +254,12 @@ inline void checkFaces(
 			if( result->distance < 0.0f || result->distance > newResult.distance ) {
 				result->distance = newResult.distance;
 				result->position = newResult.position;
-				result->normal = normalize( cross( ( b - a ), ( c - a ) ) ); // TODO: clean up
+				result->normal = newResult.normal;
 				// result->normalIndices[0] = aIndex;
 				// result->normalIndices[1] = bIndex;
 				// result->normalIndices[2] = cIndex;
 			}
 		}
-
-		i++;
 	}
 }
 
@@ -310,7 +311,15 @@ inline bool intersectBoundingBox(
 	*p_near = p_near_result;
 	*p_far = p_far_result;
 
-	return ( p_near_result >= 0.0f && p_far_result >= 0.0f ); // return true;
+	return true;
+}
+
+
+inline bool isInsideBoundingBox( float* bbMin, float* bbMax, float4 p ) {
+	return (
+		p.x >= bbMin[0] && p.y >= bbMin[1] && p.z >= bbMin[2] &&
+		p.x <= bbMax[0] && p.y <= bbMax[1] && p.z <= bbMax[2]
+	);
 }
 
 
@@ -340,16 +349,19 @@ inline void traverseKdTree(
 	if( !intersectBoundingBox( &origin, &dir, bbMin, bbMax, &entryDistance, &exitDistance, &exitRope ) ) {
 		return;
 	}
+	if( exitDistance < 0.0f ) {
+		return;
+	}
+
 
 	float4 hitNear, hitFar;
 	float hitCoords[3];
 	int left, right, axis, faceIndex, ropeIndex;
-
 	int i = 0;
 
-
 	while( entryDistance < exitDistance ) {
-		if( i++ > 100 ) { return; } // TODO: REMOVE
+		// TODO: REMOVE when infinite loop bug is fixed
+		if( i++ > 10 ) { return; }
 
 		hitNear = origin + entryDistance * dir;
 		hitCoords[0] = hitNear.x;
@@ -421,7 +433,6 @@ inline void traverseKdTree(
 
 		if( nodeIndex < 0 ) {
 			// Per algorithm description in original paper, but why?
-			// result->distance = -2.0f;
 			return;
 		}
 	}
@@ -455,7 +466,7 @@ __kernel void accumulateColors(
 	float4 hit = origins[workIndex];
 
 	// Lighting
-	float4 light = (float4)( 0.3f, 1.6f, 0.0f, 0.0f );
+	float4 light = (float4)( 0.3f, 1.0f, 0.0f, 0.0f );
 
 	// New color (or: another color calculated by evaluating different light paths than before)
 	// Accumulate the colors of each hit surface
