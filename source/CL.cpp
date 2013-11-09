@@ -263,11 +263,19 @@ void CL::getDefaultDevice() {
 
 
 	// Get device name
-	clGetDeviceInfo( devices[0], CL_DEVICE_NAME, 0, NULL, &valueSize );
-	value = (char*) malloc( valueSize );
-	clGetDeviceInfo( devices[0], CL_DEVICE_NAME, valueSize, value, NULL );
-	Logger::logInfo( string( "[OpenCL] Using device " ).append( value ) );
-	free( value );
+	for( int i = deviceCount - 1; i >= 0; i-- ) {
+		clGetDeviceInfo( devices[i], CL_DEVICE_NAME, 0, NULL, &valueSize );
+		value = (char*) malloc( valueSize );
+		clGetDeviceInfo( devices[i], CL_DEVICE_NAME, valueSize, value, NULL );
+
+		if( i == 0 ) {
+			Logger::logInfo( string( "[OpenCL] Using device " ).append( value ) );
+		}
+		else {
+			Logger::logDebug( string( "[OpenCL] Found device " ).append( value ) );
+		}
+		free( value );
+	}
 
 
 	this->initContext( devices );
@@ -294,12 +302,22 @@ void CL::getDefaultPlatform() {
 	platforms = new cl_platform_id[platformCount];
 	clGetPlatformIDs( platformCount, platforms, NULL );
 
-	clGetPlatformInfo( platforms[0], CL_PLATFORM_NAME, 0, NULL, &valueSize );
-	value = (char*) malloc( valueSize );
-	clGetPlatformInfo( platforms[0], CL_PLATFORM_NAME, valueSize, value, NULL );
+	for( int i = platformCount - 1; i >= 0; i-- ) {
+		clGetPlatformInfo( platforms[i], CL_PLATFORM_NAME, 0, NULL, &valueSize );
+		value = (char*) malloc( valueSize );
+		clGetPlatformInfo( platforms[i], CL_PLATFORM_NAME, valueSize, value, NULL );
 
-	Logger::logInfo( string( "[OpenCL] Using platform " ).append( value ) );
-	free( value );
+		if( i == 0 ) {
+			Logger::logInfo( string( "[OpenCL] Using platform " ).append( value ) );
+		}
+		else {
+			Logger::logDebug( string( "[OpenCL] Found platform " ).append( value ) );
+		}
+		free( value );
+	}
+
+	// Logger::logInfo( string( "[OpenCL] Using platform " ).append( value ) );
+	// free( value );
 
 	mPlatform = platforms[0];
 

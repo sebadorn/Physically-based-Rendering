@@ -15,7 +15,7 @@
 			"z": 0.0
 		},
 		// Step distance
-		"speed": 0.5
+		"speed": 0.25
 	},
 
 	"import_path": "/home/seba/programming/Physically-based Rendering/resources/models/",

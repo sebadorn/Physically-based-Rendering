@@ -251,9 +251,6 @@ glm::vec3 GLWidget::getJitter() {
 void GLWidget::initializeGL() {
 	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 
-	// glEnable( GL_DEPTH_TEST );
-	// glEnable( GL_MULTISAMPLE );
-
 	glEnable( GL_ALPHA_TEST );
 	glAlphaFunc( GL_ALWAYS, 0.0f );
 
@@ -281,7 +278,7 @@ void GLWidget::initGlew() {
 		Logger::logError( string( "[GLEW] Init failed: " ).append( (char*) glewGetErrorString( err ) ) );
 		exit( EXIT_FAILURE );
 	}
-	Logger::logInfo( string( "[GLEW] Version " ).append( (char*) glewGetString( GLEW_VERSION ) ) );
+	Logger::logDebug( string( "[GLEW] Version " ).append( (char*) glewGetString( GLEW_VERSION ) ) );
 }
 
 

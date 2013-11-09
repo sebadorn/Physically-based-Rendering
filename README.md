@@ -45,3 +45,4 @@
 ## Annoyances
 
 * NVIDIA only supports OpenCL 1.1. OpenCL 1.2 support seems unlikely at the moment.
+* The OpenCL code in this project will probably need some extra adjustments to make it work with Intel's OpenCL SDK.

@@ -352,6 +352,9 @@ inline void traverseKdTree(
 	if( exitDistance < 0.0f ) {
 		return;
 	}
+	// if( entryDistance < 0.0f ) {
+	// 	entryDistance = 0.0f;
+	// }
 
 
 	float4 hitNear, hitFar;
@@ -432,7 +435,6 @@ inline void traverseKdTree(
 		}
 
 		if( nodeIndex < 0 ) {
-			// Per algorithm description in original paper, but why?
 			return;
 		}
 	}
