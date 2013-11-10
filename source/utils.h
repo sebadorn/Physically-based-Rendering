@@ -138,12 +138,12 @@ namespace utils {
 	 * @return {std::string}          File content as string.
 	 */
 	inline std::string loadFileAsString( const char* filename ) {
-		std::ifstream ifile( filename );
+		std::ifstream fileIn( filename );
 		std::string content;
 
-		while( ifile.good() ) {
+		while( fileIn.good() ) {
 			std::string line;
-			std::getline( ifile, line );
+			std::getline( fileIn, line );
 			content.append( line + "\n" );
 		}
 

@@ -1,4 +1,4 @@
-#define DELTA_PRECISION 0.000001f
+#define EPSILON 0.000001f
 
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
@@ -6,7 +6,6 @@ typedef struct hit_t {
 	float4 position;
 	float4 normal;
 	float distance;
-	// int normalIndices[3];
 } hit_t;
 
 
@@ -101,8 +100,6 @@ float shadow(
 }
 
 
-#define EPSILON 0.000001f
-
 // No backside culling
 inline float checkFaceIntersection_MoellerTrumbore(
 	float4 origin, float4 dir, float4 a, float4 b, float4 c,
@@ -113,7 +110,7 @@ inline float checkFaceIntersection_MoellerTrumbore(
 	float4 pVec = cross( dir, edge2 );
 	float det = dot( edge1, pVec );
 
-	if( det > -EPSILON && det < EPSILON ) {
+	if( fabs( det ) < EPSILON ) {
 		return -1.0f;
 	}
 
@@ -155,7 +152,7 @@ inline float checkFaceIntersection(
 	float4 planeNormal = normalize( cross( ( b - a ), ( c - a ) ) );
 	float denumerator = dot( planeNormal, direction );
 
-	if( denumerator == 0.0f ) {
+	if( fabs( denumerator ) < EPSILON ) {
 		return -1.0f;
 	}
 
@@ -255,9 +252,6 @@ inline void checkFaces(
 				result->distance = newResult.distance;
 				result->position = newResult.position;
 				result->normal = newResult.normal;
-				// result->normalIndices[0] = aIndex;
-				// result->normalIndices[1] = bIndex;
-				// result->normalIndices[2] = cIndex;
 			}
 		}
 	}
@@ -352,9 +346,8 @@ inline void traverseKdTree(
 	if( exitDistance < 0.0f ) {
 		return;
 	}
-	// if( entryDistance < 0.0f ) {
-	// 	entryDistance = 0.0f;
-	// }
+
+	entryDistance = ( entryDistance < 0.0f ) ? 0.0f : entryDistance;
 
 
 	float4 hitNear, hitFar;
@@ -412,22 +405,22 @@ inline void traverseKdTree(
 		// nodeIndex = kdNodeRopes[ropeIndex + exitRope];
 
 		// TODO: replace with the one-liner above ... as soon as it works
-		if( fabs( hitFar.x - bbMin[0] ) < DELTA_PRECISION ) { // left
+		if( fabs( hitFar.x - bbMin[0] ) < EPSILON ) { // left
 			nodeIndex = kdNodeRopes[ropeIndex];
 		}
-		else if( fabs( hitFar.x - bbMax[0] ) < DELTA_PRECISION ) { // right
+		else if( fabs( hitFar.x - bbMax[0] ) < EPSILON ) { // right
 			nodeIndex = kdNodeRopes[ropeIndex + 1];
 		}
-		else if( fabs( hitFar.y - bbMin[1] ) < DELTA_PRECISION ) { // bottom
+		else if( fabs( hitFar.y - bbMin[1] ) < EPSILON ) { // bottom
 			nodeIndex = kdNodeRopes[ropeIndex + 2];
 		}
-		else if( fabs( hitFar.y - bbMax[1] ) < DELTA_PRECISION ) { // top
+		else if( fabs( hitFar.y - bbMax[1] ) < EPSILON ) { // top
 			nodeIndex = kdNodeRopes[ropeIndex + 3];
 		}
-		else if( fabs( hitFar.z - bbMin[2] ) < DELTA_PRECISION ) { // back
+		else if( fabs( hitFar.z - bbMin[2] ) < EPSILON ) { // back
 			nodeIndex = kdNodeRopes[ropeIndex + 4];
 		}
-		else if( fabs( hitFar.z - bbMax[2] ) < DELTA_PRECISION ) { // front
+		else if( fabs( hitFar.z - bbMax[2] ) < EPSILON ) { // front
 			nodeIndex = kdNodeRopes[ropeIndex + 5];
 		}
 		else {
@@ -478,7 +471,7 @@ __kernel void accumulateColors(
 	// No hit, the path ends
 	if( hit.w > -1.0f ) {
 		// The farther away a shadow is, the more diffuse it becomes
-		float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
+		float4 newLight = light/* + uniformlyRandomVector( timeSinceStart ) * 0.1f*/;
 		newLight.w = 0.0f;
 
 		float4 normal = normals[workIndex];
@@ -493,7 +486,7 @@ __kernel void accumulateColors(
 		float4 surfaceColor = (float4)( 0.9f, 0.9f, 0.9f, 1.0f );
 
 		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * 0.2f * diffuse * shadowIntensity; // 0.2f – meaning?
+		accumulatedColor += colorMask * 0.3f * diffuse * shadowIntensity;
 		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
 	}
 
@@ -512,7 +505,7 @@ __kernel void accumulateColors(
 
 __kernel void findIntersectionsKdTree(
 	__global float4* origins, __global float4* rays, __global float4* normals,
-	__global float* scVertices, __global uint* scFaces, __global float* scNormals,
+	__global float* scVertices, __global uint* scFaces, //__global float* scNormals,
 	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
 	__global int* kdNodeRopes,
 	const uint kdRoot, const float timeSinceStart
@@ -539,17 +532,6 @@ __kernel void findIntersectionsKdTree(
 	origins[workIndex] = hit.position;
 
 	if( hit.distance > -1.0f ) {
-		// // TODO: Weight accordingly to distance to hit
-		// uint nIndex0 = hit.normalIndices[0]; // vertex a of the face
-		// uint nIndex1 = hit.normalIndices[1]; // vertex b of the face
-		// uint nIndex2 = hit.normalIndices[2]; // vertex c of the face
-
-		// float4 normal0 = (float4)( scNormals[nIndex0], scNormals[nIndex0 + 1], scNormals[nIndex0 + 2], 0.0f );
-		// float4 normal1 = (float4)( scNormals[nIndex1], scNormals[nIndex1 + 1], scNormals[nIndex1 + 2], 0.0f );
-		// float4 normal2 = (float4)( scNormals[nIndex2], scNormals[nIndex2 + 1], scNormals[nIndex2 + 2], 0.0f );
-
-		// float4 normal = normalize( ( normal0 + normal1 + normal2 ) / 3.0f );
-
 		rays[workIndex] = cosineWeightedDirection( timeSinceStart, hit.normal );
 		normals[workIndex] = hit.normal;
 	}

@@ -169,7 +169,7 @@ void GLWidget::clFindIntersections( float timeSinceStart ) {
 
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScVertices );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScFaces );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
+	// mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
 
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData1 );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData2 );
@@ -348,7 +348,7 @@ void GLWidget::initOpenCLBuffers() {
 
 	mBufScFaces = mCL->createBuffer( mFaces, sizeof( cl_uint ) * mFaces.size() );
 	mBufScVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
-	mBufScNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
+	// mBufScNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
 
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
 	mBufVecW = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
@@ -462,7 +462,8 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	ml->loadModel( filepath, filename );
 	mFaces = ml->mFaces;
 	mVertices = ml->mVertices;
-	mNormals = ml->mNormals;
+	// mNormals = ml->mNormals;
+
 
 	vector<cl_float> bbox = ml->mBoundingBox;
 	mBoundingBox = &bbox[0];
@@ -470,7 +471,6 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	cl_float bbMin[3] = { mBoundingBox[0], mBoundingBox[1], mBoundingBox[2] };
 	cl_float bbMax[3] = { mBoundingBox[3], mBoundingBox[4], mBoundingBox[5] };
 
-	// CLEAN UP
 	boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
 	mKdTree = new KdTree( mVertices, mFaces, bbMin, bbMax );
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - start;

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <CL/cl.hpp>
+#include <GL/gl.h>
 #include <map>
 #include <math.h>
 #include <stdlib.h>
@@ -46,10 +47,7 @@ class KdTree {
 		void optimizeRope( cl_int* rope, cl_int side, cl_float* bbMin, cl_float* bbMax );
 		void printNode( kdNode_t* node );
 		void processNode( kdNode_t* node, vector<cl_int> ropes );
-		void visualizeNextNode(
-			kdNode_t* node, cl_uint axis,
-			vector<cl_float>* vertices, vector<cl_uint>* indices
-		);
+		void visualizeNextNode( kdNode_t* node, vector<GLfloat>* vertices, vector<GLuint>* indices );
 
 	private:
 		static bool compFunc0( kdNode_t* a, kdNode_t* b );

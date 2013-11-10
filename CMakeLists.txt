@@ -44,12 +44,6 @@ qt4_wrap_cpp( SOURCES_MOC ${HEADERS_QT} )
 set( LIBRARIES ${LIBRARIES} ${QT_LIBRARIES} ${QT_QTOPENGL_LIBRARIES} )
 
 
-# ASSIMP
-find_package( ASSIMP REQUIRED )
-include_directories( ${ASSIMP_INCLUDE_DIRS} )
-set( LIBRARIES ${LIBRARIES} ${ASSIMP_LIBRARIES} )
-
-
 # DEVIL
 find_package( DEVIL REQUIRED )
 include_directories( ${IL_INCLUDE_DIR} )

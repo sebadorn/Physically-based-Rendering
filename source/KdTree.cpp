@@ -322,12 +322,12 @@ cl_int KdTree::makeTree( vector<kdNode_t*> nodes, cl_int axis, cl_float* bbMin, 
 	// Bounding box of the "left" part
 	cl_float bbMinLeft[3] = { bbMin[0], bbMin[1], bbMin[2] };
 	cl_float bbMaxLeft[3] = { bbMax[0], bbMax[1], bbMax[2] };
-	bbMaxLeft[axis] = median->pos[axis];
+	bbMaxLeft[axis] = median->pos[median->axis];
 
 	// Bounding box of the "right" part
 	cl_float bbMinRight[3] = { bbMin[0], bbMin[1], bbMin[2] };
 	cl_float bbMaxRight[3] = { bbMax[0], bbMax[1], bbMax[2] };
-	bbMinRight[axis] = median->pos[axis];
+	bbMinRight[axis] = median->pos[median->axis];
 
 	axis = ( axis + 1 ) % KD_DIM;
 	median->left = this->makeTree( left, axis, bbMinLeft, bbMaxLeft );
@@ -355,14 +355,18 @@ void KdTree::print() {
  * @param {kdNode_t*} node Starting node.
  */
 void KdTree::printNode( kdNode_t* node ) {
-	if( node->index == -1 ) {
+	if( node->left == -1 && node->right == -1 ) {
 		printf( "END\n" );
 		return;
 	}
 
 	printf( "(%g %g %g) ", node->pos[0], node->pos[1], node->pos[2] );
-	printf( "l" ); this->printNode( mNodes[node->left] );
-	printf( "r" ); this->printNode( mNodes[node->right] );
+	if( node->left >= 0 ) {
+		printf( "l" ); this->printNode( mNodes[node->left] );
+	}
+	if( node->right >= 0 ) {
+		printf( "r" ); this->printNode( mNodes[node->right] );
+	}
 }
 
 
@@ -374,7 +378,7 @@ void KdTree::printNode( kdNode_t* node ) {
  * @param {std::vector<unsigned int>*} indices  Vector to put the indices into.
  */
 void KdTree::visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) {
-	this->visualizeNextNode( mRoot, 0, vertices, indices );
+	this->visualizeNextNode( mRoot, vertices, indices );
 }
 
 
@@ -383,22 +387,20 @@ void KdTree::visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) {
  * @param {kdNode_t*}                  node     Current node.
  * @param {float*}                     bbMin    Bounding box minimum coordinates.
  * @param {float*}                     bbMax    Bounding box maximum coordinates.
- * @param {std::vector<float>*}        vertices Vector to put the vertices into.
- * @param {std::vector<unsigned int>*} indices  Vector to put the indices into.
+ * @param {std::vector<GLfloat>*}        vertices Vector to put the vertices into.
+ * @param {std::vector<GLuint>*} indices  Vector to put the indices into.
  * @param {unsigned int}               axis     Current axis.
  */
-void KdTree::visualizeNextNode(
-	kdNode_t* node, cl_uint axis, vector<cl_float>* vertices, vector<cl_uint>* indices
-) {
+void KdTree::visualizeNextNode( kdNode_t* node, vector<GLfloat>* vertices, vector<GLuint>* indices ) {
 	if( node->left == -1 && node->right == -1 ) {
 		return;
 	}
 
-	cl_float a[3], b[3], c[3], d[3];
+	GLfloat a[3], b[3], c[3], d[3];
 
-	a[axis] = b[axis] = c[axis] = d[axis] = node->pos[axis];
+	a[node->axis] = b[node->axis] = c[node->axis] = d[node->axis] = node->pos[node->axis];
 
-	switch( axis ) {
+	switch( node->axis ) {
 
 		case 0: // x
 			a[1] = d[1] = node->bbMin[1];
@@ -426,29 +428,34 @@ void KdTree::visualizeNextNode(
 
 	}
 
-	unsigned int i = vertices->size() / 3;
-	vertices->insert( vertices->end(), a, a + 3 );
-	vertices->insert( vertices->end(), b, b + 3 );
-	vertices->insert( vertices->end(), c, c + 3 );
-	vertices->insert( vertices->end(), d, d + 3 );
+	// if(
+	// 	!( a[0] == b[0] && a[1] == b[1] && a[2] == b[2] ) &&
+	// 	!( b[0] == c[0] && b[1] == c[1] && b[2] == c[2] ) &&
+	// 	!( c[0] == d[0] && c[1] == d[1] && c[2] == d[2] ) &&
+	// 	!( d[0] == a[0] && d[1] == a[1] && d[2] == a[2] )
+	// ) {
+		GLuint i = vertices->size() / 3;
+		vertices->insert( vertices->end(), a, a + 3 );
+		vertices->insert( vertices->end(), b, b + 3 );
+		vertices->insert( vertices->end(), c, c + 3 );
+		vertices->insert( vertices->end(), d, d + 3 );
 
-	cl_uint newIndices[8] = {
-		i, i+1,
-		i+1, i+2,
-		i+2, i+3,
-		i+3, i
-	};
-	indices->insert( indices->end(), newIndices, newIndices + 8 );
-
-	axis = ( axis + 1 ) % KD_DIM;
+		GLuint newIndices[8] = {
+			i, i+1,
+			i+1, i+2,
+			i+2, i+3,
+			i+3, i
+		};
+		indices->insert( indices->end(), newIndices, newIndices + 8 );
+	// }
 
 	// Proceed with left side
 	if( node->left > -1 ) {
-		this->visualizeNextNode( mNodes[node->left], axis, vertices, indices );
+		this->visualizeNextNode( mNodes[node->left], vertices, indices );
 	}
 
 	// Proceed width right side
 	if( node->right > -1 ) {
-		this->visualizeNextNode( mNodes[node->right], axis, vertices, indices );
+		this->visualizeNextNode( mNodes[node->right], vertices, indices );
 	}
 }
