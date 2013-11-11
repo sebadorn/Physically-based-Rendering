@@ -100,8 +100,20 @@ float shadow(
 }
 
 
-// No backside culling
-inline float checkFaceIntersection_MoellerTrumbore(
+/**
+ * Face intersection test after Möller and Trumbore.
+ * Without backface culling.
+ * @param  origin [description]
+ * @param  dir    [description]
+ * @param  a      [description]
+ * @param  b      [description]
+ * @param  c      [description]
+ * @param  tNear  [description]
+ * @param  tFar   [description]
+ * @param  result [description]
+ * @return        [description]
+ */
+inline float checkFaceIntersection(
 	float4 origin, float4 dir, float4 a, float4 b, float4 c,
 	float tNear, float tFar, hit_t* result
 ) {
@@ -138,89 +150,32 @@ inline float checkFaceIntersection_MoellerTrumbore(
 
 	result->position = origin + t * dir;
 	result->distance = length( result->position - origin );
+	result->normal = normalize( cross( edge1, edge2 ) );
 
 	return t;
 }
 
 
-inline float checkFaceIntersection(
-	float4 origin, float4 direction,
-	float4 a, float4 b, float4 c,
-	float tNear, float tFar, hit_t* result
-) {
-	// First test: Intersection with plane of triangle
-	float4 planeNormal = normalize( cross( ( b - a ), ( c - a ) ) );
-	float denumerator = dot( planeNormal, direction );
-
-	if( fabs( denumerator ) < EPSILON ) {
-		return -1.0f;
-	}
-
-	float numerator = -dot( planeNormal, origin - a );
-	float r = numerator / denumerator;
-
-	if( r < tNear || r > tFar ) {
-		return -1.0f;
-	}
-
-
-	// The plane has been hit.
-	// Second test: Intersection with actual triangle
-	float4 hit = origin + r * direction;
-	hit.w = 0.0f;
-
-	float4 u = b - a;
-	float4 v = c - a;
-	float4 w = hit - a;
-	u.w = 0.0f;
-	v.w = 0.0f;
-	w.w = 0.0f;
-
-	float uDotU = dot( u, u );
-	float uDotV = dot( u, v );
-	float vDotV = dot( v, v );
-	float wDotV = dot( w, v );
-	float wDotU = dot( w, u );
-
-	float d = uDotV * uDotV - uDotU * vDotV;
-	float s = ( uDotV * wDotV - vDotV * wDotU ) / d;
-
-	if( s < 0.0f || s > 1.0f ) {
-		return -1.0f;
-	}
-
-	float t = ( uDotV * wDotU - uDotU * wDotV ) / d;
-
-	if( t < 0.0f || ( s + t ) > 1.0f ) {
-		return -1.0f;
-	}
-
-	result->position = hit;
-	result->distance = length( hit - origin );
-	result->normal = planeNormal;
-
-	return r;
-}
-
-
 inline void checkFaces(
-	int faceIndex, float4 origin, float4 ray,
+	int faceIndex, float4 origin, float4 dir,
 	__global float* scVertices, __global uint* scFaces,
 	__global int* kdNodeData3,
-	float tNear, float tFar, hit_t* result, float* exitDistance
+	float* entryDistance, float* exitDistance, hit_t* result
 ) {
 	float4 a, b, c;
-	float4 dir = normalize( ray - origin );
+	float closest, r;
 	hit_t newResult;
+	bool hitOneFace = false;
 
 	int i = 0;
 	int numFaces = kdNodeData3[faceIndex];
+	int aIndex, bIndex, cIndex, f;
 
 	while( ++i <= numFaces ) {
-		int f = kdNodeData3[faceIndex + i];
-		int aIndex = scFaces[f] * 3;
-		int bIndex = scFaces[f + 1] * 3;
-		int cIndex = scFaces[f + 2] * 3;
+		f = kdNodeData3[faceIndex + i];
+		aIndex = scFaces[f] * 3;
+		bIndex = scFaces[f + 1] * 3;
+		cIndex = scFaces[f + 2] * 3;
 
 		a = (float4)(
 			scVertices[aIndex],
@@ -242,11 +197,10 @@ inline void checkFaces(
 		);
 
 		newResult.distance = -1.0f;
-		float r = checkFaceIntersection( origin, dir, a, b, c, tNear, tFar, &newResult );
+		r = checkFaceIntersection( origin, dir, a, b, c, *entryDistance, *exitDistance, &newResult );
 
 		if( newResult.distance > -1.0f ) {
 			*exitDistance = r;
-			tFar = r;
 
 			if( result->distance < 0.0f || result->distance > newResult.distance ) {
 				result->distance = newResult.distance;
@@ -259,51 +213,57 @@ inline void checkFaces(
 
 
 /**
- * Source: https://github.com/unvirtual/cukd/blob/master/utils/intersection.h
- * which is based on: http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
+ * Source: http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
+ * Source: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
  */
 inline bool intersectBoundingBox(
 	float4* origin, float4* direction, float* bbMin, float* bbMax,
-	float* p_near, float* p_far, int* exitRope
+	float* tNear, float* tFar, int* exitRope
 ) {
-	float p_near_result = -FLT_MAX;
-	float p_far_result = FLT_MAX;
-	float p_near_comp, p_far_comp;
-
 	float invDir[3] = {
 		1.0f / direction->x,
 		1.0f / direction->y,
 		1.0f / direction->z
 	};
-	float originCoords[3] = { origin->x, origin->y, origin->z };
+	float bounds[2][3] = {
+		bbMin[0], bbMin[1], bbMin[2],
+		bbMax[0], bbMax[1], bbMax[2]
+	};
+	float tmin, tmax, tymin, tymax, tzmin, tzmax;
+	bool signX = invDir[0] < 0.0f;
+	bool signY = invDir[1] < 0.0f;
+	bool signZ = invDir[2] < 0.0f;
 
-	int swapped;
-	*exitRope = 0;
+	// X
+	tmin = ( bounds[signX][0] - origin->x ) * invDir[0];
+	tmax = ( bounds[1 - signX][0] - origin->x ) * invDir[0];
+	// Y
+	tymin = ( bounds[signY][1] - origin->y ) * invDir[1];
+	tymax = ( bounds[1 - signY][1] - origin->y ) * invDir[1];
 
-	for( int i = 0; i < 3; i++ ) {
-		p_near_comp = ( bbMin[i] - originCoords[i] ) * invDir[i];
-		p_far_comp = ( bbMax[i] - originCoords[i] ) * invDir[i];
-		swapped = 1;
-
-		if( p_near_comp > p_far_comp ) {
-			float temp = p_near_comp;
-			p_near_comp = p_far_comp;
-			p_far_comp = temp;
-			swapped = 0;
-		}
-
-		*exitRope = ( p_far_comp < p_far_result ) ? i * 2 + swapped : *exitRope;
-
-		p_near_result = ( p_near_comp > p_near_result ) ? p_near_comp : p_near_result;
-		p_far_result = ( p_far_comp < p_far_result ) ? p_far_comp : p_far_result;
-
-		if( p_near_result > p_far_result ) {
-			return false;
-		}
+	if( tmin > tymax || tymin > tmax ) {
+		return false;
 	}
 
-	*p_near = p_near_result;
-	*p_far = p_far_result;
+	// X vs. Y
+	*exitRope = ( tymax < tmax ) ? 3 - signY : 1 - signX;
+	tmin = ( tymin > tmin ) ? tymin : tmin;
+	tmax = ( tymax < tmax ) ? tymax : tmax;
+	// Z
+	tzmin = ( bounds[signZ][2] - origin->z ) * invDir[2];
+	tzmax = ( bounds[1 - signZ][2] - origin->z ) * invDir[2];
+
+	if( tmin > tzmax || tzmin > tmax ) {
+		return false;
+	}
+
+	// Z vs. previous winner
+	*exitRope = ( tzmax < tmax ) ? 5 - signZ : *exitRope;
+	tmin = ( tzmin > tmin ) ? tzmin : tmin;
+	tmax = ( tzmax < tmax ) ? tzmax : tmax;
+	// Result
+	*tNear = tmin;
+	*tFar = tmax;
 
 	return true;
 }
@@ -337,7 +297,7 @@ inline void traverseKdTree(
 		kdNodeData1[nodeIndex * 9 + 8]
 	};
 
-	float entryDistance, exitDistance, tNear, tFar;
+	float entryDistance, exitDistance, tNear;
 	int exitRope;
 
 	if( !intersectBoundingBox( &origin, &dir, bbMin, bbMax, &entryDistance, &exitDistance, &exitRope ) ) {
@@ -351,18 +311,14 @@ inline void traverseKdTree(
 
 
 	float4 hitNear, hitFar;
-	float hitCoords[3];
 	int left, right, axis, faceIndex, ropeIndex;
 	int i = 0;
 
 	while( entryDistance < exitDistance ) {
 		// TODO: REMOVE when infinite loop bug is fixed
-		if( i++ > 10 ) { return; }
+		if( i++ > 20 ) { return; }
 
 		hitNear = origin + entryDistance * dir;
-		hitCoords[0] = hitNear.x;
-		hitCoords[1] = hitNear.y;
-		hitCoords[2] = hitNear.z;
 
 		left = kdNodeData2[nodeIndex * 5];
 		right = kdNodeData2[nodeIndex * 5 + 1];
@@ -370,7 +326,7 @@ inline void traverseKdTree(
 
 		// Find a leaf node for this ray
 		while( left >= 0 && right >= 0 ) {
-			nodeIndex = ( hitCoords[axis] < kdNodeData1[nodeIndex * 9 + axis] ) ? left : right;
+			nodeIndex = ( ( (float*) &hitNear )[axis] < kdNodeData1[nodeIndex * 9 + axis] ) ? left : right;
 			left = kdNodeData2[nodeIndex * 5];
 			right = kdNodeData2[nodeIndex * 5 + 1];
 			axis = kdNodeData2[nodeIndex * 5 + 2];
@@ -381,10 +337,10 @@ inline void traverseKdTree(
 		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
 
 		checkFaces(
-			faceIndex, origin, ray,
+			faceIndex, origin, dir,
 			scVertices, scFaces, kdNodeData3,
-			entryDistance, exitDistance,
-			result, &exitDistance
+			&entryDistance, &exitDistance,
+			result
 		);
 
 
@@ -396,36 +352,20 @@ inline void traverseKdTree(
 		bbMax[1] = kdNodeData1[nodeIndex * 9 + 7];
 		bbMax[2] = kdNodeData1[nodeIndex * 9 + 8];
 
-		intersectBoundingBox( &origin, &dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
+		// TODO: Test unnecessary. Just here for debugging. Remove later.
+		if( !intersectBoundingBox( &origin, &dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope ) ) {
+			return;
+		}
+
+		if( entryDistance >= exitDistance ) {
+			return;
+		}
 		hitFar = origin + entryDistance * dir;
 
 
 		// Follow the rope
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
-		// nodeIndex = kdNodeRopes[ropeIndex + exitRope];
-
-		// TODO: replace with the one-liner above ... as soon as it works
-		if( fabs( hitFar.x - bbMin[0] ) < EPSILON ) { // left
-			nodeIndex = kdNodeRopes[ropeIndex];
-		}
-		else if( fabs( hitFar.x - bbMax[0] ) < EPSILON ) { // right
-			nodeIndex = kdNodeRopes[ropeIndex + 1];
-		}
-		else if( fabs( hitFar.y - bbMin[1] ) < EPSILON ) { // bottom
-			nodeIndex = kdNodeRopes[ropeIndex + 2];
-		}
-		else if( fabs( hitFar.y - bbMax[1] ) < EPSILON ) { // top
-			nodeIndex = kdNodeRopes[ropeIndex + 3];
-		}
-		else if( fabs( hitFar.z - bbMin[2] ) < EPSILON ) { // back
-			nodeIndex = kdNodeRopes[ropeIndex + 4];
-		}
-		else if( fabs( hitFar.z - bbMax[2] ) < EPSILON ) { // front
-			nodeIndex = kdNodeRopes[ropeIndex + 5];
-		}
-		else {
-			return;
-		}
+		nodeIndex = kdNodeRopes[ropeIndex + exitRope];
 
 		if( nodeIndex < 0 ) {
 			return;
@@ -461,7 +401,7 @@ __kernel void accumulateColors(
 	float4 hit = origins[workIndex];
 
 	// Lighting
-	float4 light = (float4)( 0.3f, 1.0f, 0.0f, 0.0f );
+	float4 light = (float4)( 0.3f, 1.4f, 0.0f, 0.0f );
 
 	// New color (or: another color calculated by evaluating different light paths than before)
 	// Accumulate the colors of each hit surface
@@ -486,7 +426,7 @@ __kernel void accumulateColors(
 		float4 surfaceColor = (float4)( 0.9f, 0.9f, 0.9f, 1.0f );
 
 		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * 0.3f * diffuse * shadowIntensity;
+		accumulatedColor += colorMask * 0.4f * diffuse * shadowIntensity;
 		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
 	}
 

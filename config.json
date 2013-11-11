@@ -18,6 +18,7 @@
 		"speed": 0.25
 	},
 
+	// Default model import path for the Qt File Dialog
 	"import_path": "/home/seba/programming/Physically-based Rendering/resources/models/",
 
 	"logging": true,
@@ -28,9 +29,9 @@
 
 	"render": {
 		// AA through jittering
-		"antialiasing": true,
+		"antialiasing": false,
 		// Number of times a light ray bounces
-		"bounces": 3,
+		"bounces": 1,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS)
 		"interval": 100.0,
 		// Camera perspective

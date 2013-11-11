@@ -124,12 +124,13 @@ void KdTree::processNode( kdNode_t* node, vector<cl_int> ropes ) {
 		return;
 	}
 
-	for( int i = 0; i < 6; i++ ) {
-		if( ropes[i] < 0 ) {
-			continue;
-		}
-		this->optimizeRope( &(ropes[i]), i, node->bbMin, node->bbMax );
-	}
+	// TODO: Uncomment. Only disabled to reduce possible error sources.
+	// for( int i = 0; i < 6; i++ ) {
+	// 	if( ropes[i] < 0 ) {
+	// 		continue;
+	// 	}
+	// 	this->optimizeRope( &(ropes[i]), i, node->bbMin, node->bbMax );
+	// }
 
 	cl_int sideLeft = node->axis * 2;
 	cl_int sideRight = node->axis * 2 + 1;
@@ -144,28 +145,32 @@ void KdTree::processNode( kdNode_t* node, vector<cl_int> ropes ) {
 }
 
 
-// TODO: Doesn't work
+// TODO: Is this code even doing what it's supposed to?
+// I mean it still works, so it doesn't make it worse. But does it improve things?
 void KdTree::optimizeRope( cl_int* rope, cl_int side, cl_float* bbMin, cl_float* bbMax ) {
-	return; // REMOVE
-	while( mNodes[*rope]->left >= 0 && mNodes[*rope]->right >= 0 ) {
-		int axis = mNodes[*rope]->axis;
+	int axis;
 
-		// split axis of rope parallel to side
-		if( axis == side || axis == side - 1 ) {
-			*rope = ( axis == side - 1 ) ? mNodes[*rope]->left : mNodes[*rope]->right;
+	while( mNodes[*rope]->left >= 0 && mNodes[*rope]->right >= 0 ) {
+		axis = mNodes[*rope]->axis;
+
+		if( side % 2 == 0 ) { // left, bottom, back
+			if( axis == ( side >> 1 ) || mNodes[*rope]->pos[axis] <= bbMin[axis] ) {
+				*rope = mNodes[*rope]->right;
+			}
+			else {
+				break;
+			}
 		}
-		// split plane of rope above bbMin
-		else if( mNodes[*rope]->pos[axis] > bbMin[axis] ) {
-			*rope = mNodes[*rope]->right;
-		}
-		// split plane of rope below bbMax
-		else if( mNodes[*rope]->pos[axis] < bbMax[axis] ) {
-			*rope = mNodes[*rope]->left;
-		}
-		else {
-			break;
+		else { // right, top, front
+			if( axis == ( side >> 1 ) || mNodes[*rope]->pos[axis] >= bbMax[axis] ) {
+				*rope = mNodes[*rope]->left;
+			}
+			else {
+				break;
+			}
 		}
 	}
+
 }
 
 
@@ -428,26 +433,19 @@ void KdTree::visualizeNextNode( kdNode_t* node, vector<GLfloat>* vertices, vecto
 
 	}
 
-	// if(
-	// 	!( a[0] == b[0] && a[1] == b[1] && a[2] == b[2] ) &&
-	// 	!( b[0] == c[0] && b[1] == c[1] && b[2] == c[2] ) &&
-	// 	!( c[0] == d[0] && c[1] == d[1] && c[2] == d[2] ) &&
-	// 	!( d[0] == a[0] && d[1] == a[1] && d[2] == a[2] )
-	// ) {
-		GLuint i = vertices->size() / 3;
-		vertices->insert( vertices->end(), a, a + 3 );
-		vertices->insert( vertices->end(), b, b + 3 );
-		vertices->insert( vertices->end(), c, c + 3 );
-		vertices->insert( vertices->end(), d, d + 3 );
+	GLuint i = vertices->size() / 3;
+	vertices->insert( vertices->end(), a, a + 3 );
+	vertices->insert( vertices->end(), b, b + 3 );
+	vertices->insert( vertices->end(), c, c + 3 );
+	vertices->insert( vertices->end(), d, d + 3 );
 
-		GLuint newIndices[8] = {
-			i, i+1,
-			i+1, i+2,
-			i+2, i+3,
-			i+3, i
-		};
-		indices->insert( indices->end(), newIndices, newIndices + 8 );
-	// }
+	GLuint newIndices[8] = {
+		i, i+1,
+		i+1, i+2,
+		i+2, i+3,
+		i+3, i
+	};
+	indices->insert( indices->end(), newIndices, newIndices + 8 );
 
 	// Proceed with left side
 	if( node->left > -1 ) {

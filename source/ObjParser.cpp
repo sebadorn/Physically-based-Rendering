@@ -88,17 +88,27 @@ void ObjParser::load( string filepath, string filename ) {
 
 /**
  * Parse lines like "f 1 4 3" or "f 1//3 4//4 3//2" or "f 1/2/3 4/7/4 3/11/2".
+ * Only works for triangular faces.
  * Subtracts 1 from the vertex index, so it can directly be used as array index.
  * @param {std::string}          line  The line to parse.
  * @param {std::vector<GLuint>*} faces The vector to store the face in.
  */
 void ObjParser::parseFace( string line, vector<GLuint>* faces ) {
+	GLuint numFaces = faces->size();
 	vector<string> parts;
 	boost::split( parts, line, boost::is_any_of( " \t" ) );
 
-	faces->push_back( atol( parts[1].c_str() ) - 1 );
-	faces->push_back( atol( parts[2].c_str() ) - 1 );
-	faces->push_back( atol( parts[3].c_str() ) - 1 );
+	GLuint a = atol( parts[1].c_str() );
+	GLuint b = atol( parts[2].c_str() );
+	GLuint c = atol( parts[3].c_str() );
+
+	a = ( a < 0 ) ? numFaces - a : a;
+	b = ( b < 0 ) ? numFaces - b : b;
+	c = ( c < 0 ) ? numFaces - c : c;
+
+	faces->push_back( a - 1 );
+	faces->push_back( b - 1 );
+	faces->push_back( c - 1 );
 }
 
 

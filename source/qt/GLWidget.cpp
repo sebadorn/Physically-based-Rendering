@@ -290,9 +290,9 @@ void GLWidget::initOpenCLBuffers() {
 
 	vector<kdNode_t> kdNodes = mKdTree->getNodes();
 	vector<cl_float> kdData1; // [x, y, z, bbMin(x,y,z), bbMax(x,y,z)]
-	vector<cl_int> kdData2; // [index, left, right, axis, facesIndex, ropesIndex]
+	vector<cl_int> kdData2; // [left, right, axis, facesIndex, ropesIndex]
 	vector<cl_int> kdData3; // [numFaces, a, b, c ...]
-	vector<cl_int> kdRopes; // [left, right, front, back, top, bottom]
+	vector<cl_int> kdRopes; // [left, right, bottom, top, back, front]
 
 	for( uint i = 0; i < kdNodes.size(); i++ ) {
 		// Vertice coordinates
@@ -313,6 +313,7 @@ void GLWidget::initOpenCLBuffers() {
 		kdData2.push_back( kdNodes[i].right );
 		kdData2.push_back( kdNodes[i].axis );
 
+
 		// Index of faces of this node in kdData3
 		if( kdNodes[i].faces.size() > 0 ) {
 			kdData2.push_back( kdData3.size() );
@@ -321,12 +322,14 @@ void GLWidget::initOpenCLBuffers() {
 			kdData2.push_back( -1 );
 		}
 
+
 		// Faces
 		kdData3.push_back( kdNodes[i].faces.size() );
 
 		for( uint j = 0; j < kdNodes[i].faces.size(); j++ ) {
 			kdData3.push_back( kdNodes[i].faces[j] );
 		}
+
 
 		// Ropes
 		if( kdNodes[i].left < 0 && kdNodes[i].right < 0 ) {
