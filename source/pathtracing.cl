@@ -1,4 +1,4 @@
-#define EPSILON 0.000001f
+#define EPSILON 0.00001f
 
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
@@ -114,53 +114,66 @@ float shadow(
  * @return        [description]
  */
 inline float checkFaceIntersection(
-	float4 origin, float4 dir, float4 a, float4 b, float4 c,
+	float4* origin, float4* dir, float4 a, float4 b, float4 c,
 	float tNear, float tFar, hit_t* result
 ) {
 	float4 edge1 = b - a;
 	float4 edge2 = c - a;
-	float4 pVec = cross( dir, edge2 );
+	float4 pVec = cross( *dir, edge2 );
 	float det = dot( edge1, pVec );
 
 	if( fabs( det ) < EPSILON ) {
-		return -1.0f;
+		return -2.0f;
 	}
 
-	float invDet = 1.0f / det;
-	float4 tVec = origin - a;
-	float u = dot( tVec, pVec ) * invDet;
+	float4 tVec = (*origin) - a;
+	float u = dot( tVec, pVec ) / det;
 
 	if( u < 0.0f || u > 1.0f ) {
-		return -1.0f;
+		return -2.0f;
 	}
 
 	float4 qVec = cross( tVec, edge1 );
-
-	float v = dot( dir, qVec ) * invDet;
+	float v = dot( *dir, qVec ) / det;
 
 	if( v < 0.0f || u + v > 1.0f ) {
-		return -1.0f;
+		return -2.0f;
 	}
 
-	float t = dot( edge2, qVec ) * invDet;
+	float t = dot( edge2, qVec ) / det;
 
-	if( t < tNear || t > tFar ) {
-		return -1.0f;
+	// TODO: Should be clipped between tNear and tFar, but
+	// that produces wrong results even with 1 bounce.
+	// No check at all results in smooth surfaces even with more
+	// bounces. But that is wrong, too.
+	if( t < tNear - EPSILON || t > tFar + EPSILON ) {
+		return -2.0f;
 	}
 
-	result->position = origin + t * dir;
-	result->distance = length( result->position - origin );
+	result->position = (*origin) + t * (*dir);
+	result->distance = length( result->position - (*origin) );
 	result->normal = normalize( cross( edge1, edge2 ) );
 
 	return t;
 }
 
 
+/**
+ * Check all faces of a leaf node for intersections with the given ray.
+ * @param faceIndex     [description]
+ * @param origin        [description]
+ * @param dir           [description]
+ * @param scVertices    [description]
+ * @param scFaces       [description]
+ * @param kdNodeData3   [description]
+ * @param entryDistance [description]
+ * @param exitDistance  [description]
+ * @param result        [description]
+ */
 inline void checkFaces(
-	int faceIndex, float4 origin, float4 dir,
-	__global float* scVertices, __global uint* scFaces,
-	__global int* kdNodeData3,
-	float* entryDistance, float* exitDistance, hit_t* result
+	int faceIndex, float4* origin, float4* dir,
+	__global float* scVertices, __global uint* scFaces, __global int* kdNodeData3,
+	float entryDistance, float* exitDistance, hit_t* result
 ) {
 	float4 a, b, c;
 	float closest, r;
@@ -196,13 +209,12 @@ inline void checkFaces(
 			0.0f
 		);
 
-		newResult.distance = -1.0f;
-		r = checkFaceIntersection( origin, dir, a, b, c, *entryDistance, *exitDistance, &newResult );
+		r = checkFaceIntersection( origin, dir, a, b, c, entryDistance, *exitDistance, &newResult );
 
-		if( newResult.distance > -1.0f ) {
+		if( r > -1.0f ) {
 			*exitDistance = r;
 
-			if( result->distance < 0.0f || result->distance > newResult.distance ) {
+			if( result->distance > newResult.distance || result->distance < 0.0f ) {
 				result->distance = newResult.distance;
 				result->position = newResult.position;
 				result->normal = newResult.normal;
@@ -269,6 +281,13 @@ inline bool intersectBoundingBox(
 }
 
 
+/**
+ * Test, if a point is inside a given axis aligned bounding box.
+ * @param  bbMin [description]
+ * @param  bbMax [description]
+ * @param  p     [description]
+ * @return       [description]
+ */
 inline bool isInsideBoundingBox( float* bbMin, float* bbMax, float4 p ) {
 	return (
 		p.x >= bbMin[0] && p.y >= bbMin[1] && p.z >= bbMin[2] &&
@@ -277,13 +296,26 @@ inline bool isInsideBoundingBox( float* bbMin, float* bbMax, float4 p ) {
 }
 
 
+/**
+ * Find the closest hit of the ray with a surface.
+ * Uses stackless kd-tree traversal.
+ * @param origin      [description]
+ * @param dir         [description]
+ * @param kdRoot      [description]
+ * @param scVertices  [description]
+ * @param scFaces     [description]
+ * @param kdNodeData1 [description]
+ * @param kdNodeData2 [description]
+ * @param kdNodeData3 [description]
+ * @param kdNodeRopes [description]
+ * @param result      [description]
+ */
 inline void traverseKdTree(
-	float4 origin, float4 ray, const uint kdRoot,
+	float4* origin, float4* dir, const uint kdRoot,
 	__global float* scVertices, __global uint* scFaces,
 	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
 	__global int* kdNodeRopes, hit_t* result
 ) {
-	float4 dir = normalize( ray - origin );
 	int nodeIndex = kdRoot;
 
 	float bbMin[3] = {
@@ -300,7 +332,7 @@ inline void traverseKdTree(
 	float entryDistance, exitDistance, tNear;
 	int exitRope;
 
-	if( !intersectBoundingBox( &origin, &dir, bbMin, bbMax, &entryDistance, &exitDistance, &exitRope ) ) {
+	if( !intersectBoundingBox( origin, dir, bbMin, bbMax, &entryDistance, &exitDistance, &exitRope ) ) {
 		return;
 	}
 	if( exitDistance < 0.0f ) {
@@ -310,21 +342,24 @@ inline void traverseKdTree(
 	entryDistance = ( entryDistance < 0.0f ) ? 0.0f : entryDistance;
 
 
-	float4 hitNear, hitFar;
+	float4 hitNear;
 	int left, right, axis, faceIndex, ropeIndex;
 	int i = 0;
 
 	while( entryDistance < exitDistance ) {
-		// TODO: REMOVE when infinite loop bug is fixed
-		if( i++ > 20 ) { return; }
+		// TODO: Infinite loop bug seems to be fixed!
+		// Remove this line later. Just keeping it a little longer
+		// as precaution while tackling some other issue.
+		if( i++ > 1000 ) { return; }
 
-		hitNear = origin + entryDistance * dir;
 
+		// Find a leaf node for this ray
+
+		hitNear = (*origin) + entryDistance * (*dir);
 		left = kdNodeData2[nodeIndex * 5];
 		right = kdNodeData2[nodeIndex * 5 + 1];
 		axis = kdNodeData2[nodeIndex * 5 + 2];
 
-		// Find a leaf node for this ray
 		while( left >= 0 && right >= 0 ) {
 			nodeIndex = ( ( (float*) &hitNear )[axis] < kdNodeData1[nodeIndex * 9 + axis] ) ? left : right;
 			left = kdNodeData2[nodeIndex * 5];
@@ -332,19 +367,6 @@ inline void traverseKdTree(
 			axis = kdNodeData2[nodeIndex * 5 + 2];
 		}
 
-
-		// At a leaf node now, check triangle faces
-		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
-
-		checkFaces(
-			faceIndex, origin, dir,
-			scVertices, scFaces, kdNodeData3,
-			&entryDistance, &exitDistance,
-			result
-		);
-
-
-		// Get exit point of ray from bounding box
 		bbMin[0] = kdNodeData1[nodeIndex * 9 + 3];
 		bbMin[1] = kdNodeData1[nodeIndex * 9 + 4];
 		bbMin[2] = kdNodeData1[nodeIndex * 9 + 5];
@@ -352,18 +374,28 @@ inline void traverseKdTree(
 		bbMax[1] = kdNodeData1[nodeIndex * 9 + 7];
 		bbMax[2] = kdNodeData1[nodeIndex * 9 + 8];
 
-		// TODO: Test unnecessary. Just here for debugging. Remove later.
-		if( !intersectBoundingBox( &origin, &dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope ) ) {
-			return;
-		}
+
+		// At a leaf node now, check triangle faces
+
+		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
+
+		checkFaces(
+			faceIndex, origin, dir, scVertices, scFaces, kdNodeData3,
+			entryDistance, &exitDistance, result
+		);
+
+
+		// Exit leaf node
+
+		intersectBoundingBox( origin, dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
 
 		if( entryDistance >= exitDistance ) {
 			return;
 		}
-		hitFar = origin + entryDistance * dir;
 
 
 		// Follow the rope
+
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
 		nodeIndex = kdNodeRopes[ropeIndex + exitRope];
 
@@ -401,7 +433,7 @@ __kernel void accumulateColors(
 	float4 hit = origins[workIndex];
 
 	// Lighting
-	float4 light = (float4)( 0.3f, 1.4f, 0.0f, 0.0f );
+	float4 light = (float4)( 0.3f, 1.4f, 0.3f, 0.0f );
 
 	// New color (or: another color calculated by evaluating different light paths than before)
 	// Accumulate the colors of each hit surface
@@ -443,6 +475,20 @@ __kernel void accumulateColors(
 }
 
 
+/**
+ * Search the kd-tree to find the closest intersection of the ray with a surface.
+ * @param origins        [description]
+ * @param rays           [description]
+ * @param normals        [description]
+ * @param scVertices     [description]
+ * @param scFaces        [description]
+ * @param kdNodeData1    [description]
+ * @param kdNodeData2    [description]
+ * @param kdNodeData3    [description]
+ * @param kdNodeRopes    [description]
+ * @param kdRoot         [description]
+ * @param timeSinceStart [description]
+ */
 __kernel void findIntersectionsKdTree(
 	__global float4* origins, __global float4* rays, __global float4* normals,
 	__global float* scVertices, __global uint* scFaces, //__global float* scNormals,
@@ -458,15 +504,17 @@ __kernel void findIntersectionsKdTree(
 		return;
 	}
 
+	origin.w = 0.0f;
+	ray.w = 0.0f;
+	float4 dir = normalize( ray - origin );
+
 	hit_t hit;
 	hit.distance = -2.0f;
 	hit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
 
 	traverseKdTree(
-		origin, ray, kdRoot,
-		scVertices, scFaces,
-		kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes,
-		&hit
+		&origin, &dir, kdRoot, scVertices, scFaces,
+		kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &hit
 	);
 
 	origins[workIndex] = hit.position;

@@ -2,13 +2,10 @@
 #define UTILS_H
 
 #define PI 3.14159265359
-#define BB_NUMDIM 3
-#define BB_RIGHT 0
-#define BB_LEFT 1
-#define BB_MIDDLE 2
 
 #include <cfloat>
 #include <fstream>
+#include <math.h>
 #include <string>
 
 
@@ -26,107 +23,50 @@ namespace utils {
 
 	inline bool hitBoundingBox(
 		float* bbMin, float* bbMax, float* origin, float* dir,
-		float* p_near, float* p_far
+		float* tNear, float* tFar
 	) {
-		float p_near_result = -FLT_MAX;
-		float p_far_result = FLT_MAX;
-		float p_near_comp, p_far_comp;
-
 		float invDir[3] = {
 			1.0f / dir[0],
 			1.0f / dir[1],
 			1.0f / dir[2]
 		};
+		float bounds[2][3] = {
+			bbMin[0], bbMin[1], bbMin[2],
+			bbMax[0], bbMax[1], bbMax[2]
+		};
+		float tmin, tmax, tymin, tymax, tzmin, tzmax;
+		bool signX = invDir[0] < 0.0f;
+		bool signY = invDir[1] < 0.0f;
+		bool signZ = invDir[2] < 0.0f;
 
-		for( int i = 0; i < 3; i++ ) {
-			p_near_comp = ( bbMin[i] - origin[i] ) * invDir[i];
-			p_far_comp = ( bbMax[i] - origin[i] ) * invDir[i];
+		// X
+		tmin = ( bounds[signX][0] - origin[0] ) * invDir[0];
+		tmax = ( bounds[1 - signX][0] - origin[0] ) * invDir[0];
+		// Y
+		tymin = ( bounds[signY][1] - origin[1] ) * invDir[1];
+		tymax = ( bounds[1 - signY][1] - origin[1] ) * invDir[1];
 
-			if( p_near_comp > p_far_comp ) {
-				float temp = p_near_comp;
-				p_near_comp = p_far_comp;
-				p_far_comp = temp;
-			}
-
-			p_near_result = ( p_near_comp > p_near_result ) ? p_near_comp : p_near_result;
-			p_far_result = ( p_far_comp < p_far_result ) ? p_far_comp : p_far_result;
-
-			if( p_near_result > p_far_result ) {
-				return false;
-			}
-		}
-
-		*p_near = p_near_result;
-		*p_far = p_far_result;
-
-		return true;
-	}
-
-
-	/**
-	 * Fast Ray-Box Intersection
-	 * by Andrew Woo
-	 * from "Graphics Gems", Academic Press, 1990
-	 */
-	inline bool hitBoundingBox_Woo( float* minB, float* maxB, float* origin, float* dir, float* coord ) {
-		bool inside = true;
-		int quadrant[BB_NUMDIM];
-		int whichPlane;
-		int i;
-		float maxT[BB_NUMDIM];
-		float candidatePlane[BB_NUMDIM];
-
-		// Find candidate planes; this loop can be avoided if
-		// rays cast all from the eye (assume perspective view)
-		for( i = 0; i < BB_NUMDIM; i++ ) {
-			quadrant[i] = BB_MIDDLE;
-
-			if( origin[i] < minB[i] ) {
-				quadrant[i] = BB_LEFT;
-				candidatePlane[i] = minB[i];
-				inside = false;
-			}
-			else if( origin[i] > maxB[i] ) {
-				quadrant[i] = BB_RIGHT;
-				candidatePlane[i] = maxB[i];
-				inside = false;
-			}
-		}
-
-		// Ray origin inside bounding box
-		if( inside ) {
-			coord = origin;
-			return true;
-		}
-
-
-		// Calculate T distances to candidate planes
-		for( i = 0; i < BB_NUMDIM; i++ ) {
-			maxT[i] = ( quadrant[i] != BB_MIDDLE && dir[i] != 0.0f )
-			        ? ( candidatePlane[i] - origin[i] ) / dir[i]
-			        : -1.0f;
-		}
-
-		// Get largest of the maxT's for final choice of intersection
-		whichPlane = 0;
-		for( i = 1; i < BB_NUMDIM; i++ ) {
-			whichPlane = ( maxT[whichPlane] < maxT[i] ) ? i : whichPlane;
-		}
-
-		// Check final candidate actually inside box
-		if( maxT[whichPlane] < 0.0f ) {
+		if( tmin > tymax || tymin > tmax ) {
 			return false;
 		}
 
-		for( i = 0; i < BB_NUMDIM; i++ ) {
-			coord[i] = ( whichPlane != i )
-			         ? origin[i] + maxT[whichPlane] * dir[i]
-			         : candidatePlane[i];
+		// X vs. Y
+		tmin = ( tymin > tmin ) ? tymin : tmin;
+		tmax = ( tymax < tmax ) ? tymax : tmax;
+		// Z
+		tzmin = ( bounds[signZ][2] - origin[2] ) * invDir[2];
+		tzmax = ( bounds[1 - signZ][2] - origin[2] ) * invDir[2];
 
-			if( coord[i] < minB[i] || coord[i] > maxB[i] ) {
-				return false;
-			}
+		if( tmin > tzmax || tzmin > tmax ) {
+			return false;
 		}
+
+		// Z vs. previous winner
+		tmin = ( tzmin > tmin ) ? tzmin : tmin;
+		tmax = ( tzmax < tmax ) ? tzmax : tmax;
+		// Result
+		*tNear = tmin;
+		*tFar = tmax;
 
 		return true;
 	}

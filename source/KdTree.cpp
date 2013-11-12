@@ -1,5 +1,7 @@
 #include "KdTree.h"
 
+#define EPSILON 0.00001f
+
 using namespace std;
 
 
@@ -79,18 +81,31 @@ KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> indices, cl_float* bb
 			if( find( l->faces.begin(), l->faces.end(), i ) == l->faces.end() ) {
 				add = false;
 
+				// TODO: This check is horrendous. "isnan()", really?
 				if( utils::hitBoundingBox( l->bbMin, l->bbMax, a, abDir, &tNear, &tFar ) ) {
-					if( tFar >= 0.0f && tNear <= 1.0f ) {
+					if(
+						( tNear >= -EPSILON && tFar <= 1.0f + EPSILON ) ||
+						( isnan( tNear ) && tFar <= 1.0f + EPSILON ) ||
+						( isnan( tFar ) && tNear >= -EPSILON )
+					) {
 						add = true;
 					}
 				}
 				if( !add && utils::hitBoundingBox( l->bbMin, l->bbMax, b, bcDir, &tNear, &tFar ) ) {
-					if( tFar >= 0.0f && tNear <= 1.0f ) {
+					if(
+						( tNear >= -EPSILON && tFar <= 1.0f + EPSILON ) ||
+						( isnan( tNear ) && tFar <= 1.0f + EPSILON ) ||
+						( isnan( tFar ) && tNear >= -EPSILON )
+					) {
 						add = true;
 					}
 				}
 				if( !add && utils::hitBoundingBox( l->bbMin, l->bbMax, c, caDir, &tNear, &tFar ) ) {
-					if( tFar >= 0.0f && tNear <= 1.0f ) {
+					if(
+						( tNear >= -EPSILON && tFar <= 1.0f + EPSILON ) ||
+						( isnan( tNear ) && tFar <= 1.0f + EPSILON ) ||
+						( isnan( tFar ) && tNear >= -EPSILON )
+					) {
 						add = true;
 					}
 				}
@@ -102,6 +117,10 @@ KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> indices, cl_float* bb
 		}
 	}
 
+
+	// for( int i = 0; i < mLeaves.size(); i++ ) {
+	// 	printf( "Node %d has %lu faces.\n", mLeaves[i]->index, mLeaves[i]->faces.size() );
+	// }
 
 	cl_int ropesInit[6] = { -1, -1, -1, -1, -1, -1 };
 	this->processNode( mRoot, vector<cl_int>( ropesInit, ropesInit + 6 ) );
@@ -124,13 +143,12 @@ void KdTree::processNode( kdNode_t* node, vector<cl_int> ropes ) {
 		return;
 	}
 
-	// TODO: Uncomment. Only disabled to reduce possible error sources.
-	// for( int i = 0; i < 6; i++ ) {
-	// 	if( ropes[i] < 0 ) {
-	// 		continue;
-	// 	}
-	// 	this->optimizeRope( &(ropes[i]), i, node->bbMin, node->bbMax );
-	// }
+	for( int i = 0; i < 6; i++ ) {
+		if( ropes[i] < 0 ) {
+			continue;
+		}
+		this->optimizeRope( &(ropes[i]), i, node->bbMin, node->bbMax );
+	}
 
 	cl_int sideLeft = node->axis * 2;
 	cl_int sideRight = node->axis * 2 + 1;
