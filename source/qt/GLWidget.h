@@ -125,7 +125,7 @@ class GLWidget : public QGLWidget {
 		vector<GLuint> mNumIndices;
 		map<GLuint, GLuint> mTextureIDs;
 		vector<GLuint> mVA;
-		vector<GLuint> mTargetTextures;
+		GLuint mTargetTexture;
 
 		glm::mat4 mModelMatrix;
 		glm::mat4 mModelViewProjectionMatrix;
@@ -138,7 +138,7 @@ class GLWidget : public QGLWidget {
 		vector<GLuint> mFaces;
 		vector<GLfloat> mNormals;
 
-		vector< vector<cl_float> > mTextureOut;
+		vector<cl_float> mTextureOut;
 
 		cl_mem mBufScFaces;
 		cl_mem mBufScVertices;
@@ -162,7 +162,7 @@ class GLWidget : public QGLWidget {
 		cl_mem mBufColorMasks;
 
 		cl_mem mKernelArgTextureIn;
-		vector<cl_mem> mKernelArgTextureOut;
+		cl_mem mKernelArgTextureOut;
 
 		cl_kernel mKernelColors;
 		cl_kernel mKernelIntersections;

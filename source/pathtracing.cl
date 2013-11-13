@@ -416,7 +416,7 @@ inline void traverseKdTree(
  * @param {__global float4*}       normals        Normals of the hit surfaces.
  * @param {__global float4*}       accColors      Accumulated color so far.
  * @param {__global float4*}       colorMasks     Color mask so far.
- * @param {const float}            textureWeight  Weight for the mixing of the textures.
+ * @param {float}            textureWeight  Weight for the mixing of the textures.
  * @param {const float}            timeSinceStart Time since start of the tracer in seconds.
  * @param {__read_only image2d_t}  textureIn      Input. The generated texture so far.
  * @param {__write_only image2d_t} textureOut     Output. The generated texture now.
@@ -440,7 +440,7 @@ __kernel void accumulateColors(
 	float4 colorMask = colorMasks[workIndex];
 	float4 accumulatedColor = accColors[workIndex];
 
-	// No hit, the path ends
+	// Surface hit
 	if( hit.w > -1.0f ) {
 		// The farther away a shadow is, the more diffuse it becomes
 		float4 newLight = light/* + uniformlyRandomVector( timeSinceStart ) * 0.1f*/;
