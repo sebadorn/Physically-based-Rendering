@@ -1,5 +1,10 @@
 #include "Logger.h"
 
+using std::cerr;
+using std::cout;
+using std::endl;
+using std::string;
+
 
 /**
  * Log messages of level "debug".
@@ -8,7 +13,7 @@
  */
 void Logger::logDebug( const char* msg, const char* prefix ) {
 	if( !Cfg::get().value<bool>( Cfg::LOGGING ) ) { return; }
-	std::cout << "\033[36m" << prefix << msg << "\033[0m" << std::endl;
+	cout << "\033[36m" << prefix << msg << "\033[0m" << endl;
 }
 
 
@@ -17,7 +22,7 @@ void Logger::logDebug( const char* msg, const char* prefix ) {
  * @param {std::string} msg    Message to log.
  * @param {const char*} prefix Prefix for the line.
  */
-void Logger::logDebug( std::string msg, const char* prefix ) {
+void Logger::logDebug( string msg, const char* prefix ) {
 	Logger::logDebug( msg.c_str(), prefix );
 }
 
@@ -29,7 +34,7 @@ void Logger::logDebug( std::string msg, const char* prefix ) {
  */
 void Logger::logError( const char* msg, const char* prefix ) {
 	if( !Cfg::get().value<bool>( Cfg::LOGGING ) ) { return; }
-	std::cerr << "\033[31;1m" << prefix << msg << "\033[0m" << std::endl;
+	cerr << "\033[31;1m" << prefix << msg << "\033[0m" << endl;
 }
 
 
@@ -38,7 +43,7 @@ void Logger::logError( const char* msg, const char* prefix ) {
  * @param {std::string} msg    Message to log.
  * @param {const char*} prefix Prefix for the line.
  */
-void Logger::logError( std::string msg, const char* prefix ) {
+void Logger::logError( string msg, const char* prefix ) {
 	Logger::logError( msg.c_str(), prefix );
 }
 
@@ -50,7 +55,7 @@ void Logger::logError( std::string msg, const char* prefix ) {
  */
 void Logger::logInfo( const char* msg, const char* prefix ) {
 	if( !Cfg::get().value<bool>( Cfg::LOGGING ) ) { return; }
-	std::cout << prefix << msg << std::endl;
+	cout << prefix << msg << endl;
 }
 
 
@@ -59,7 +64,7 @@ void Logger::logInfo( const char* msg, const char* prefix ) {
  * @param {std::string} msg    Message to log.
  * @param {const char*} prefix Prefix for the line.
  */
-void Logger::logInfo( std::string msg, const char* prefix ) {
+void Logger::logInfo( string msg, const char* prefix ) {
 	Logger::logInfo( msg.c_str(), prefix );
 }
 
@@ -71,7 +76,7 @@ void Logger::logInfo( std::string msg, const char* prefix ) {
  */
 void Logger::logWarning( const char* msg, const char* prefix ) {
 	if( !Cfg::get().value<bool>( Cfg::LOGGING ) ) { return; }
-	std::cout << "\033[33;1m" << prefix << msg << "\033[0m" << std::endl;
+	cout << "\033[33;1m" << prefix << msg << "\033[0m" << endl;
 }
 
 
@@ -80,6 +85,6 @@ void Logger::logWarning( const char* msg, const char* prefix ) {
  * @param {std::string} msg    Message to log.
  * @param {const char*} prefix Prefix for the line.
  */
-void Logger::logWarning( std::string msg, const char* prefix ) {
+void Logger::logWarning( string msg, const char* prefix ) {
 	Logger::logWarning( msg.c_str(), prefix );
 }

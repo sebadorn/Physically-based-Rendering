@@ -14,7 +14,7 @@
 #include "Logger.h"
 #include "utils.h"
 
-using namespace std;
+using std::vector;
 
 
 typedef struct kdNode_t {

@@ -1,6 +1,8 @@
 #include "GLWidget.h"
 
-using namespace std;
+using std::map;
+using std::string;
+using std::vector;
 
 
 /**
@@ -149,7 +151,7 @@ void GLWidget::clAccumulateColors( float timeSinceStart ) {
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_float ), &textureWeight );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_float ), &timeSinceStart );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
+	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &(mKernelArgTextureOut[0]) );
 
 	mCL->execute( mKernelColors );
 	mCL->finish();
@@ -424,7 +426,9 @@ void GLWidget::initTargetTexture() {
 	size_t w = width();
 	size_t h = height();
 
-	mTextureOut = vector<cl_float>( w * h * 4 );
+	mTextureOut = vector< vector<cl_float> >( 2 );
+	mTextureOut[0] = vector<cl_float>( w * h * 4 );
+	mTextureOut[1] = vector<cl_float>( w * h * 4 );
 
 	mTargetTextures.clear();
 
@@ -434,13 +438,15 @@ void GLWidget::initTargetTexture() {
 		glBindTexture( GL_TEXTURE_2D, texture );
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-		glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
+		glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_FLOAT, &(mTextureOut[i])[0] );
 		mTargetTextures.push_back( texture );
 	}
 	glBindTexture( GL_TEXTURE_2D, 0 );
 
-	mKernelArgTextureIn = mCL->createImageReadOnly( w, h, &mTextureOut[0] );
-	mKernelArgTextureOut = mCL->createImageWriteOnly( w, h );
+	mKernelArgTextureOut = vector<cl_mem>( 2 );
+	mKernelArgTextureIn = mCL->createImageReadOnly( w, h, &(mTextureOut[0])[0] );
+	mKernelArgTextureOut[0] = mCL->createImageWriteOnly( w, h );
+	mKernelArgTextureOut[1] = mCL->createImageWriteOnly( w, h );
 }
 
 
@@ -648,16 +654,19 @@ void GLWidget::paintGL() {
 		boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
 		cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
 
-		this->clInitRays();
-		mCL->updateImageReadOnly( width(), height(), &mTextureOut[0] );
+		reverse( mKernelArgTextureOut.begin(), mKernelArgTextureOut.end() );
 
-		for( uint bounce = 0; bounce < mNumBounces; bounce++ ) {
+		this->clInitRays();
+		mCL->updateImageReadOnly( mKernelArgTextureIn, width(), height(), &(mTextureOut[0])[0] );
+
+		for( cl_uint bounce = 0; bounce < mNumBounces; bounce++ ) {
 			this->clFindIntersections( timeSinceStart + bounce );
 			this->clAccumulateColors( timeSinceStart );
 		}
 
-		mCL->readImageOutput( width(), height(), &mTextureOut[0] );
-		mCL->finish();
+		mCL->readImageOutput( mKernelArgTextureOut[0], width(), height(), &(mTextureOut[0])[0] );
+
+		// reverse( mTextureOut.begin(), mTextureOut.end() );
 	}
 
 
@@ -675,7 +684,10 @@ void GLWidget::paintScene() {
 		glUseProgram( mGLProgramTracer );
 
 		glBindTexture( GL_TEXTURE_2D, mTargetTextures[0] );
-		glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width(), height(), 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
+		glTexImage2D(
+			GL_TEXTURE_2D, 0, GL_RGBA, width(), height(),
+			0, GL_RGBA, GL_FLOAT, &(mTextureOut[0])[0]
+		);
 
 		glBindVertexArray( mVA[VA_TRACER] );
 		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );

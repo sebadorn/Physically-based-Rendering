@@ -1,6 +1,6 @@
 #include "CL.h"
 
-using namespace std;
+using std::string;
 
 
 /**
@@ -316,9 +316,6 @@ void CL::getDefaultPlatform() {
 		free( value );
 	}
 
-	// Logger::logInfo( string( "[OpenCL] Using platform " ).append( value ) );
-	// free( value );
-
 	mPlatform = platforms[0];
 
 	delete platforms;
@@ -375,13 +372,13 @@ void CL::loadProgram( string filepath ) {
 }
 
 
-void CL::readImageOutput( size_t width, size_t height, float* outputTarget ) {
+void CL::readImageOutput( cl_mem image, size_t width, size_t height, float* outputTarget ) {
 	cl_int err;
 	cl_event event;
 	size_t origin[] = { 0, 0, 0 };
 	size_t region[] = { width, height, 1 };
 
-	err = clEnqueueReadImage( mCommandQueue, mWriteImage, CL_TRUE, origin, region, 0, 0, outputTarget, mEvents.size(), &mEvents[0], &event );
+	err = clEnqueueReadImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, outputTarget, mEvents.size(), &mEvents[0], &event );
 	this->checkError( err, "clEnqueueReadImage" );
 	mEvents.push_back( event );
 }
@@ -401,15 +398,15 @@ cl_mem CL::updateBuffer( cl_mem buffer, size_t size, void* data ) {
 }
 
 
-cl_mem CL::updateImageReadOnly( size_t width, size_t height, float* data ) {
+cl_mem CL::updateImageReadOnly( cl_mem image, size_t width, size_t height, float* data ) {
 	size_t origin[] = { 0, 0, 0 };
 	size_t region[] = { width, height, 1 };
 	cl_int err;
 	cl_event event;
 
-	err = clEnqueueWriteImage( mCommandQueue, mReadImage, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
+	err = clEnqueueWriteImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
 	this->checkError( err, "clEnqueueReadImage" );
 	mEvents.push_back( event );
 
-	return mReadImage;
+	return image;
 }

@@ -1,13 +1,14 @@
 ## ToDo
 
-* `Critical` Get kd-tree to work properly
-* `Improve` PT: colors
-* `Improve` PT: shadows
+* `Bugfix` Sometimes holes in rendered model (probably missing faces in kd-tree leave nodes)
+* `Feature` PT: colors
+* `Feature` PT: shadows
+* `Feature` Dynamic lights (for now: number and position)
 * `Improve` Can currently only handle single mesh models
 * `Improve` Keep work group sizes down (64-256), even for bigger textures (GPU limit at 1024)
 * `Improve` Flexible width and height
-* `Improve` Dynamic lights (for now: number and position)
 * `Improve` Use CPU if no GPU available for OpenCL (or read from config)
+* `Improve` Set icon for application
 
 
 ## Optimization notes and ideas
@@ -18,7 +19,7 @@
 * OpenGL shaders are just strings that can be changed and recompiled
 * Split OpenCL into multiply kernels for each (greater) task, like ray generation, ray traversal, intersection test, and so on
 * Are some tasks in OpenCL better done on CPU than GPU?
-* Tree traversion not good for parallelization? (Use a bunch of voxels/an octree instead and check all boxes parallelized?)
+* Is clFinish() always necessary where I used it?
 
 
 ## Libraries/headers

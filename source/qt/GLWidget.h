@@ -36,6 +36,10 @@
 // Vertex array for kd-tree visualization
 #define VA_KDTREE 3
 
+using std::map;
+using std::string;
+using std::vector;
+
 
 class Camera;
 
@@ -49,7 +53,7 @@ class GLWidget : public QGLWidget {
 		~GLWidget();
 		void cameraUpdate();
 		bool isRendering();
-		void loadModel( std::string filepath, std::string filename );
+		void loadModel( string filepath, string filename );
 		QSize minimumSizeHint() const;
 		void moveCamera( const int key );
 		QSize sizeHint() const;
@@ -77,13 +81,13 @@ class GLWidget : public QGLWidget {
 		void initOpenCLBuffers();
 		void initShaders();
 		void initTargetTexture();
-		void loadShader( GLuint program, GLuint shader, std::string path );
+		void loadShader( GLuint program, GLuint shader, string path );
 		void paintGL();
 		void paintScene();
 		void resizeGL( int width, int height );
-		void setShaderBuffersForOverlay( std::vector<GLfloat> vertices, std::vector<GLuint> indices );
-		void setShaderBuffersForBoundingBox( std::vector<GLfloat> bbox );
-		void setShaderBuffersForKdTree( std::vector<GLfloat> vertices, std::vector<GLuint> indices );
+		void setShaderBuffersForOverlay( vector<GLfloat> vertices, vector<GLuint> indices );
+		void setShaderBuffersForBoundingBox( vector<GLfloat> bbox );
+		void setShaderBuffersForKdTree( vector<GLfloat> vertices, vector<GLuint> indices );
 		void setShaderBuffersForTracer();
 		void showFPS();
 
@@ -117,11 +121,11 @@ class GLWidget : public QGLWidget {
 		KdTree* mKdTree;
 		GLuint mKdTreeNumIndices;
 
-		std::vector<light_t> mLights;
-		std::vector<GLuint> mNumIndices;
-		std::map<GLuint, GLuint> mTextureIDs;
-		std::vector<GLuint> mVA;
-		std::vector<GLuint> mTargetTextures;
+		vector<light_t> mLights;
+		vector<GLuint> mNumIndices;
+		map<GLuint, GLuint> mTextureIDs;
+		vector<GLuint> mVA;
+		vector<GLuint> mTargetTextures;
 
 		glm::mat4 mModelMatrix;
 		glm::mat4 mModelViewProjectionMatrix;
@@ -130,11 +134,11 @@ class GLWidget : public QGLWidget {
 
 		boost::posix_time::ptime mTimeSinceStart;
 
-		std::vector<GLfloat> mVertices;
-		std::vector<GLuint> mFaces;
-		std::vector<GLfloat> mNormals;
+		vector<GLfloat> mVertices;
+		vector<GLuint> mFaces;
+		vector<GLfloat> mNormals;
 
-		std::vector<float> mTextureOut;
+		vector< vector<cl_float> > mTextureOut;
 
 		cl_mem mBufScFaces;
 		cl_mem mBufScVertices;
@@ -158,7 +162,7 @@ class GLWidget : public QGLWidget {
 		cl_mem mBufColorMasks;
 
 		cl_mem mKernelArgTextureIn;
-		cl_mem mKernelArgTextureOut;
+		vector<cl_mem> mKernelArgTextureOut;
 
 		cl_kernel mKernelColors;
 		cl_kernel mKernelIntersections;

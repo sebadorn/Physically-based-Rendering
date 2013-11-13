@@ -12,6 +12,8 @@
 #include "Logger.h"
 #include "utils.h"
 
+using std::vector;
+
 
 class CL {
 
@@ -28,7 +30,7 @@ class CL {
 			return buffer;
 		}
 
-		template<typename T> cl_mem createBuffer( std::vector<T> object, size_t objectSize ) {
+		template<typename T> cl_mem createBuffer( vector<T> object, size_t objectSize ) {
 			cl_int err;
 			cl_mem buffer = clCreateBuffer( mContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, objectSize, &object[0], &err );
 			this->checkError( err, "clCreateBuffer" );
@@ -44,10 +46,10 @@ class CL {
 		void execute( cl_kernel kernel );
 		void finish();
 		void loadProgram( std::string filepath );
-		void readImageOutput( size_t width, size_t height, float* outputTarget );
+		void readImageOutput( cl_mem image, size_t width, size_t height, float* outputTarget );
 		void setKernelArg( cl_kernel kernel, uint index, size_t size, void* data );
 		cl_mem updateBuffer( cl_mem buffer, size_t size, void* data );
-		cl_mem updateImageReadOnly( size_t width, size_t height, float* data );
+		cl_mem updateImageReadOnly( cl_mem image, size_t width, size_t height, float* data );
 
 	protected:
 		void buildProgram();
@@ -68,9 +70,9 @@ class CL {
 		cl_mem mReadImage;
 		cl_mem mWriteImage;
 
-		std::vector<cl_kernel> mKernels;
-		std::vector<cl_event> mEvents;
-		std::vector<cl_mem> mMemObjects;
+		vector<cl_kernel> mKernels;
+		vector<cl_event> mEvents;
+		vector<cl_mem> mMemObjects;
 
 };
 

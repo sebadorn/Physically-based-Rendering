@@ -9,6 +9,8 @@
 #include "qt/GLWidget.h"
 #include "utils.h"
 
+using std::vector;
+
 
 typedef struct {
 	float eyeX, eyeY, eyeZ;
@@ -36,7 +38,7 @@ class Camera {
 		void copy( Camera* camera );
 		glm::vec3 getAdjustedCenter_glmVec3();
 		glm::vec3 getCenter_glmVec3();
-		std::vector<float> getEye();
+		vector<float> getEye();
 		glm::vec3 getEye_glmVec3();
 		float getRotX();
 		float getRotY();

@@ -14,6 +14,10 @@
 
 #include "ObjParser.h"
 
+using std::map;
+using std::string;
+using std::vector;
+
 
 typedef struct {
 	float position[4];
@@ -33,24 +37,24 @@ class ModelLoader {
 	public:
 		ModelLoader();
 		~ModelLoader();
-		std::vector<light_t> getLights();
-		void loadModel( std::string filepath, std::string filename );
+		vector<light_t> getLights();
+		void loadModel( string filepath, string filename );
 
-		std::vector<GLfloat> mVertices;
-		std::vector<GLuint> mFaces;
-		std::vector<GLfloat> mNormals;
-		std::vector<GLfloat> mBoundingBox;
+		vector<GLfloat> mVertices;
+		vector<GLuint> mFaces;
+		vector<GLfloat> mNormals;
+		vector<GLfloat> mBoundingBox;
 
 	protected:
-		std::vector<GLfloat> computeBoundingBox( std::vector<GLfloat> vertices );
-		void loadLights( std::string filepath, std::string filename );
-		GLuint loadTexture( std::string filepath );
+		vector<GLfloat> computeBoundingBox( vector<GLfloat> vertices );
+		void loadLights( string filepath, string filename );
+		GLuint loadTexture( string filepath );
 
 	private:
-		std::vector<GLuint> mNumIndices;
-		std::map<GLuint, GLuint> mTextureIDs;
-		std::map<std::string, GLuint> mFileToTextureID;
-		std::vector<light_t> mLights;
+		vector<GLuint> mNumIndices;
+		map<GLuint, GLuint> mTextureIDs;
+		map<string, GLuint> mFileToTextureID;
+		vector<light_t> mLights;
 		ObjParser* mObjParser;
 
 };

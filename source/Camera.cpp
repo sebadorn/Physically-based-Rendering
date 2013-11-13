@@ -1,6 +1,7 @@
 #include "Camera.h"
 
-using namespace utils;
+using std::vector;
+using utils::degToRad;
 
 
 /**
@@ -147,8 +148,8 @@ glm::vec3 Camera::getEye_glmVec3() {
  * Return the eye coordinates.
  * @return {std::vector<float>} Eye coordinates.
  */
-std::vector<float> Camera::getEye() {
-	std::vector<float> eye;
+vector<float> Camera::getEye() {
+	vector<float> eye;
 	eye.push_back( mCamera.eyeX );
 	eye.push_back( mCamera.eyeY );
 	eye.push_back( mCamera.eyeZ );

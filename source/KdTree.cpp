@@ -2,7 +2,7 @@
 
 #define EPSILON 0.00001f
 
-using namespace std;
+using std::vector;
 
 
 /**
