@@ -10,6 +10,8 @@ int main( int argc, char* argv[] ) {
 	Cfg::get().loadConfigFile( "config.json" );
 
 	QApplication app( argc, argv );
+	app.setWindowIcon( QPixmap( "icon.png" ) );
+
 	Window window;
 	window.resize( window.sizeHint() );
 

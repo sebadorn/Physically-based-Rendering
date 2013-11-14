@@ -50,8 +50,8 @@ class Camera {
 		void updateParent();
 
 	private:
-		float mCameraSpeed;
 		GLWidget* mParent;
+		float mCameraSpeed;
 		camera_t mCamera;
 
 };

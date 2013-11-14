@@ -4,8 +4,8 @@
 #define KD_DIM 3
 
 #include <algorithm>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <CL/cl.hpp>
-#include <GL/gl.h>
 #include <map>
 #include <math.h>
 #include <stdlib.h>
@@ -33,7 +33,7 @@ typedef struct kdNode_t {
 class KdTree {
 
 	public:
-		KdTree( vector<cl_float> vertices, vector<cl_uint> indices, cl_float* bbMin, cl_float* bbMax );
+		KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMin, cl_float* bbMax );
 		~KdTree();
 
 		kdNode_t* getRootNode();
@@ -42,12 +42,15 @@ class KdTree {
 		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	protected:
+		void assignFacesToLeaves( vector<cl_float>* vertices, vector<cl_uint>* faces );
+		kdNode_t* createLeafNode( cl_float* bbMin, cl_float* bbMax );
+		void createRopes( kdNode_t* node, vector<cl_int> ropes );
+		vector<kdNode_t*> createUnconnectedNodes( vector<cl_float>* vertices );
 		kdNode_t* findMedian( vector<kdNode_t*>* nodes, cl_int axis );
 		cl_int makeTree( vector<kdNode_t*> t, cl_int axis, cl_float* bbMin, cl_float* bbMax );
 		void optimizeRope( cl_int* rope, cl_int side, cl_float* bbMin, cl_float* bbMax );
 		void printNode( kdNode_t* node );
-		void processNode( kdNode_t* node, vector<cl_int> ropes );
-		void visualizeNextNode( kdNode_t* node, vector<GLfloat>* vertices, vector<GLuint>* indices );
+		void visualizeNextNode( kdNode_t* node, vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	private:
 		static bool compFunc0( kdNode_t* a, kdNode_t* b );

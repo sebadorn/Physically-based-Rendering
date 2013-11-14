@@ -2,7 +2,6 @@
 #define GLWIDGET_H
 
 #include <algorithm>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <ctime>
 #include <GL/glew.h>
 #include <glm/glm.hpp>
@@ -18,6 +17,7 @@
 #include "../KdTree.h"
 #include "../Logger.h"
 #include "../ModelLoader.h"
+#include "../PathTracer.h"
 #include "../utils.h"
 #include "Window.h"
 
@@ -42,6 +42,9 @@ using std::vector;
 
 
 class Camera;
+
+
+class PathTracer;
 
 
 class GLWidget : public QGLWidget {
@@ -70,15 +73,10 @@ class GLWidget : public QGLWidget {
 		void calculateMatrices();
 		void checkGLForErrors();
 		void checkFramebufferForErrors();
-		void clInitRays();
-		void clFindIntersections( float timeSinceStart );
-		void clAccumulateColors( float timeSinceStart );
 		void deleteOldModel();
 		glm::vec3 getEyeRay( glm::mat4 matrix, glm::vec3 eye, float x, float y, float z );
-		glm::vec3 getJitter();
 		void initGlew();
 		void initializeGL();
-		void initOpenCLBuffers();
 		void initShaders();
 		void initTargetTexture();
 		void loadShader( GLuint program, GLuint shader, string path );
@@ -86,7 +84,7 @@ class GLWidget : public QGLWidget {
 		void paintScene();
 		void resizeGL( int width, int height );
 		void setShaderBuffersForOverlay( vector<GLfloat> vertices, vector<GLuint> indices );
-		void setShaderBuffersForBoundingBox( vector<GLfloat> bbox );
+		void setShaderBuffersForBoundingBox( GLfloat* bbox );
 		void setShaderBuffersForKdTree( vector<GLfloat> vertices, vector<GLuint> indices );
 		void setShaderBuffersForTracer();
 		void showFPS();
@@ -99,27 +97,25 @@ class GLWidget : public QGLWidget {
 
 	private:
 		bool mDoRendering;
-		int mSelectedLight;
-		int mNumBounces;
-		cl_float mFOV;
-		cl_float* mBoundingBox;
-
 		bool mViewBoundingBox;
 		bool mViewKdTree;
 		bool mViewOverlay;
 		bool mViewTracer;
 
+		int mSelectedLight;
+		cl_float mFOV;
+		cl_float* mBoundingBox;
+
 		GLuint mFrameCount;
 		GLuint mGLProgramTracer;
 		GLuint mGLProgramSimple;
 		GLuint mIndexBuffer;
+		GLuint mKdTreeNumIndices;
 		GLuint mPreviousTime;
-		GLuint mSampleCount;
 
-		CL* mCL;
 		QTimer* mTimer;
 		KdTree* mKdTree;
-		GLuint mKdTreeNumIndices;
+		PathTracer* mPathTracer;
 
 		vector<light_t> mLights;
 		vector<GLuint> mNumIndices;
@@ -132,41 +128,10 @@ class GLWidget : public QGLWidget {
 		glm::mat4 mProjectionMatrix;
 		glm::mat4 mViewMatrix;
 
-		boost::posix_time::ptime mTimeSinceStart;
-
-		vector<GLfloat> mVertices;
-		vector<GLuint> mFaces;
-		vector<GLfloat> mNormals;
-
+		vector<cl_uint> mFaces;
+		vector<cl_float> mNormals;
 		vector<cl_float> mTextureOut;
-
-		cl_mem mBufScFaces;
-		cl_mem mBufScVertices;
-		cl_mem mBufScNormals;
-
-		cl_mem mBufKdNodes;
-		cl_mem mBufKdNodeData1;
-		cl_mem mBufKdNodeData2;
-		cl_mem mBufKdNodeData3;
-		cl_mem mBufKdNodeRopes;
-
-		cl_mem mBufEye;
-		cl_mem mBufVecW;
-		cl_mem mBufVecU;
-		cl_mem mBufVecV;
-
-		cl_mem mBufOrigins;
-		cl_mem mBufRays;
-		cl_mem mBufNormals;
-		cl_mem mBufAccColors;
-		cl_mem mBufColorMasks;
-
-		cl_mem mKernelArgTextureIn;
-		cl_mem mKernelArgTextureOut;
-
-		cl_kernel mKernelColors;
-		cl_kernel mKernelIntersections;
-		cl_kernel mKernelRays;
+		vector<cl_float> mVertices;
 
 };
 

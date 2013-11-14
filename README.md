@@ -1,6 +1,5 @@
 ## ToDo
 
-* `Bugfix` Sometimes holes in rendered model (probably missing faces in kd-tree leave nodes)
 * `Feature` PT: colors
 * `Feature` PT: shadows
 * `Feature` Dynamic lights (for now: number and position)
@@ -8,7 +7,6 @@
 * `Improve` Keep work group sizes down (64-256), even for bigger textures (GPU limit at 1024)
 * `Improve` Flexible width and height
 * `Improve` Use CPU if no GPU available for OpenCL (or read from config)
-* `Improve` Set icon for application
 
 
 ## Optimization notes and ideas

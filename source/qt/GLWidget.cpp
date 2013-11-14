@@ -10,38 +10,25 @@ using std::vector;
  * @param {QWidget*} parent Parent QWidget this QWidget is contained in.
  */
 GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
-	srand( (unsigned) time( 0 ) );
-
-	mCL = new CL();
-	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
-	mKernelRays = mCL->createKernel( "generateRays" );
-	mKernelIntersections = mCL->createKernel( "findIntersectionsKdTree" );
-	mKernelColors = mCL->createKernel( "accumulateColors" );
-
-	mNumBounces = Cfg::get().value<int>( Cfg::RENDER_BOUNCES );
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
 	mModelMatrix = glm::mat4( 1.0f );
-
-	mKdTree = NULL;
 
 	mDoRendering = false;
 	mFrameCount = 0;
 	mPreviousTime = 0;
-	mCamera = new Camera( this );
-	mSampleCount = 0;
 	mSelectedLight = -1;
-
 	mViewBoundingBox = false;
 	mViewKdTree = false;
 	mViewOverlay = false;
 	mViewTracer = true;
 
+	mPathTracer = new PathTracer();
+	mCamera = new Camera( this );
+	mKdTree = NULL;
 	mTimer = new QTimer( this );
+
+	mPathTracer->setCamera( mCamera );
 	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
-
-	mTimeSinceStart = boost::posix_time::microsec_clock::local_time();
-
-	this->startRendering();
 }
 
 
@@ -53,9 +40,8 @@ GLWidget::~GLWidget() {
 	this->deleteOldModel();
 	glDeleteTextures( 1, &mTargetTexture );
 
-	if( mKdTree ) {
-		delete mKdTree;
-	}
+	delete mCamera;
+	delete mPathTracer;
 }
 
 
@@ -66,8 +52,6 @@ void GLWidget::calculateMatrices() {
 	if( !mDoRendering ) {
 		return;
 	}
-
-	mSampleCount = -1;
 
 	glm::vec3 e = mCamera->getEye_glmVec3();
 	glm::vec3 c = mCamera->getAdjustedCenter_glmVec3();
@@ -83,6 +67,7 @@ void GLWidget::calculateMatrices() {
  */
 void GLWidget::cameraUpdate() {
 	this->calculateMatrices();
+	mPathTracer->resetSampleCount();
 }
 
 
@@ -140,76 +125,6 @@ void GLWidget::checkFramebufferForErrors() {
 }
 
 
-void GLWidget::clAccumulateColors( float timeSinceStart ) {
-	uint i = 0;
-	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
-
-	mCL->setKernelArg( mKernelColors, i, sizeof( cl_mem ), &mBufOrigins );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufNormals );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufAccColors );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufColorMasks );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_float ), &textureWeight );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_float ), &timeSinceStart );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mKernelArgTextureIn );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mKernelArgTextureOut );
-
-	mCL->execute( mKernelColors );
-	mCL->finish();
-}
-
-
-/**
- * OpenCL: Find intersections of rays with scene.
- */
-void GLWidget::clFindIntersections( float timeSinceStart ) {
-	uint i = 0;
-	cl_uint numFaces = mFaces.size();
-
-	mCL->setKernelArg( mKernelIntersections, i, sizeof( cl_mem ), &mBufOrigins );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufRays );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufNormals );
-
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScVertices );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScFaces );
-	// mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
-
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData1 );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData2 );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData3 );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeRopes );
-
-	cl_uint rootNode = mKdTree->getRootNode()->index;
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_uint ), &rootNode );
-
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_float ), &timeSinceStart );
-
-	mCL->execute( mKernelIntersections );
-	mCL->finish();
-}
-
-
-/**
- * OpenCL: Compute the initial rays into the scene.
- */
-void GLWidget::clInitRays() {
-	uint i = 0;
-	cl_float fovRad = utils::degToRad( mFOV );
-
-	mCL->setKernelArg( mKernelRays, i, sizeof( cl_mem ), &mBufEye );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufVecW );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufVecU );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufVecV );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_float ), &fovRad );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufOrigins );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufRays );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufAccColors );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufColorMasks );
-
-	mCL->execute( mKernelRays );
-	mCL->finish();
-}
-
-
 /**
  * Delete data (buffers, textures) of the old model.
  */
@@ -225,25 +140,11 @@ void GLWidget::deleteOldModel() {
 			texIter++;
 		}
 	}
-}
 
-
-/**
- * Get a jitter vector in order to slightly alter the eye ray.
- * This results in anti-aliasing.
- * @return {glm::vec3} Jitter.
- */
-glm::vec3 GLWidget::getJitter() {
-	glm::vec3 v = glm::vec3(
-		rand() / (float) RAND_MAX * 1.0f - 1.0f,
-		rand() / (float) RAND_MAX * 1.0f - 1.0f,
-		0.0f
-	);
-
-	v[0] *= ( 1.0f / (float) width() );
-	v[1] *= ( 1.0f / (float) height() );
-
-	return v;
+	// Delete model-specific kd-tree
+	if( mKdTree ) {
+		delete mKdTree;
+	}
 }
 
 
@@ -281,90 +182,6 @@ void GLWidget::initGlew() {
 		exit( EXIT_FAILURE );
 	}
 	Logger::logDebug( string( "[GLEW] Version " ).append( (char*) glewGetString( GLEW_VERSION ) ) );
-}
-
-
-/**
- * Init the needed OpenCL buffers: Faces, vertices, camera eye and rays.
- */
-void GLWidget::initOpenCLBuffers() {
-	int pixels = width() * height();
-
-	vector<kdNode_t> kdNodes = mKdTree->getNodes();
-	vector<cl_float> kdData1; // [x, y, z, bbMin(x,y,z), bbMax(x,y,z)]
-	vector<cl_int> kdData2; // [left, right, axis, facesIndex, ropesIndex]
-	vector<cl_int> kdData3; // [numFaces, a, b, c ...]
-	vector<cl_int> kdRopes; // [left, right, bottom, top, back, front]
-
-	for( uint i = 0; i < kdNodes.size(); i++ ) {
-		// Vertice coordinates
-		kdData1.push_back( kdNodes[i].pos[0] );
-		kdData1.push_back( kdNodes[i].pos[1] );
-		kdData1.push_back( kdNodes[i].pos[2] );
-
-		// Bounding box
-		kdData1.push_back( kdNodes[i].bbMin[0] );
-		kdData1.push_back( kdNodes[i].bbMin[1] );
-		kdData1.push_back( kdNodes[i].bbMin[2] );
-		kdData1.push_back( kdNodes[i].bbMax[0] );
-		kdData1.push_back( kdNodes[i].bbMax[1] );
-		kdData1.push_back( kdNodes[i].bbMax[2] );
-
-		// Index of self and children
-		kdData2.push_back( kdNodes[i].left );
-		kdData2.push_back( kdNodes[i].right );
-		kdData2.push_back( kdNodes[i].axis );
-
-
-		// Index of faces of this node in kdData3
-		if( kdNodes[i].faces.size() > 0 ) {
-			kdData2.push_back( kdData3.size() );
-		}
-		else {
-			kdData2.push_back( -1 );
-		}
-
-
-		// Faces
-		kdData3.push_back( kdNodes[i].faces.size() );
-
-		for( uint j = 0; j < kdNodes[i].faces.size(); j++ ) {
-			kdData3.push_back( kdNodes[i].faces[j] );
-		}
-
-
-		// Ropes
-		if( kdNodes[i].left < 0 && kdNodes[i].right < 0 ) {
-			kdData2.push_back( kdRopes.size() );
-
-			for( uint j = 0; j < kdNodes[i].ropes.size(); j++ ) {
-				kdRopes.push_back( kdNodes[i].ropes[j] );
-			}
-		}
-		else {
-			kdData2.push_back( -1 );
-		}
-	}
-
-	mBufKdNodeData1 = mCL->createBuffer( kdData1, sizeof( cl_float ) * kdData1.size() );
-	mBufKdNodeData2 = mCL->createBuffer( kdData2, sizeof( cl_int ) * kdData2.size() );
-	mBufKdNodeData3 = mCL->createBuffer( kdData3, sizeof( cl_int ) * kdData3.size() );
-	mBufKdNodeRopes = mCL->createBuffer( kdRopes, sizeof( cl_int ) * kdRopes.size() );
-
-	mBufScFaces = mCL->createBuffer( mFaces, sizeof( cl_uint ) * mFaces.size() );
-	mBufScVertices = mCL->createBuffer( mVertices, sizeof( cl_float ) * mVertices.size() );
-	// mBufScNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
-
-	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
-	mBufVecW = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
-	mBufVecU = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
-	mBufVecV = mCL->createEmptyBuffer( sizeof( cl_float ) * 3, CL_MEM_READ_ONLY );
-
-	mBufOrigins = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
-	mBufRays = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
-	mBufNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
-	mBufAccColors = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
-	mBufColorMasks = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
 }
 
 
@@ -433,11 +250,7 @@ void GLWidget::initTargetTexture() {
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
-
 	glBindTexture( GL_TEXTURE_2D, 0 );
-
-	mKernelArgTextureIn = mCL->createImageReadOnly( w, h, &mTextureOut[0] );
-	mKernelArgTextureOut = mCL->createImageWriteOnly( w, h );
 }
 
 
@@ -460,39 +273,31 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 	ModelLoader* ml = new ModelLoader();
 	ml->loadModel( filepath, filename );
+
 	mFaces = ml->mFaces;
 	mVertices = ml->mVertices;
 	// mNormals = ml->mNormals;
 
-
 	vector<cl_float> bbox = ml->mBoundingBox;
-	mBoundingBox = &bbox[0];
+    mBoundingBox = &bbox[0];
 
 	cl_float bbMin[3] = { mBoundingBox[0], mBoundingBox[1], mBoundingBox[2] };
 	cl_float bbMax[3] = { mBoundingBox[3], mBoundingBox[4], mBoundingBox[5] };
 
-	boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
 	mKdTree = new KdTree( mVertices, mFaces, bbMin, bbMax );
-	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - start;
 
 	vector<GLfloat> verticesKdTree;
 	vector<GLuint> indicesKdTree;
 	mKdTree->visualize( &verticesKdTree, &indicesKdTree );
 	mKdTreeNumIndices = indicesKdTree.size();
 
-	char msg[80];
-	snprintf(
-		msg, 80, "[KdTree] Generated kd-tree in %g ms. %lu nodes.",
-		(float) msdiff.total_milliseconds(), mKdTree->getNodes().size()
-	);
-	Logger::logInfo( msg );
-
 	this->setShaderBuffersForOverlay( mVertices, mFaces );
-	this->setShaderBuffersForBoundingBox( ml->mBoundingBox );
+	this->setShaderBuffersForBoundingBox( mBoundingBox );
 	this->setShaderBuffersForKdTree( verticesKdTree, indicesKdTree );
 	this->setShaderBuffersForTracer();
-	this->initOpenCLBuffers();
 	this->initShaders();
+
+	mPathTracer->initOpenCLBuffers( mVertices, mFaces, mKdTree->getNodes(), mKdTree->getRootNode()->index );
 
 	delete ml;
 
@@ -618,45 +423,9 @@ void GLWidget::paintGL() {
 	// 	};
 	// }
 
-
 	if( mViewTracer ) {
-		mSampleCount++;
-
-		glm::vec3 c = mCamera->getAdjustedCenter_glmVec3();
-		glm::vec3 eye = mCamera->getEye_glmVec3();
-		glm::vec3 up = mCamera->getUp_glmVec3();
-
-		// Jittering for anti-aliasing
-		// TODO: probably wrong or at least not very good
-		if( Cfg::get().value<bool>( Cfg::RENDER_ANTIALIAS ) ) {
-			glm::vec3 jitter = this->getJitter();
-			eye += jitter;
-		}
-
-		glm::vec3 w = glm::normalize( glm::vec3( c[0] - eye[0], c[1] - eye[1], c[2] - eye[2] ) );
-		glm::vec3 u = glm::normalize( glm::cross( w, up ) );
-		glm::vec3 v = glm::normalize( glm::cross( u, w ) );
-
-		mCL->updateBuffer( mBufEye, sizeof( cl_float ) * 3, &eye[0] );
-		mCL->updateBuffer( mBufVecW, sizeof( cl_float ) * 3, &w[0] );
-		mCL->updateBuffer( mBufVecU, sizeof( cl_float ) * 3, &u[0] );
-		mCL->updateBuffer( mBufVecV, sizeof( cl_float ) * 3, &v[0] );
-
-		boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - mTimeSinceStart;
-		cl_float timeSinceStart = msdiff.total_milliseconds() * 0.001f;
-
-
-		this->clInitRays();
-		mCL->updateImageReadOnly( mKernelArgTextureIn, width(), height(), &mTextureOut[0] );
-
-		for( cl_uint bounce = 0; bounce < mNumBounces; bounce++ ) {
-			this->clFindIntersections( timeSinceStart + bounce );
-			this->clAccumulateColors( timeSinceStart );
-		}
-
-		mCL->readImageOutput( mKernelArgTextureOut, width(), height(), &mTextureOut[0] );
+		mTextureOut = mPathTracer->generateImage();
 	}
-
 
 	this->paintScene();
 	this->showFPS();
@@ -755,6 +524,7 @@ void GLWidget::resizeGL( int width, int height ) {
 		Cfg::get().value<GLfloat>( Cfg::PERS_ZFAR )
 	);
 
+	mPathTracer->setWidthAndHeight( width, height );
 	this->calculateMatrices();
 }
 
@@ -810,9 +580,9 @@ void GLWidget::setShaderBuffersForOverlay( vector<GLfloat> vertices, vector<GLui
 
 /**
  * Set the vertex array for the model bounding box.
- * @param {std::vector<GLfloat>} bbox Min and max vertices of the bounding box.
+ * @param {GLfloat*} bbox Min and max vertices of the bounding box.
  */
-void GLWidget::setShaderBuffersForBoundingBox( vector<GLfloat> bbox ) {
+void GLWidget::setShaderBuffersForBoundingBox( GLfloat* bbox ) {
 	GLfloat bbVertices[24] = {
 		// bottom
 		bbox[0], bbox[1], bbox[2],

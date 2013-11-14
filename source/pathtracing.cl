@@ -416,7 +416,7 @@ inline void traverseKdTree(
  * @param {__global float4*}       normals        Normals of the hit surfaces.
  * @param {__global float4*}       accColors      Accumulated color so far.
  * @param {__global float4*}       colorMasks     Color mask so far.
- * @param {float}            textureWeight  Weight for the mixing of the textures.
+ * @param {const float}            textureWeight  Weight for the mixing of the textures.
  * @param {const float}            timeSinceStart Time since start of the tracer in seconds.
  * @param {__read_only image2d_t}  textureIn      Input. The generated texture so far.
  * @param {__write_only image2d_t} textureOut     Output. The generated texture now.
@@ -537,9 +537,7 @@ __kernel void findIntersectionsKdTree(
  * @param {__global float4*} rays    Output. The generated rays for each pixel.
  */
 __kernel void generateRays(
-	__global float* eyeIn,
-	__global float* wVecIn, __global float* uVecIn, __global float* vVecIn,
-	const float fovRad,
+	__global float* eyeIn, const float fovRad,
 	__global float4* origins, __global float4* rays,
 	__global float4* accColors, __global float4* colorMasks
 ) {
@@ -550,9 +548,9 @@ __kernel void generateRays(
 	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
 
 	// Initial ray (first of the to be created path) shooting from the eye and into the scene
-	float4 w = (float4)( wVecIn[0], wVecIn[1], wVecIn[2], 0.0f );
-	float4 u = (float4)( uVecIn[0], uVecIn[1], uVecIn[2], 0.0f );
-	float4 v = (float4)( vVecIn[0], vVecIn[1], vVecIn[2], 0.0f );
+	float4 w = (float4)( eyeIn[3], eyeIn[4], eyeIn[5], 0.0f );
+	float4 u = (float4)( eyeIn[6], eyeIn[7], eyeIn[8], 0.0f );
+	float4 v = (float4)( eyeIn[9], eyeIn[10], eyeIn[11], 0.0f );
 
 	float width = get_global_size( 0 );
 	float height = get_global_size( 1 );

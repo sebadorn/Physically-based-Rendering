@@ -243,6 +243,9 @@ void Camera::updateCameraRot( int moveX, int moveY ) {
 }
 
 
+/**
+ * Inform the parent object that the camera has been changed.
+ */
 void Camera::updateParent() {
 	if( mParent != NULL ) {
 		mParent->cameraUpdate();
