@@ -3,6 +3,7 @@
 * `Feature` PT: colors
 * `Feature` PT: shadows
 * `Feature` Dynamic lights (for now: number and position)
+* `Improve` Surface fitting for kd-tree
 * `Improve` Can currently only handle single mesh models
 * `Improve` Keep work group sizes down (64-256), even for bigger textures (GPU limit at 1024)
 * `Improve` Flexible width and height

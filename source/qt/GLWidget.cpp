@@ -324,8 +324,8 @@ void GLWidget::loadShader( GLuint program, GLuint shader, string path ) {
 	glGetShaderiv( shader, GL_COMPILE_STATUS, &status );
 
 	if( status != GL_TRUE ) {
-		char logBuffer[1000];
-		glGetShaderInfoLog( shader, 1000, 0, logBuffer );
+		char logBuffer[1024];
+		glGetShaderInfoLog( shader, 1024, 0, logBuffer );
 		Logger::logError( path + string( "\n" ).append( logBuffer ) );
 		exit( EXIT_FAILURE );
 	}

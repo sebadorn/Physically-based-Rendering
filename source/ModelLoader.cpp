@@ -161,7 +161,7 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 	mVertices.clear();
 
 	mObjParser->load( filepath, filename );
-	mFaces = mObjParser->getFaces();
+	mFaces = mObjParser->getFacesV();
 	mVertices = mObjParser->getVertices();
 	mBoundingBox = this->computeBoundingBox( mVertices );
 

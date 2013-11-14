@@ -17,19 +17,26 @@ class ObjParser {
 
 	public:
 		void load( string filepath, string filename );
-		vector<GLuint> getFaces();
+		vector<GLuint> getFacesV();
+		vector<GLuint> getFacesVN();
+		vector<GLuint> getFacesVT();
 		vector<GLfloat> getNormals();
 		vector<GLfloat> getTextureCoordinates();
 		vector<GLfloat> getVertices();
 
 	protected:
-		void parseFace( string line, vector<GLuint>* faces );
+		void parseFace(
+			string line, vector<GLuint>* facesV,
+			vector<GLuint>* facesVN, vector<GLuint>* facesVT
+		);
 		void parseVertex( string line, vector<GLfloat>* vertices );
 		void parseVertexNormal( string line, vector<GLfloat>* normals );
 		void parseVertexTexture( string line, vector<GLfloat>* textures );
 
 	private:
-		vector<GLuint> mFaces;
+		vector<GLuint> mFacesV;
+		vector<GLuint> mFacesVN;
+		vector<GLuint> mFacesVT;
 		vector<GLfloat> mNormals;
 		vector<GLfloat> mTextures;
 		vector<GLfloat> mVertices;
