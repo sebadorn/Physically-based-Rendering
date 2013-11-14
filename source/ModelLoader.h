@@ -37,13 +37,12 @@ class ModelLoader {
 	public:
 		ModelLoader();
 		~ModelLoader();
+		vector<GLfloat> getBoundingBox();
+		vector<GLuint> getFaces();
 		vector<light_t> getLights();
+		vector<GLfloat> getNormals();
+		vector<GLfloat> getVertices();
 		void loadModel( string filepath, string filename );
-
-		vector<GLfloat> mVertices;
-		vector<GLuint> mFaces;
-		vector<GLfloat> mNormals;
-		vector<GLfloat> mBoundingBox;
 
 	protected:
 		vector<GLfloat> computeBoundingBox( vector<GLfloat> vertices );
@@ -51,11 +50,16 @@ class ModelLoader {
 		GLuint loadTexture( string filepath );
 
 	private:
-		vector<GLuint> mNumIndices;
-		map<GLuint, GLuint> mTextureIDs;
-		map<string, GLuint> mFileToTextureID;
-		vector<light_t> mLights;
 		ObjParser* mObjParser;
+
+		map<string, GLuint> mFileToTextureID;
+		map<GLuint, GLuint> mTextureIDs;
+
+		vector<GLfloat> mBoundingBox;
+		vector<GLuint> mFaces;
+		vector<light_t> mLights;
+		vector<GLfloat> mNormals;
+		vector<GLfloat> mVertices;
 
 };
 

@@ -274,12 +274,11 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	ModelLoader* ml = new ModelLoader();
 	ml->loadModel( filepath, filename );
 
-	mFaces = ml->mFaces;
-	mVertices = ml->mVertices;
-	// mNormals = ml->mNormals;
-
-	vector<cl_float> bbox = ml->mBoundingBox;
-    mBoundingBox = &bbox[0];
+	vector<GLfloat> bbox = ml->getBoundingBox();
+    mBoundingBox = &(bbox)[0];
+    mFaces = ml->getFaces();
+	mNormals = ml->getNormals();
+	mVertices = ml->getVertices();
 
 	cl_float bbMin[3] = { mBoundingBox[0], mBoundingBox[1], mBoundingBox[2] };
 	cl_float bbMax[3] = { mBoundingBox[3], mBoundingBox[4], mBoundingBox[5] };

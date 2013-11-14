@@ -35,7 +35,6 @@ class Camera {
 		void cameraMoveRight();
 		void cameraMoveUp();
 		void cameraReset();
-		void copy( Camera* camera );
 		glm::vec3 getAdjustedCenter_glmVec3();
 		glm::vec3 getCenter_glmVec3();
 		vector<float> getEye();

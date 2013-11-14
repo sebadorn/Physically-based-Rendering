@@ -6,6 +6,7 @@ using utils::degToRad;
 
 /**
  * Constructor.
+ * @param {GLWidget*} parent The parent object where this class is used in.
  */
 Camera::Camera( GLWidget* parent ) {
 	mParent = parent;
@@ -94,26 +95,6 @@ void Camera::cameraReset() {
 
 
 /**
- * Copy the settings of an other camera object.
- * Does not copy parent element or speed.
- * @param {Camera} camera Camera to copy from.
- */
-void Camera::copy( Camera* camera ) {
-	mCamera.eyeX = camera->mCamera.eyeX;
-	mCamera.eyeY = camera->mCamera.eyeY;
-	mCamera.eyeZ = camera->mCamera.eyeZ;
-	mCamera.centerX = camera->mCamera.centerX;
-	mCamera.centerY = camera->mCamera.centerY;
-	mCamera.centerZ = camera->mCamera.centerZ;
-	mCamera.upX = camera->mCamera.upX;
-	mCamera.upY = camera->mCamera.upY;
-	mCamera.upZ = camera->mCamera.upZ;
-	mCamera.rotX = camera->mCamera.rotX;
-	mCamera.rotY = camera->mCamera.rotY;
-}
-
-
-/**
  * Return the adjusted center coordinates as GLM 3D vector.
  * @return {glm::vec3} Adjusted center coordinates.
  */
@@ -158,11 +139,19 @@ vector<float> Camera::getEye() {
 }
 
 
+/**
+ * Get the X rotation of the camera.
+ * @return {float} X rotation.
+ */
 float Camera::getRotX() {
 	return mCamera.rotX;
 }
 
 
+/**
+ * Get the Y rotation of the camera.
+ * @return {float} Y rotation.
+ */
 float Camera::getRotY() {
 	return mCamera.rotY;
 }

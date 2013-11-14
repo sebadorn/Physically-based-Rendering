@@ -23,7 +23,7 @@ ModelLoader::~ModelLoader() {
 /**
  * Compute the bounding box of the model.
  * @param  {std::vector<GLfloat>} vertices Vertices of the model.
- * @return {vector<GLfloat>}               Vector with the minimum and maximum of the bounding box.
+ * @return {std::vector<GLfloat>}          Vector with the minimum and maximum of the bounding box.
  */
 vector<GLfloat> ModelLoader::computeBoundingBox( vector<GLfloat> vertices ) {
 	// Index 0 - 2: bbMin
@@ -52,11 +52,47 @@ vector<GLfloat> ModelLoader::computeBoundingBox( vector<GLfloat> vertices ) {
 
 
 /**
+ * Get the axis-aligned bounding box.
+ * @return {std::vector<GLfloat>} Axis-aligned bounding box.
+ */
+vector<GLfloat> ModelLoader::getBoundingBox() {
+	return mBoundingBox;
+}
+
+
+/**
+ * Get the faces.
+ * @return {std::vector<GLuint>} Faces.
+ */
+vector<GLuint> ModelLoader::getFaces() {
+	return mFaces;
+}
+
+
+/**
  * Get a list of the lights in the scene.
  * @return {std::vector<light_t>} Vector of the lights.
  */
 vector<light_t> ModelLoader::getLights() {
 	return mLights;
+}
+
+
+/**
+ * Get the vertex normals.
+ * @return {std::vector<GLfloat>} Normals.
+ */
+vector<GLfloat> ModelLoader::getNormals() {
+	return mNormals;
+}
+
+
+/**
+ * Get the vertices.
+ * @return {std::vector<GLfloat>} Vertices.
+ */
+vector<GLfloat> ModelLoader::getVertices() {
+	return mVertices;
 }
 
 
@@ -121,13 +157,12 @@ void ModelLoader::loadLights( string filepath, string filename ) {
  * @param {std::string} filename Name of the file.
  */
 void ModelLoader::loadModel( string filepath, string filename ) {
-	mVertices.clear();
 	mFaces.clear();
+	mVertices.clear();
 
 	mObjParser->load( filepath, filename );
-	mVertices = mObjParser->getVertices();
 	mFaces = mObjParser->getFaces();
-
+	mVertices = mObjParser->getVertices();
 	mBoundingBox = this->computeBoundingBox( mVertices );
 
 	char msg[200];
@@ -141,13 +176,11 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 
 /**
  * Load texture file.
- * @param  {std::string} filepath      Path to the textures.
- * @param  {aiMaterial*} material      Material of the mesh.
- * @param  {int}         materialIndex Index of the material.
- * @return {GLuint}                    ID of the created texture.
+ * @param  {std::string} filepath Path to the textures.
+ * @return {GLuint}               ID of the created texture.
  */
 GLuint ModelLoader::loadTexture( string filepath ) {
-	Logger::logError( "[ModelLoader] loadTexture() not implemented yet, since moving away from Assimp" );
+	Logger::logWarning( "[ModelLoader] loadTexture() not implemented yet, since moving away from Assimp" );
 	return 0;
 
 	// ilInit();
