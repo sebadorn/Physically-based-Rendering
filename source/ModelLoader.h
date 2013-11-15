@@ -38,9 +38,12 @@ class ModelLoader {
 		ModelLoader();
 		~ModelLoader();
 		vector<GLfloat> getBoundingBox();
-		vector<GLuint> getFaces();
+		vector<GLuint> getFacesV();
+		vector<GLuint> getFacesVN();
+		vector<GLuint> getFacesVT();
 		vector<light_t> getLights();
 		vector<GLfloat> getNormals();
+		vector<GLfloat> getTextureCoordinates();
 		vector<GLfloat> getVertices();
 		void loadModel( string filepath, string filename );
 
@@ -56,10 +59,7 @@ class ModelLoader {
 		map<GLuint, GLuint> mTextureIDs;
 
 		vector<GLfloat> mBoundingBox;
-		vector<GLuint> mFaces;
 		vector<light_t> mLights;
-		vector<GLfloat> mNormals;
-		vector<GLfloat> mVertices;
 
 };
 

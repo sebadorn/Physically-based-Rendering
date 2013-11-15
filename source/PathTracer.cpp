@@ -69,7 +69,8 @@ void PathTracer::clFindIntersections( cl_float timeSinceStart ) {
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufNormals );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScVertices );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScFaces );
-	// mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScFacesVN );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData1 );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData2 );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData3 );
@@ -162,7 +163,8 @@ cl_float PathTracer::getTimeSinceStart() {
  * @param {cl_uint}                rootIndex Index of the root kd node.
  */
 void PathTracer::initOpenCLBuffers(
-	vector<cl_float> vertices, vector<cl_uint> faces,
+	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
+	vector<cl_uint> facesVN,
 	vector<kdNode_t> kdNodes, cl_uint rootIndex
 ) {
 	cl_uint pixels = mWidth * mHeight;
@@ -181,7 +183,8 @@ void PathTracer::initOpenCLBuffers(
 
 	mBufScFaces = mCL->createBuffer( faces, sizeof( cl_uint ) * faces.size() );
 	mBufScVertices = mCL->createBuffer( vertices, sizeof( cl_float ) * vertices.size() );
-	// mBufScNormals = mCL->createBuffer( mNormals, sizeof( cl_float ) * mNormals.size() );
+	mBufScNormals = mCL->createBuffer( normals, sizeof( cl_float ) * normals.size() );
+	mBufScFacesVN = mCL->createBuffer( facesVN, sizeof( cl_uint ) * facesVN.size() );
 
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
 

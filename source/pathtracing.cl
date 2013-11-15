@@ -4,8 +4,8 @@ __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_T
 
 typedef struct hit_t {
 	float4 position;
-	float4 normal;
 	float distance;
+	int normalIndex;
 } hit_t;
 
 
@@ -35,7 +35,7 @@ inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	// float x = r * cos( theta );
 	// float y = r * sin( theta );
 
-	// return (float4)( x, y, sqrt( max( 0.0f, 1.0f - u ) ), 0.0f );
+	// return (float4)( x, y, sqrt( fmax( 0.0f, 1.0f - u ) ), 0.0f );
 
 	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
 	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
@@ -152,7 +152,6 @@ inline float checkFaceIntersection(
 
 	result->position = (*origin) + t * (*dir);
 	result->distance = length( result->position - (*origin) );
-	result->normal = normalize( cross( edge1, edge2 ) );
 
 	return t;
 }
@@ -217,7 +216,7 @@ inline void checkFaces(
 			if( result->distance > newResult.distance || result->distance < 0.0f ) {
 				result->distance = newResult.distance;
 				result->position = newResult.position;
-				result->normal = newResult.normal;
+				result->normalIndex = f;
 			}
 		}
 	}
@@ -433,7 +432,7 @@ __kernel void accumulateColors(
 	float4 hit = origins[workIndex];
 
 	// Lighting
-	float4 light = (float4)( 0.3f, 1.4f, 0.3f, 0.0f );
+	float4 light = (float4)( -0.5f, 0.5f, 0.6f, 0.0f );
 
 	// New color (or: another color calculated by evaluating different light paths than before)
 	// Accumulate the colors of each hit surface
@@ -452,14 +451,18 @@ __kernel void accumulateColors(
 		float4 toLight = newLight - hit;
 		toLight.w = 0.0f;
 
-		float diffuse = max( 0.0f, dot( normalize( toLight ), normal ) );
+		// Lambert factor (dot product is a cosine)
+		// Source: www.learnopengles.com/android-lesson-two-ambient-and-diffuse-lighting/
+		float diffuse = fmax( dot( normal, normalize( toLight ) ), 0.0f );
+		float luminosity = 1.0f / ( length( toLight ) /** length( toLight )*/ );
+
 		float shadowIntensity = 1.0f;//shadow( hit + normal * 0.0001f, toLight, indices, vertices, numIndices ); // 0.0001f – meaning?
-		float specularHighlight = 0.0f; // Disabled for now
-		float4 surfaceColor = (float4)( 0.9f, 0.9f, 0.9f, 1.0f );
+		// float specularHighlight = 0.0f; // Disabled for now
+		float4 surfaceColor = (float4)( 0.75f, 0.75f, 0.75f, 0.0f );
 
 		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * 0.4f * diffuse * shadowIntensity;
-		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
+		accumulatedColor += colorMask * ( 0.4f * luminosity * diffuse * shadowIntensity );
+		// accumulatedColor += colorMask * specularHighlight * shadowIntensity;
 	}
 
 	accColors[workIndex] = accumulatedColor;
@@ -491,7 +494,8 @@ __kernel void accumulateColors(
  */
 __kernel void findIntersectionsKdTree(
 	__global float4* origins, __global float4* rays, __global float4* normals,
-	__global float* scVertices, __global uint* scFaces, //__global float* scNormals,
+	__global float* scVertices, __global uint* scFaces, __global float* scNormals,
+	__global uint* scFacesVN,
 	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
 	__global int* kdNodeRopes,
 	const uint kdRoot, const float timeSinceStart
@@ -520,8 +524,16 @@ __kernel void findIntersectionsKdTree(
 	origins[workIndex] = hit.position;
 
 	if( hit.distance > -1.0f ) {
-		rays[workIndex] = cosineWeightedDirection( timeSinceStart, hit.normal );
-		normals[workIndex] = hit.normal;
+		uint f = hit.normalIndex;
+
+		float4 faceNormal = (float4)(
+			scNormals[scFacesVN[f] * 3],
+			scNormals[scFacesVN[f] * 3 + 1],
+			scNormals[scFacesVN[f] * 3 + 2],
+			0.0f
+		);
+		normals[workIndex] = normalize( faceNormal - hit.position );
+		rays[workIndex] = cosineWeightedDirection( timeSinceStart, normals[workIndex] );
 	}
 }
 
@@ -571,5 +583,5 @@ __kernel void generateRays(
 	origins[workIndex] = eye;
 
 	accColors[workIndex] = (float4)( 0.0f );
-	colorMasks[workIndex] = (float4)( 1.0f );
+	colorMasks[workIndex] = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
 }

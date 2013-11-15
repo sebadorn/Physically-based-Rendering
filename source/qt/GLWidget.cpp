@@ -276,7 +276,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 	vector<GLfloat> bbox = ml->getBoundingBox();
     mBoundingBox = &(bbox)[0];
-    mFaces = ml->getFaces();
+    mFaces = ml->getFacesV();
 	mNormals = ml->getNormals();
 	mVertices = ml->getVertices();
 
@@ -296,7 +296,11 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	this->setShaderBuffersForTracer();
 	this->initShaders();
 
-	mPathTracer->initOpenCLBuffers( mVertices, mFaces, mKdTree->getNodes(), mKdTree->getRootNode()->index );
+	mPathTracer->initOpenCLBuffers(
+		mVertices, mFaces, mNormals,
+		ml->getFacesVN(),
+		mKdTree->getNodes(), mKdTree->getRootNode()->index
+	);
 
 	delete ml;
 

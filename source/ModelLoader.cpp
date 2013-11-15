@@ -64,8 +64,26 @@ vector<GLfloat> ModelLoader::getBoundingBox() {
  * Get the faces.
  * @return {std::vector<GLuint>} Faces.
  */
-vector<GLuint> ModelLoader::getFaces() {
-	return mFaces;
+vector<GLuint> ModelLoader::getFacesV() {
+	return mObjParser->getFacesV();
+}
+
+
+/**
+ * Get the loaded association of vertices to normals for each face.
+ * @return {std::vector<GLuint>} The vertex normal indices of the faces.
+ */
+vector<GLuint> ModelLoader::getFacesVN() {
+	return mObjParser->getFacesVN();
+}
+
+
+/**
+ * Get the loaded association of vertices to texture coordinates for each face.
+ * @return {std::vector<GLuint>} The vertex texture indices of the faces.
+ */
+vector<GLuint> ModelLoader::getFacesVT() {
+	return mObjParser->getFacesVT();
 }
 
 
@@ -83,7 +101,16 @@ vector<light_t> ModelLoader::getLights() {
  * @return {std::vector<GLfloat>} Normals.
  */
 vector<GLfloat> ModelLoader::getNormals() {
-	return mNormals;
+	return mObjParser->getNormals();
+}
+
+
+/**
+ * Get the loaded vertex texture coordinates.
+ * @return {std::vector<GLfloat>} The texture coordinates.
+ */
+vector<GLfloat> ModelLoader::getTextureCoordinates() {
+	return mObjParser->getTextureCoordinates();
 }
 
 
@@ -92,7 +119,7 @@ vector<GLfloat> ModelLoader::getNormals() {
  * @return {std::vector<GLfloat>} Vertices.
  */
 vector<GLfloat> ModelLoader::getVertices() {
-	return mVertices;
+	return mObjParser->getVertices();
 }
 
 
@@ -157,18 +184,15 @@ void ModelLoader::loadLights( string filepath, string filename ) {
  * @param {std::string} filename Name of the file.
  */
 void ModelLoader::loadModel( string filepath, string filename ) {
-	mFaces.clear();
-	mVertices.clear();
-
 	mObjParser->load( filepath, filename );
-	mFaces = mObjParser->getFacesV();
-	mVertices = mObjParser->getVertices();
-	mBoundingBox = this->computeBoundingBox( mVertices );
+	vector<GLuint> facesV = mObjParser->getFacesV();
+	vector<GLfloat> vertices = mObjParser->getVertices();
+	mBoundingBox = this->computeBoundingBox( vertices );
 
-	char msg[200];
+	char msg[256];
 	snprintf(
-		msg, 200, "[ModelLoader] Imported model \"%s\". %lu vertices and %lu faces.",
-		filename.c_str(), mVertices.size() / 3, mFaces.size() / 3
+		msg, 256, "[ModelLoader] Imported model \"%s\". %lu vertices and %lu faces.",
+		filename.c_str(), vertices.size() / 3, facesV.size() / 3
 	);
 	Logger::logInfo( msg );
 }

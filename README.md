@@ -1,5 +1,6 @@
 ## ToDo
 
+* `Improve` Normals are only supported per face, but not per vertex
 * `Feature` PT: colors
 * `Feature` PT: shadows
 * `Feature` Dynamic lights (for now: number and position)

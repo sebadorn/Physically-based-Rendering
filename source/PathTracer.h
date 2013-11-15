@@ -27,7 +27,8 @@ class PathTracer {
 		~PathTracer();
 		vector<cl_float> generateImage();
 		void initOpenCLBuffers(
-			vector<cl_float> vertices, vector<cl_uint> faces,
+			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
+			vector<cl_uint> facesVN,
 			vector<kdNode_t> kdNodes, cl_uint rootIndex
 		);
 		void resetSampleCount();
@@ -66,6 +67,7 @@ class PathTracer {
 		cl_mem mBufScFaces;
 		cl_mem mBufScVertices;
 		cl_mem mBufScNormals;
+		cl_mem mBufScFacesVN;
 
 		cl_mem mBufKdNodes;
 		cl_mem mBufKdNodeData1;
