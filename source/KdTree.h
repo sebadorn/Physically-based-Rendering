@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "Logger.h"
-#include "utils.h"
 
 using std::vector;
 
@@ -38,6 +37,7 @@ class KdTree {
 
 		kdNode_t* getRootNode();
 		vector<kdNode_t> getNodes();
+		bool hitBoundingBox( float* bbMin, float* bbMax, float* origin, float* dir );
 		void print();
 		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
@@ -50,6 +50,7 @@ class KdTree {
 		cl_int makeTree( vector<kdNode_t*> t, cl_int axis, cl_float* bbMin, cl_float* bbMax );
 		void optimizeRope( cl_int* rope, cl_int side, cl_float* bbMin, cl_float* bbMax );
 		void printNode( kdNode_t* node );
+		void printNumFacesOfLeaves();
 		void visualizeNextNode( kdNode_t* node, vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	private:

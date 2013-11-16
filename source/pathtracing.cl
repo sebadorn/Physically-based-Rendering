@@ -22,12 +22,10 @@ inline float random( float4 scale, float seed ) {
 }
 
 
+// http://www.rorydriscoll.com/2009/01/07/better-sampling/
 inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	// float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
 	// float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
-
-	// // http://www.rorydriscoll.com/2009/01/07/better-sampling/
-	// // But it doesn't seem to make a difference what I do here. :(
 
 	// float r = sqrt( u );
 	// float theta = 6.28318530718f * v; // M_PI * 2.0f * v
@@ -36,6 +34,7 @@ inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	// float y = r * sin( theta );
 
 	// return (float4)( x, y, sqrt( fmax( 0.0f, 1.0f - u ) ), 0.0f );
+
 
 	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
 	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
@@ -54,7 +53,7 @@ inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	float4 part2 = r * sin( angle ) * tdir;
 	float4 part3 = sqrt( 1.0f - u ) * normal;
 
-	return ( part1 + part2 + part3 );
+	return normalize( part1 + part2 + part3 );
 }
 
 
@@ -142,10 +141,6 @@ inline float checkFaceIntersection(
 
 	float t = dot( edge2, qVec ) / det;
 
-	// TODO: Should be clipped between tNear and tFar, but
-	// that produces wrong results even with 1 bounce.
-	// No check at all results in smooth surfaces even with more
-	// bounces. But that is wrong, too.
 	if( t < tNear - EPSILON || t > tFar + EPSILON ) {
 		return -2.0f;
 	}
@@ -432,7 +427,7 @@ __kernel void accumulateColors(
 	float4 hit = origins[workIndex];
 
 	// Lighting
-	float4 light = (float4)( -0.5f, 0.5f, 0.6f, 0.0f );
+	float4 light = (float4)( -0.6f, 0.7f, 0.6f, 0.0f );
 
 	// New color (or: another color calculated by evaluating different light paths than before)
 	// Accumulate the colors of each hit surface
@@ -441,27 +436,31 @@ __kernel void accumulateColors(
 
 	// Surface hit
 	if( hit.w > -1.0f ) {
+		float shadowIntensity = hit.w;
+		// shadowIntensity = 1.0f; // Disable shadows
+		hit.w = 0.0f;
+
 		// The farther away a shadow is, the more diffuse it becomes
-		float4 newLight = light/* + uniformlyRandomVector( timeSinceStart ) * 0.1f*/;
+		float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
 		newLight.w = 0.0f;
 
 		float4 normal = normals[workIndex];
+		normal.w = 0.0f;
 
 		// Distance of the hit surface point to the light source
 		float4 toLight = newLight - hit;
 		toLight.w = 0.0f;
 
 		// Lambert factor (dot product is a cosine)
-		// Source: www.learnopengles.com/android-lesson-two-ambient-and-diffuse-lighting/
+		// Source: http://learnopengles.com/android-lesson-two-ambient-and-diffuse-lighting/
 		float diffuse = fmax( dot( normal, normalize( toLight ) ), 0.0f );
-		float luminosity = 1.0f / ( length( toLight ) /** length( toLight )*/ );
+		float luminosity = 1.0f / ( length( toLight ) * length( toLight ) );
 
-		float shadowIntensity = 1.0f;//shadow( hit + normal * 0.0001f, toLight, indices, vertices, numIndices ); // 0.0001f – meaning?
 		// float specularHighlight = 0.0f; // Disabled for now
 		float4 surfaceColor = (float4)( 0.75f, 0.75f, 0.75f, 0.0f );
 
 		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * ( 0.4f * luminosity * diffuse * shadowIntensity );
+		accumulatedColor += colorMask * ( 0.2f * luminosity * diffuse * shadowIntensity );
 		// accumulatedColor += colorMask * specularHighlight * shadowIntensity;
 	}
 
@@ -502,15 +501,13 @@ __kernel void findIntersectionsKdTree(
 ) {
 	uint workIndex = get_global_id( 0 ) + get_global_id( 1 ) * get_global_size( 1 );
 	float4 origin = origins[workIndex];
-	float4 ray = rays[workIndex];
+	float4 dir = rays[workIndex];
 
 	if( origin.w <= -1.0f ) {
 		return;
 	}
 
 	origin.w = 0.0f;
-	ray.w = 0.0f;
-	float4 dir = normalize( ray - origin );
 
 	hit_t hit;
 	hit.distance = -2.0f;
@@ -521,9 +518,9 @@ __kernel void findIntersectionsKdTree(
 		kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &hit
 	);
 
-	origins[workIndex] = hit.position;
-
 	if( hit.distance > -1.0f ) {
+		// Normal of hit position
+
 		uint f = hit.normalIndex;
 
 		float4 faceNormal = (float4)(
@@ -533,8 +530,36 @@ __kernel void findIntersectionsKdTree(
 			0.0f
 		);
 		normals[workIndex] = normalize( faceNormal - hit.position );
-		rays[workIndex] = cosineWeightedDirection( timeSinceStart, normals[workIndex] );
+
+
+		// New ray
+
+		float4 newDir = cosineWeightedDirection( timeSinceStart, faceNormal ) - hit.position;
+		newDir.w = 0.0f;
+		rays[workIndex] = normalize( newDir );
+
+
+		// Shadow
+
+		float4 light = (float4)( -0.6f, 0.7f, 0.6f, 0.0f );
+		float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
+		float4 ray = hit.position + normals[workIndex] * 0.0001f; // 0.0001f ?
+		float4 toLight = newLight - hit.position;
+
+		hit_t shadowHit;
+		shadowHit.distance = -2.0f;
+		shadowHit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
+
+		traverseKdTree(
+			&ray, &toLight, kdRoot, scVertices, scFaces,
+			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &shadowHit
+		);
+
+		hit.position.w = ( shadowHit.distance != -2.0f && shadowHit.distance < length( toLight ) )
+		               ? 0.0f : 1.0f;
 	}
+
+	origins[workIndex] = hit.position;
 }
 
 
@@ -579,7 +604,7 @@ __kernel void generateRays(
 	initialRay -= ( height - pos.y ) * pxHeight * v;
 	initialRay.w = 0.0f;
 
-	rays[workIndex] = initialRay;
+	rays[workIndex] = normalize( initialRay - eye );
 	origins[workIndex] = eye;
 
 	accColors[workIndex] = (float4)( 0.0f );

@@ -60,7 +60,6 @@ KdTree::~KdTree() {
  * @param {std::vector<cl_uint>*}  faces    Faces (triangles) of the model.
  */
 void KdTree::assignFacesToLeaves( vector<cl_float>* vertices, vector<cl_uint>* faces ) {
-	cl_float tNear, tFar;
 	bool add;
 
 	for( cl_uint i = 0; i < faces->size(); i += 3 ) {
@@ -101,33 +100,33 @@ void KdTree::assignFacesToLeaves( vector<cl_float>* vertices, vector<cl_uint>* f
 			if( find( l->faces.begin(), l->faces.end(), i ) == l->faces.end() ) {
 				add = false;
 
-				// TODO: This check is horrendous. "isnan()", really?
-				if( utils::hitBoundingBox( l->bbMin, l->bbMax, a, abDir, &tNear, &tFar ) ) {
-					if(
-						( tNear >= -EPSILON && tFar <= 1.0f + EPSILON ) ||
-						( isnan( tNear ) && tFar <= 1.0f + EPSILON ) ||
-						( isnan( tFar ) && tNear >= -EPSILON )
-					) {
-						add = true;
-					}
+				// Fast test: Is at least 1 point inside or on the bounding box?
+				// Test can only accept, not decline.
+				if(
+					(
+						a[0] >= l->bbMin[0] && a[1] >= l->bbMin[1] && a[2] >= l->bbMin[2] &&
+						a[0] <= l->bbMax[0] && a[1] <= l->bbMax[1] && a[2] <= l->bbMax[2]
+					) ||
+					(
+						b[0] >= l->bbMin[0] && b[1] >= l->bbMin[1] && b[2] >= l->bbMin[2] &&
+						b[0] <= l->bbMax[0] && b[1] <= l->bbMax[1] && b[2] <= l->bbMax[2]
+					) ||
+					(
+						c[0] >= l->bbMin[0] && c[1] >= l->bbMin[1] && c[2] >= l->bbMin[2] &&
+						c[0] <= l->bbMax[0] && c[1] <= l->bbMax[1] && c[2] <= l->bbMax[2]
+					)
+				) {
+					add = true;
 				}
-				if( !add && utils::hitBoundingBox( l->bbMin, l->bbMax, b, bcDir, &tNear, &tFar ) ) {
-					if(
-						( tNear >= -EPSILON && tFar <= 1.0f + EPSILON ) ||
-						( isnan( tNear ) && tFar <= 1.0f + EPSILON ) ||
-						( isnan( tFar ) && tNear >= -EPSILON )
-					) {
-						add = true;
-					}
+
+				if( !add && this->hitBoundingBox( l->bbMin, l->bbMax, a, abDir ) ) {
+					add = true;
 				}
-				if( !add && utils::hitBoundingBox( l->bbMin, l->bbMax, c, caDir, &tNear, &tFar ) ) {
-					if(
-						( tNear >= -EPSILON && tFar <= 1.0f + EPSILON ) ||
-						( isnan( tNear ) && tFar <= 1.0f + EPSILON ) ||
-						( isnan( tFar ) && tNear >= -EPSILON )
-					) {
-						add = true;
-					}
+				if( !add && this->hitBoundingBox( l->bbMin, l->bbMax, b, bcDir ) ) {
+					add = true;
+				}
+				if( !add && this->hitBoundingBox( l->bbMin, l->bbMax, c, caDir ) ) {
+					add = true;
 				}
 
 				if( add ) {
@@ -137,9 +136,7 @@ void KdTree::assignFacesToLeaves( vector<cl_float>* vertices, vector<cl_uint>* f
 		}
 	}
 
-	// for( int i = 0; i < mLeaves.size(); i++ ) {
-	// 	printf( "%d: %lu faces\n", mLeaves[i]->index, mLeaves[i]->faces.size() );
-	// }
+	// this->printNumFacesOfLeaves();
 }
 
 
@@ -221,6 +218,66 @@ vector<kdNode_t*> KdTree::createUnconnectedNodes( vector<cl_float>* vertices ) {
 	}
 
 	return nodes;
+}
+
+
+/**
+ * Test if a given line segment intersects a given bounding box.
+ * @param  {float*} bbMin  [description]
+ * @param  {float*} bbMax  [description]
+ * @param  {float*} origin [description]
+ * @param  {float*} dir    [description]
+ * @return {bool}          [description]
+ */
+bool KdTree::hitBoundingBox(
+	float* bbMin, float* bbMax, float* origin, float* dir
+) {
+	float invDir[3] = {
+		1.0f / dir[0],
+		1.0f / dir[1],
+		1.0f / dir[2]
+	};
+	float bounds[2][3] = {
+		bbMin[0], bbMin[1], bbMin[2],
+		bbMax[0], bbMax[1], bbMax[2]
+	};
+	float tmin, tmax, tymin, tymax, tzmin, tzmax;
+	bool signX = invDir[0] < 0.0f;
+	bool signY = invDir[1] < 0.0f;
+	bool signZ = invDir[2] < 0.0f;
+
+	// X
+	tmin = ( bounds[signX][0] - origin[0] ) * invDir[0];
+	tmax = ( bounds[1 - signX][0] - origin[0] ) * invDir[0];
+	// Y
+	tymin = ( bounds[signY][1] - origin[1] ) * invDir[1];
+	tymax = ( bounds[1 - signY][1] - origin[1] ) * invDir[1];
+
+	if( tmin > tymax || tymin > tmax ) {
+		return false;
+	}
+
+	// X vs. Y
+	tmin = ( tymin > tmin ) ? tymin : tmin;
+	tmax = ( tymax < tmax ) ? tymax : tmax;
+	// Z
+	tzmin = ( bounds[signZ][2] - origin[2] ) * invDir[2];
+	tzmax = ( bounds[1 - signZ][2] - origin[2] ) * invDir[2];
+
+	if( tmin > tzmax || tzmin > tmax ) {
+		return false;
+	}
+
+	// Z vs. previous winner
+	tmin = ( tzmin > tmin ) ? tzmin : tmin;
+	tmax = ( tzmax < tmax ) ? tzmax : tmax;
+
+	// TODO: Improve test. Preferably without using "isnan()".
+	return (
+		( tmin >= -EPSILON && tmax <= 1.0f + EPSILON ) ||
+		( isnan( tmin ) && tmax <= 1.0f + EPSILON ) ||
+		( isnan( tmax ) && tmin >= -EPSILON )
+	);
 }
 
 
@@ -442,6 +499,16 @@ void KdTree::printNode( kdNode_t* node ) {
 	}
 	if( node->right >= 0 ) {
 		printf( "r" ); this->printNode( mNodes[node->right] );
+	}
+}
+
+
+/**
+ * Print the number of faces of each leaf node.
+ */
+void KdTree::printNumFacesOfLeaves() {
+	for( int i = 0; i < mLeaves.size(); i++ ) {
+		printf( "%d: %3lu faces\n", mLeaves[i]->index, mLeaves[i]->faces.size() );
 	}
 }
 

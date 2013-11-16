@@ -80,7 +80,7 @@ void ObjParser::load( string filepath, string filename ) {
 
 		// Lines with less characters then this and comments
 		// can't contain anything interesting
-		if( line.length() < 6 || line[0] == '#' ) {
+		if( line.length() < 7 || line[0] == '#' ) {
 			continue;
 		}
 
