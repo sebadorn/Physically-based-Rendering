@@ -21,6 +21,14 @@
 	// Default model import path for the Qt File Dialog
 	"import_path": "/home/seba/programming/Physically-based Rendering/resources/models/",
 
+	"lights": {
+		"default_position": {
+			"x": 0.2,
+			"y": 1.2,
+			"z": 0.4
+		}
+	},
+
 	"logging": true,
 
 	"opencl": {
@@ -33,7 +41,7 @@
 		// Number of times a light ray bounces
 		"bounces": 2,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS)
-		"interval": 50.0,
+		"interval": 100.0,
 		// Camera perspective
 		"perspective": {
 			"fov": 50.0,

@@ -47,6 +47,7 @@ void PathTracer::clAccumulateColors( cl_float timeSinceStart ) {
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufNormals );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufAccColors );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufColorMasks );
+	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufLights );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_float ), &textureWeight );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_float ), &timeSinceStart );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufTextureIn );
@@ -71,6 +72,7 @@ void PathTracer::clFindIntersections( cl_float timeSinceStart ) {
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScFaces );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScFacesVN );
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufLights );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData1 );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData2 );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData3 );
@@ -165,6 +167,7 @@ cl_float PathTracer::getTimeSinceStart() {
 void PathTracer::initOpenCLBuffers(
 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
 	vector<cl_uint> facesVN,
+	vector<light_t> lights,
 	vector<kdNode_t> kdNodes, cl_uint rootIndex
 ) {
 	cl_uint pixels = mWidth * mHeight;
@@ -197,6 +200,9 @@ void PathTracer::initOpenCLBuffers(
 	mTextureOut = vector<cl_float>( pixels * 4, 0.0f );
 	mBufTextureIn = mCL->createImageReadOnly( mWidth, mHeight, &mTextureOut[0] );
 	mBufTextureOut = mCL->createImageWriteOnly( mWidth, mHeight );
+
+	mBufLights = mCL->createEmptyBuffer( sizeof( cl_float4 ) * lights.size(), CL_MEM_READ_ONLY );
+	this->updateLights( lights );
 }
 
 
@@ -321,4 +327,22 @@ void PathTracer::updateEyeBuffer() {
 	};
 
 	mCL->updateBuffer( mBufEye, sizeof( cl_float ) * 12, &eyeBuffer );
+}
+
+
+/**
+ * Update the lights buffer.
+ * @param {std::vector<light_t>} lights List of all lights.
+ */
+void PathTracer::updateLights( vector<light_t> lights ) {
+	vector<cl_float4> clLights;
+	for( int i = 0; i < lights.size(); i++ ) {
+		cl_float4 l;
+		l.x = lights[i].position[0];
+		l.y = lights[i].position[1];
+		l.z = lights[i].position[2];
+		l.w = 0.0f;
+		clLights.push_back( l );
+	}
+	mCL->updateBuffer( mBufLights, sizeof( cl_float4 ) * clLights.size(), &clLights[0] );
 }

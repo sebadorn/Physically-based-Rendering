@@ -85,20 +85,6 @@ inline float4 uniformlyRandomVector( float seed ) {
 }
 
 
-float shadow(
-	float4 origin, float4 ray,
-	__global uint* indices, __global float* vertices, uint numIndices
-) {
-	// float8 intersect = findIntersection( origin, ray, indices, vertices, numIndices );
-
-	// if( intersect.s3 < 1.0f ) {
-	// 	return 0.0f;
-	// }
-
-	return 1.0f;
-}
-
-
 /**
  * Face intersection test after Möller and Trumbore.
  * Without backface culling.
@@ -418,6 +404,7 @@ inline void traverseKdTree(
 __kernel void accumulateColors(
 	__global float4* origins, __global float4* normals,
 	__global float4* accColors, __global float4* colorMasks,
+	__global float4* lights,
 	const float textureWeight, const float timeSinceStart,
 	__read_only image2d_t textureIn, __write_only image2d_t textureOut
 ) {
@@ -427,7 +414,7 @@ __kernel void accumulateColors(
 	float4 hit = origins[workIndex];
 
 	// Lighting
-	float4 light = (float4)( -0.6f, 0.7f, 0.6f, 0.0f );
+	float4 light = lights[0];
 
 	// New color (or: another color calculated by evaluating different light paths than before)
 	// Accumulate the colors of each hit surface
@@ -454,14 +441,14 @@ __kernel void accumulateColors(
 		// Lambert factor (dot product is a cosine)
 		// Source: http://learnopengles.com/android-lesson-two-ambient-and-diffuse-lighting/
 		float diffuse = fmax( dot( normal, normalize( toLight ) ), 0.0f );
-		float luminosity = 1.0f / ( length( toLight ) * length( toLight ) );
+		float luminosity = 1.0f / ( length( toLight ) /** length( toLight )*/ );
 
-		// float specularHighlight = 0.0f; // Disabled for now
+		float specularHighlight = 0.0f; // Disabled for now
 		float4 surfaceColor = (float4)( 0.75f, 0.75f, 0.75f, 0.0f );
 
 		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * ( 0.2f * luminosity * diffuse * shadowIntensity );
-		// accumulatedColor += colorMask * specularHighlight * shadowIntensity;
+		accumulatedColor += colorMask * ( 0.6f * luminosity * diffuse * shadowIntensity );
+		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
 	}
 
 	accColors[workIndex] = accumulatedColor;
@@ -495,6 +482,7 @@ __kernel void findIntersectionsKdTree(
 	__global float4* origins, __global float4* rays, __global float4* normals,
 	__global float* scVertices, __global uint* scFaces, __global float* scNormals,
 	__global uint* scFacesVN,
+	__global float4* lights,
 	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
 	__global int* kdNodeRopes,
 	const uint kdRoot, const float timeSinceStart
@@ -541,7 +529,7 @@ __kernel void findIntersectionsKdTree(
 
 		// Shadow
 
-		float4 light = (float4)( -0.6f, 0.7f, 0.6f, 0.0f );
+		float4 light = lights[0];
 		float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
 		float4 ray = hit.position + normals[workIndex] * 0.0001f; // 0.0001f ?
 		float4 toLight = newLight - hit.position;

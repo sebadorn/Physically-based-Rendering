@@ -29,12 +29,14 @@ class PathTracer {
 		void initOpenCLBuffers(
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
 			vector<cl_uint> facesVN,
+			vector<light_t> lights,
 			vector<kdNode_t> kdNodes, cl_uint rootIndex
 		);
 		void resetSampleCount();
 		void setCamera( Camera* camera );
 		void setFOV( cl_float fov );
 		void setWidthAndHeight( cl_uint width, cl_uint height );
+		void updateLights( vector<light_t> lights );
 
 	protected:
 		void clInitRays();
@@ -78,6 +80,7 @@ class PathTracer {
 		cl_mem mBufAccColors;
 		cl_mem mBufColorMasks;
 		cl_mem mBufEye;
+		cl_mem mBufLights;
 		cl_mem mBufNormals;
 		cl_mem mBufOrigins;
 		cl_mem mBufRays;

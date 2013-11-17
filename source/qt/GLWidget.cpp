@@ -27,6 +27,12 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mKdTree = NULL;
 	mTimer = new QTimer( this );
 
+	light_t defaultLight;
+	defaultLight.position[0] = Cfg::get().value<cl_float>( Cfg::LIGHT_POS_X );
+	defaultLight.position[1] = Cfg::get().value<cl_float>( Cfg::LIGHT_POS_Y );
+	defaultLight.position[2] = Cfg::get().value<cl_float>( Cfg::LIGHT_POS_Z );
+	mLights.push_back( defaultLight );
+
 	mPathTracer->setCamera( mCamera );
 	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
 }
@@ -299,6 +305,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mPathTracer->initOpenCLBuffers(
 		mVertices, mFaces, mNormals,
 		ml->getFacesVN(),
+		mLights,
 		mKdTree->getNodes(), mKdTree->getRootNode()->index
 	);
 
@@ -360,32 +367,32 @@ void GLWidget::moveCamera( const int key ) {
 
 		case Qt::Key_W:
 			if( mSelectedLight == -1 ) { mCamera->cameraMoveForward(); }
-			else { mLights[mSelectedLight].position[0] += 0.5f; }
+			else { mLights[mSelectedLight].position[0] += 0.1f; }
 			break;
 
 		case Qt::Key_S:
 			if( mSelectedLight == -1 ) { mCamera->cameraMoveBackward(); }
-			else { mLights[mSelectedLight].position[0] -= 0.5f; }
+			else { mLights[mSelectedLight].position[0] -= 0.1f; }
 			break;
 
 		case Qt::Key_A:
 			if( mSelectedLight == -1 ) { mCamera->cameraMoveLeft(); }
-			else { mLights[mSelectedLight].position[2] += 0.5f; }
+			else { mLights[mSelectedLight].position[2] += 0.1f; }
 			break;
 
 		case Qt::Key_D:
 			if( mSelectedLight == -1 ) { mCamera->cameraMoveRight(); }
-			else { mLights[mSelectedLight].position[2] -= 0.5f; }
+			else { mLights[mSelectedLight].position[2] -= 0.1f; }
 			break;
 
 		case Qt::Key_Q:
 			if( mSelectedLight == -1 ) { mCamera->cameraMoveUp(); }
-			else { mLights[mSelectedLight].position[1] += 0.5f; }
+			else { mLights[mSelectedLight].position[1] += 0.1f; }
 			break;
 
 		case Qt::Key_E:
 			if( mSelectedLight == -1 ) { mCamera->cameraMoveDown(); }
-			else { mLights[mSelectedLight].position[1] -= 0.5f; }
+			else { mLights[mSelectedLight].position[1] -= 0.1f; }
 			break;
 
 		case Qt::Key_R:
@@ -427,6 +434,7 @@ void GLWidget::paintGL() {
 	// }
 
 	if( mViewTracer ) {
+		mPathTracer->updateLights( mLights );
 		mTextureOut = mPathTracer->generateImage();
 	}
 
