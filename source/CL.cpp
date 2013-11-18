@@ -86,6 +86,12 @@ bool CL::checkError( cl_int err, const char* functionName ) {
 }
 
 
+/**
+ * Create an empty buffer that can be updated with data later.
+ * @param  {size_t}       size  Size of the buffer.
+ * @param  {cl_mem_flags} flags CL flags like CL_MEM_READ_ONLY.
+ * @return {cl_mem}             Handle for the buffer.
+ */
 cl_mem CL::createEmptyBuffer( size_t size, cl_mem_flags flags ) {
 	cl_int err;
 	cl_mem buffer = clCreateBuffer( mContext, flags, size, NULL, &err );
@@ -96,7 +102,14 @@ cl_mem CL::createEmptyBuffer( size_t size, cl_mem_flags flags ) {
 }
 
 
-cl_mem CL::createImageReadOnly( size_t width, size_t height, float* data ) {
+/**
+ * Create a buffer for a 2D image that will be read-only in the OpenCL context, and fill it with data.
+ * @param  {size_t}    width  Width of the image.
+ * @param  {size_t}    height Height of the image.
+ * @param  {cl_float*} data   Data of the image.
+ * @return {cl_mem}           Handle for the buffer.
+ */
+cl_mem CL::createImageReadOnly( size_t width, size_t height, cl_float* data ) {
 	cl_int err;
 	cl_image_format format;
 
@@ -119,6 +132,12 @@ cl_mem CL::createImageReadOnly( size_t width, size_t height, float* data ) {
 }
 
 
+/**
+ * Create a buffer for a 2D image that will be write-only in the OpenCL context.
+ * @param  {size_t} width  Width of the image.
+ * @param  {size_t} height Height of the image.
+ * @return {cl_mem}        Handle for the buffer.
+ */
 cl_mem CL::createImageWriteOnly( size_t width, size_t height ) {
 	cl_int err;
 	cl_image_format format;
@@ -217,22 +236,44 @@ const char* CL::errorCodeToName( cl_int errorCode ) {
 }
 
 
+/**
+ * Execute a kernel.
+ * @param {cl_kernel} kernel Handle of the kernel to execute.
+ */
 void CL::execute( cl_kernel kernel ) {
 	cl_int err;
 	cl_event event;
-	cl_event* events = &mEvents[0];
 
-	size_t workSize[3] = {
-		Cfg::get().value<uint>( Cfg::WINDOW_WIDTH ),
-		Cfg::get().value<uint>( Cfg::WINDOW_HEIGHT ),
-		1
-	};
-	err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 2, NULL, workSize, NULL, mEvents.size(), &mEvents[0], &event );
-	this->checkError( err, "clEnqueueNDRangeKernel" );
-	mEvents.push_back( event );
+	cl_uint w = Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH );
+	cl_uint h = Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT );
+	cl_uint wgs = Cfg::get().value<cl_uint>( Cfg::OPENCL_WORKGROUPSIZE );
+
+	cl_uint offsetH, offsetW;
+	cl_uint groupsW = w / wgs;
+	cl_uint groupsH = h / wgs;
+
+	for( cl_uint i = 0; i < groupsW; i++ ) {
+		offsetW = i * wgs;
+
+		for( cl_uint j = 0; j < groupsH; j++ ) {
+			offsetH = j * wgs;
+			this->setKernelArg( kernel, 0, sizeof( cl_uint ), &w );
+			this->setKernelArg( kernel, 1, sizeof( cl_uint ), &h );
+			this->setKernelArg( kernel, 2, sizeof( cl_uint ), &offsetW );
+			this->setKernelArg( kernel, 3, sizeof( cl_uint ), &offsetH );
+
+			size_t workSize[3] = { wgs, wgs, 1 };
+			err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 2, NULL, workSize, NULL, mEvents.size(), &mEvents[0], &event );
+			this->checkError( err, "clEnqueueNDRangeKernel" );
+			mEvents.push_back( event );
+		}
+	}
 }
 
 
+/**
+ * Finish a kernel execution by flushing the command queue and clearing all events.
+ */
 void CL::finish() {
 	clFlush( mCommandQueue );
 	clFinish( mCommandQueue );
@@ -372,7 +413,14 @@ void CL::loadProgram( string filepath ) {
 }
 
 
-void CL::readImageOutput( cl_mem image, size_t width, size_t height, float* outputTarget ) {
+/**
+ * Read the content of an image buffer.
+ * @param {cl_mem}    image        Handle to the image buffer.
+ * @param {size_t}    width        Width of the image.
+ * @param {size_t}    height       Height of the image.
+ * @param {cl_float*} outputTarget Write target for the image data.
+ */
+void CL::readImageOutput( cl_mem image, size_t width, size_t height, cl_float* outputTarget ) {
 	cl_int err;
 	cl_event event;
 	size_t origin[] = { 0, 0, 0 };
@@ -384,12 +432,26 @@ void CL::readImageOutput( cl_mem image, size_t width, size_t height, float* outp
 }
 
 
-void CL::setKernelArg( cl_kernel kernel, uint index, size_t size, void* data ) {
+/**
+ * Set a kernel argument.
+ * @param {cl_kernel} kernel Kernel handle to set the argument for.
+ * @param {cl_uint}   index  Index of the argument.
+ * @param {size_t}    size   Size of the data.
+ * @param {void*}     data   A pointer to the data.
+ */
+void CL::setKernelArg( cl_kernel kernel, cl_uint index, size_t size, void* data ) {
 	cl_int err = clSetKernelArg( kernel, index, size, data );
 	this->checkError( err, "clSetKernelArg" );
 }
 
 
+/**
+ * Update the data of a buffer.
+ * @param  {cl_mem} buffer Handle of the buffer.
+ * @param  {size_t} size   Size of the data to write into it.
+ * @param  {void*}  data   Pointer to the data.
+ * @return {cl_mem}        Handle of the buffer.
+ */
 cl_mem CL::updateBuffer( cl_mem buffer, size_t size, void* data ) {
 	cl_int err = clEnqueueWriteBuffer( mCommandQueue, buffer, CL_TRUE, 0, size, data, 0, NULL, NULL );
 	this->checkError( err, "clEnqueueWriteBuffer" );
@@ -398,7 +460,15 @@ cl_mem CL::updateBuffer( cl_mem buffer, size_t size, void* data ) {
 }
 
 
-cl_mem CL::updateImageReadOnly( cl_mem image, size_t width, size_t height, float* data ) {
+/**
+ * Update the image data of a read-only buffer in OpenCL context.
+ * @param  {cl_mem}    image  Handle of the buffer.
+ * @param  {size_t}    width  Width of the image.
+ * @param  {size_t}    height Height of the image.
+ * @param  {cl_float*} data   Data to write into the image.
+ * @return {cl_mem}           Handle of the buffer.
+ */
+cl_mem CL::updateImageReadOnly( cl_mem image, size_t width, size_t height, cl_float* data ) {
 	size_t origin[] = { 0, 0, 0 };
 	size_t region[] = { width, height, 1 };
 	cl_int err;

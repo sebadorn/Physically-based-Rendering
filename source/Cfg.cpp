@@ -17,6 +17,7 @@ const char* Cfg::RENDER_ANTIALIAS = "render.antialiasing";
 const char* Cfg::RENDER_BOUNCES = "render.bounces";
 const char* Cfg::RENDER_INTERVAL = "render.interval";
 const char* Cfg::OPENCL_PROGRAM = "opencl.program";
+const char* Cfg::OPENCL_WORKGROUPSIZE = "opencl.workgroupsize";
 const char* Cfg::PERS_FOV = "render.perspective.fov";
 const char* Cfg::PERS_ZFAR = "render.perspective.zfar";
 const char* Cfg::PERS_ZNEAR = "render.perspective.znear";

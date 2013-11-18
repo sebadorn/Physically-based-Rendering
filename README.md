@@ -2,9 +2,8 @@
 
 * `Improve` Normals are only supported per face, but not per vertex
 * `Feature` PT: colors
-* `Feature` PT: shadows
 * `Feature` Dynamic lights (for now: number and position)
-* `Improve` Surface fitting for kd-tree
+* `Improve` Surface Area Heuristic (SAH) for kd-tree
 * `Improve` Can currently only handle single mesh models
 * `Improve` Keep work group sizes down (64-256), even for bigger textures (GPU limit at 1024)
 * `Improve` Flexible width and height
@@ -20,6 +19,7 @@
 * Split OpenCL into multiply kernels for each (greater) task, like ray generation, ray traversal, intersection test, and so on
 * Are some tasks in OpenCL better done on CPU than GPU?
 * Is clFinish() always necessary where I used it?
+* Remove "checkError()" in CL.cpp
 
 
 ## Libraries/headers

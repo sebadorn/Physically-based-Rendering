@@ -451,6 +451,9 @@ void GLWidget::paintScene() {
 	if( mViewTracer ) {
 		glUseProgram( mGLProgramTracer );
 
+		glUniform1i( glGetUniformLocation( mGLProgramTracer, "width" ), width() );
+		glUniform1i( glGetUniformLocation( mGLProgramTracer, "height" ), height() );
+
 		glBindTexture( GL_TEXTURE_2D, mTargetTexture );
 		glTexImage2D(
 			GL_TEXTURE_2D, 0, GL_RGBA, width(), height(),

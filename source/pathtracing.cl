@@ -402,14 +402,15 @@ inline void traverseKdTree(
  * @param {__write_only image2d_t} textureOut     Output. The generated texture now.
  */
 __kernel void accumulateColors(
+	const uint width, const uint height, const uint offsetW, const uint offsetH,
 	__global float4* origins, __global float4* normals,
 	__global float4* accColors, __global float4* colorMasks,
 	__global float4* lights,
 	const float textureWeight, const float timeSinceStart,
 	__read_only image2d_t textureIn, __write_only image2d_t textureOut
 ) {
-	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
-	uint workIndex = pos.x + pos.y * get_global_size( 1 );
+	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
+	uint workIndex = pos.x + pos.y * height;
 
 	float4 hit = origins[workIndex];
 
@@ -479,6 +480,7 @@ __kernel void accumulateColors(
  * @param timeSinceStart [description]
  */
 __kernel void findIntersectionsKdTree(
+	const uint width, const uint height, const uint offsetW, const uint offsetH,
 	__global float4* origins, __global float4* rays, __global float4* normals,
 	__global float* scVertices, __global uint* scFaces, __global float* scNormals,
 	__global uint* scFacesVN,
@@ -487,7 +489,9 @@ __kernel void findIntersectionsKdTree(
 	__global int* kdNodeRopes,
 	const uint kdRoot, const float timeSinceStart
 ) {
-	uint workIndex = get_global_id( 0 ) + get_global_id( 1 ) * get_global_size( 1 );
+	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
+	uint workIndex = pos.x + pos.y * height;
+
 	float4 origin = origins[workIndex];
 	float4 dir = rays[workIndex];
 
@@ -538,10 +542,10 @@ __kernel void findIntersectionsKdTree(
 		shadowHit.distance = -2.0f;
 		shadowHit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
 
-		traverseKdTree(
-			&ray, &toLight, kdRoot, scVertices, scFaces,
-			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &shadowHit
-		);
+		// traverseKdTree(
+		// 	&ray, &toLight, kdRoot, scVertices, scFaces,
+		// 	kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &shadowHit
+		// );
 
 		hit.position.w = ( shadowHit.distance != -2.0f && shadowHit.distance < length( toLight ) )
 		               ? 0.0f : 1.0f;
@@ -562,12 +566,13 @@ __kernel void findIntersectionsKdTree(
  * @param {__global float4*} rays    Output. The generated rays for each pixel.
  */
 __kernel void generateRays(
+	const uint width, const uint height, const uint offsetW, const uint offsetH,
 	__global float* eyeIn, const float fovRad,
 	__global float4* origins, __global float4* rays,
 	__global float4* accColors, __global float4* colorMasks
 ) {
-	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
-	uint workIndex = pos.x + pos.y * get_global_size( 1 );
+	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
+	uint workIndex = pos.x + pos.y * height;
 
 	// Camera eye
 	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
@@ -577,19 +582,17 @@ __kernel void generateRays(
 	float4 u = (float4)( eyeIn[6], eyeIn[7], eyeIn[8], 0.0f );
 	float4 v = (float4)( eyeIn[9], eyeIn[10], eyeIn[11], 0.0f );
 
-	float width = get_global_size( 0 );
-	float height = get_global_size( 1 );
 	float f = 2.0f * tan( fovRad / 2.0f );
-	float pxWidth = f / width;
-	float pxHeight = f / height;
+	float pxWidth = f / (float) width;
+	float pxHeight = f / (float) height;
 
 	float4 initialRay = eye + w
-			- width / 2.0f * pxWidth * u
-			+ height / 2.0f * pxHeight * v
+			- (float) width / 2.0f * pxWidth * u
+			+ (float) height / 2.0f * pxHeight * v
 			+ pxWidth / 2.0f * u
 			- pxHeight / 2.0f * v;
 	initialRay += pos.x * pxWidth * u;
-	initialRay -= ( height - pos.y ) * pxHeight * v;
+	initialRay -= ( (float) height - pos.y ) * pxHeight * v;
 	initialRay.w = 0.0f;
 
 	rays[workIndex] = normalize( initialRay - eye );

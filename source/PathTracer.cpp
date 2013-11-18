@@ -40,10 +40,11 @@ PathTracer::~PathTracer() {
  * @param {cl_float} timeSinceStart Time in seconds since start of rendering.
  */
 void PathTracer::clAccumulateColors( cl_float timeSinceStart ) {
-	cl_uint i = 0;
+	cl_uint i = 3;
 	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 
-	mCL->setKernelArg( mKernelColors, i, sizeof( cl_mem ), &mBufOrigins );
+	// Not a mistake: Start kernel args at index 1. Index 0 will be the workgroup offset.
+	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufOrigins );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufNormals );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufAccColors );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufColorMasks );
@@ -63,9 +64,10 @@ void PathTracer::clAccumulateColors( cl_float timeSinceStart ) {
  * @param {cl_float} timeSinceStart Time in seconds since start of rendering.
  */
 void PathTracer::clFindIntersections( cl_float timeSinceStart ) {
-	cl_uint i = 0;
+	cl_uint i = 3;
 
-	mCL->setKernelArg( mKernelIntersections, i, sizeof( cl_mem ), &mBufOrigins );
+	// Not a mistake: Start kernel args at index 1. Index 0 will be the workgroup offset.
+	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufOrigins );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufRays );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufNormals );
 	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScVertices );
@@ -89,10 +91,11 @@ void PathTracer::clFindIntersections( cl_float timeSinceStart ) {
  * OpenCL: Compute the initial rays into the scene.
  */
 void PathTracer::clInitRays() {
-	cl_uint i = 0;
+	cl_uint i = 3;
 	cl_float fovRad = utils::degToRad( mFOV );
 
-	mCL->setKernelArg( mKernelRays, i, sizeof( cl_mem ), &mBufEye );
+	// Not a mistake: Start kernel args at index 1. Index 0 will be the workgroup offset.
+	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufEye );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_float ), &fovRad );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufOrigins );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufRays );

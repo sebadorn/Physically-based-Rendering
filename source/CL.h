@@ -40,16 +40,16 @@ class CL {
 		}
 
 		cl_mem createEmptyBuffer( size_t size, cl_mem_flags flags );
-		cl_mem createImageReadOnly( size_t width, size_t height, float* data );
+		cl_mem createImageReadOnly( size_t width, size_t height, cl_float* data );
 		cl_mem createImageWriteOnly( size_t width, size_t height );
 		cl_kernel createKernel( const char* functionName );
 		void execute( cl_kernel kernel );
 		void finish();
 		void loadProgram( std::string filepath );
-		void readImageOutput( cl_mem image, size_t width, size_t height, float* outputTarget );
-		void setKernelArg( cl_kernel kernel, uint index, size_t size, void* data );
+		void readImageOutput( cl_mem image, size_t width, size_t height, cl_float* outputTarget );
+		void setKernelArg( cl_kernel kernel, cl_uint index, size_t size, void* data );
 		cl_mem updateBuffer( cl_mem buffer, size_t size, void* data );
-		cl_mem updateImageReadOnly( cl_mem image, size_t width, size_t height, float* data );
+		cl_mem updateImageReadOnly( cl_mem image, size_t width, size_t height, cl_float* data );
 
 	protected:
 		void buildProgram();
