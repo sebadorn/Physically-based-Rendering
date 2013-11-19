@@ -34,26 +34,6 @@ inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	float y = r * sin( theta );
 
 	return (float4)( x, y, sqrt( fmax( 0.0f, 1.0f - u ) ), 0.0f );
-
-
-	// float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
-	// float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
-	// float r = sqrt( u );
-	// float angle = 6.28318530718f * v; // M_PI * 2.0f * v
-	// float4 sdir, tdir;
-
-	// // TODO: What is happening here?
-	// sdir = ( fabs( normal.x ) < 0.5f )
-	//      ? cross( normal, (float4)( 1.0f, 0.0f, 0.0f, 0.0f ) )
-	//      : cross( normal, (float4)( 0.0f, 1.0f, 0.0f, 0.0f ) );
-
-	// tdir = cross( normal, sdir );
-
-	// float4 part1 = r * cos( angle ) * sdir;
-	// float4 part2 = r * sin( angle ) * tdir;
-	// float4 part3 = sqrt( 1.0f - u ) * normal;
-
-	// return normalize( part1 + part2 + part3 );
 }
 
 
