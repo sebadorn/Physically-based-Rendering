@@ -348,4 +348,5 @@ void PathTracer::updateLights( vector<light_t> lights ) {
 		clLights.push_back( l );
 	}
 	mCL->updateBuffer( mBufLights, sizeof( cl_float4 ) * clLights.size(), &clLights[0] );
+	mSampleCount = 0;
 }

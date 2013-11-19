@@ -34,14 +34,14 @@
 	"opencl": {
 		"program": "source/pathtracing.cl",
 		// Squares only, so this setting is for width and height.
-		"workgroupsize": 64
+		"workgroupsize": 512
 	},
 
 	"render": {
 		// AA through jittering
 		"antialiasing": true,
 		// Number of times a light ray bounces
-		"bounces": 1,
+		"bounces": 3,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS)
 		"interval": 100.0,
 		// Camera perspective

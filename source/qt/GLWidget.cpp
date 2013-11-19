@@ -400,6 +400,10 @@ void GLWidget::moveCamera( const int key ) {
 			break;
 
 	}
+
+	if( mSelectedLight > -1 ) {
+		mPathTracer->updateLights( mLights );
+	}
 }
 
 
@@ -434,7 +438,6 @@ void GLWidget::paintGL() {
 	// }
 
 	if( mViewTracer ) {
-		mPathTracer->updateLights( mLights );
 		mTextureOut = mPathTracer->generateImage();
 	}
 

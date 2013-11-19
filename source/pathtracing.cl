@@ -24,36 +24,36 @@ inline float random( float4 scale, float seed ) {
 
 // http://www.rorydriscoll.com/2009/01/07/better-sampling/
 inline float4 cosineWeightedDirection( float seed, float4 normal ) {
-	// float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
-	// float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
-
-	// float r = sqrt( u );
-	// float theta = 6.28318530718f * v; // M_PI * 2.0f * v
-
-	// float x = r * cos( theta );
-	// float y = r * sin( theta );
-
-	// return (float4)( x, y, sqrt( fmax( 0.0f, 1.0f - u ) ), 0.0f );
-
-
 	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
 	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
+
 	float r = sqrt( u );
-	float angle = 6.28318530718f * v; // M_PI * 2.0f * v
-	float4 sdir, tdir;
+	float theta = 6.28318530718f * v; // M_PI * 2.0f * v
 
-	// TODO: What is happening here?
-	sdir = ( fabs( normal.x ) < 0.5f )
-	     ? cross( normal, (float4)( 1.0f, 0.0f, 0.0f, 0.0f ) )
-	     : cross( normal, (float4)( 0.0f, 1.0f, 0.0f, 0.0f ) );
+	float x = r * cos( theta );
+	float y = r * sin( theta );
 
-	tdir = cross( normal, sdir );
+	return (float4)( x, y, sqrt( fmax( 0.0f, 1.0f - u ) ), 0.0f );
 
-	float4 part1 = r * cos( angle ) * sdir;
-	float4 part2 = r * sin( angle ) * tdir;
-	float4 part3 = sqrt( 1.0f - u ) * normal;
 
-	return normalize( part1 + part2 + part3 );
+	// float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
+	// float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
+	// float r = sqrt( u );
+	// float angle = 6.28318530718f * v; // M_PI * 2.0f * v
+	// float4 sdir, tdir;
+
+	// // TODO: What is happening here?
+	// sdir = ( fabs( normal.x ) < 0.5f )
+	//      ? cross( normal, (float4)( 1.0f, 0.0f, 0.0f, 0.0f ) )
+	//      : cross( normal, (float4)( 0.0f, 1.0f, 0.0f, 0.0f ) );
+
+	// tdir = cross( normal, sdir );
+
+	// float4 part1 = r * cos( angle ) * sdir;
+	// float4 part2 = r * sin( angle ) * tdir;
+	// float4 part3 = sqrt( 1.0f - u ) * normal;
+
+	// return normalize( part1 + part2 + part3 );
 }
 
 
@@ -127,7 +127,7 @@ inline float checkFaceIntersection(
 
 	float t = dot( edge2, qVec ) / det;
 
-	if( t < tNear - EPSILON || t > tFar + EPSILON ) {
+	if( t <= EPSILON || t < tNear - EPSILON || t > tFar + EPSILON ) {
 		return -2.0f;
 	}
 
@@ -542,10 +542,10 @@ __kernel void findIntersectionsKdTree(
 		shadowHit.distance = -2.0f;
 		shadowHit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
 
-		// traverseKdTree(
-		// 	&ray, &toLight, kdRoot, scVertices, scFaces,
-		// 	kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &shadowHit
-		// );
+		traverseKdTree(
+			&ray, &toLight, kdRoot, scVertices, scFaces,
+			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &shadowHit
+		);
 
 		hit.position.w = ( shadowHit.distance != -2.0f && shadowHit.distance < length( toLight ) )
 		               ? 0.0f : 1.0f;
