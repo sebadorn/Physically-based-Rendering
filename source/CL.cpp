@@ -397,6 +397,8 @@ void CL::initCommandQueue() {
  */
 void CL::loadProgram( string filepath ) {
 	string clProgramString = utils::loadFileAsString( filepath.c_str() );
+	clProgramString = this->setValues( clProgramString );
+
 	const char* clProgramChar = clProgramString.c_str();
 	const size_t clProgramLength = clProgramString.size();
 
@@ -442,6 +444,19 @@ void CL::readImageOutput( cl_mem image, size_t width, size_t height, cl_float* o
 void CL::setKernelArg( cl_kernel kernel, cl_uint index, size_t size, void* data ) {
 	cl_int err = clSetKernelArg( kernel, index, size, data );
 	this->checkError( err, "clSetKernelArg" );
+}
+
+
+string CL::setValues( string clProgramString ) {
+	string search = "#BACKFACE_CULLING#";
+	size_t foundStrPos = clProgramString.find( search );
+
+	if( foundStrPos != string::npos ) {
+		string value = Cfg::get().value<bool>( Cfg::RENDER_BACKFACECULLING ) ? "#define BACKFACE_CULLING 1" : "";
+		clProgramString.replace( foundStrPos, search.length(), value );
+	}
+
+	return clProgramString;
 }
 
 

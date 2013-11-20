@@ -59,6 +59,7 @@ class CL {
 		void getDefaultPlatform();
 		void initCommandQueue();
 		void initContext( cl_device_id* devices );
+		std::string setValues( std::string clProgramString );
 
 	private:
 		cl_command_queue mCommandQueue;

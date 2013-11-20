@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <CL/cl.hpp>
+#include <glm/glm.hpp>
 #include <map>
 #include <math.h>
 #include <stdlib.h>
@@ -37,7 +38,8 @@ class KdTree {
 
 		kdNode_t* getRootNode();
 		vector<kdNode_t> getNodes();
-		bool hitBoundingBox( float* bbMin, float* bbMax, float* origin, float* dir );
+		bool hitBoundingBox( glm::vec3 bbMin, glm::vec3 bbMax, glm::vec3 origin, glm::vec3 dir );
+		bool hitTriangle( glm::vec3 vStart, glm::vec3 vEnd, glm::vec3 a, glm::vec3 b, glm::vec3 c );
 		void print();
 		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 

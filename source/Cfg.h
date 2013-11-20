@@ -30,6 +30,7 @@ class Cfg {
 		static const char* LIGHT_POS_Z;
 		static const char* LOGGING;
 		static const char* RENDER_ANTIALIAS;
+		static const char* RENDER_BACKFACECULLING;
 		static const char* RENDER_BOUNCES;
 		static const char* RENDER_INTERVAL;
 		static const char* OPENCL_PROGRAM;

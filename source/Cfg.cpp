@@ -14,6 +14,7 @@ const char* Cfg::LIGHT_POS_Y = "lights.default_position.y";
 const char* Cfg::LIGHT_POS_Z = "lights.default_position.z";
 const char* Cfg::LOGGING = "logging";
 const char* Cfg::RENDER_ANTIALIAS = "render.antialiasing";
+const char* Cfg::RENDER_BACKFACECULLING = "render.backface_culling";
 const char* Cfg::RENDER_BOUNCES = "render.bounces";
 const char* Cfg::RENDER_INTERVAL = "render.interval";
 const char* Cfg::OPENCL_PROGRAM = "opencl.program";

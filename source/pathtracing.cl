@@ -1,3 +1,4 @@
+#BACKFACE_CULLING#
 #define EPSILON 0.00001f
 
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
@@ -6,6 +7,7 @@ typedef struct hit_t {
 	float4 position;
 	float distance;
 	int normalIndex;
+	int nodeIndex;
 } hit_t;
 
 
@@ -67,7 +69,6 @@ inline float4 uniformlyRandomVector( float seed ) {
 
 /**
  * Face intersection test after Möller and Trumbore.
- * Without backface culling.
  * @param  origin [description]
  * @param  dir    [description]
  * @param  a      [description]
@@ -86,6 +87,35 @@ inline float checkFaceIntersection(
 	float4 edge2 = c - a;
 	float4 pVec = cross( *dir, edge2 );
 	float det = dot( edge1, pVec );
+
+
+#ifdef BACKFACE_CULLING
+
+	if( det < EPSILON ) {
+		return -2.0f;
+	}
+
+	float4 tVec = (*origin) - a;
+	float u = dot( tVec, pVec );
+
+	if( u < 0.0f || u > det ) {
+		return -2.0f;
+	}
+
+	float4 qVec = cross( tVec, edge1 );
+	float v = dot( *dir, qVec );
+
+	if( v < 0.0f || u + v > det ) {
+		return -2.0f;
+	}
+
+	float t = dot( edge2, qVec );
+	float invDet = 1.0f / det;
+	t *= invDet;
+	// u *= invDet;
+	// v *= invDet;
+
+#else
 
 	if( fabs( det ) < EPSILON ) {
 		return -2.0f;
@@ -106,6 +136,8 @@ inline float checkFaceIntersection(
 	}
 
 	float t = dot( edge2, qVec ) / det;
+
+#endif
 
 	if( t <= EPSILON || t < tNear - EPSILON || t > tFar + EPSILON ) {
 		return -2.0f;
@@ -131,7 +163,7 @@ inline float checkFaceIntersection(
  * @param result        [description]
  */
 inline void checkFaces(
-	int faceIndex, float4* origin, float4* dir,
+	int nodeIndex, int faceIndex, float4* origin, float4* dir,
 	__global float* scVertices, __global uint* scFaces, __global int* kdNodeData3,
 	float entryDistance, float* exitDistance, hit_t* result
 ) {
@@ -178,6 +210,7 @@ inline void checkFaces(
 				result->distance = newResult.distance;
 				result->position = newResult.position;
 				result->normalIndex = f;
+				result->nodeIndex = nodeIndex;
 			}
 		}
 	}
@@ -219,8 +252,8 @@ inline bool intersectBoundingBox(
 
 	// X vs. Y
 	*exitRope = ( tymax < tmax ) ? 3 - signY : 1 - signX;
-	tmin = ( tymin > tmin ) ? tymin : tmin;
-	tmax = ( tymax < tmax ) ? tymax : tmax;
+	tmin = fmax( tymin, tmin );
+	tmax = fmin( tymax, tmax );
 	// Z
 	tzmin = ( bounds[signZ][2] - origin->z ) * invDir[2];
 	tzmax = ( bounds[1 - signZ][2] - origin->z ) * invDir[2];
@@ -231,8 +264,8 @@ inline bool intersectBoundingBox(
 
 	// Z vs. previous winner
 	*exitRope = ( tzmax < tmax ) ? 5 - signZ : *exitRope;
-	tmin = ( tzmin > tmin ) ? tzmin : tmin;
-	tmax = ( tzmax < tmax ) ? tzmax : tmax;
+	tmin = fmax( tzmin, tmin );
+	tmax = fmin( tzmax, tmax );
 	// Result
 	*tNear = tmin;
 	*tFar = tmax;
@@ -299,7 +332,7 @@ inline void traverseKdTree(
 		return;
 	}
 
-	entryDistance = ( entryDistance < 0.0f ) ? 0.0f : entryDistance;
+	entryDistance = fmax( entryDistance, 0.0f );
 
 
 	float4 hitNear;
@@ -309,7 +342,7 @@ inline void traverseKdTree(
 	while( entryDistance < exitDistance ) {
 		// TODO: Infinite loop bug seems to be fixed!
 		// Remove this line later. Just keeping it a little longer
-		// as precaution while tackling some other issue.
+		// as precaution while tackling some other issues.
 		if( i++ > 1000 ) { return; }
 
 
@@ -340,7 +373,7 @@ inline void traverseKdTree(
 		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
 
 		checkFaces(
-			faceIndex, origin, dir, scVertices, scFaces, kdNodeData3,
+			nodeIndex, faceIndex, origin, dir, scVertices, scFaces, kdNodeData3,
 			entryDistance, &exitDistance, result
 		);
 
@@ -361,6 +394,113 @@ inline void traverseKdTree(
 
 		if( nodeIndex < 0 ) {
 			return;
+		}
+	}
+}
+
+
+inline bool shadowTest(
+	float4* origin, float4* toLight, const uint startNode,
+	__global float* scVertices, __global uint* scFaces,
+	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
+	__global int* kdNodeRopes
+) {
+	hit_t result;
+	result.distance = -2.0f;
+	result.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
+	result.nodeIndex = -1;
+
+	float4 dir = normalize( *toLight );
+	int nodeIndex = startNode;
+	float distLimit = length( *toLight );
+
+	float bbMin[3] = {
+		kdNodeData1[nodeIndex * 9 + 3],
+		kdNodeData1[nodeIndex * 9 + 4],
+		kdNodeData1[nodeIndex * 9 + 5]
+	};
+	float bbMax[3] = {
+		kdNodeData1[nodeIndex * 9 + 6],
+		kdNodeData1[nodeIndex * 9 + 7],
+		kdNodeData1[nodeIndex * 9 + 8]
+	};
+
+	float entryDistance, exitDistance, tNear;
+	int exitRope;
+
+	if( !intersectBoundingBox( origin, &dir, bbMin, bbMax, &entryDistance, &exitDistance, &exitRope ) ) {
+		return false;
+	}
+	if( exitDistance < 0.0f ) {
+		return false;
+	}
+
+	entryDistance = fmax( entryDistance, 0.0f );
+
+	float4 hitNear;
+	int axis, faceIndex, left, right, ropeIndex;
+	int i = 0;
+
+	while( entryDistance < exitDistance ) {
+		// TODO: Infinite loop bug seems to be fixed!
+		// Remove this line later. Just keeping it a little longer
+		// as precaution while tackling some other issues.
+		if( i++ > 1000 ) { return false; }
+
+
+		// Find a leaf node for this ray
+
+		hitNear = (*origin) + entryDistance * dir;
+		left = kdNodeData2[nodeIndex * 5];
+		right = kdNodeData2[nodeIndex * 5 + 1];
+		axis = kdNodeData2[nodeIndex * 5 + 2];
+
+		while( left >= 0 && right >= 0 ) {
+			nodeIndex = ( ( (float*) &hitNear )[axis] < kdNodeData1[nodeIndex * 9 + axis] )
+			          ? left : right;
+			left = kdNodeData2[nodeIndex * 5];
+			right = kdNodeData2[nodeIndex * 5 + 1];
+			axis = kdNodeData2[nodeIndex * 5 + 2];
+		}
+
+		bbMin[0] = kdNodeData1[nodeIndex * 9 + 3];
+		bbMin[1] = kdNodeData1[nodeIndex * 9 + 4];
+		bbMin[2] = kdNodeData1[nodeIndex * 9 + 5];
+		bbMax[0] = kdNodeData1[nodeIndex * 9 + 6];
+		bbMax[1] = kdNodeData1[nodeIndex * 9 + 7];
+		bbMax[2] = kdNodeData1[nodeIndex * 9 + 8];
+
+
+		// At a leaf node now, check triangle faces
+
+		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
+
+		checkFaces(
+			nodeIndex, faceIndex, origin, &dir, scVertices, scFaces, kdNodeData3,
+			entryDistance, &exitDistance, &result
+		);
+
+		if( result.distance > -2.0f && result.distance <= distLimit ) {
+			return true;
+		}
+
+
+		// Exit leaf node
+
+		intersectBoundingBox( origin, &dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
+
+		if( entryDistance >= exitDistance ) {
+			return false;
+		}
+
+
+		// Follow the rope
+
+		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
+		nodeIndex = kdNodeRopes[ropeIndex + exitRope];
+
+		if( nodeIndex < 0 ) {
+			return false;
 		}
 	}
 }
@@ -405,7 +545,6 @@ __kernel void accumulateColors(
 	// Surface hit
 	if( hit.w > -1.0f ) {
 		float shadowIntensity = hit.w;
-		// shadowIntensity = 1.0f; // Disable shadows
 		hit.w = 0.0f;
 
 		// The farther away a shadow is, the more diffuse it becomes
@@ -484,6 +623,7 @@ __kernel void findIntersectionsKdTree(
 	hit_t hit;
 	hit.distance = -2.0f;
 	hit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
+	hit.nodeIndex = -1;
 
 	traverseKdTree(
 		&origin, &dir, kdRoot, scVertices, scFaces,
@@ -518,17 +658,14 @@ __kernel void findIntersectionsKdTree(
 		float4 ray = hit.position + normals[workIndex] * 0.0001f; // 0.0001f ?
 		float4 toLight = newLight - hit.position;
 
-		hit_t shadowHit;
-		shadowHit.distance = -2.0f;
-		shadowHit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
+		// TODO: hit.nodeIndex instead of kdRoot
+		// bool isInShadow = shadowTest(
+		// 	&ray, &toLight, kdRoot, scVertices, scFaces,
+		// 	kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes
+		// );
 
-		traverseKdTree(
-			&ray, &toLight, kdRoot, scVertices, scFaces,
-			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &shadowHit
-		);
-
-		hit.position.w = ( shadowHit.distance != -2.0f && shadowHit.distance < length( toLight ) )
-		               ? 0.0f : 1.0f;
+		// hit.position.w = !isInShadow;
+		hit.position.w = 1.0f;
 	}
 
 	origins[workIndex] = hit.position;

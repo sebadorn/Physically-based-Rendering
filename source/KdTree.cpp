@@ -63,39 +63,26 @@ void KdTree::assignFacesToLeaves( vector<cl_float>* vertices, vector<cl_uint>* f
 	bool add;
 
 	for( cl_uint i = 0; i < faces->size(); i += 3 ) {
-		cl_float a[3] = {
+		glm::vec3 a = glm::vec3(
 			(*vertices)[(*faces)[i] * 3],
 			(*vertices)[(*faces)[i] * 3 + 1],
 			(*vertices)[(*faces)[i] * 3 + 2]
-		};
-		cl_float b[3] = {
+		);
+		glm::vec3 b = glm::vec3(
 			(*vertices)[(*faces)[i + 1] * 3],
 			(*vertices)[(*faces)[i + 1] * 3 + 1],
 			(*vertices)[(*faces)[i + 1] * 3 + 2]
-		};
-		cl_float c[3] = {
+		);
+		glm::vec3 c = glm::vec3(
 			(*vertices)[(*faces)[i + 2] * 3],
 			(*vertices)[(*faces)[i + 2] * 3 + 1],
 			(*vertices)[(*faces)[i + 2] * 3 + 2]
-		};
-		cl_float abDir[3] = {
-			b[0] - a[0],
-			b[1] - a[1],
-			b[2] - a[2]
-		};
-		cl_float bcDir[3] = {
-			c[0] - b[0],
-			c[1] - b[1],
-			c[2] - b[2]
-		};
-		cl_float caDir[3] = {
-			a[0] - c[0],
-			a[1] - c[1],
-			a[2] - c[2]
-		};
+		);
 
 		for( cl_uint j = 0; j < mLeaves.size(); j++ ) {
 			kdNode_t* l = mLeaves[j];
+			glm::vec3 bbMin = glm::vec3( l->bbMin[0], l->bbMin[1], l->bbMin[2] );
+			glm::vec3 bbMax = glm::vec3( l->bbMax[0], l->bbMax[1], l->bbMax[2] );
 
 			if( find( l->faces.begin(), l->faces.end(), i ) == l->faces.end() ) {
 				add = false;
@@ -104,28 +91,31 @@ void KdTree::assignFacesToLeaves( vector<cl_float>* vertices, vector<cl_uint>* f
 				// Test can only accept, not decline.
 				if(
 					(
-						a[0] >= l->bbMin[0] && a[1] >= l->bbMin[1] && a[2] >= l->bbMin[2] &&
-						a[0] <= l->bbMax[0] && a[1] <= l->bbMax[1] && a[2] <= l->bbMax[2]
+						a[0] >= bbMin[0] && a[1] >= bbMin[1] && a[2] >= bbMin[2] &&
+						a[0] <= bbMax[0] && a[1] <= bbMax[1] && a[2] <= bbMax[2]
 					) ||
 					(
-						b[0] >= l->bbMin[0] && b[1] >= l->bbMin[1] && b[2] >= l->bbMin[2] &&
-						b[0] <= l->bbMax[0] && b[1] <= l->bbMax[1] && b[2] <= l->bbMax[2]
+						b[0] >= bbMin[0] && b[1] >= bbMin[1] && b[2] >= bbMin[2] &&
+						b[0] <= bbMax[0] && b[1] <= bbMax[1] && b[2] <= bbMax[2]
 					) ||
 					(
-						c[0] >= l->bbMin[0] && c[1] >= l->bbMin[1] && c[2] >= l->bbMin[2] &&
-						c[0] <= l->bbMax[0] && c[1] <= l->bbMax[1] && c[2] <= l->bbMax[2]
+						c[0] >= bbMin[0] && c[1] >= bbMin[1] && c[2] >= bbMin[2] &&
+						c[0] <= bbMax[0] && c[1] <= bbMax[1] && c[2] <= bbMax[2]
 					)
 				) {
 					add = true;
 				}
 
-				if( !add && this->hitBoundingBox( l->bbMin, l->bbMax, a, abDir ) ) {
+				if( !add && this->hitBoundingBox( bbMin, bbMax, a, b - a ) ) {
 					add = true;
 				}
-				if( !add && this->hitBoundingBox( l->bbMin, l->bbMax, b, bcDir ) ) {
+				if( !add && this->hitBoundingBox( bbMin, bbMax, b, c - b ) ) {
 					add = true;
 				}
-				if( !add && this->hitBoundingBox( l->bbMin, l->bbMax, c, caDir ) ) {
+				if( !add && this->hitBoundingBox( bbMin, bbMax, c, a - c ) ) {
+					add = true;
+				}
+				if( !add && this->hitTriangle( bbMin, bbMax, a, b, c ) ) {
 					add = true;
 				}
 
@@ -223,20 +213,16 @@ vector<kdNode_t*> KdTree::createUnconnectedNodes( vector<cl_float>* vertices ) {
 
 /**
  * Test if a given line segment intersects a given bounding box.
- * @param  {float*} bbMin  [description]
- * @param  {float*} bbMax  [description]
- * @param  {float*} origin [description]
- * @param  {float*} dir    [description]
- * @return {bool}          [description]
+ * @param  {glm::vec3} bbMin  [description]
+ * @param  {glm::vec3} bbMax  [description]
+ * @param  {glm::vec3} origin [description]
+ * @param  {glm::vec3} dir    [description]
+ * @return {bool}             [description]
  */
 bool KdTree::hitBoundingBox(
-	float* bbMin, float* bbMax, float* origin, float* dir
+	glm::vec3 bbMin, glm::vec3 bbMax, glm::vec3 origin, glm::vec3 dir
 ) {
-	float invDir[3] = {
-		1.0f / dir[0],
-		1.0f / dir[1],
-		1.0f / dir[2]
-	};
+	glm::vec3 invDir = 1.0f / dir;
 	float bounds[2][3] = {
 		bbMin[0], bbMin[1], bbMin[2],
 		bbMax[0], bbMax[1], bbMax[2]
@@ -278,6 +264,50 @@ bool KdTree::hitBoundingBox(
 		( isnan( tmin ) && tmax <= 1.0f + EPSILON ) ||
 		( isnan( tmax ) && tmin >= -EPSILON )
 	);
+}
+
+
+/**
+ * Test if a given vector hits a given triangle.
+ * @param  {glm::vec3} vStart Start point of the vector.
+ * @param  {glm::vec3} vEnd   End point of the vector.
+ * @param  {glm::vec3} a      Point of the triangle.
+ * @param  {glm::vec3} b      Point of the triangle.
+ * @param  {glm::vec3} c      Point of the triangle.
+ * @return {bool}             True if vector intersects triangle, false otherwise.
+ */
+bool KdTree::hitTriangle( glm::vec3 vStart, glm::vec3 vEnd, glm::vec3 a, glm::vec3 b, glm::vec3 c ) {
+	glm::vec3 dir = vEnd - vStart;
+	glm::vec3 edge1 = b - a;
+	glm::vec3 edge2 = c - a;
+	glm::vec3 pVec = glm::cross( dir, edge2 );
+	cl_float det = glm::dot( edge1, pVec );
+
+	if( abs( det ) < EPSILON ) {
+		return false;
+	}
+
+	glm::vec3 tVec = vStart - a;
+	cl_float u = glm::dot( tVec, pVec ) / det;
+
+	if( u < 0.0f || u > 1.0f ) {
+		return false;
+	}
+
+	glm::vec3 qVec = glm::cross( tVec, edge1 );
+	cl_float v = glm::dot( dir, qVec ) / det;
+
+	if( v < 0.0f || u + v > 1.0f ) {
+		return false;
+	}
+
+	cl_float t = glm::dot( edge2, qVec ) / det;
+
+	if( t < 0.0f || t > 1.0f ) {
+		return false;
+	}
+
+	return true;
 }
 
 
@@ -508,7 +538,7 @@ void KdTree::printNode( kdNode_t* node ) {
  */
 void KdTree::printNumFacesOfLeaves() {
 	for( int i = 0; i < mLeaves.size(); i++ ) {
-		printf( "%d: %3lu faces\n", mLeaves[i]->index, mLeaves[i]->faces.size() );
+		printf( "%3d: %3lu faces\n", mLeaves[i]->index, mLeaves[i]->faces.size() );
 	}
 }
 
