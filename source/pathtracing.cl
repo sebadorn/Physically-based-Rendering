@@ -1,6 +1,7 @@
 #BACKFACE_CULLING#
 #SHADOWS#
 #define EPSILON 0.00001f
+#define PI_X2 6.28318530718f
 
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
@@ -31,7 +32,7 @@ inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
 
 	float r = sqrt( u );
-	float theta = 6.28318530718f * v; // M_PI * 2.0f * v
+	float theta = PI_X2 * v;
 
 	float x = r * cos( theta );
 	float y = r * sin( theta );
@@ -50,7 +51,7 @@ inline float4 uniformlyRandomDirection( float seed ) {
 	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
 	float z = 1.0f - 2.0f * u;
 	float r = sqrt( 1.0f - z * z );
-	float angle = 6.28318530718f * v;
+	float angle = PI_X2 * v;
 
 	return (float4)( r * cos( angle ), r * sin( angle), z, 0.0f );
 }

@@ -17,9 +17,11 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mFrameCount = 0;
 	mPreviousTime = 0;
 	mSelectedLight = -1;
+
 	mViewBoundingBox = false;
 	mViewKdTree = false;
 	mViewOverlay = false;
+	mViewSelectedLight = false;
 	mViewTracer = true;
 
 	mPathTracer = new PathTracer();
@@ -298,6 +300,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 	this->setShaderBuffersForOverlay( mVertices, mFaces );
 	this->setShaderBuffersForBoundingBox( mBoundingBox );
+	this->setShaderBuffersForSelectedLight();
 	this->setShaderBuffersForKdTree( verticesKdTree, indicesKdTree );
 	this->setShaderBuffersForTracer();
 	this->initShaders();
@@ -478,11 +481,39 @@ void GLWidget::paintScene() {
 			glGetUniformLocation( mGLProgramSimple, "mvp" ),
 			1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
 		);
-		float color[4] = { 0.6f, 1.0f, 0.3f, 0.4f };
+		GLfloat color[4] = { 0.6f, 1.0f, 0.3f, 0.4f };
 		glUniform4fv( glGetUniformLocation( mGLProgramSimple, "fragColor" ), 1, color );
+
+		GLfloat translate[3] = { 0.0f, 0.0f, 0.0f };
+		glUniform3fv( glGetUniformLocation( mGLProgramSimple, "translate" ), 1, translate );
 
 		glBindVertexArray( mVA[VA_OVERLAY] );
 		glDrawElements( GL_TRIANGLES, mFaces.size(), GL_UNSIGNED_INT, NULL );
+
+		glBindVertexArray( 0 );
+		glUseProgram( 0 );
+	}
+
+
+	// Show the selected light source by rendering a box around its core
+	if( mViewSelectedLight ) {
+		glUseProgram( mGLProgramSimple );
+		glUniformMatrix4fv(
+			glGetUniformLocation( mGLProgramSimple, "mvp" ),
+			1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
+		);
+		GLfloat color[4] = { 1.0f, 1.0f, 0.5f, 0.4f };
+		glUniform4fv( glGetUniformLocation( mGLProgramSimple, "fragColor" ), 1, color );
+
+		GLfloat lightPos[3] = {
+			mLights[mSelectedLight].position[0],
+			mLights[mSelectedLight].position[1],
+			mLights[mSelectedLight].position[2]
+		};
+		glUniform3fv( glGetUniformLocation( mGLProgramSimple, "translate" ), 1, lightPos );
+
+		glBindVertexArray( mVA[VA_LIGHT] );
+		glDrawElements( GL_LINES, 24, GL_UNSIGNED_INT, NULL );
 
 		glBindVertexArray( 0 );
 		glUseProgram( 0 );
@@ -496,8 +527,11 @@ void GLWidget::paintScene() {
 			glGetUniformLocation( mGLProgramSimple, "mvp" ),
 			1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
 		);
-		float color[4] = { 1.0f, 1.0f, 1.0f, 0.6f };
+		GLfloat color[4] = { 1.0f, 1.0f, 1.0f, 0.6f };
 		glUniform4fv( glGetUniformLocation( mGLProgramSimple, "fragColor" ), 1, color );
+
+		GLfloat translate[3] = { 0.0f, 0.0f, 0.0f };
+		glUniform3fv( glGetUniformLocation( mGLProgramSimple, "translate" ), 1, translate );
 
 		glBindVertexArray( mVA[VA_BOUNDINGBOX] );
 		glDrawElements( GL_LINES, 24, GL_UNSIGNED_INT, NULL );
@@ -514,8 +548,11 @@ void GLWidget::paintScene() {
 			glGetUniformLocation( mGLProgramSimple, "mvp" ),
 			1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
 		);
-		float color[4] = { 0.6f, 0.85f, 1.0f, 0.8f };
+		GLfloat color[4] = { 0.6f, 0.85f, 1.0f, 0.8f };
 		glUniform4fv( glGetUniformLocation( mGLProgramSimple, "fragColor" ), 1, color );
+
+		GLfloat translate[3] = { 0.0f, 0.0f, 0.0f };
+		glUniform3fv( glGetUniformLocation( mGLProgramSimple, "translate" ), 1, translate );
 
 		glBindVertexArray( mVA[VA_KDTREE] );
 		glDrawElements( GL_LINES, mKdTreeNumIndices, GL_UNSIGNED_INT, NULL );
@@ -676,6 +713,56 @@ void GLWidget::setShaderBuffersForKdTree( vector<GLfloat> vertices, vector<GLuin
 
 
 /**
+ * Set the vertex array for the box around the selected light.
+ */
+void GLWidget::setShaderBuffersForSelectedLight() {
+	GLfloat bbVertices[24] = {
+		// bottom
+		-0.15f, -0.15f, -0.15f,
+		 0.15f, -0.15f, -0.15f,
+		-0.15f, -0.15f,  0.15f,
+		 0.15f, -0.15f,  0.15f,
+		// top
+		-0.15f,  0.15f, -0.15f,
+		 0.15f,  0.15f, -0.15f,
+		-0.15f,  0.15f,  0.15f,
+		 0.15f,  0.15f,  0.15f
+	};
+	GLuint bbIndices[24] = {
+		// bottom
+		0, 1, 1, 3, 3, 2, 2, 0,
+		// left
+		0, 4, 2, 6,
+		// top
+		6, 4, 4, 5, 5, 7, 7, 6,
+		// right
+		1, 5, 3, 7
+	};
+
+	GLuint vaID;
+	glGenVertexArrays( 1, &vaID );
+	glBindVertexArray( vaID );
+
+	GLuint vertexBuffer;
+	glGenBuffers( 1, &vertexBuffer );
+	glBindBuffer( GL_ARRAY_BUFFER, vertexBuffer );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( bbVertices ), &bbVertices, GL_STATIC_DRAW );
+	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0 );
+	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
+
+	GLuint indexBuffer;
+	glGenBuffers( 1, &indexBuffer );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( bbIndices ), &bbIndices, GL_STATIC_DRAW );
+
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glBindVertexArray( 0 );
+
+	mVA[VA_LIGHT] = vaID;
+}
+
+
+/**
  * Init vertex buffer for the rendering of the OpenCL generated texture.
  */
 void GLWidget::setShaderBuffersForTracer() {
@@ -767,10 +854,12 @@ void GLWidget::toggleLightControl() {
 	if( mSelectedLight == -1 ) {
 		if( mLights.size() > 0 ) {
 			mSelectedLight = 0;
+			mViewSelectedLight = true;
 		}
 	}
 	else {
 		mSelectedLight = -1;
+		mViewSelectedLight = false;
 	}
 }
 

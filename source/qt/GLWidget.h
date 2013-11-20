@@ -26,7 +26,7 @@
 #endif
 
 // Number of vertex arrays
-#define NUM_VA 4
+#define NUM_VA 5
 // Vertex array for path tracer texture
 #define VA_TRACER 0
 // Vertex array for model overlay (for position comparison)
@@ -35,6 +35,8 @@
 #define VA_BOUNDINGBOX 2
 // Vertex array for kd-tree visualization
 #define VA_KDTREE 3
+// Vertex array for the selected light (small box around the source core)
+#define VA_LIGHT 4
 
 using std::map;
 using std::string;
@@ -86,6 +88,7 @@ class GLWidget : public QGLWidget {
 		void setShaderBuffersForOverlay( vector<GLfloat> vertices, vector<GLuint> indices );
 		void setShaderBuffersForBoundingBox( GLfloat* bbox );
 		void setShaderBuffersForKdTree( vector<GLfloat> vertices, vector<GLuint> indices );
+		void setShaderBuffersForSelectedLight();
 		void setShaderBuffersForTracer();
 		void showFPS();
 
@@ -100,6 +103,7 @@ class GLWidget : public QGLWidget {
 		bool mViewBoundingBox;
 		bool mViewKdTree;
 		bool mViewOverlay;
+		bool mViewSelectedLight;
 		bool mViewTracer;
 
 		int mSelectedLight;
