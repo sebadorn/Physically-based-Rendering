@@ -1,4 +1,5 @@
 #BACKFACE_CULLING#
+#SHADOWS#
 #define EPSILON 0.00001f
 
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
@@ -651,7 +652,7 @@ __kernel void findIntersectionsKdTree(
 		rays[workIndex] = normalize( newDir );
 
 
-		// Shadow
+	#ifdef SHADOWS
 
 		float4 light = lights[0];
 		float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
@@ -659,13 +660,19 @@ __kernel void findIntersectionsKdTree(
 		float4 toLight = newLight - hit.position;
 
 		// TODO: hit.nodeIndex instead of kdRoot
-		// bool isInShadow = shadowTest(
-		// 	&ray, &toLight, kdRoot, scVertices, scFaces,
-		// 	kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes
-		// );
+		bool isInShadow = shadowTest(
+			&ray, &toLight, kdRoot, scVertices, scFaces,
+			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes
+		);
 
-		// hit.position.w = !isInShadow;
+		hit.position.w = !isInShadow;
+
+	#else
+
 		hit.position.w = 1.0f;
+
+	#endif
+
 	}
 
 	origins[workIndex] = hit.position;

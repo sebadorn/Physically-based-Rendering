@@ -1,6 +1,7 @@
 #include "CL.h"
 
 using std::string;
+using std::vector;
 
 
 /**
@@ -447,13 +448,34 @@ void CL::setKernelArg( cl_kernel kernel, cl_uint index, size_t size, void* data 
 }
 
 
+/**
+ * Replace placeholder text in the OpenCL (*.cl) file with the appropiate values
+ * set or indicated in the config.
+ * @param  {std::string} clProgramString The original file content.
+ * @return {std::string}                 The adjusted file content.
+ */
 string CL::setValues( string clProgramString ) {
-	string search = "#BACKFACE_CULLING#";
-	size_t foundStrPos = clProgramString.find( search );
+	// Placeholder names in the OpenCL file
+	vector<string> boolReplace;
+	boolReplace.push_back( "BACKFACE_CULLING" );
+	boolReplace.push_back( "SHADOWS" );
 
-	if( foundStrPos != string::npos ) {
-		string value = Cfg::get().value<bool>( Cfg::RENDER_BACKFACECULLING ) ? "#define BACKFACE_CULLING 1" : "";
-		clProgramString.replace( foundStrPos, search.length(), value );
+	// Boolean values from the config
+	vector<bool> configValue;
+	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_BACKFACECULLING ) );
+	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_SHADOWS ) );
+
+	string search, value;
+	size_t foundStrPos;
+
+	for( int i = 0; i < boolReplace.size(); i++ ) {
+		search = "#" + boolReplace[i] + "#";
+		foundStrPos = clProgramString.find( search );
+
+		if( foundStrPos != string::npos ) {
+			value = configValue[i] ? "#define " + boolReplace[i] + " 1" : "";
+			clProgramString.replace( foundStrPos, search.length(), value );
+		}
 	}
 
 	return clProgramString;
