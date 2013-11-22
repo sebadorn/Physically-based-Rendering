@@ -93,8 +93,10 @@ void PathTracer::clFindIntersections( cl_float timeSinceStart ) {
 void PathTracer::clInitRays() {
 	cl_uint i = 3;
 	cl_float fovRad = utils::degToRad( mFOV );
+	cl_uint wgs = Cfg::get().value<cl_uint>( Cfg::OPENCL_WORKGROUPSIZE );
 
 	// Not a mistake: Start kernel args at index 1. Index 0 will be the workgroup offset.
+	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_uint ), &wgs );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufEye );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_float ), &fovRad );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufOrigins );

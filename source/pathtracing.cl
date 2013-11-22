@@ -691,7 +691,7 @@ __kernel void findIntersectionsKdTree(
  * @param {__global float4*} rays    Output. The generated rays for each pixel.
  */
 __kernel void generateRays(
-	const uint width, const uint height, const uint offsetW, const uint offsetH,
+	const uint width, const uint height, const uint offsetW, const uint offsetH, const uint workgroupsize,
 	__global float* eyeIn, const float fovRad,
 	__global float4* origins, __global float4* rays,
 	__global float4* accColors, __global float4* colorMasks
@@ -707,8 +707,8 @@ __kernel void generateRays(
 	float4 u = (float4)( eyeIn[6], eyeIn[7], eyeIn[8], 0.0f );
 	float4 v = (float4)( eyeIn[9], eyeIn[10], eyeIn[11], 0.0f );
 
-	float globSizeW = get_global_size( 0 );
-	float globSizeH = get_global_size( 1 );
+	float globSizeW = workgroupsize;
+	float globSizeH = workgroupsize;
 	float wGsw = width / globSizeW;
 	float hGsh = height / globSizeH;
 

@@ -249,25 +249,31 @@ void CL::execute( cl_kernel kernel ) {
 	cl_uint h = Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT );
 	cl_uint wgs = Cfg::get().value<cl_uint>( Cfg::OPENCL_WORKGROUPSIZE );
 
-	cl_uint offsetH, offsetW;
-	cl_uint groupsW = w / wgs;
-	cl_uint groupsH = h / wgs;
+	cl_uint offsetH;
+	cl_uint offsetW = 0;
 
-	for( cl_uint i = 0; i < groupsW; i++ ) {
-		offsetW = i * wgs;
+	while( offsetW < w ) {
+		offsetH = 0;
 
-		for( cl_uint j = 0; j < groupsH; j++ ) {
-			offsetH = j * wgs;
+		while( offsetH < h ) {
 			this->setKernelArg( kernel, 0, sizeof( cl_uint ), &w );
 			this->setKernelArg( kernel, 1, sizeof( cl_uint ), &h );
 			this->setKernelArg( kernel, 2, sizeof( cl_uint ), &offsetW );
 			this->setKernelArg( kernel, 3, sizeof( cl_uint ), &offsetH );
 
-			size_t workSize[3] = { wgs, wgs, 1 };
+			size_t workSize[3] = {
+				std::min( w - offsetW, wgs ),
+				std::min( h - offsetH, wgs ),
+				1
+			};
 			err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 2, NULL, workSize, NULL, mEvents.size(), &mEvents[0], &event );
 			this->checkError( err, "clEnqueueNDRangeKernel" );
 			mEvents.push_back( event );
+
+			offsetH += wgs;
 		}
+
+		offsetW += wgs;
 	}
 }
 

@@ -40,7 +40,7 @@
 	"opencl": {
 		"program": "source/pathtracing.cl",
 		// Squares only, so this setting is for width and height together
-		"workgroupsize": 256
+		"workgroupsize": 512
 	},
 
 	"render": {
@@ -63,9 +63,9 @@
 	},
 
 	"window": {
-		"height": 512,
+		"height": 800,
 		"title": "Physically-based Renderer",
-		"width": 1024
+		"width": 600
 	}
 
 }
