@@ -532,7 +532,7 @@ __kernel void accumulateColors(
 	__read_only image2d_t textureIn, __write_only image2d_t textureOut
 ) {
 	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
-	uint workIndex = pos.x + pos.y * height;
+	uint workIndex = pos.x + pos.y * width;
 
 	float4 hit = origins[workIndex];
 
@@ -611,7 +611,7 @@ __kernel void findIntersectionsKdTree(
 	const uint kdRoot, const float timeSinceStart
 ) {
 	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
-	uint workIndex = pos.x + pos.y * height;
+	uint workIndex = pos.x + pos.y * width;
 
 	float4 origin = origins[workIndex];
 	float4 dir = rays[workIndex];
@@ -697,7 +697,7 @@ __kernel void generateRays(
 	__global float4* accColors, __global float4* colorMasks
 ) {
 	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
-	uint workIndex = pos.x + pos.y * height;
+	uint workIndex = pos.x + pos.y * width;
 
 	// Camera eye
 	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
@@ -707,17 +707,27 @@ __kernel void generateRays(
 	float4 u = (float4)( eyeIn[6], eyeIn[7], eyeIn[8], 0.0f );
 	float4 v = (float4)( eyeIn[9], eyeIn[10], eyeIn[11], 0.0f );
 
+	float globSizeW = get_global_size( 0 );
+	float globSizeH = get_global_size( 1 );
+	float wGsw = width / globSizeW;
+	float hGsh = height / globSizeH;
+
+	// TODO: Can be pre-computed on CPU
 	float f = 2.0f * tan( fovRad / 2.0f );
-	float pxWidth = f / (float) width;
-	float pxHeight = f / (float) height;
+	f /= ( width > height ) ? fmin( wGsw, hGsh ) : fmax( wGsw, hGsh );
+	float pxWidth = f / globSizeW;
+	float pxHeight = f / globSizeH;
+
+	float adjustW = ( width - globSizeW ) / 2.0f;
+	float adjustH = ( height - globSizeH ) / 2.0f;
 
 	float4 initialRay = eye + w
-			- (float) width / 2.0f * pxWidth * u
-			+ (float) height / 2.0f * pxHeight * v
+			- globSizeW / 2.0f * pxWidth * u
+			+ globSizeH / 2.0f * pxHeight * v
 			+ pxWidth / 2.0f * u
 			- pxHeight / 2.0f * v;
-	initialRay += pos.x * pxWidth * u;
-	initialRay -= ( (float) height - pos.y ) * pxHeight * v;
+	initialRay += ( pos.x - adjustW ) * pxWidth * u;
+	initialRay -= ( globSizeH - pos.y + adjustH ) * pxHeight * v;
 	initialRay.w = 0.0f;
 
 	rays[workIndex] = normalize( initialRay - eye );
