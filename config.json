@@ -29,9 +29,9 @@
 
 	"lights": {
 		"default_position": {
-			"x": 0.3,
+			"x": -0.2,
 			"y": 1.1,
-			"z": 0.5
+			"z": 0.6
 		}
 	},
 
@@ -63,9 +63,9 @@
 	},
 
 	"window": {
-		"height": 800,
+		"height": 512,
 		"title": "Physically-based Renderer",
-		"width": 600
+		"width": 512
 	}
 
 }

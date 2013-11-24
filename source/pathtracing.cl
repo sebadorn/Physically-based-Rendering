@@ -81,7 +81,7 @@ inline float4 uniformlyRandomVector( float seed ) {
  * @param  result [description]
  * @return        [description]
  */
-inline float checkFaceIntersection(
+float checkFaceIntersection(
 	float4* origin, float4* dir, float4 a, float4 b, float4 c,
 	float tNear, float tFar, hit_t* result
 ) {
@@ -89,7 +89,6 @@ inline float checkFaceIntersection(
 	float4 edge2 = c - a;
 	float4 pVec = cross( *dir, edge2 );
 	float det = dot( edge1, pVec );
-
 
 #ifdef BACKFACE_CULLING
 
@@ -114,8 +113,6 @@ inline float checkFaceIntersection(
 	float t = dot( edge2, qVec );
 	float invDet = 1.0f / det;
 	t *= invDet;
-	// u *= invDet;
-	// v *= invDet;
 
 #else
 
@@ -141,7 +138,7 @@ inline float checkFaceIntersection(
 
 #endif
 
-	if( t <= EPSILON || t < tNear - EPSILON || t > tFar + EPSILON ) {
+	if( t < EPSILON || t < tNear - EPSILON || t > tFar + EPSILON ) {
 		return -2.0f;
 	}
 
@@ -164,15 +161,14 @@ inline float checkFaceIntersection(
  * @param exitDistance  [description]
  * @param result        [description]
  */
-inline void checkFaces(
+void checkFaces(
 	int nodeIndex, int faceIndex, float4* origin, float4* dir,
 	__global float* scVertices, __global uint* scFaces, __global int* kdNodeData3,
 	float entryDistance, float* exitDistance, hit_t* result
 ) {
 	float4 a, b, c;
-	float closest, r;
+	float r;
 	hit_t newResult;
-	bool hitOneFace = false;
 
 	int i = 0;
 	int numFaces = kdNodeData3[faceIndex];
@@ -208,7 +204,7 @@ inline void checkFaces(
 		if( r > -1.0f ) {
 			*exitDistance = r;
 
-			if( result->distance > newResult.distance || result->distance < 0.0f ) {
+			if( result->distance < 0.0f || result->distance > newResult.distance ) {
 				result->distance = newResult.distance;
 				result->position = newResult.position;
 				result->normalIndex = f;
@@ -223,7 +219,7 @@ inline void checkFaces(
  * Source: http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
  * Source: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
  */
-inline bool intersectBoundingBox(
+bool intersectBoundingBox(
 	float4* origin, float4* direction, float* bbMin, float* bbMax,
 	float* tNear, float* tFar, int* exitRope
 ) {
@@ -291,6 +287,31 @@ inline bool isInsideBoundingBox( float* bbMin, float* bbMax, float4 p ) {
 }
 
 
+
+void goToLeafNode(
+	int* nodeIndex, __global float* const kdNodeData1, __global int* const kdNodeData2,
+	float4* const hitNear, float* bbMin, float* bbMax
+) {
+	int left = kdNodeData2[*nodeIndex * 5];
+	int right = kdNodeData2[*nodeIndex * 5 + 1];
+	int axis = kdNodeData2[*nodeIndex * 5 + 2];
+
+	while( left >= 0 && right >= 0 ) {
+		*nodeIndex = ( ( (float*) hitNear )[axis] < kdNodeData1[*nodeIndex * 9 + axis] ) ? left : right;
+		left = kdNodeData2[*nodeIndex * 5];
+		right = kdNodeData2[*nodeIndex * 5 + 1];
+		axis = kdNodeData2[*nodeIndex * 5 + 2];
+	}
+
+	bbMin[0] = kdNodeData1[*nodeIndex * 9 + 3];
+	bbMin[1] = kdNodeData1[*nodeIndex * 9 + 4];
+	bbMin[2] = kdNodeData1[*nodeIndex * 9 + 5];
+	bbMax[0] = kdNodeData1[*nodeIndex * 9 + 6];
+	bbMax[1] = kdNodeData1[*nodeIndex * 9 + 7];
+	bbMax[2] = kdNodeData1[*nodeIndex * 9 + 8];
+}
+
+
 /**
  * Find the closest hit of the ray with a surface.
  * Uses stackless kd-tree traversal.
@@ -338,40 +359,15 @@ inline void traverseKdTree(
 
 
 	float4 hitNear;
-	int left, right, axis, faceIndex, ropeIndex;
-	int i = 0;
+	int faceIndex, ropeIndex;
 
 	while( entryDistance < exitDistance ) {
-		// TODO: Infinite loop bug seems to be fixed!
-		// Remove this line later. Just keeping it a little longer
-		// as precaution while tackling some other issues.
-		if( i++ > 1000 ) { return; }
-
-
 		// Find a leaf node for this ray
-
 		hitNear = (*origin) + entryDistance * (*dir);
-		left = kdNodeData2[nodeIndex * 5];
-		right = kdNodeData2[nodeIndex * 5 + 1];
-		axis = kdNodeData2[nodeIndex * 5 + 2];
-
-		while( left >= 0 && right >= 0 ) {
-			nodeIndex = ( ( (float*) &hitNear )[axis] < kdNodeData1[nodeIndex * 9 + axis] ) ? left : right;
-			left = kdNodeData2[nodeIndex * 5];
-			right = kdNodeData2[nodeIndex * 5 + 1];
-			axis = kdNodeData2[nodeIndex * 5 + 2];
-		}
-
-		bbMin[0] = kdNodeData1[nodeIndex * 9 + 3];
-		bbMin[1] = kdNodeData1[nodeIndex * 9 + 4];
-		bbMin[2] = kdNodeData1[nodeIndex * 9 + 5];
-		bbMax[0] = kdNodeData1[nodeIndex * 9 + 6];
-		bbMax[1] = kdNodeData1[nodeIndex * 9 + 7];
-		bbMax[2] = kdNodeData1[nodeIndex * 9 + 8];
+		goToLeafNode( &nodeIndex, kdNodeData1, kdNodeData2, &hitNear, bbMin, bbMax );
 
 
 		// At a leaf node now, check triangle faces
-
 		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
 
 		checkFaces(
@@ -381,7 +377,6 @@ inline void traverseKdTree(
 
 
 		// Exit leaf node
-
 		intersectBoundingBox( origin, dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
 
 		if( entryDistance >= exitDistance ) {
@@ -390,7 +385,6 @@ inline void traverseKdTree(
 
 
 		// Follow the rope
-
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
 		nodeIndex = kdNodeRopes[ropeIndex + exitRope];
 
@@ -440,41 +434,15 @@ inline bool shadowTest(
 	entryDistance = fmax( entryDistance, 0.0f );
 
 	float4 hitNear;
-	int axis, faceIndex, left, right, ropeIndex;
-	int i = 0;
+	int faceIndex, ropeIndex;
 
 	while( entryDistance < exitDistance ) {
-		// TODO: Infinite loop bug seems to be fixed!
-		// Remove this line later. Just keeping it a little longer
-		// as precaution while tackling some other issues.
-		if( i++ > 1000 ) { return false; }
-
-
 		// Find a leaf node for this ray
-
 		hitNear = (*origin) + entryDistance * dir;
-		left = kdNodeData2[nodeIndex * 5];
-		right = kdNodeData2[nodeIndex * 5 + 1];
-		axis = kdNodeData2[nodeIndex * 5 + 2];
-
-		while( left >= 0 && right >= 0 ) {
-			nodeIndex = ( ( (float*) &hitNear )[axis] < kdNodeData1[nodeIndex * 9 + axis] )
-			          ? left : right;
-			left = kdNodeData2[nodeIndex * 5];
-			right = kdNodeData2[nodeIndex * 5 + 1];
-			axis = kdNodeData2[nodeIndex * 5 + 2];
-		}
-
-		bbMin[0] = kdNodeData1[nodeIndex * 9 + 3];
-		bbMin[1] = kdNodeData1[nodeIndex * 9 + 4];
-		bbMin[2] = kdNodeData1[nodeIndex * 9 + 5];
-		bbMax[0] = kdNodeData1[nodeIndex * 9 + 6];
-		bbMax[1] = kdNodeData1[nodeIndex * 9 + 7];
-		bbMax[2] = kdNodeData1[nodeIndex * 9 + 8];
+		goToLeafNode( &nodeIndex, kdNodeData1, kdNodeData2, &hitNear, bbMin, bbMax );
 
 
 		// At a leaf node now, check triangle faces
-
 		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
 
 		checkFaces(
@@ -488,7 +456,6 @@ inline bool shadowTest(
 
 
 		// Exit leaf node
-
 		intersectBoundingBox( origin, &dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
 
 		if( entryDistance >= exitDistance ) {
@@ -497,7 +464,6 @@ inline bool shadowTest(
 
 
 		// Follow the rope
-
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
 		nodeIndex = kdNodeRopes[ropeIndex + exitRope];
 
@@ -554,22 +520,20 @@ __kernel void accumulateColors(
 		newLight.w = 0.0f;
 
 		float4 normal = normals[workIndex];
-		normal.w = 0.0f;
 
 		// Distance of the hit surface point to the light source
 		float4 toLight = newLight - hit;
-		toLight.w = 0.0f;
 
 		// Lambert factor (dot product is a cosine)
 		// Source: http://learnopengles.com/android-lesson-two-ambient-and-diffuse-lighting/
 		float diffuse = fmax( dot( normal, normalize( toLight ) ), 0.0f );
-		float luminosity = 1.0f / ( length( toLight ) /** length( toLight )*/ );
+		float luminosity = 1.0f / ( length( toLight ) * length( toLight ) );
 
 		float specularHighlight = 0.0f; // Disabled for now
-		float4 surfaceColor = (float4)( 0.75f, 0.75f, 0.75f, 0.0f );
+		float4 surfaceColor = (float4)( 0.6f, 0.6f, 0.6f, 1.0f );
 
 		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * ( 0.6f * luminosity * diffuse * shadowIntensity );
+		accumulatedColor += colorMask * ( luminosity * diffuse * shadowIntensity );
 		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
 	}
 
@@ -634,7 +598,6 @@ __kernel void findIntersectionsKdTree(
 
 	if( hit.distance > -1.0f ) {
 		// Normal of hit position
-
 		uint f = hit.normalIndex;
 
 		float4 faceNormal = (float4)(
@@ -647,7 +610,6 @@ __kernel void findIntersectionsKdTree(
 
 
 		// New ray
-
 		float4 newDir = cosineWeightedDirection( timeSinceStart, faceNormal ) - hit.position;
 		newDir.w = 0.0f;
 		rays[workIndex] = normalize( newDir );
