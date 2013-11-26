@@ -13,6 +13,7 @@
 #include "CL.h"
 #include "Cfg.h"
 #include "KdTree.h"
+#include "MtlParser.h"
 
 using std::vector;
 
@@ -28,7 +29,7 @@ class PathTracer {
 		vector<cl_float> generateImage();
 		void initOpenCLBuffers(
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-			vector<cl_uint> facesVN,
+			vector<cl_uint> facesVN, vector<cl_int> facesMtl, vector<material_t> materials,
 			vector<light_t> lights,
 			vector<kdNode_t> kdNodes, cl_uint rootIndex
 		);
@@ -76,6 +77,9 @@ class PathTracer {
 		cl_mem mBufKdNodeData2;
 		cl_mem mBufKdNodeData3;
 		cl_mem mBufKdNodeRopes;
+
+		cl_mem mBufMaterialsColorDiffuse;
+		cl_mem mBufMaterialToFace;
 
 		cl_mem mBufAccColors;
 		cl_mem mBufColorMasks;

@@ -21,6 +21,7 @@ class ObjParser {
 		ObjParser();
 		~ObjParser();
 		void load( string filepath, string filename );
+		vector<GLint> getFacesMtl();
 		vector<GLuint> getFacesV();
 		vector<GLuint> getFacesVN();
 		vector<GLuint> getFacesVT();

@@ -25,12 +25,12 @@ using std::vector;
  *      Glass has a value of around 1.5.
  * Ns - Specular exponent between [0.0, 1000.0].
  */
-typedef struct material_t {
-	string name;
+struct material_t {
+	string mtlName;
 	GLfloat d, Ni, Ns;
 	GLfloat Ka[3], Kd[3], Ks[3];
 	GLint illum;
-} material_t;
+};
 
 
 class MtlParser {

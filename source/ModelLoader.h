@@ -19,7 +19,7 @@ using std::string;
 using std::vector;
 
 
-typedef struct light_t {
+struct light_t {
 	float position[4];
 	float diffuse[4],
 	      specular[4];
@@ -29,7 +29,7 @@ typedef struct light_t {
 	float spotCutoff,
 	      spotExponent,
 	      spotDirection[3];
-} light_t;
+};
 
 
 class ModelLoader {

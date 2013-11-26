@@ -49,6 +49,8 @@ void PathTracer::clAccumulateColors( cl_float timeSinceStart ) {
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufAccColors );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufColorMasks );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufLights );
+	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufMaterialToFace );
+	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufMaterialsColorDiffuse );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_float ), &textureWeight );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_float ), &timeSinceStart );
 	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufTextureIn );
@@ -171,7 +173,7 @@ cl_float PathTracer::getTimeSinceStart() {
  */
 void PathTracer::initOpenCLBuffers(
 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-	vector<cl_uint> facesVN,
+	vector<cl_uint> facesVN, vector<cl_int> facesMtl, vector<material_t> materials,
 	vector<light_t> lights,
 	vector<kdNode_t> kdNodes, cl_uint rootIndex
 ) {
@@ -188,6 +190,15 @@ void PathTracer::initOpenCLBuffers(
 	mBufKdNodeData2 = mCL->createBuffer( kdData2, sizeof( cl_int ) * kdData2.size() );
 	mBufKdNodeData3 = mCL->createBuffer( kdData3, sizeof( cl_int ) * kdData3.size() );
 	mBufKdNodeRopes = mCL->createBuffer( kdRopes, sizeof( cl_int ) * kdRopes.size() );
+
+	vector<cl_float> diffuseColors; // [r, g, b]
+	for( int i = 0; i < materials.size(); i++ ) {
+		diffuseColors.push_back( materials[i].Kd[0] );
+		diffuseColors.push_back( materials[i].Kd[1] );
+		diffuseColors.push_back( materials[i].Kd[2] );
+	}
+	mBufMaterialsColorDiffuse = mCL->createBuffer( diffuseColors, sizeof( cl_float ) * diffuseColors.size() );
+	mBufMaterialToFace = mCL->createBuffer( facesMtl, sizeof( cl_int ) * facesMtl.size() );
 
 	mBufScFaces = mCL->createBuffer( faces, sizeof( cl_uint ) * faces.size() );
 	mBufScVertices = mCL->createBuffer( vertices, sizeof( cl_float ) * vertices.size() );

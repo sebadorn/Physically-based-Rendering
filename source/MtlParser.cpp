@@ -10,7 +10,7 @@ using std::vector;
  */
 material_t MtlParser::getEmptyMaterial() {
 	material_t mtl;
-	mtl.name = "";
+	mtl.mtlName = "";
 	mtl.Ka[0] = 0.0f; mtl.Ka[1] = 0.0f; mtl.Ka[2] = 0.0f;
 	mtl.Kd[0] = 0.0f; mtl.Kd[1] = 0.0f; mtl.Kd[2] = 0.0f;
 	mtl.Ks[0] = 0.0f; mtl.Ks[1] = 0.0f; mtl.Ks[2] = 0.0f;
@@ -73,8 +73,8 @@ void MtlParser::load( string file ) {
 			}
 			numMtlFound++;
 
-			material_t mtl = this->getEmptyMaterial();
-			mtl.name = parts[1];
+			mtl = this->getEmptyMaterial();
+			mtl.mtlName = parts[1];
 		}
 		// Transparency (dissolve)
 		else if( parts[0] == "d" || parts[0] == "Tr" ) {
@@ -150,5 +150,13 @@ void MtlParser::load( string file ) {
 		mMaterials.push_back( mtl );
 	}
 
+	for( int i = 0; i < mMaterials.size(); i++ ) {
+		printf( "mtlName: %s\n", mMaterials[i].mtlName.c_str() );
+	}
+
 	fileIn.close();
+
+	char msg[64];
+	snprintf( msg, 64, "[MtlParser] Loaded %lu materials.", mMaterials.size() );
+	Logger::logDebug( msg );
 }

@@ -60,8 +60,12 @@ vector<GLfloat> ModelLoader::getBoundingBox() {
 }
 
 
+/**
+ * Get the material of each face.
+ * @return {std::vector<GLint>} The material index of each face.
+ */
 vector<GLint> ModelLoader::getFacesMtl() {
-
+	return mObjParser->getFacesMtl();
 }
 
 

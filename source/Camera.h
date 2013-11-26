@@ -12,13 +12,13 @@
 using std::vector;
 
 
-typedef struct {
+struct camera_t {
 	float eyeX, eyeY, eyeZ;
 	float centerX, centerY, centerZ;
 	float upX, upY, upZ;
 	float rightX, rightY, rightZ;
 	float rotX, rotY;
-} camera_t;
+};
 
 
 class GLWidget;

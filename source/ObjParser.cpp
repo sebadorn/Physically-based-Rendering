@@ -21,6 +21,15 @@ ObjParser::~ObjParser() {
 
 
 /**
+ * Get the material of each face.
+ * @return {std::vector<GLint>} The material index of each face.
+ */
+vector<GLint> ObjParser::getFacesMtl() {
+	return mFacesMtl;
+}
+
+
+/**
  * Get the loaded faces.
  * @return {std::vector<GLuint>} The vertex indices of the faces.
  */
@@ -103,7 +112,7 @@ void ObjParser::load( string filepath, string filename ) {
 	vector<material_t> materials = mMtlParser->getMaterials();
 	vector<string> materialNames;
 	for( int i = 0; i < materials.size(); i++ ) {
-		materialNames.push_back( materials[i].name );
+		materialNames.push_back( materials[i].mtlName );
 	}
 	GLint currentMtl = -1;
 
@@ -137,10 +146,7 @@ void ObjParser::load( string filepath, string filename ) {
 		else if( line[0] == 'f' ) {
 			if( line[1] == ' ' ) {
 				this->parseFace( line, &mFacesV, &mFacesVN, &mFacesVT );
-
-				if( currentMtl > -1 ) {
-					mFacesMtl.push_back( currentMtl );
-				}
+				mFacesMtl.push_back( currentMtl );
 			}
 		}
 		// Use material

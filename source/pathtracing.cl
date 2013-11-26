@@ -10,6 +10,7 @@ typedef struct hit_t {
 	float distance;
 	int normalIndex;
 	int nodeIndex;
+	int faceIndex;
 } hit_t;
 
 
@@ -209,6 +210,7 @@ void checkFaces(
 				result->position = newResult.position;
 				result->normalIndex = f;
 				result->nodeIndex = nodeIndex;
+				result->faceIndex = ???; // Missing data: face index as in the OBJ file
 			}
 		}
 	}
@@ -494,6 +496,7 @@ __kernel void accumulateColors(
 	__global float4* origins, __global float4* normals,
 	__global float4* accColors, __global float4* colorMasks,
 	__global float4* lights,
+	__global int* materialToFace, __global float* diffuseColors,
 	const float textureWeight, const float timeSinceStart,
 	__read_only image2d_t textureIn, __write_only image2d_t textureOut
 ) {
@@ -521,6 +524,12 @@ __kernel void accumulateColors(
 
 		float4 normal = normals[workIndex];
 
+		// TODO: This is ugly, seperate the (unrelated) data
+		int face = normal.w;
+		int material = materialToFace[face];
+		normals[workIndex].w = 0.0f;
+		normal.w = 0.0f;
+
 		// Distance of the hit surface point to the light source
 		float4 toLight = newLight - hit;
 
@@ -530,7 +539,12 @@ __kernel void accumulateColors(
 		float luminosity = 1.0f / ( length( toLight ) * length( toLight ) );
 
 		float specularHighlight = 0.0f; // Disabled for now
-		float4 surfaceColor = (float4)( 0.6f, 0.6f, 0.6f, 1.0f );
+		float4 surfaceColor = (float4)(
+			diffuseColors[material * 3],
+			diffuseColors[material * 3 + 1],
+			diffuseColors[material * 3 + 2],
+			1.0f
+		);
 
 		colorMask *= surfaceColor;
 		accumulatedColor += colorMask * ( 0.6f * luminosity * diffuse * shadowIntensity );
@@ -637,6 +651,7 @@ __kernel void findIntersectionsKdTree(
 
 	#endif
 
+		normals[workIndex].w = hit.faceIndex;
 	}
 
 	origins[workIndex] = hit.position;
