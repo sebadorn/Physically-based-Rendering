@@ -19,7 +19,7 @@ using std::string;
 using std::vector;
 
 
-typedef struct {
+typedef struct light_t {
 	float position[4];
 	float diffuse[4],
 	      specular[4];
@@ -38,10 +38,12 @@ class ModelLoader {
 		ModelLoader();
 		~ModelLoader();
 		vector<GLfloat> getBoundingBox();
+		vector<GLint> getFacesMtl();
 		vector<GLuint> getFacesV();
 		vector<GLuint> getFacesVN();
 		vector<GLuint> getFacesVT();
 		vector<light_t> getLights();
+		vector<material_t> getMaterials();
 		vector<GLfloat> getNormals();
 		vector<GLfloat> getTextureCoordinates();
 		vector<GLfloat> getVertices();

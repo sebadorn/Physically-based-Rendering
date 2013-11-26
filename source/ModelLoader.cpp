@@ -60,6 +60,11 @@ vector<GLfloat> ModelLoader::getBoundingBox() {
 }
 
 
+vector<GLint> ModelLoader::getFacesMtl() {
+
+}
+
+
 /**
  * Get the faces.
  * @return {std::vector<GLuint>} Faces.
@@ -93,6 +98,15 @@ vector<GLuint> ModelLoader::getFacesVT() {
  */
 vector<light_t> ModelLoader::getLights() {
 	return mLights;
+}
+
+
+/**
+ * Get the loaded materials of the MTL file.
+ * @return {std::vector<material_t>} The materials.
+ */
+vector<material_t> ModelLoader::getMaterials() {
+	return mObjParser->getMaterials();
 }
 
 

@@ -533,7 +533,7 @@ __kernel void accumulateColors(
 		float4 surfaceColor = (float4)( 0.6f, 0.6f, 0.6f, 1.0f );
 
 		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * ( luminosity * diffuse * shadowIntensity );
+		accumulatedColor += colorMask * ( 0.6f * luminosity * diffuse * shadowIntensity );
 		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
 	}
 
@@ -606,7 +606,8 @@ __kernel void findIntersectionsKdTree(
 			scNormals[scFacesVN[f] * 3 + 2],
 			0.0f
 		);
-		normals[workIndex] = normalize( faceNormal - hit.position );
+		// normals[workIndex] = normalize( faceNormal - hit.position );
+		normals[workIndex] = faceNormal;
 
 
 		// New ray
@@ -619,7 +620,7 @@ __kernel void findIntersectionsKdTree(
 
 		float4 light = lights[0];
 		float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
-		float4 ray = hit.position + normals[workIndex] * 0.0001f; // 0.0001f ?
+		float4 ray = hit.position + normals[workIndex] * EPSILON;
 		float4 toLight = newLight - hit.position;
 
 		// TODO: hit.nodeIndex instead of kdRoot

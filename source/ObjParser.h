@@ -1,13 +1,15 @@
 #ifndef OBJPARSER_H
 #define OBJPARSER_H
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
-#include <GL/gl.h>
 #include <fstream>
+#include <GL/gl.h>
 #include <string>
 #include <vector>
 
 #include "Logger.h"
+#include "MtlParser.h"
 
 using std::string;
 using std::vector;
@@ -16,15 +18,19 @@ using std::vector;
 class ObjParser {
 
 	public:
+		ObjParser();
+		~ObjParser();
 		void load( string filepath, string filename );
 		vector<GLuint> getFacesV();
 		vector<GLuint> getFacesVN();
 		vector<GLuint> getFacesVT();
+		vector<material_t> getMaterials();
 		vector<GLfloat> getNormals();
 		vector<GLfloat> getTextureCoordinates();
 		vector<GLfloat> getVertices();
 
 	protected:
+		void loadMtl( string file );
 		void parseFace(
 			string line, vector<GLuint>* facesV,
 			vector<GLuint>* facesVN, vector<GLuint>* facesVT
@@ -34,6 +40,9 @@ class ObjParser {
 		void parseVertexTexture( string line, vector<GLfloat>* textures );
 
 	private:
+		MtlParser* mMtlParser;
+
+		vector<GLint> mFacesMtl;
 		vector<GLuint> mFacesV;
 		vector<GLuint> mFacesVN;
 		vector<GLuint> mFacesVT;

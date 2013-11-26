@@ -5,6 +5,22 @@ using std::vector;
 
 
 /**
+ * Constructor.
+ */
+ObjParser::ObjParser() {
+	mMtlParser = new MtlParser();
+}
+
+
+/**
+ * Deconstructor.
+ */
+ObjParser::~ObjParser() {
+	delete mMtlParser;
+}
+
+
+/**
  * Get the loaded faces.
  * @return {std::vector<GLuint>} The vertex indices of the faces.
  */
@@ -28,6 +44,15 @@ vector<GLuint> ObjParser::getFacesVN() {
  */
 vector<GLuint> ObjParser::getFacesVT() {
 	return mFacesVT;
+}
+
+
+/**
+ * Get the loaded materials.
+ * @return {std::vector<material_t>} The materials from the MTL file.
+ */
+vector<material_t> ObjParser::getMaterials() {
+	return mMtlParser->getMaterials();
 }
 
 
@@ -64,6 +89,7 @@ vector<GLfloat> ObjParser::getVertices() {
  * @param {std::string} filename Name of the file.
  */
 void ObjParser::load( string filepath, string filename ) {
+	mFacesMtl.clear();
 	mFacesV.clear();
 	mFacesVN.clear();
 	mFacesVT.clear();
@@ -72,6 +98,14 @@ void ObjParser::load( string filepath, string filename ) {
 	mVertices.clear();
 
 	std::ifstream fileIn( filepath.append( filename ).c_str() );
+
+	this->loadMtl( filepath );
+	vector<material_t> materials = mMtlParser->getMaterials();
+	vector<string> materialNames;
+	for( int i = 0; i < materials.size(); i++ ) {
+		materialNames.push_back( materials[i].name );
+	}
+	GLint currentMtl = -1;
 
 	while( fileIn.good() ) {
 		string line;
@@ -103,9 +137,34 @@ void ObjParser::load( string filepath, string filename ) {
 		else if( line[0] == 'f' ) {
 			if( line[1] == ' ' ) {
 				this->parseFace( line, &mFacesV, &mFacesVN, &mFacesVT );
+
+				if( currentMtl > -1 ) {
+					mFacesMtl.push_back( currentMtl );
+				}
 			}
 		}
+		// Use material
+		else if( line.find( "usemtl" ) != string::npos ) {
+			vector<string> parts;
+			boost::split( parts, line, boost::is_any_of( " \t" ) );
+			vector<string>::iterator it = std::find( materialNames.begin(), materialNames.end(), parts[1] );
+			currentMtl = ( it != materialNames.end() ) ? it - materialNames.begin() : -1;
+		}
 	}
+
+	fileIn.close();
+}
+
+
+/**
+ * Load the MTL file to the OBJ.
+ * @param {std::string} file File path and name of the OBJ. Assuming the MTL has the same name aside from the file extension.
+ */
+void ObjParser::loadMtl( string file ) {
+	size_t extensionIndex = file.rfind( ".obj" );
+	file.replace( extensionIndex, 4, ".mtl" );
+
+	mMtlParser->load( file );
 }
 
 
