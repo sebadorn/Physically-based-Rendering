@@ -45,6 +45,7 @@ class PathTracer {
 		void clAccumulateColors( cl_float timeSinceStart );
 		glm::vec3 getJitter();
 		cl_float getTimeSinceStart();
+		void initKernelArgs();
 		void kdNodesToVectors(
 			vector<kdNode_t> kdNodes,
 			vector<cl_float>* kdData1, vector<cl_int>* kdData2, vector<cl_int>* kdData3,

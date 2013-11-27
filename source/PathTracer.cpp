@@ -40,21 +40,10 @@ PathTracer::~PathTracer() {
  * @param {cl_float} timeSinceStart Time in seconds since start of rendering.
  */
 void PathTracer::clAccumulateColors( cl_float timeSinceStart ) {
-	cl_uint i = 3;
 	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 
-	// Not a mistake: Start kernel args at index 1. Index 0 will be the workgroup offset.
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufOrigins );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufNormals );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufAccColors );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufColorMasks );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufLights );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufMaterialToFace );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufMaterialsColorDiffuse );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_float ), &textureWeight );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_float ), &timeSinceStart );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufTextureIn );
-	mCL->setKernelArg( mKernelColors, ++i, sizeof( cl_mem ), &mBufTextureOut );
+	mCL->setKernelArg( mKernelColors, 11, sizeof( cl_float ), &textureWeight );
+	mCL->setKernelArg( mKernelColors, 12, sizeof( cl_float ), &timeSinceStart );
 
 	mCL->execute( mKernelColors );
 	mCL->finish();
@@ -66,23 +55,7 @@ void PathTracer::clAccumulateColors( cl_float timeSinceStart ) {
  * @param {cl_float} timeSinceStart Time in seconds since start of rendering.
  */
 void PathTracer::clFindIntersections( cl_float timeSinceStart ) {
-	cl_uint i = 3;
-
-	// Not a mistake: Start kernel args at index 1. Index 0 will be the workgroup offset.
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufOrigins );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufRays );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufNormals );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScVertices );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScFaces );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScNormals );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufScFacesVN );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufLights );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData1 );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData2 );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeData3 );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_mem ), &mBufKdNodeRopes );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_uint ), &mKdRootNodeIndex );
-	mCL->setKernelArg( mKernelIntersections, ++i, sizeof( cl_float ), &timeSinceStart );
+	mCL->setKernelArg( mKernelIntersections, 17, sizeof( cl_float ), &timeSinceStart );
 
 	mCL->execute( mKernelIntersections );
 	mCL->finish();
@@ -93,18 +66,11 @@ void PathTracer::clFindIntersections( cl_float timeSinceStart ) {
  * OpenCL: Compute the initial rays into the scene.
  */
 void PathTracer::clInitRays() {
-	cl_uint i = 3;
 	cl_float fovRad = utils::degToRad( mFOV );
 	cl_uint wgs = Cfg::get().value<cl_uint>( Cfg::OPENCL_WORKGROUPSIZE );
 
-	// Not a mistake: Start kernel args at index 1. Index 0 will be the workgroup offset.
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_uint ), &wgs );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufEye );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_float ), &fovRad );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufOrigins );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufRays );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufAccColors );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufColorMasks );
+	mCL->setKernelArg( mKernelRays, 4, sizeof( cl_uint ), &wgs );
+	mCL->setKernelArg( mKernelRays, 6, sizeof( cl_float ), &fovRad );
 
 	mCL->execute( mKernelRays );
 	mCL->finish();
@@ -219,6 +185,52 @@ void PathTracer::initOpenCLBuffers(
 
 	mBufLights = mCL->createEmptyBuffer( sizeof( cl_float4 ) * lights.size(), CL_MEM_READ_ONLY );
 	this->updateLights( lights );
+
+	this->initKernelArgs();
+}
+
+
+/**
+ * Set the OpenCL kernel arguments that either don't change or point to a CL buffer.
+ */
+void PathTracer::initKernelArgs() {
+	// Kernel: Init rays
+	// 4: workgroupsize
+	mCL->setKernelArg( mKernelRays, 5, sizeof( cl_mem ), &mBufEye );
+	// 6: FOV
+	mCL->setKernelArg( mKernelRays, 7, sizeof( cl_mem ), &mBufOrigins );
+	mCL->setKernelArg( mKernelRays, 8, sizeof( cl_mem ), &mBufRays );
+	mCL->setKernelArg( mKernelRays, 9, sizeof( cl_mem ), &mBufAccColors );
+	mCL->setKernelArg( mKernelRays, 10, sizeof( cl_mem ), &mBufColorMasks );
+
+	// Kernel: Find intersections
+	mCL->setKernelArg( mKernelIntersections, 4, sizeof( cl_mem ), &mBufOrigins );
+	mCL->setKernelArg( mKernelIntersections, 5, sizeof( cl_mem ), &mBufRays );
+	mCL->setKernelArg( mKernelIntersections, 6, sizeof( cl_mem ), &mBufNormals );
+	mCL->setKernelArg( mKernelIntersections, 7, sizeof( cl_mem ), &mBufScVertices );
+	mCL->setKernelArg( mKernelIntersections, 8, sizeof( cl_mem ), &mBufScFaces );
+	mCL->setKernelArg( mKernelIntersections, 9, sizeof( cl_mem ), &mBufScNormals );
+	mCL->setKernelArg( mKernelIntersections, 10, sizeof( cl_mem ), &mBufScFacesVN );
+	mCL->setKernelArg( mKernelIntersections, 11, sizeof( cl_mem ), &mBufLights );
+	mCL->setKernelArg( mKernelIntersections, 12, sizeof( cl_mem ), &mBufKdNodeData1 );
+	mCL->setKernelArg( mKernelIntersections, 13, sizeof( cl_mem ), &mBufKdNodeData2 );
+	mCL->setKernelArg( mKernelIntersections, 14, sizeof( cl_mem ), &mBufKdNodeData3 );
+	mCL->setKernelArg( mKernelIntersections, 15, sizeof( cl_mem ), &mBufKdNodeRopes );
+	mCL->setKernelArg( mKernelIntersections, 16, sizeof( cl_uint ), &mKdRootNodeIndex );
+	// 17: timeSinceStart
+
+	// Kernel: Accumulate colors
+	mCL->setKernelArg( mKernelColors, 4, sizeof( cl_mem ), &mBufOrigins );
+	mCL->setKernelArg( mKernelColors, 5, sizeof( cl_mem ), &mBufNormals );
+	mCL->setKernelArg( mKernelColors, 6, sizeof( cl_mem ), &mBufAccColors );
+	mCL->setKernelArg( mKernelColors, 7, sizeof( cl_mem ), &mBufColorMasks );
+	mCL->setKernelArg( mKernelColors, 8, sizeof( cl_mem ), &mBufLights );
+	mCL->setKernelArg( mKernelColors, 9, sizeof( cl_mem ), &mBufMaterialToFace );
+	mCL->setKernelArg( mKernelColors, 10, sizeof( cl_mem ), &mBufMaterialsColorDiffuse );
+	// 11: textureWeight
+	// 12: timeSinceStart
+	mCL->setKernelArg( mKernelColors, 13, sizeof( cl_mem ), &mBufTextureIn );
+	mCL->setKernelArg( mKernelColors, 14, sizeof( cl_mem ), &mBufTextureOut );
 }
 
 

@@ -53,9 +53,9 @@
 		// More bounces = less FPS
 		"bounces": 3,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS)
-		"interval": 100.0,
+		"interval": 10.0,
 		// Shadows (bad on performance)
-		"shadows": false
+		"shadows": true
 	},
 
 	"shader": {
