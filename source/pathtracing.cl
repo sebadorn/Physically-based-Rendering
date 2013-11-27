@@ -31,14 +31,19 @@ inline float random( float4 scale, float seed ) {
 inline float4 cosineWeightedDirection( float seed, float4 normal ) {
 	float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
 	float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
-
 	float r = sqrt( u );
-	float theta = PI_X2 * v;
+	float angle = PI_X2 * v;
 
-	float x = r * cos( theta );
-	float y = r * sin( theta );
+	// compute basis from normal
+	float4 sdir, tdir;
+	if( fabs( normal.x ) < 0.5f ) {
+		sdir = cross( normal, (float4)( 1.0f, 0.0f, 0.0f, 0.0f ) );
+	} else {
+		sdir = cross( normal, (float4)( 0.0f, 1.0f, 0.0f, 0.0f ) );
+	}
+	tdir = cross( normal, sdir );
 
-	return (float4)( x, y, sqrt( fmax( 0.0f, 1.0f - u ) ), 0.0f );
+	return r * cos( angle ) * sdir + r * sin( angle ) * tdir + sqrt( 1.0f - u ) * normal;
 }
 
 
@@ -210,7 +215,7 @@ void checkFaces(
 				result->position = newResult.position;
 				result->normalIndex = f;
 				result->nodeIndex = nodeIndex;
-				result->faceIndex = ???; // Missing data: face index as in the OBJ file
+				result->faceIndex = f / 3;
 			}
 		}
 	}
@@ -299,7 +304,7 @@ void goToLeafNode(
 	int axis = kdNodeData2[*nodeIndex * 5 + 2];
 
 	while( left >= 0 && right >= 0 ) {
-		*nodeIndex = ( ( (float*) hitNear )[axis] < kdNodeData1[*nodeIndex * 9 + axis] ) ? left : right;
+		*nodeIndex = ( ( (float*) hitNear )[axis] < kdNodeData1[(*nodeIndex) * 9 + axis] ) ? left : right;
 		left = kdNodeData2[*nodeIndex * 5];
 		right = kdNodeData2[*nodeIndex * 5 + 1];
 		axis = kdNodeData2[*nodeIndex * 5 + 2];
@@ -532,6 +537,7 @@ __kernel void accumulateColors(
 
 		// Distance of the hit surface point to the light source
 		float4 toLight = newLight - hit;
+		toLight.w = 0.0f;
 
 		// Lambert factor (dot product is a cosine)
 		// Source: http://learnopengles.com/android-lesson-two-ambient-and-diffuse-lighting/
@@ -545,9 +551,10 @@ __kernel void accumulateColors(
 			diffuseColors[material * 3 + 2],
 			1.0f
 		);
+		// float4 surfaceColor = (float4)( 0.6f, 0.6f, 0.6f, 0.0f );
 
 		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * ( 0.6f * luminosity * diffuse * shadowIntensity );
+		accumulatedColor += colorMask * ( luminosity * diffuse * shadowIntensity );
 		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
 	}
 
@@ -620,12 +627,11 @@ __kernel void findIntersectionsKdTree(
 			scNormals[scFacesVN[f] * 3 + 2],
 			0.0f
 		);
-		// normals[workIndex] = normalize( faceNormal - hit.position );
 		normals[workIndex] = faceNormal;
 
 
 		// New ray
-		float4 newDir = cosineWeightedDirection( timeSinceStart, faceNormal ) - hit.position;
+		float4 newDir = cosineWeightedDirection( timeSinceStart + hit.distance, faceNormal );
 		newDir.w = 0.0f;
 		rays[workIndex] = normalize( newDir );
 

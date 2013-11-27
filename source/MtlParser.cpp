@@ -150,10 +150,6 @@ void MtlParser::load( string file ) {
 		mMaterials.push_back( mtl );
 	}
 
-	for( int i = 0; i < mMaterials.size(); i++ ) {
-		printf( "mtlName: %s\n", mMaterials[i].mtlName.c_str() );
-	}
-
 	fileIn.close();
 
 	char msg[64];
