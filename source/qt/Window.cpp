@@ -64,7 +64,7 @@ QMenuBar* Window::createMenuBar() {
 	actionBoundingBox->setChecked( false );
 	connect( actionBoundingBox, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewBoundingBox() ) );
 
-	QAction* actionKdTree = new QAction( tr( "Toggle &kd-tree visualization" ), this );
+	QAction* actionKdTree = new QAction( tr( "Toggle kd-&tree visualization" ), this );
 	actionKdTree->setStatusTip( tr( "Visualize the generated kd-tree." ) );
 	actionKdTree->setCheckable( true );
 	actionKdTree->setChecked( false );
@@ -76,7 +76,7 @@ QMenuBar* Window::createMenuBar() {
 	actionOverlay->setChecked( false );
 	connect( actionOverlay, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewOverlay() ) );
 
-	QAction* actionTracer = new QAction( tr( "Toggle path &tracing" ), this );
+	QAction* actionTracer = new QAction( tr( "Toggle &path tracing" ), this );
 	actionTracer->setStatusTip( tr( "Path tracing." ) );
 	actionTracer->setCheckable( true );
 	actionTracer->setChecked( true );
@@ -89,12 +89,23 @@ QMenuBar* Window::createMenuBar() {
 	menuView->addAction( actionTracer );
 
 
+	// Menu 3: Info
+
+	QAction* actionInfoKernel = new QAction( tr( "&Kernels" ), this );
+	actionInfoKernel->setStatusTip( tr( "Show information about the kernels." ) );
+	connect( actionInfoKernel, SIGNAL( triggered() ), this, SLOT( openInfo() ) );
+
+	QMenu* menuInfo = new QMenu( tr( "I&nfo" ) );
+	menuInfo->addAction( actionInfoKernel );
+
+
 	// The menu bar itself
 
 	QMenuBar* menubar = new QMenuBar( this );
 	menubar->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
 	menubar->addMenu( menuFile );
 	menubar->addMenu( menuView );
+	menubar->addMenu( menuInfo );
 
 
 	return menubar;
@@ -206,6 +217,15 @@ void Window::mousePressEvent( QMouseEvent* e ) {
 		mMouseLastX = e->x();
 		mMouseLastY = e->y();
 	}
+}
+
+
+/**
+ * Open a sub window with informations.
+ */
+void Window::openInfo() {
+	InfoWindow* infoWindow = new InfoWindow( this );
+	infoWindow->show();
 }
 
 

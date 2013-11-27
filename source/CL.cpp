@@ -167,6 +167,7 @@ cl_kernel CL::createKernel( const char* functionName ) {
 	}
 
 	mKernels.push_back( kernel );
+	mKernelNames[kernel] = string( functionName );
 
 	return kernel;
 }
@@ -252,6 +253,9 @@ void CL::execute( cl_kernel kernel ) {
 	cl_uint offsetH;
 	cl_uint offsetW = 0;
 
+	double avgKernelTime = 0.0;
+	int i = 0;
+
 	while( offsetW < w ) {
 		offsetH = 0;
 
@@ -270,11 +274,16 @@ void CL::execute( cl_kernel kernel ) {
 			this->checkError( err, "clEnqueueNDRangeKernel" );
 			mEvents.push_back( event );
 
+			avgKernelTime += this->getKernelExecutionTime( event );
+			i++;
+
 			offsetH += wgs;
 		}
 
 		offsetW += wgs;
 	}
+
+	mKernelTime[kernel] = avgKernelTime / i;
 }
 
 
@@ -371,6 +380,30 @@ void CL::getDefaultPlatform() {
 
 
 /**
+ * Returns the kernel execution time in milliseconds.
+ * @return {double} Time it took to execute the kernel in milliseconds.
+ */
+double CL::getKernelExecutionTime( cl_event kernelEvent ) {
+	cl_ulong timeEnd, timeStart;
+
+	clWaitForEvents( 1, &kernelEvent );
+	clGetEventProfilingInfo( kernelEvent, CL_PROFILING_COMMAND_START, sizeof( timeStart ), &timeStart, NULL );
+	clGetEventProfilingInfo( kernelEvent, CL_PROFILING_COMMAND_END, sizeof( timeEnd ), &timeEnd, NULL );
+
+	return (double) ( timeEnd - timeStart ) / 1000000.0f;
+}
+
+
+/**
+ * Get the last profiled kernel execution times.
+ * @return {std::map<cl_kernel, double>} Map of kernel ID to execution time [ms].
+ */
+map<cl_kernel, double> CL::getKernelTimes() {
+	return mKernelTime;
+}
+
+
+/**
  * Initialise the OpenCL context.
  * @param {cl_device_id*} devices List of all available devices.
  */
@@ -390,7 +423,7 @@ void CL::initContext( cl_device_id* devices ) {
  */
 void CL::initCommandQueue() {
 	cl_int err;
-	mCommandQueue = clCreateCommandQueue( mContext, mDevice, 0, &err );
+	mCommandQueue = clCreateCommandQueue( mContext, mDevice, CL_QUEUE_PROFILING_ENABLE, &err );
 
 	if( !this->checkError( err, "clCreateCommandQueue" ) ) {
 		exit( EXIT_FAILURE );

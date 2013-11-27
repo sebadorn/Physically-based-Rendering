@@ -7,6 +7,7 @@
 #include "../Cfg.h"
 #include "../Logger.h"
 #include "GLWidget.h"
+#include "InfoWindow.h"
 
 
 class GLWidget;
@@ -31,6 +32,7 @@ class Window : public QWidget {
 
 	protected slots:
 		void importFile();
+		void openInfo();
 
 	private:
 		int mMouseLastX;
