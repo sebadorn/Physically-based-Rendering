@@ -25,6 +25,7 @@ class Cfg {
 		static const char* CAM_EYE_Z;
 		static const char* CAM_SPEED;
 		static const char* IMPORT_PATH;
+		static const char* INFO_KERNELTIMES;
 		static const char* LIGHT_POS_X;
 		static const char* LIGHT_POS_Y;
 		static const char* LIGHT_POS_Z;

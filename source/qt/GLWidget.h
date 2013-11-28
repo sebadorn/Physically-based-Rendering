@@ -57,6 +57,7 @@ class GLWidget : public QGLWidget {
 		GLWidget( QWidget* parent );
 		~GLWidget();
 		void cameraUpdate();
+		CL* getCLObject();
 		bool isRendering();
 		void loadModel( string filepath, string filename );
 		QSize minimumSizeHint() const;

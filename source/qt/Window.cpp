@@ -14,8 +14,21 @@ Window::Window() {
 	mStatusBar = this->createStatusBar();
 	mMenuBar = this->createMenuBar();
 
+	mInfoWindow = new InfoWindow( this, mGLWidget->getCLObject() );
+
 	this->setLayout( this->createLayout() );
 	this->setWindowTitle( tr( Cfg::get().value<std::string>( Cfg::WINDOW_TITLE ).c_str() ) );
+}
+
+
+/**
+ * Deconstructor.
+ */
+Window::~Window() {
+	delete mGLWidget;
+	delete mStatusBar;
+	delete mMenuBar;
+	delete mInfoWindow;
 }
 
 
@@ -224,8 +237,9 @@ void Window::mousePressEvent( QMouseEvent* e ) {
  * Open a sub window with informations.
  */
 void Window::openInfo() {
-	InfoWindow* infoWindow = new InfoWindow( this );
-	infoWindow->show();
+	if( !mInfoWindow->isVisible() ) {
+		mInfoWindow->show();
+	}
 }
 
 

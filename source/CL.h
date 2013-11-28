@@ -38,6 +38,7 @@ class CL {
 		cl_kernel createKernel( const char* functionName );
 		void execute( cl_kernel kernel );
 		void finish();
+		map<cl_kernel, string> getKernelNames();
 		map<cl_kernel, double> getKernelTimes();
 		void loadProgram( string filepath );
 		void readImageOutput( cl_mem image, size_t width, size_t height, cl_float* outputTarget );

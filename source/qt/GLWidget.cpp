@@ -157,6 +157,15 @@ void GLWidget::deleteOldModel() {
 
 
 /**
+ * Get the CL object.
+ * @return {CL*} CL object.
+ */
+CL* GLWidget::getCLObject() {
+	return mPathTracer->getCLObject();
+}
+
+
+/**
  * Initialize OpenGL and start rendering.
  */
 void GLWidget::initializeGL() {

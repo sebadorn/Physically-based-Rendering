@@ -395,6 +395,15 @@ double CL::getKernelExecutionTime( cl_event kernelEvent ) {
 
 
 /**
+ * The a map of kernel IDs to kernel names.
+ * @return {std::map<cl_kernel, std::string>} Kernel IDs to names.
+ */
+map<cl_kernel, string> CL::getKernelNames() {
+	return mKernelNames;
+}
+
+
+/**
  * Get the last profiled kernel execution times.
  * @return {std::map<cl_kernel, double>} Map of kernel ID to execution time [ms].
  */

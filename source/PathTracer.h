@@ -27,6 +27,7 @@ class PathTracer {
 		PathTracer();
 		~PathTracer();
 		vector<cl_float> generateImage();
+		CL* getCLObject();
 		void initOpenCLBuffers(
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
 			vector<cl_uint> facesVN, vector<cl_int> facesMtl, vector<material_t> materials,

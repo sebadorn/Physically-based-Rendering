@@ -27,6 +27,13 @@
 	// Default model import path for the Qt File Dialog
 	"import_path": "/home/seba/programming/Physically-based Rendering/resources/models/",
 
+	// Concerning contents of the information window
+	"info": {
+		// Update the displayed execution times for each kernel.
+		// Set to 0 to disable updates. [ms]
+		"kernel_times": 250.0
+	},
+
 	"lights": {
 		"default_position": {
 			"x": -0.2,
@@ -53,7 +60,7 @@
 		// More bounces = less FPS
 		"bounces": 3,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS)
-		"interval": 10.0,
+		"interval": 100.0,
 		// Shadows (bad on performance)
 		"shadows": true
 	},

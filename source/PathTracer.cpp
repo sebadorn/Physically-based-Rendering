@@ -16,8 +16,8 @@ PathTracer::PathTracer() {
 	mCL = new CL();
 	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
 
-	mKernelRays = mCL->createKernel( "generateRays" );
-	mKernelIntersections = mCL->createKernel( "findIntersectionsKdTree" );
+	mKernelRays = mCL->createKernel( "initRays" );
+	mKernelIntersections = mCL->createKernel( "findIntersections" );
 	mKernelColors = mCL->createKernel( "accumulateColors" );
 
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
@@ -97,6 +97,15 @@ vector<cl_float> PathTracer::generateImage() {
 	mSampleCount++;
 
 	return mTextureOut;
+}
+
+
+/**
+ * Get the CL object.
+ * @return {CL*} CL object.
+ */
+CL* PathTracer::getCLObject() {
+	return mCL;
 }
 
 

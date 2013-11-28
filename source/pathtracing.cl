@@ -585,7 +585,7 @@ __kernel void accumulateColors(
  * @param kdRoot         [description]
  * @param timeSinceStart [description]
  */
-__kernel void findIntersectionsKdTree(
+__kernel void findIntersections(
 	const uint width, const uint height, const uint offsetW, const uint offsetH,
 	__global float4* origins, __global float4* rays, __global float4* normals,
 	__global float* scVertices, __global uint* scFaces, __global float* scNormals,
@@ -674,7 +674,7 @@ __kernel void findIntersectionsKdTree(
  * @param {__global float4*} origins Output. The origin of each ray. (The camera eye.)
  * @param {__global float4*} rays    Output. The generated rays for each pixel.
  */
-__kernel void generateRays(
+__kernel void initRays(
 	const uint width, const uint height, const uint offsetW, const uint offsetH, const uint workgroupsize,
 	__global float* eyeIn, const float fovRad,
 	__global float4* origins, __global float4* rays,
