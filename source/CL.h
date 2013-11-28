@@ -58,6 +58,8 @@ class CL {
 		string setValues( string clProgramString );
 
 	private:
+		bool mDoCheckErrors;
+
 		cl_command_queue mCommandQueue;
 		cl_context mContext;
 		cl_device_id mDevice;

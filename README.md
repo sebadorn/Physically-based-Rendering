@@ -1,13 +1,11 @@
 ## ToDo
 
+* `Feature` Specular highlights
+* `Feature` Dynamic lights (for now: number)
 * `Improve` Normals are only supported per face, but not per vertex
-* `Feature` PT: colors
-* `Feature` Dynamic lights (for now: number and position)
 * `Improve` Surface Area Heuristic (SAH) for kd-tree
 * `Improve` Can currently only handle single mesh models
-* `Improve` Keep work group sizes down (64-256), even for bigger textures (GPU limit at 1024)
-* `Improve` Flexible width and height
-* `Improve` Use CPU if no GPU available for OpenCL (or read from config)
+* `Improve` Change width and height while application is running
 
 
 ## Optimization notes and ideas
@@ -16,10 +14,8 @@
 * Trade accuracy/error rate for speed
 * OpenCL code is just a string that can be changed and recompiled
 * OpenGL shaders are just strings that can be changed and recompiled
-* Split OpenCL into multiply kernels for each (greater) task, like ray generation, ray traversal, intersection test, and so on
 * Are some tasks in OpenCL better done on CPU than GPU?
 * Is clFinish() always necessary where I used it?
-* Remove "checkError()" in CL.cpp
 
 
 ## Libraries/headers
@@ -40,6 +36,11 @@
     cmake -DCMAKE_BUILD_TYPE=Release CMakeLists.txt
     make
     ./PBR
+
+
+## Observations
+
+* For a 512x512 image a workgroupsize of 256 is infinitesimal better than 512, while a workgroupsize of 128 is worse than 512.
 
 
 ## Annoyances

@@ -14,6 +14,8 @@ CL::CL() {
 	mPlatform = NULL;
 	mProgram = NULL;
 
+	mDoCheckErrors = Cfg::get().value<bool>( Cfg::OPENCL_CHECKERRORS );
+
 	this->getDefaultPlatform();
 	this->getDefaultDevice();
 	this->initCommandQueue();
@@ -75,7 +77,7 @@ void CL::buildProgram() {
  * @return {bool}                     True, if no error occured, false otherwise.
  */
 bool CL::checkError( cl_int err, const char* functionName ) {
-	if( err != CL_SUCCESS ) {
+	if( mDoCheckErrors && err != CL_SUCCESS ) {
 		char msg[120];
 		snprintf( msg, 120, "[OpenCL] Error in function %s: %s (code %d)", functionName, this->errorCodeToName( err ), (int) err );
 		Logger::logError( msg );
@@ -254,16 +256,13 @@ void CL::execute( cl_kernel kernel ) {
 	cl_uint offsetW = 0;
 
 	double avgKernelTime = 0.0;
-	int i = 0;
 
 	while( offsetW < w ) {
 		offsetH = 0;
 
 		while( offsetH < h ) {
-			this->setKernelArg( kernel, 0, sizeof( cl_uint ), &w );
-			this->setKernelArg( kernel, 1, sizeof( cl_uint ), &h );
-			this->setKernelArg( kernel, 2, sizeof( cl_uint ), &offsetW );
-			this->setKernelArg( kernel, 3, sizeof( cl_uint ), &offsetH );
+			this->setKernelArg( kernel, 0, sizeof( cl_uint ), &offsetW );
+			this->setKernelArg( kernel, 1, sizeof( cl_uint ), &offsetH );
 
 			size_t workSize[3] = {
 				std::min( w - offsetW, wgs ),
@@ -272,10 +271,8 @@ void CL::execute( cl_kernel kernel ) {
 			};
 			err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 2, NULL, workSize, NULL, mEvents.size(), &mEvents[0], &event );
 			this->checkError( err, "clEnqueueNDRangeKernel" );
-			mEvents.push_back( event );
 
 			avgKernelTime += this->getKernelExecutionTime( event );
-			i++;
 
 			offsetH += wgs;
 		}
@@ -283,7 +280,7 @@ void CL::execute( cl_kernel kernel ) {
 		offsetW += wgs;
 	}
 
-	mKernelTime[kernel] = avgKernelTime / i;
+	mKernelTime[kernel] = avgKernelTime;
 }
 
 
@@ -525,6 +522,32 @@ string CL::setValues( string clProgramString ) {
 			clProgramString.replace( foundStrPos, search.length(), value );
 		}
 	}
+
+
+	// Placeholder names in the OpenCL file
+	vector<string> valueReplace;
+	valueReplace.push_back( "IMG_HEIGHT" );
+	valueReplace.push_back( "IMG_WIDTH" );
+	valueReplace.push_back( "WORKGROUPSIZE" );
+
+	// Unsigned integer values from the config
+	vector<cl_uint> configInt;
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT ) );
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH ) );
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::OPENCL_WORKGROUPSIZE ) );
+
+	char replacement[16];
+
+	for( int i = 0; i < valueReplace.size(); i++ ) {
+		search = "#" + valueReplace[i] + "#";
+		foundStrPos = clProgramString.find( search );
+
+		if( foundStrPos != string::npos ) {
+			snprintf( replacement, 16, "%u", configInt[i] );
+			clProgramString.replace( foundStrPos, search.length(), replacement );
+		}
+	}
+
 
 	return clProgramString;
 }

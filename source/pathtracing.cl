@@ -1,7 +1,10 @@
 #BACKFACE_CULLING#
 #SHADOWS#
 #define EPSILON 0.00001f
+#define IMG_HEIGHT #IMG_HEIGHT#
+#define IMG_WIDTH #IMG_WIDTH#
 #define PI_X2 6.28318530718f
+#define WORKGROUPSIZE #WORKGROUPSIZE#
 
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
@@ -340,16 +343,17 @@ inline void traverseKdTree(
 	__global int* kdNodeRopes, hit_t* result
 ) {
 	int nodeIndex = kdRoot;
+	uint ni9 = nodeIndex * 9;
 
 	float bbMin[3] = {
-		kdNodeData1[nodeIndex * 9 + 3],
-		kdNodeData1[nodeIndex * 9 + 4],
-		kdNodeData1[nodeIndex * 9 + 5]
+		kdNodeData1[ni9 + 3],
+		kdNodeData1[ni9 + 4],
+		kdNodeData1[ni9 + 5]
 	};
 	float bbMax[3] = {
-		kdNodeData1[nodeIndex * 9 + 6],
-		kdNodeData1[nodeIndex * 9 + 7],
-		kdNodeData1[nodeIndex * 9 + 8]
+		kdNodeData1[ni9 + 6],
+		kdNodeData1[ni9 + 7],
+		kdNodeData1[ni9 + 8]
 	};
 
 	float entryDistance, exitDistance, tNear;
@@ -373,7 +377,6 @@ inline void traverseKdTree(
 		hitNear = (*origin) + entryDistance * (*dir);
 		goToLeafNode( &nodeIndex, kdNodeData1, kdNodeData2, &hitNear, bbMin, bbMax );
 
-
 		// At a leaf node now, check triangle faces
 		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
 
@@ -382,14 +385,12 @@ inline void traverseKdTree(
 			entryDistance, &exitDistance, result
 		);
 
-
 		// Exit leaf node
 		intersectBoundingBox( origin, dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
 
 		if( entryDistance >= exitDistance ) {
 			return;
 		}
-
 
 		// Follow the rope
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
@@ -402,6 +403,19 @@ inline void traverseKdTree(
 }
 
 
+/**
+ * Test if from the current hit location there is an unobstracted direct path to the light source.
+ * @param  origin      [description]
+ * @param  toLight     [description]
+ * @param  startNode   [description]
+ * @param  scVertices  [description]
+ * @param  scFaces     [description]
+ * @param  kdNodeData1 [description]
+ * @param  kdNodeData2 [description]
+ * @param  kdNodeData3 [description]
+ * @param  kdNodeRopes [description]
+ * @return             [description]
+ */
 inline bool shadowTest(
 	float4* origin, float4* toLight, const uint startNode,
 	__global float* scVertices, __global uint* scFaces,
@@ -417,15 +431,17 @@ inline bool shadowTest(
 	int nodeIndex = startNode;
 	float distLimit = length( *toLight );
 
+	uint ni9 = nodeIndex * 9;
+
 	float bbMin[3] = {
-		kdNodeData1[nodeIndex * 9 + 3],
-		kdNodeData1[nodeIndex * 9 + 4],
-		kdNodeData1[nodeIndex * 9 + 5]
+		kdNodeData1[ni9 + 3],
+		kdNodeData1[ni9 + 4],
+		kdNodeData1[ni9 + 5]
 	};
 	float bbMax[3] = {
-		kdNodeData1[nodeIndex * 9 + 6],
-		kdNodeData1[nodeIndex * 9 + 7],
-		kdNodeData1[nodeIndex * 9 + 8]
+		kdNodeData1[ni9 + 6],
+		kdNodeData1[ni9 + 7],
+		kdNodeData1[ni9 + 8]
 	};
 
 	float entryDistance, exitDistance, tNear;
@@ -448,7 +464,6 @@ inline bool shadowTest(
 		hitNear = (*origin) + entryDistance * dir;
 		goToLeafNode( &nodeIndex, kdNodeData1, kdNodeData2, &hitNear, bbMin, bbMax );
 
-
 		// At a leaf node now, check triangle faces
 		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
 
@@ -461,14 +476,12 @@ inline bool shadowTest(
 			return true;
 		}
 
-
 		// Exit leaf node
 		intersectBoundingBox( origin, &dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
 
 		if( entryDistance >= exitDistance ) {
 			return false;
 		}
-
 
 		// Follow the rope
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
@@ -497,7 +510,7 @@ inline bool shadowTest(
  * @param {__write_only image2d_t} textureOut     Output. The generated texture now.
  */
 __kernel void accumulateColors(
-	const uint width, const uint height, const uint offsetW, const uint offsetH,
+	const uint offsetW, const uint offsetH,
 	__global float4* origins, __global float4* normals,
 	__global float4* accColors, __global float4* colorMasks,
 	__global float4* lights,
@@ -506,7 +519,7 @@ __kernel void accumulateColors(
 	__read_only image2d_t textureIn, __write_only image2d_t textureOut
 ) {
 	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
-	uint workIndex = pos.x + pos.y * width;
+	uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
 	float4 hit = origins[workIndex];
 
@@ -525,7 +538,6 @@ __kernel void accumulateColors(
 
 		// The farther away a shadow is, the more diffuse it becomes
 		float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
-		newLight.w = 0.0f;
 
 		float4 normal = normals[workIndex];
 
@@ -537,30 +549,29 @@ __kernel void accumulateColors(
 
 		// Distance of the hit surface point to the light source
 		float4 toLight = newLight - hit;
-		toLight.w = 0.0f;
 
 		// Lambert factor (dot product is a cosine)
 		// Source: http://learnopengles.com/android-lesson-two-ambient-and-diffuse-lighting/
 		float diffuse = fmax( dot( normal, normalize( toLight ) ), 0.0f );
-		float luminosity = 1.0f / ( length( toLight ) * length( toLight ) );
+		float toLightLength = length( toLight );
+		float luminosity = 1.0f / ( toLightLength * toLightLength );
 
 		float specularHighlight = 0.0f; // Disabled for now
 		float4 surfaceColor = (float4)(
 			diffuseColors[material * 3],
 			diffuseColors[material * 3 + 1],
 			diffuseColors[material * 3 + 2],
-			1.0f
+			0.0f
 		);
 		// float4 surfaceColor = (float4)( 0.6f, 0.6f, 0.6f, 0.0f );
 
 		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * ( luminosity * diffuse * shadowIntensity );
+		accumulatedColor += colorMask * luminosity * diffuse * shadowIntensity;
 		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
+
+		accColors[workIndex] = accumulatedColor;
+		colorMasks[workIndex] = colorMask;
 	}
-
-	accColors[workIndex] = accumulatedColor;
-	colorMasks[workIndex] = colorMask;
-
 
 	// Mix new color with previous one
 	float4 texturePixel = read_imagef( textureIn, sampler, pos );
@@ -586,7 +597,7 @@ __kernel void accumulateColors(
  * @param timeSinceStart [description]
  */
 __kernel void findIntersections(
-	const uint width, const uint height, const uint offsetW, const uint offsetH,
+	const uint offsetW, const uint offsetH,
 	__global float4* origins, __global float4* rays, __global float4* normals,
 	__global float* scVertices, __global uint* scFaces, __global float* scNormals,
 	__global uint* scFacesVN,
@@ -596,7 +607,7 @@ __kernel void findIntersections(
 	const uint kdRoot, const float timeSinceStart
 ) {
 	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
-	uint workIndex = pos.x + pos.y * width;
+	uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
 	float4 origin = origins[workIndex];
 	float4 dir = rays[workIndex];
@@ -675,13 +686,13 @@ __kernel void findIntersections(
  * @param {__global float4*} rays    Output. The generated rays for each pixel.
  */
 __kernel void initRays(
-	const uint width, const uint height, const uint offsetW, const uint offsetH, const uint workgroupsize,
-	__global float* eyeIn, const float fovRad,
+	const uint offsetW, const uint offsetH, const float4 initRayParts,
+	__global float* eyeIn,
 	__global float4* origins, __global float4* rays,
 	__global float4* accColors, __global float4* colorMasks
 ) {
 	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
-	uint workIndex = pos.x + pos.y * width;
+	uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
 	// Camera eye
 	float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
@@ -691,27 +702,17 @@ __kernel void initRays(
 	float4 u = (float4)( eyeIn[6], eyeIn[7], eyeIn[8], 0.0f );
 	float4 v = (float4)( eyeIn[9], eyeIn[10], eyeIn[11], 0.0f );
 
-	float globSizeW = workgroupsize;
-	float globSizeH = workgroupsize;
-	float wGsw = width / globSizeW;
-	float hGsh = height / globSizeH;
-
-	// TODO: Can be pre-computed on CPU
-	float f = 2.0f * tan( fovRad / 2.0f );
-	f /= ( width > height ) ? fmin( wGsw, hGsh ) : fmax( wGsw, hGsh );
-	float pxWidth = f / globSizeW;
-	float pxHeight = f / globSizeH;
-
-	float adjustW = ( width - globSizeW ) / 2.0f;
-	float adjustH = ( height - globSizeH ) / 2.0f;
+	float pxWidthAndHeight = initRayParts.x;
+	float adjustW = initRayParts.y;
+	float adjustH = initRayParts.z;
 
 	float4 initialRay = eye + w
-			- globSizeW / 2.0f * pxWidth * u
-			+ globSizeH / 2.0f * pxHeight * v
-			+ pxWidth / 2.0f * u
-			- pxHeight / 2.0f * v;
-	initialRay += ( pos.x - adjustW ) * pxWidth * u;
-	initialRay -= ( globSizeH - pos.y + adjustH ) * pxHeight * v;
+			- WORKGROUPSIZE / 2.0f * pxWidthAndHeight * u
+			+ WORKGROUPSIZE / 2.0f * pxWidthAndHeight * v
+			+ pxWidthAndHeight / 2.0f * u
+			- pxWidthAndHeight / 2.0f * v;
+	initialRay += ( pos.x - adjustW ) * pxWidthAndHeight * u;
+	initialRay -= ( WORKGROUPSIZE - pos.y + adjustH ) * pxWidthAndHeight * v;
 	initialRay.w = 0.0f;
 
 	rays[workIndex] = normalize( initialRay - eye );

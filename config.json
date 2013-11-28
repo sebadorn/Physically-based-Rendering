@@ -45,23 +45,28 @@
 	"logging": true,
 
 	"opencl": {
+		// Check each executed OpenCL function for encountered errors.
+		// (Disabling doesn't show any performance improvements.)
+		"check_errors": true,
+		// Path to the main CL source file.
 		"program": "source/pathtracing.cl",
-		// Squares only, so this setting is for width and height together
-		"workgroupsize": 512
+		// Squares only, so this setting is for width and height together.
+		// Value has to be 2^n for optimization reasons.
+		"workgroupsize": 256
 	},
 
 	"render": {
-		// AA through jittering
+		// AA through jittering.
 		"antialiasing": true,
-		// Backface culling (don't render backsides)
+		// Backface culling (don't render backsides).
 		// Could introduce errors. Better keep off while working on other bugs.
 		"backface_culling": false,
-		// Number of times a light ray bounces
-		// More bounces = less FPS
+		// Number of times a light ray bounces.
+		// More bounces = less FPS.
 		"bounces": 3,
-		// Render interval in [ms] (16.666 ms ~ 60 FPS)
-		"interval": 100.0,
-		// Shadows (bad on performance)
+		// Render interval in [ms] (16.666 ms ~ 60 FPS).
+		"interval": 10.0,
+		// Shadows (bad on performance).
 		"shadows": true
 	},
 

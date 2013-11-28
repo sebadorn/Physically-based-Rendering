@@ -35,6 +35,7 @@ class Cfg {
 		static const char* RENDER_BOUNCES;
 		static const char* RENDER_INTERVAL;
 		static const char* RENDER_SHADOWS;
+		static const char* OPENCL_CHECKERRORS;
 		static const char* OPENCL_PROGRAM;
 		static const char* OPENCL_WORKGROUPSIZE;
 		static const char* PERS_FOV;

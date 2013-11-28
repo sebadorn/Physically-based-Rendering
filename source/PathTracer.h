@@ -1,6 +1,7 @@
 #ifndef PATH_TRACER_H
 #define PATH_TRACER_H
 
+#include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <ctime>
 #include <glm/glm.hpp>
@@ -46,6 +47,9 @@ class PathTracer {
 		void clAccumulateColors( cl_float timeSinceStart );
 		glm::vec3 getJitter();
 		cl_float getTimeSinceStart();
+		void initArgsKernelColors();
+		void initArgsKernelIntersections();
+		void initArgsKernelRays();
 		void initKernelArgs();
 		void kdNodesToVectors(
 			vector<kdNode_t> kdNodes,
