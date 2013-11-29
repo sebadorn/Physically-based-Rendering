@@ -34,6 +34,11 @@
 		"kernel_times": 250.0
 	},
 
+	"kdtree": {
+		// Maximum depth of leaf nodes. Set to 0 for no limit.
+		"depth": 0
+	},
+
 	"lights": {
 		"default_position": {
 			"x": -0.2,
@@ -65,7 +70,7 @@
 		// More bounces = less FPS.
 		"bounces": 3,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
-		"interval": 10.0,
+		"interval": 16.0,
 		// Shadows (bad on performance).
 		"shadows": true
 	},

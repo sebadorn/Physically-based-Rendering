@@ -654,11 +654,15 @@ __kernel void findIntersections(
 		float4 ray = hit.position + normals[workIndex] * EPSILON;
 		float4 toLight = newLight - hit.position;
 
-		// TODO: hit.nodeIndex instead of kdRoot
-		bool isInShadow = shadowTest(
-			&ray, &toLight, kdRoot, scVertices, scFaces,
-			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes
-		);
+		// bool isInShadow = ( dot( faceNormal, toLight ) < EPSILON ) ? true : false;
+
+		// if( !isInShadow ) {
+			// TODO: hit.nodeIndex instead of kdRoot
+			bool isInShadow = shadowTest(
+				&ray, &toLight, kdRoot, scVertices, scFaces,
+				kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes
+			);
+		// }
 
 		hit.position.w = !isInShadow;
 

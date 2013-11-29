@@ -10,6 +10,7 @@ const char* Cfg::CAM_EYE_Z = "camera.eye.z";
 const char* Cfg::CAM_SPEED = "camera.speed";
 const char* Cfg::IMPORT_PATH = "import_path";
 const char* Cfg::INFO_KERNELTIMES = "info.kernel_times";
+const char* Cfg::KDTREE_DEPTH = "kdtree.depth";
 const char* Cfg::LIGHT_POS_X = "lights.default_position.x";
 const char* Cfg::LIGHT_POS_Y = "lights.default_position.y";
 const char* Cfg::LIGHT_POS_Z = "lights.default_position.z";

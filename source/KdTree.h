@@ -49,7 +49,7 @@ class KdTree {
 		void createRopes( kdNode_t* node, vector<cl_int> ropes );
 		vector<kdNode_t*> createUnconnectedNodes( vector<cl_float>* vertices );
 		kdNode_t* findMedian( vector<kdNode_t*>* nodes, cl_int axis );
-		cl_int makeTree( vector<kdNode_t*> t, cl_int axis, cl_float* bbMin, cl_float* bbMax );
+		cl_int makeTree( vector<kdNode_t*> t, cl_int axis, cl_float* bbMin, cl_float* bbMax, cl_uint depth );
 		void optimizeRope( cl_int* rope, cl_int side, cl_float* bbMin, cl_float* bbMax );
 		void printNode( kdNode_t* node );
 		void printNumFacesOfLeaves();
@@ -63,6 +63,7 @@ class KdTree {
 		kdNode_t* mRoot;
 		vector<kdNode_t*> mNodes;
 		vector<kdNode_t*> mLeaves;
+		cl_uint mDepthLimit;
 		cl_int mLeafIndex;
 
 };
