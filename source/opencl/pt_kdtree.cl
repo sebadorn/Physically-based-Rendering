@@ -1,19 +1,20 @@
 /**
  * Check all faces of a leaf node for intersections with the given ray.
- * @param faceIndex     [description]
- * @param origin        [description]
- * @param dir           [description]
- * @param scVertices    [description]
- * @param scFaces       [description]
- * @param kdNodeData3   [description]
- * @param entryDistance [description]
- * @param exitDistance  [description]
- * @param result        [description]
+ * @param {const int}             nodeIndex
+ * @param {const int}             faceIndex
+ * @param {const float4*}         origin
+ * @param {const float4*}         dir
+ * @param {const __global float*} scVertices
+ * @param {const __global uint*}  scFaces
+ * @param {const __global int*}   kdNodeData3
+ * @param {const float}           entryDistance
+ * @param {float*}                exitDistance
+ * @param {hit_t*}                result
  */
 void checkFaces(
-	int nodeIndex, int faceIndex, float4* origin, float4* dir,
-	__global float* scVertices, __global uint* scFaces, __global int* kdNodeData3,
-	float entryDistance, float* exitDistance, hit_t* result
+	const int nodeIndex, const int faceIndex, const float4* origin, const float4* dir,
+	const __global float* scVertices, const __global uint* scFaces, const __global int* kdNodeData3,
+	const float entryDistance, float* exitDistance, hit_t* result
 ) {
 	float4 a, b, c;
 	float r;
@@ -25,6 +26,7 @@ void checkFaces(
 
 	while( ++i <= numFaces ) {
 		f = kdNodeData3[faceIndex + i];
+
 		aIndex = scFaces[f] * 3;
 		bIndex = scFaces[f + 1] * 3;
 		cIndex = scFaces[f + 2] * 3;
@@ -48,7 +50,7 @@ void checkFaces(
 			0.0f
 		);
 
-		r = checkFaceIntersection( origin, dir, a, b, c, entryDistance, *exitDistance, &newResult );
+		r = checkFaceIntersection( origin, dir, &a, &b, &c, entryDistance, *exitDistance, &newResult );
 
 		if( r > -1.0f ) {
 			*exitDistance = r;
@@ -65,10 +67,25 @@ void checkFaces(
 }
 
 
+/**
+ * Check all faces of a leaf node for intersections with the given ray to test if it can reach a light source.
+ * If a hit is found between origin and light source, the function returns immediately.
+ * @param  {const int}             nodeIndex
+ * @param  {const int}             faceIndex
+ * @param  {const float4*}         origin
+ * @param  {const float4*}         dir
+ * @param  {const __global float*} scVertices
+ * @param  {const __global uint*}  scFaces
+ * @param  {const __global int*}   kdNodeData3
+ * @param  {const float}           entryDistance
+ * @param  {float*}                exitDistance
+ * @param  {const float}           distLimit
+ * @return {bool}                                True, if a hit is detected between origin and light, false otherwise.
+ */
 bool checkFacesForShadow(
-	int nodeIndex, int faceIndex, float4* origin, float4* dir,
-	__global float* scVertices, __global uint* scFaces, __global int* kdNodeData3,
-	float entryDistance, float* exitDistance, float distLimit
+	const int nodeIndex, const int faceIndex, const float4* origin, const float4* dir,
+	const __global float* scVertices, const __global uint* scFaces, const __global int* kdNodeData3,
+	const float entryDistance, float* exitDistance, const float distLimit
 ) {
 	float4 a, b, c;
 	float r;
@@ -103,7 +120,7 @@ bool checkFacesForShadow(
 			0.0f
 		);
 
-		r = checkFaceIntersection( origin, dir, a, b, c, entryDistance, *exitDistance, &newResult );
+		r = checkFaceIntersection( origin, dir, &a, &b, &c, entryDistance, *exitDistance, &newResult );
 
 		if( r > -1.0f ) {
 			*exitDistance = r;
@@ -118,52 +135,61 @@ bool checkFacesForShadow(
 }
 
 
+/**
+ * Traverse down the kd-tree to find a leaf node the given ray intersects.
+ * @param {int*}                  nodeIndex
+ * @param {const __global float*} kdNodeData1
+ * @param {const __global int*}   kdNodeData2
+ * @param {cost float4*}          hitNear
+ * @param {float*}                bbMin
+ * @param {float*}                bbMax
+ */
 void goToLeafNode(
-	int* nodeIndex, __global float* const kdNodeData1, __global int* const kdNodeData2,
-	float4* const hitNear, float* bbMin, float* bbMax
+	int* nodeIndex, const __global float* kdNodeData1, const __global int* kdNodeData2,
+	const float4* hitNear, float* bbMin, float* bbMax
 ) {
-	int left = kdNodeData2[*nodeIndex * 5];
-	int right = kdNodeData2[*nodeIndex * 5 + 1];
-	int axis = kdNodeData2[*nodeIndex * 5 + 2];
+	int left = kdNodeData2[(*nodeIndex) * 5];
+	int right = kdNodeData2[(*nodeIndex) * 5 + 1];
+	int axis = kdNodeData2[(*nodeIndex) * 5 + 2];
 
 	while( left >= 0 && right >= 0 ) {
 		*nodeIndex = ( ( (float*) hitNear )[axis] < kdNodeData1[(*nodeIndex) * 9 + axis] ) ? left : right;
-		left = kdNodeData2[*nodeIndex * 5];
-		right = kdNodeData2[*nodeIndex * 5 + 1];
-		axis = kdNodeData2[*nodeIndex * 5 + 2];
+		left = kdNodeData2[(*nodeIndex) * 5];
+		right = kdNodeData2[(*nodeIndex) * 5 + 1];
+		axis = kdNodeData2[(*nodeIndex) * 5 + 2];
 	}
 
-	bbMin[0] = kdNodeData1[*nodeIndex * 9 + 3];
-	bbMin[1] = kdNodeData1[*nodeIndex * 9 + 4];
-	bbMin[2] = kdNodeData1[*nodeIndex * 9 + 5];
-	bbMax[0] = kdNodeData1[*nodeIndex * 9 + 6];
-	bbMax[1] = kdNodeData1[*nodeIndex * 9 + 7];
-	bbMax[2] = kdNodeData1[*nodeIndex * 9 + 8];
+	bbMin[0] = kdNodeData1[(*nodeIndex) * 9 + 3];
+	bbMin[1] = kdNodeData1[(*nodeIndex) * 9 + 4];
+	bbMin[2] = kdNodeData1[(*nodeIndex) * 9 + 5];
+	bbMax[0] = kdNodeData1[(*nodeIndex) * 9 + 6];
+	bbMax[1] = kdNodeData1[(*nodeIndex) * 9 + 7];
+	bbMax[2] = kdNodeData1[(*nodeIndex) * 9 + 8];
 }
 
 
 /**
  * Find the closest hit of the ray with a surface.
  * Uses stackless kd-tree traversal.
- * @param origin      [description]
- * @param dir         [description]
- * @param kdRoot      [description]
- * @param scVertices  [description]
- * @param scFaces     [description]
- * @param kdNodeData1 [description]
- * @param kdNodeData2 [description]
- * @param kdNodeData3 [description]
- * @param kdNodeRopes [description]
- * @param result      [description]
+ * @param {const float4*}         origin
+ * @param {const float4*}         dir
+ * @param {const uint}            kdRoot
+ * @param {const __global float*} scVertices
+ * @param {const __global uint*}  scFaces
+ * @param {const __global float*} kdNodeData1
+ * @param {const __global int*}   kdNodeData2
+ * @param {const __global int*}   kdNodeData3
+ * @param {const __global int*}   kdNodeRopes
+ * @param {hit_t*}                result
  */
 inline void traverseKdTree(
-	float4* origin, float4* dir, const uint kdRoot,
-	__global float* scVertices, __global uint* scFaces,
-	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
-	__global int* kdNodeRopes, hit_t* result
+	const float4* origin, const float4* dir, const uint kdRoot,
+	const __global float* scVertices, const __global uint* scFaces,
+	const __global float* kdNodeData1, const __global int* kdNodeData2, const __global int* kdNodeData3,
+	const __global int* kdNodeRopes, hit_t* result
 ) {
 	int nodeIndex = kdRoot;
-	uint ni9 = nodeIndex * 9;
+	const uint ni9 = nodeIndex * 9;
 
 	float bbMin[3] = {
 		kdNodeData1[ni9 + 3],
@@ -187,7 +213,6 @@ inline void traverseKdTree(
 	}
 
 	entryDistance = fmax( entryDistance, 0.0f );
-
 
 	float4 hitNear;
 	int faceIndex, ropeIndex;
@@ -225,28 +250,28 @@ inline void traverseKdTree(
 
 /**
  * Test if from the current hit location there is an unobstracted direct path to the light source.
- * @param  origin      [description]
- * @param  toLight     [description]
- * @param  startNode   [description]
- * @param  scVertices  [description]
- * @param  scFaces     [description]
- * @param  kdNodeData1 [description]
- * @param  kdNodeData2 [description]
- * @param  kdNodeData3 [description]
- * @param  kdNodeRopes [description]
- * @return             [description]
+ * @param  {const float4*}         origin
+ * @param  {const float4*}         toLight
+ * @param  {const uint}            startNode
+ * @param  {const __global float*} scVertices
+ * @param  {const __global uint*}  scFaces
+ * @param  {const __global float*} kdNodeData1
+ * @param  {const __global int*}   kdNodeData2
+ * @param  {const __global int*}   kdNodeData3
+ * @param  {const __global int*}   kdNodeRopes
+ * @return {bool}
  */
 inline bool shadowTest(
-	float4* origin, float4* toLight, const uint startNode,
-	__global float* scVertices, __global uint* scFaces,
-	__global float* kdNodeData1, __global int* kdNodeData2, __global int* kdNodeData3,
-	__global int* kdNodeRopes
+	const float4* origin, const float4* toLight, const uint startNode,
+	const __global float* scVertices, const __global uint* scFaces,
+	const __global float* kdNodeData1, const __global int* kdNodeData2, const __global int* kdNodeData3,
+	const __global int* kdNodeRopes
 ) {
-	float4 dir = normalize( *toLight );
-	float distLimit = length( *toLight );
+	const float4 dir = normalize( *toLight );
+	const float distLimit = length( *toLight );
 
 	int nodeIndex = startNode;
-	uint ni9 = nodeIndex * 9;
+	const uint ni9 = nodeIndex * 9;
 
 	float bbMin[3] = {
 		kdNodeData1[ni9 + 3],
@@ -290,7 +315,6 @@ inline bool shadowTest(
 		) {
 			return true;
 		}
-
 
 		// Exit leaf node
 		intersectBoundingBox( origin, &dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
