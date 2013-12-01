@@ -47,14 +47,19 @@
 		}
 	},
 
-	"logging": true,
+	// Log levels:
+	// 0 - no logging
+	// 1 - errors and warnings
+	// 2 - also info
+	// 3 - also debug
+	"logging": 3,
 
 	"opencl": {
 		// Check each executed OpenCL function for encountered errors.
 		// (Disabling doesn't show any performance improvements.)
 		"check_errors": true,
 		// Path to the main CL source file.
-		"program": "source/pathtracing.cl",
+		"program": "source/opencl/pathtracing.cl",
 		// Squares only, so this setting is for width and height together.
 		// Value has to be 2^n for optimization reasons.
 		"workgroupsize": 256

@@ -49,6 +49,7 @@ class CL {
 	protected:
 		void buildProgram();
 		bool checkError( cl_int err, const char* functionName );
+		string combineParts( string filepath );
 		const char* errorCodeToName( cl_int errorCode );
 		void getDefaultDevice();
 		void getDefaultPlatform();

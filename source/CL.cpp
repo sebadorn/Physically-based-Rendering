@@ -90,6 +90,35 @@ bool CL::checkError( cl_int err, const char* functionName ) {
 
 
 /**
+ * Merge other CL files that are referenced in the main file into the main file.
+ * @param  {std::string} filepath Path and name to the main file.
+ * @return {std::string}          The content of the merged CL files.
+ */
+string CL::combineParts( string filepath ) {
+	string clProgramString = utils::loadFileAsString( filepath.c_str() );
+	string filename, value;
+
+	size_t lastPath = filepath.rfind( "/" );
+	filepath = filepath.substr( 0, lastPath + 1 );
+
+	size_t foundStart = clProgramString.find( "#FILE:" );
+	size_t foundEnd = clProgramString.find( ":FILE#" );
+
+	while( foundStart != string::npos && foundEnd != string::npos ) {
+		filename = clProgramString.substr( foundStart + 6, foundEnd - foundStart - 6 );
+		Logger::logDebug( "[OpenCL] Merge main file with " + filepath + filename );
+		value = utils::loadFileAsString( ( filepath + filename ).c_str() );
+		clProgramString.replace( foundStart, foundEnd - foundStart + 6, value );
+
+		foundStart = clProgramString.find( "#FILE:" );
+		foundEnd = clProgramString.find( ":FILE#" );
+	}
+
+	return clProgramString;
+}
+
+
+/**
  * Create an empty buffer that can be updated with data later.
  * @param  {size_t}       size  Size of the buffer.
  * @param  {cl_mem_flags} flags CL flags like CL_MEM_READ_ONLY.
@@ -442,7 +471,7 @@ void CL::initCommandQueue() {
  * @param {string} filepath Path to the CL code file.
  */
 void CL::loadProgram( string filepath ) {
-	string clProgramString = utils::loadFileAsString( filepath.c_str() );
+	string clProgramString = this->combineParts( string( filepath ) );
 	clProgramString = this->setValues( clProgramString );
 
 	const char* clProgramChar = clProgramString.c_str();
