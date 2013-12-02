@@ -532,11 +532,13 @@ void CL::setKernelArg( cl_kernel kernel, cl_uint index, size_t size, void* data 
 string CL::setValues( string clProgramString ) {
 	// Placeholder names in the OpenCL file
 	vector<string> boolReplace;
+	boolReplace.push_back( "ANTI_ALIASING" );
 	boolReplace.push_back( "BACKFACE_CULLING" );
 	boolReplace.push_back( "SHADOWS" );
 
 	// Boolean values from the config
 	vector<bool> configValue;
+	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_ANTIALIAS ) );
 	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_BACKFACECULLING ) );
 	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_SHADOWS ) );
 

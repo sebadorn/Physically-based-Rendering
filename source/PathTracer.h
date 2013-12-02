@@ -42,7 +42,7 @@ class PathTracer {
 		void updateLights( vector<light_t> lights );
 
 	protected:
-		void clInitRays();
+		void clInitRays( cl_float timeSinceStart );
 		void clPathTracing( cl_float timeSinceStart );
 		glm::vec3 getJitter();
 		cl_float getTimeSinceStart();

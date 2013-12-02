@@ -36,7 +36,9 @@ PathTracer::~PathTracer() {
 /**
  * OpenCL: Compute the initial rays into the scene.
  */
-void PathTracer::clInitRays() {
+void PathTracer::clInitRays( cl_float timeSinceStart ) {
+	mCL->setKernelArg( mKernelRays, 6, sizeof( cl_float ), &timeSinceStart );
+
 	mCL->execute( mKernelRays );
 	mCL->finish();
 }
@@ -61,8 +63,10 @@ vector<cl_float> PathTracer::generateImage() {
 	this->updateEyeBuffer();
 	mCL->updateImageReadOnly( mBufTextureIn, mWidth, mHeight, &mTextureOut[0] );
 
-	this->clInitRays();
-	this->clPathTracing( this->getTimeSinceStart() );
+	cl_float timeSinceStart = this->getTimeSinceStart();
+
+	this->clInitRays( timeSinceStart );
+	this->clPathTracing( timeSinceStart );
 
 	mCL->readImageOutput( mBufTextureOut, mWidth, mHeight, &mTextureOut[0] );
 	mSampleCount++;
@@ -169,6 +173,7 @@ void PathTracer::initArgsKernelRays() {
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufEye );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufOrigins );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufRays );
+	++i; // 6: timeSinceStart
 }
 
 
@@ -341,12 +346,6 @@ void PathTracer::updateEyeBuffer() {
 	glm::vec3 c = mCamera->getAdjustedCenter_glmVec3();
 	glm::vec3 eye = mCamera->getEye_glmVec3();
 	glm::vec3 up = mCamera->getUp_glmVec3();
-
-	// Jittering for anti-aliasing
-	// TODO: probably wrong or at least not very good
-	if( Cfg::get().value<bool>( Cfg::RENDER_ANTIALIAS ) ) {
-		eye += this->getJitter();
-	}
 
 	glm::vec3 w = glm::normalize( glm::vec3( c[0] - eye[0], c[1] - eye[1], c[2] - eye[2] ) );
 	glm::vec3 u = glm::normalize( glm::cross( w, up ) );
