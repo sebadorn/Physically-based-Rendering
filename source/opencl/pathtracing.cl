@@ -47,13 +47,31 @@ void accumulateColor(
 }
 
 
+/**
+ *
+ * @param origin
+ * @param dir
+ * @param normal
+ * @param scVertices
+ * @param scFaces
+ * @param scNormals
+ * @param scFacesVN
+ * @param lights
+ * @param kdNodeData1
+ * @param kdNodeData2
+ * @param kdNodeData3
+ * @param kdNodeRopes
+ * @param kdRoot
+ * @param timeSinceStart
+ */
 void bounce(
 	float4* origin, float4* dir, float4* normal,
-	const __global float* scVertices, const __global uint* scFaces, const __global float* scNormals,
-	const __global uint* scFacesVN,
+	const __global float* scVertices, const __global uint* scFaces,
+	const __global float* scNormals, const __global uint* scFacesVN,
 	const __global float4* lights,
-	const __global float* kdNodeData1, const __global int* kdNodeData2, const __global int* kdNodeData3,
-	const __global int* kdNodeRopes, const uint kdRoot, const float timeSinceStart
+	const __global float* kdNodeData1, const __global int* kdNodeData2,
+	const __global int* kdNodeData3, const __global int* kdNodeRopes,
+	const uint kdRoot, const float timeSinceStart
 ) {
 	hit_t hit;
 	hit.distance = -2.0f;
@@ -91,9 +109,8 @@ void bounce(
 		float4 originForShadow = hit.position + (*normal) * EPSILON;
 		float4 toLight = newLight - hit.position;
 
-		// TODO: hit.nodeIndex instead of kdRoot
 		bool isInShadow = shadowTest(
-			&originForShadow, &toLight, kdRoot, scVertices, scFaces,
+			&originForShadow, &toLight, hit.nodeIndex, scVertices, scFaces,
 			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes
 		);
 
@@ -139,14 +156,16 @@ void bounce(
 __kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
 void pathTracing(
 	// parameters for both
-	const uint offsetW, const uint offsetH, const float timeSinceStart, const __global float4* lights,
+	const uint offsetW, const uint offsetH,
+	const float timeSinceStart, const __global float4* lights,
 
 	// parameters for path tracing
 	const __global float4* origins, const __global float4* dirs,
-	const __global float* scVertices, const __global uint* scFaces, const __global float* scNormals,
-	const __global uint* scFacesVN,
-	const __global float* kdNodeData1, const __global int* kdNodeData2, const __global int* kdNodeData3,
-	const __global int* kdNodeRopes, const uint kdRoot,
+	const __global float* scVertices, const __global uint* scFaces,
+	const __global float* scNormals, const __global uint* scFacesVN,
+	const __global float* kdNodeData1, const __global int* kdNodeData2,
+	const __global int* kdNodeData3, const __global int* kdNodeRopes,
+	const uint kdRoot,
 
 	// parameters for accumulating colors
 	const __global int* materialToFace, const __global float* diffuseColors,

@@ -79,13 +79,12 @@ void checkFaces(
  * @param  {const __global int*}   kdNodeData3
  * @param  {const float}           entryDistance
  * @param  {float*}                exitDistance
- * @param  {const float}           distLimit
  * @return {bool}                                True, if a hit is detected between origin and light, false otherwise.
  */
 bool checkFacesForShadow(
 	const int nodeIndex, const int faceIndex, const float4* origin, const float4* dir,
 	const __global float* scVertices, const __global uint* scFaces, const __global int* kdNodeData3,
-	const float entryDistance, float* exitDistance, const float distLimit
+	const float entryDistance, float* exitDistance
 ) {
 	float4 a, b, c;
 	float r;
@@ -126,7 +125,7 @@ bool checkFacesForShadow(
 		if( r > -1.0f ) {
 			*exitDistance = r;
 
-			if( newResult.distance <= distLimit ) {
+			if( r <= 1.0f ) {
 				return true;
 			}
 		}
@@ -157,7 +156,7 @@ void goToLeafNode(
 		*nodeIndex = ( ( (float*) hitNear )[axis] < kdNodeData1[(*nodeIndex) * 9 + axis] ) ? left : right;
 		left = kdNodeData2[(*nodeIndex) * 5];
 		right = kdNodeData2[(*nodeIndex) * 5 + 1];
-		axis = kdNodeData2[(*nodeIndex) * 5 + 2];
+		axis = ( 1 << axis ) & 3; // ( axis + 1 ) % 3
 	}
 
 	bbMin[0] = kdNodeData1[(*nodeIndex) * 9 + 3];
@@ -256,14 +255,11 @@ inline void traverseKdTree(
  * @return {bool}
  */
 inline bool shadowTest(
-	const float4* origin, const float4* toLight, const uint startNode,
+	const float4* origin, const float4* dir, const uint startNode,
 	const __global float* scVertices, const __global uint* scFaces,
 	const __global float* kdNodeData1, const __global int* kdNodeData2, const __global int* kdNodeData3,
 	const __global int* kdNodeRopes
 ) {
-	const float4 dir = normalize( *toLight );
-	const float distLimit = length( *toLight );
-
 	int nodeIndex = startNode;
 	const uint ni9 = nodeIndex * 9;
 
@@ -281,32 +277,32 @@ inline bool shadowTest(
 	float entryDistance, exitDistance, tNear;
 	int exitRope;
 
-	if( !intersectBoundingBox( origin, &dir, bbMin, bbMax, &entryDistance, &exitDistance, &exitRope ) ) {
-		return false;
-	}
-
-	entryDistance = fmax( entryDistance, 0.0f );
+	entryDistance = 0.0f;
+	exitDistance = 0.9f;
 
 	float4 hitNear;
 	int faceIndex, ropeIndex;
+	// int i = 0; // TODO: remove
 
 	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
+		// if( i++ > 1000 ) return false; // TODO: remove
+
 		// Find a leaf node for this ray
-		hitNear = (*origin) + entryDistance * dir;
+		hitNear = (*origin) + entryDistance * (*dir);
 		goToLeafNode( &nodeIndex, kdNodeData1, kdNodeData2, &hitNear, bbMin, bbMax );
 
 		// At a leaf node now, check triangle faces
 		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
 
 		if( checkFacesForShadow(
-			nodeIndex, faceIndex, origin, &dir, scVertices, scFaces, kdNodeData3,
-			entryDistance, &exitDistance, distLimit
+			nodeIndex, faceIndex, origin, dir, scVertices, scFaces, kdNodeData3,
+			entryDistance, &exitDistance
 		) ) {
 			return true;
 		}
 
 		// Exit leaf node
-		intersectBoundingBox( origin, &dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
+		intersectBoundingBox( origin, dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
 
 		// Follow the rope
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
