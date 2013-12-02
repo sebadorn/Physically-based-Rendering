@@ -110,7 +110,7 @@ void bounce(
 		float4 toLight = newLight - hit.position;
 
 		bool isInShadow = shadowTest(
-			&originForShadow, &toLight, hit.nodeIndex, scVertices, scFaces,
+			&originForShadow, &toLight, kdRoot, scVertices, scFaces,
 			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes
 		);
 
@@ -212,13 +212,13 @@ void pathTracing(
  * @param {const float4}           initRayParts
  * @param {const __global float*}  eyeIn        Camera eye position.
  * @param {__global float4*}       origins      Output. The origin of each ray. (The camera eye.)
- * @param {__global float4*}       rays         Output. The generated rays for each pixel.
+ * @param {__global float4*}       dirs         Output. The generated rays for each pixel.
  */
 __kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
 void initRays(
 	const uint offsetW, const uint offsetH, const float4 initRayParts,
 	const __global float* eyeIn,
-	__global float4* origins, __global float4* rays,
+	__global float4* origins, __global float4* dirs,
 	const float timeSinceStart
 ) {
 	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
@@ -246,6 +246,6 @@ void initRays(
 			+ ( pos.x - adjustW ) * pxWidthAndHeight * u
 			- ( WORKGROUPSIZE - pos.y + adjustH ) * pxWidthAndHeight * v;
 
-	rays[workIndex] = fast_normalize( initialRay - eye ); // WARNING: fast_
+	dirs[workIndex] = fast_normalize( initialRay - eye ); // WARNING: fast_
 	origins[workIndex] = eye;
 }

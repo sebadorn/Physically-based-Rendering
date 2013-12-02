@@ -1,16 +1,14 @@
 # directories
 CMakeFiles/*
-tests/CMakeFiles/*
 resources/*
 !resources/models/
 resources/models/ignore/*
 
 # files
-*.cxx
+moc_*.cxx
 *.sublime-*
 CMakeCache.txt
 cmake_install.cmake
 Makefile
 PBR
 valgrind.log
-tests/TEST_*

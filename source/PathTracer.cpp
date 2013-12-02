@@ -35,6 +35,7 @@ PathTracer::~PathTracer() {
 
 /**
  * OpenCL: Compute the initial rays into the scene.
+ * @param {cl_float} timeSinceStart Time since start of the program in seconds.
  */
 void PathTracer::clInitRays( cl_float timeSinceStart ) {
 	mCL->setKernelArg( mKernelRays, 6, sizeof( cl_float ), &timeSinceStart );
@@ -44,6 +45,10 @@ void PathTracer::clInitRays( cl_float timeSinceStart ) {
 }
 
 
+/**
+ * OpenCL: Find the paths in the scene and accumulate the colors of hit surfaces.
+ * @param {cl_float} timeSinceStart Time since start of the program in seconds.
+ */
 void PathTracer::clPathTracing( cl_float timeSinceStart ) {
 	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 

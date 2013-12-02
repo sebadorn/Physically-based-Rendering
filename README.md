@@ -17,6 +17,9 @@
 * Are some tasks in OpenCL better done on CPU than GPU?
 * Is clFinish() always necessary where I used it?
 * Access array elements in order
+* OpenCL: local memory is much much faster than global memory
+* OpenCL: texture memory is much faster than global memory
+* OpenCL: constant memory is faster than global memory, but also much smaller
 
 
 ## Libraries/headers
