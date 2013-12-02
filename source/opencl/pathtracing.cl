@@ -6,58 +6,22 @@
 
 
 
-// KERNELS
-
-
-/**
- * KERNEL.
- * Accumulate the colors of hit surfaces.
- * @param {const uint}             offsetW
- * @param {const uint}             offsetH
- * @param {const __global float4*} origins        Positions on the hit surfaces.
- * @param {const __global float4*} normals        Normals of the hit surfaces.
- * @param {__global float4*}       accColors      Accumulated color so far.
- * @param {__global float4*}       colorMasks     Color mask so far.
- * @param {const __global float*}  lights
- * @param {const __global int*}    materialToFace
- * @param {const __global float*}  diffuseColors
- * @param {const float}            textureWeight  Weight for the mixing of the textures.
- * @param {const float}            timeSinceStart Time since start of the tracer in seconds.
- * @param {__read_only image2d_t}  textureIn      Input. The generated texture so far.
- * @param {__write_only image2d_t} textureOut     Output. The generated texture now.
- */
-__kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
-void accumulateColors(
-	const uint offsetW, const uint offsetH,
-	const __global float4* origins, const __global float4* normals,
-	__global float4* accColors, __global float4* colorMasks,
+void accumulateColor(
+	float4 hit, float4 normal, float4* accumulatedColor, float4* colorMask,
 	const __global float4* lights,
 	const __global int* materialToFace, const __global float* diffuseColors,
-	const float textureWeight, const float timeSinceStart,
-	__read_only image2d_t textureIn, __write_only image2d_t textureOut
+	const float timeSinceStart
 ) {
-	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
-	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
-
-	float4 hit = origins[workIndex];
 	const float4 light = lights[0];
-
-	// New color (or: another color calculated by evaluating different light paths than before)
-	// Accumulate the colors of each hit surface
-	float4 colorMask = colorMasks[workIndex];
-	float4 accumulatedColor = accColors[workIndex];
 
 	// Surface hit
 	if( hit.w > -1.0f ) {
 		const float shadowIntensity = hit.w;
 		hit.w = 0.0f;
 
-		float4 normal = normals[workIndex];
-
 		// TODO: This is ugly, seperate the (unrelated) data
 		int face = normal.w;
 		int material = materialToFace[face];
-		normals[workIndex].w = 0.0f;
 		normal.w = 0.0f;
 
 		// The farther away a shadow is, the more diffuse it becomes (penumbrae)
@@ -80,19 +44,84 @@ void accumulateColors(
 		};
 		// float4 surfaceColor = (float4)( 0.6f, 0.6f, 0.6f, 0.0f );
 
-		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * luminosity * diffuse * shadowIntensity;
-		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
+		*colorMask *= surfaceColor;
+		*accumulatedColor += (*colorMask) * luminosity * diffuse * shadowIntensity;
+		*accumulatedColor += (*colorMask) * specularHighlight * shadowIntensity;
+	}
+}
 
-		accColors[workIndex] = accumulatedColor;
-		colorMasks[workIndex] = colorMask;
+
+void bounce(
+	float4* origin, float4* dir, float4* normal,
+	const __global float* scVertices, const __global uint* scFaces, const __global float* scNormals,
+	const __global uint* scFacesVN,
+	const __global float4* lights,
+	const __global float* kdNodeData1, const __global int* kdNodeData2, const __global int* kdNodeData3,
+	const __global int* kdNodeRopes, const uint kdRoot, const float timeSinceStart
+) {
+	if( origin->w <= -1.0f ) {
+		return;
 	}
 
-	// Mix new color with previous one
-	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
-	float4 color = mix( accumulatedColor, texturePixel, textureWeight );
-	write_imagef( textureOut, pos, color );
+	hit_t hit;
+	hit.distance = -2.0f;
+	hit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
+	hit.nodeIndex = -1;
+
+	traverseKdTree(
+		origin, dir, kdRoot, scVertices, scFaces,
+		kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &hit
+	);
+
+	// How to use a barrier:
+	// barrier( CLK_LOCAL_MEM_FENCE );
+
+	if( hit.distance > -1.0f ) {
+		// Normal of hit position
+		const uint f = hit.normalIndex;
+
+		*normal = (float4)(
+			scNormals[scFacesVN[f] * 3],
+			scNormals[scFacesVN[f] * 3 + 1],
+			scNormals[scFacesVN[f] * 3 + 2],
+			0.0f
+		);
+
+		// New ray
+		*dir = cosineWeightedDirection( timeSinceStart + hit.distance, *normal );
+		*dir = fast_normalize( *dir ); // WARNING: fast_
+
+
+	#ifdef SHADOWS
+
+		const float4 light = lights[0];
+		const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
+		float4 originForShadow = hit.position + (*normal) * EPSILON;
+		float4 toLight = newLight - hit.position;
+
+		// TODO: hit.nodeIndex instead of kdRoot
+		bool isInShadow = shadowTest(
+			&originForShadow, &toLight, kdRoot, scVertices, scFaces,
+			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes
+		);
+
+		hit.position.w = !isInShadow;
+
+	#else
+
+		hit.position.w = 1.0f;
+
+	#endif
+
+		normal->w = hit.faceIndex;
+	}
+
+	*origin = hit.position;
 }
+
+
+
+// KERNELS
 
 
 /**
@@ -116,81 +145,48 @@ void accumulateColors(
  * @param {const float}            timeSinceStart
  */
 __kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
-void findIntersections(
-	const uint offsetW, const uint offsetH,
-	__global float4* origins, __global float4* rays, __global float4* normals,
+void pathTracing(
+	// parameters for both
+	const uint offsetW, const uint offsetH, const float timeSinceStart, const __global float4* lights,
+
+	// parameters for path tracing
+	__global float4* origins, __global float4* rays,
 	const __global float* scVertices, const __global uint* scFaces, const __global float* scNormals,
 	const __global uint* scFacesVN,
-	const __global float4* lights,
 	const __global float* kdNodeData1, const __global int* kdNodeData2, const __global int* kdNodeData3,
-	const __global int* kdNodeRopes, const uint kdRoot, const float timeSinceStart
+	const __global int* kdNodeRopes, const uint kdRoot,
+
+	// parameters for accumulating colors
+	const __global int* materialToFace, const __global float* diffuseColors,
+	const float textureWeight,
+	__read_only image2d_t textureIn, __write_only image2d_t textureOut
 ) {
 	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
 	float4 origin = origins[workIndex];
-	const float4 dir = rays[workIndex];
+	float4 dir = rays[workIndex];
+	float4 normal = (float4)( 0.0f );
 
-	if( origin.w <= -1.0f ) {
-		return;
+	// New color (or: another color calculated by evaluating different light paths than before)
+	// Accumulate the colors of each hit surface
+	float4 accumulatedColor = (float4)( 0.0f );
+	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
+
+	for( int i = 0; i < BOUNCES; i++ ) {
+		bounce(
+			&origin, &dir, &normal, scVertices, scFaces, scNormals, scFacesVN, lights,
+			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot, timeSinceStart + i
+		);
+		accumulateColor(
+			origin, normal, &accumulatedColor, &colorMask, lights,
+			materialToFace, diffuseColors, timeSinceStart + i
+		);
 	}
 
-	hit_t hit;
-	hit.distance = -2.0f;
-	hit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
-	hit.nodeIndex = -1;
-
-	traverseKdTree(
-		&origin, &dir, kdRoot, scVertices, scFaces,
-		kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &hit
-	);
-
-	// How to use a barrier:
-	// barrier( CLK_LOCAL_MEM_FENCE );
-
-	if( hit.distance > -1.0f ) {
-		// Normal of hit position
-		const uint f = hit.normalIndex;
-
-		float4 faceNormal = (float4)(
-			scNormals[scFacesVN[f] * 3],
-			scNormals[scFacesVN[f] * 3 + 1],
-			scNormals[scFacesVN[f] * 3 + 2],
-			0.0f
-		);
-		normals[workIndex] = faceNormal;
-
-		// New ray
-		float4 newDir = cosineWeightedDirection( timeSinceStart + hit.distance, faceNormal );
-		newDir.w = 0.0f;
-		rays[workIndex] = fast_normalize( newDir ); // WARNING: fast_
-
-
-	#ifdef SHADOWS
-
-		const float4 light = lights[0];
-		const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
-		float4 newOrigin = hit.position + normals[workIndex] * EPSILON;
-		float4 toLight = newLight - hit.position;
-
-		// TODO: hit.nodeIndex instead of kdRoot
-		bool isInShadow = shadowTest(
-			&newOrigin, &toLight, kdRoot, scVertices, scFaces,
-			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes
-		);
-
-		hit.position.w = !isInShadow;
-
-	#else
-
-		hit.position.w = 1.0f;
-
-	#endif
-
-		normals[workIndex].w = hit.faceIndex;
-	}
-
-	origins[workIndex] = hit.position;
+	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
+	float4 color = mix( accumulatedColor, texturePixel, textureWeight );
+	write_imagef( textureOut, pos, color );
 }
 
 
@@ -203,15 +199,12 @@ void findIntersections(
  * @param {const __global float*}  eyeIn        Camera eye position.
  * @param {__global float4*}       origins      Output. The origin of each ray. (The camera eye.)
  * @param {__global float4*}       rays         Output. The generated rays for each pixel.
- * @param {__global float4*}       accColors    Output.
- * @param {__global float4*}       colorsMasks  Output.
  */
 __kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
 void initRays(
 	const uint offsetW, const uint offsetH, const float4 initRayParts,
 	const __global float* eyeIn,
-	__global float4* origins, __global float4* rays,
-	__global float4* accColors, __global float4* colorMasks
+	__global float4* origins, __global float4* rays
 ) {
 	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
@@ -236,7 +229,4 @@ void initRays(
 
 	rays[workIndex] = fast_normalize( initialRay - eye ); // WARNING: fast_
 	origins[workIndex] = eye;
-
-	accColors[workIndex] = (float4)( 0.0f );
-	colorMasks[workIndex] = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
 }

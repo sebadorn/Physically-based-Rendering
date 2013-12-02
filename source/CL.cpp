@@ -62,7 +62,7 @@ void CL::buildProgram() {
 	this->checkError( err, "clGetProgramBuildInfo/BUILD_LOG/size" );
 
 	if( logSize > 2 ) {
-		char* buildLog;
+		char buildLog[logSize];
 		err = clGetProgramBuildInfo( mProgram, mDevice, CL_PROGRAM_BUILD_LOG, logSize, buildLog, NULL );
 		this->checkError( err, "clGetProgramBuildInfo/BUILD_LOG/text" );
 		Logger::logError( buildLog, "" );
@@ -79,8 +79,8 @@ void CL::buildProgram() {
  */
 bool CL::checkError( cl_int err, const char* functionName ) {
 	if( mDoCheckErrors && err != CL_SUCCESS ) {
-		char msg[120];
-		snprintf( msg, 120, "[OpenCL] Error in function %s: %s (code %d)", functionName, this->errorCodeToName( err ), (int) err );
+		char msg[256];
+		snprintf( msg, 256, "[OpenCL] Error in function %s: %s (code %d)", functionName, this->errorCodeToName( err ), (int) err );
 		Logger::logError( msg );
 
 		return false;
@@ -556,6 +556,7 @@ string CL::setValues( string clProgramString ) {
 
 	// Placeholder names in the OpenCL file
 	vector<string> valueReplace;
+	valueReplace.push_back( "BOUNCES" );
 	valueReplace.push_back( "IMG_HEIGHT" );
 	valueReplace.push_back( "IMG_WIDTH" );
 	valueReplace.push_back( "WORKGROUPSIZE" );
@@ -563,6 +564,7 @@ string CL::setValues( string clProgramString ) {
 
 	// Unsigned integer values from the config
 	vector<cl_uint> configInt;
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_BOUNCES ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH ) );
 	configInt.push_back( Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE ) );

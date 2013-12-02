@@ -43,12 +43,10 @@ class PathTracer {
 
 	protected:
 		void clInitRays();
-		void clFindIntersections( cl_float timeSinceStart );
-		void clAccumulateColors( cl_float timeSinceStart );
+		void clPathTracing( cl_float timeSinceStart );
 		glm::vec3 getJitter();
 		cl_float getTimeSinceStart();
-		void initArgsKernelColors();
-		void initArgsKernelIntersections();
+		void initArgsKernelPathTracing();
 		void initArgsKernelRays();
 		void initKernelArgs();
 		void kdNodesToVectors(
@@ -64,13 +62,11 @@ class PathTracer {
 		cl_float mFOV;
 
 		cl_uint mKdRootNodeIndex;
-		cl_uint mNumBounces;
 		cl_uint mSampleCount;
 
 		vector<cl_float> mTextureOut;
 
-		cl_kernel mKernelColors;
-		cl_kernel mKernelIntersections;
+		cl_kernel mKernelPathTracing;
 		cl_kernel mKernelRays;
 
 		cl_mem mBufScFaces;
@@ -87,8 +83,6 @@ class PathTracer {
 		cl_mem mBufMaterialsColorDiffuse;
 		cl_mem mBufMaterialToFace;
 
-		cl_mem mBufAccColors;
-		cl_mem mBufColorMasks;
 		cl_mem mBufEye;
 		cl_mem mBufLights;
 		cl_mem mBufNormals;
