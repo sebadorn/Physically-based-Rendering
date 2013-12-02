@@ -134,66 +134,6 @@ cl_float PathTracer::getTimeSinceStart() {
 
 
 /**
- * Init the needed OpenCL buffers: Faces, vertices, camera eye and rays.
- * @param {std::vector<cl_float>*} vertices  Vertices of the model.
- * @param {std::vector<cl_uint>*}  faces     Faces (triangles) of the model.
- * @param {std::vector<kdNode_t>}  kdNodes   The nodes of the kd-tree.
- * @param {cl_uint}                rootIndex Index of the root kd node.
- */
-void PathTracer::initOpenCLBuffers(
-	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-	vector<cl_uint> facesVN, vector<cl_int> facesMtl, vector<material_t> materials,
-	vector<light_t> lights,
-	vector<kdNode_t> kdNodes, cl_uint rootIndex
-) {
-	cl_uint pixels = mWidth * mHeight;
-	mKdRootNodeIndex = rootIndex;
-
-	vector<cl_float> kdData1; // [x, y, z, bbMin(x,y,z), bbMax(x,y,z)]
-	vector<cl_int> kdData2;   // [left, right, axis, facesIndex, ropesIndex]
-	vector<cl_int> kdData3;   // [numFaces, a, b, c ...]
-	vector<cl_int> kdRopes;   // [left, right, bottom, top, back, front]
-	this->kdNodesToVectors( kdNodes, &kdData1, &kdData2, &kdData3, &kdRopes );
-
-	mBufKdNodeData1 = mCL->createBuffer( kdData1, sizeof( cl_float ) * kdData1.size() );
-	mBufKdNodeData2 = mCL->createBuffer( kdData2, sizeof( cl_int ) * kdData2.size() );
-	mBufKdNodeData3 = mCL->createBuffer( kdData3, sizeof( cl_int ) * kdData3.size() );
-	mBufKdNodeRopes = mCL->createBuffer( kdRopes, sizeof( cl_int ) * kdRopes.size() );
-
-	vector<cl_float> diffuseColors; // [r, g, b]
-	for( int i = 0; i < materials.size(); i++ ) {
-		diffuseColors.push_back( materials[i].Kd[0] );
-		diffuseColors.push_back( materials[i].Kd[1] );
-		diffuseColors.push_back( materials[i].Kd[2] );
-	}
-	mBufMaterialsColorDiffuse = mCL->createBuffer( diffuseColors, sizeof( cl_float ) * diffuseColors.size() );
-	mBufMaterialToFace = mCL->createBuffer( facesMtl, sizeof( cl_int ) * facesMtl.size() );
-
-	mBufScFaces = mCL->createBuffer( faces, sizeof( cl_uint ) * faces.size() );
-	mBufScVertices = mCL->createBuffer( vertices, sizeof( cl_float ) * vertices.size() );
-	mBufScNormals = mCL->createBuffer( normals, sizeof( cl_float ) * normals.size() );
-	mBufScFacesVN = mCL->createBuffer( facesVN, sizeof( cl_uint ) * facesVN.size() );
-
-	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
-
-	mBufOrigins = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
-	mBufRays = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
-	mBufNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
-	mBufAccColors = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
-	mBufColorMasks = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
-
-	mTextureOut = vector<cl_float>( pixels * 4, 0.0f );
-	mBufTextureIn = mCL->createImageReadOnly( mWidth, mHeight, &mTextureOut[0] );
-	mBufTextureOut = mCL->createImageWriteOnly( mWidth, mHeight );
-
-	mBufLights = mCL->createEmptyBuffer( sizeof( cl_float4 ) * lights.size(), CL_MEM_READ_ONLY );
-	this->updateLights( lights );
-
-	this->initKernelArgs();
-}
-
-
-/**
  * Init the kernel arguments for the OpenCL kernel to accumulate the colors of the hit surfaces.
  */
 void PathTracer::initArgsKernelColors() {
@@ -254,7 +194,7 @@ void PathTracer::initArgsKernelRays() {
 	initRayParts.x = pxWidthAndHeight;
 	initRayParts.y = adjustW;
 	initRayParts.z = adjustH;
-	initRayParts.w = 0.0f;
+	initRayParts.w = pxWidthAndHeight / 2.0f;
 
 	cl_uint i = 1;
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_float4 ), &initRayParts );
@@ -273,6 +213,66 @@ void PathTracer::initKernelArgs() {
 	this->initArgsKernelRays();
 	this->initArgsKernelIntersections();
 	this->initArgsKernelColors();
+}
+
+
+/**
+ * Init the needed OpenCL buffers: Faces, vertices, camera eye and rays.
+ * @param {std::vector<cl_float>*} vertices  Vertices of the model.
+ * @param {std::vector<cl_uint>*}  faces     Faces (triangles) of the model.
+ * @param {std::vector<kdNode_t>}  kdNodes   The nodes of the kd-tree.
+ * @param {cl_uint}                rootIndex Index of the root kd node.
+ */
+void PathTracer::initOpenCLBuffers(
+	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
+	vector<cl_uint> facesVN, vector<cl_int> facesMtl, vector<material_t> materials,
+	vector<light_t> lights,
+	vector<kdNode_t> kdNodes, cl_uint rootIndex
+) {
+	cl_uint pixels = mWidth * mHeight;
+	mKdRootNodeIndex = rootIndex;
+
+	vector<cl_float> kdData1; // [x, y, z, bbMin(x,y,z), bbMax(x,y,z)]
+	vector<cl_int> kdData2;   // [left, right, axis, facesIndex, ropesIndex]
+	vector<cl_int> kdData3;   // [numFaces, a, b, c ...]
+	vector<cl_int> kdRopes;   // [left, right, bottom, top, back, front]
+	this->kdNodesToVectors( kdNodes, &kdData1, &kdData2, &kdData3, &kdRopes );
+
+	mBufKdNodeData1 = mCL->createBuffer( kdData1, sizeof( cl_float ) * kdData1.size() );
+	mBufKdNodeData2 = mCL->createBuffer( kdData2, sizeof( cl_int ) * kdData2.size() );
+	mBufKdNodeData3 = mCL->createBuffer( kdData3, sizeof( cl_int ) * kdData3.size() );
+	mBufKdNodeRopes = mCL->createBuffer( kdRopes, sizeof( cl_int ) * kdRopes.size() );
+
+	vector<cl_float> diffuseColors; // [r, g, b]
+	for( int i = 0; i < materials.size(); i++ ) {
+		diffuseColors.push_back( materials[i].Kd[0] );
+		diffuseColors.push_back( materials[i].Kd[1] );
+		diffuseColors.push_back( materials[i].Kd[2] );
+	}
+	mBufMaterialsColorDiffuse = mCL->createBuffer( diffuseColors, sizeof( cl_float ) * diffuseColors.size() );
+	mBufMaterialToFace = mCL->createBuffer( facesMtl, sizeof( cl_int ) * facesMtl.size() );
+
+	mBufScFaces = mCL->createBuffer( faces, sizeof( cl_uint ) * faces.size() );
+	mBufScVertices = mCL->createBuffer( vertices, sizeof( cl_float ) * vertices.size() );
+	mBufScNormals = mCL->createBuffer( normals, sizeof( cl_float ) * normals.size() );
+	mBufScFacesVN = mCL->createBuffer( facesVN, sizeof( cl_uint ) * facesVN.size() );
+
+	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
+
+	mBufOrigins = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
+	mBufRays = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
+	mBufNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
+	mBufAccColors = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
+	mBufColorMasks = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
+
+	mTextureOut = vector<cl_float>( pixels * 4, 0.0f );
+	mBufTextureIn = mCL->createImageReadOnly( mWidth, mHeight, &mTextureOut[0] );
+	mBufTextureOut = mCL->createImageWriteOnly( mWidth, mHeight );
+
+	mBufLights = mCL->createEmptyBuffer( sizeof( cl_float4 ) * lights.size(), CL_MEM_READ_ONLY );
+	this->updateLights( lights );
+
+	this->initKernelArgs();
 }
 
 

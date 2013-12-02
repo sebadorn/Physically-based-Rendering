@@ -97,6 +97,7 @@ bool checkFacesForShadow(
 
 	while( ++i <= numFaces ) {
 		f = kdNodeData3[faceIndex + i];
+
 		aIndex = scFaces[f] * 3;
 		bIndex = scFaces[f + 1] * 3;
 		cIndex = scFaces[f + 2] * 3;
@@ -208,16 +209,13 @@ inline void traverseKdTree(
 	if( !intersectBoundingBox( origin, dir, bbMin, bbMax, &entryDistance, &exitDistance, &exitRope ) ) {
 		return;
 	}
-	if( exitDistance < 0.0f ) {
-		return;
-	}
 
 	entryDistance = fmax( entryDistance, 0.0f );
 
 	float4 hitNear;
 	int faceIndex, ropeIndex;
 
-	while( entryDistance < exitDistance ) {
+	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
 		// Find a leaf node for this ray
 		hitNear = (*origin) + entryDistance * (*dir);
 		goToLeafNode( &nodeIndex, kdNodeData1, kdNodeData2, &hitNear, bbMin, bbMax );
@@ -240,10 +238,6 @@ inline void traverseKdTree(
 		// Follow the rope
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
 		nodeIndex = kdNodeRopes[ropeIndex + exitRope];
-
-		if( nodeIndex < 0 ) {
-			return;
-		}
 	}
 }
 
@@ -290,16 +284,13 @@ inline bool shadowTest(
 	if( !intersectBoundingBox( origin, &dir, bbMin, bbMax, &entryDistance, &exitDistance, &exitRope ) ) {
 		return false;
 	}
-	if( exitDistance < 0.0f ) {
-		return false;
-	}
 
 	entryDistance = fmax( entryDistance, 0.0f );
 
 	float4 hitNear;
 	int faceIndex, ropeIndex;
 
-	while( entryDistance < exitDistance ) {
+	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
 		// Find a leaf node for this ray
 		hitNear = (*origin) + entryDistance * dir;
 		goToLeafNode( &nodeIndex, kdNodeData1, kdNodeData2, &hitNear, bbMin, bbMax );
@@ -307,28 +298,20 @@ inline bool shadowTest(
 		// At a leaf node now, check triangle faces
 		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
 
-		if(
-			checkFacesForShadow(
-				nodeIndex, faceIndex, origin, &dir, scVertices, scFaces, kdNodeData3,
-				entryDistance, &exitDistance, distLimit
-			)
-		) {
+		if( checkFacesForShadow(
+			nodeIndex, faceIndex, origin, &dir, scVertices, scFaces, kdNodeData3,
+			entryDistance, &exitDistance, distLimit
+		) ) {
 			return true;
 		}
 
 		// Exit leaf node
 		intersectBoundingBox( origin, &dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
 
-		if( entryDistance >= exitDistance ) {
-			return false;
-		}
-
 		// Follow the rope
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];
 		nodeIndex = kdNodeRopes[ropeIndex + exitRope];
-
-		if( nodeIndex < 0 ) {
-			return false;
-		}
 	}
+
+	return false;
 }

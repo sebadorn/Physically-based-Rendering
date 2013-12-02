@@ -20,6 +20,7 @@ const char* Cfg::RENDER_BACKFACECULLING = "render.backface_culling";
 const char* Cfg::RENDER_BOUNCES = "render.bounces";
 const char* Cfg::RENDER_INTERVAL = "render.interval";
 const char* Cfg::RENDER_SHADOWS = "render.shadows";
+const char* Cfg::OPENCL_BUILDOPTIONS = "opencl.build_options";
 const char* Cfg::OPENCL_CHECKERRORS = "opencl.check_errors";
 const char* Cfg::OPENCL_PROGRAM = "opencl.program";
 const char* Cfg::OPENCL_WORKGROUPSIZE = "opencl.workgroupsize";

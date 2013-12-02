@@ -34,6 +34,7 @@ namespace utils {
 			std::getline( fileIn, line );
 			content.append( line + "\n" );
 		}
+		fileIn.close();
 
 		return content;
 	}

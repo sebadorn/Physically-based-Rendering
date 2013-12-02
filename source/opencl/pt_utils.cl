@@ -83,9 +83,9 @@ bool intersectBoundingBox(
 		bbMax[0], bbMax[1], bbMax[2]
 	};
 	float tmin, tmax, tymin, tymax, tzmin, tzmax;
-	const bool signX = invDir.x < 0.0f;
-	const bool signY = invDir.y < 0.0f;
-	const bool signZ = invDir.z < 0.0f;
+	const bool signX = signbit( invDir.x );
+	const bool signY = signbit( invDir.y );
+	const bool signZ = signbit( invDir.z );
 
 	// X
 	tmin = ( bounds[signX][0] - origin->x ) * invDir.x;
@@ -177,8 +177,6 @@ float checkFaceIntersection(
 		return -2.0f;
 	}
 
-	float t = dot( edge2, qVec ) * invDet;
-
 #else
 
 	if( fabs( det ) < EPSILON ) {
@@ -199,9 +197,9 @@ float checkFaceIntersection(
 		return -2.0f;
 	}
 
-	const float t = dot( edge2, qVec ) * invDet;
-
 #endif
+
+	const float t = dot( edge2, qVec ) * invDet;
 
 	if( t < EPSILON || t < tNear - EPSILON || t > tFar + EPSILON ) {
 		return -2.0f;

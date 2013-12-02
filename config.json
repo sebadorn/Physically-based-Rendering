@@ -55,6 +55,10 @@
 	"logging": 3,
 
 	"opencl": {
+		// Build options to try:
+		// -cl-fast-relaxed-math
+		// -cl-mad-enable
+		"build_options": "-cl-mad-enable",
 		// Check each executed OpenCL function for encountered errors.
 		// (Disabling doesn't show any performance improvements.)
 		"check_errors": true,
@@ -69,7 +73,6 @@
 		// AA through jittering.
 		"antialiasing": true,
 		// Backface culling (don't render backsides).
-		// Could introduce errors. Better keep off while working on other bugs.
 		"backface_culling": false,
 		// Number of times a light ray bounces.
 		// More bounces = less FPS.

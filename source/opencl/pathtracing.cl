@@ -26,7 +26,8 @@
  * @param {__read_only image2d_t}  textureIn      Input. The generated texture so far.
  * @param {__write_only image2d_t} textureOut     Output. The generated texture now.
  */
-__kernel void accumulateColors(
+__kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
+void accumulateColors(
 	const uint offsetW, const uint offsetH,
 	const __global float4* origins, const __global float4* normals,
 	__global float4* accColors, __global float4* colorMasks,
@@ -59,7 +60,7 @@ __kernel void accumulateColors(
 		normals[workIndex].w = 0.0f;
 		normal.w = 0.0f;
 
-		// The farther away a shadow is, the more diffuse it becomes
+		// The farther away a shadow is, the more diffuse it becomes (penumbrae)
 		const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
 		float4 toLight = newLight - hit;
 
@@ -71,12 +72,12 @@ __kernel void accumulateColors(
 
 		const float specularHighlight = 0.0f; // Disabled for now
 
-		const float4 surfaceColor = (float4)(
+		const float4 surfaceColor = {
 			diffuseColors[material * 3],
 			diffuseColors[material * 3 + 1],
 			diffuseColors[material * 3 + 2],
 			0.0f
-		);
+		};
 		// float4 surfaceColor = (float4)( 0.6f, 0.6f, 0.6f, 0.0f );
 
 		colorMask *= surfaceColor;
@@ -114,7 +115,8 @@ __kernel void accumulateColors(
  * @param {const uint}             kdRoot
  * @param {const float}            timeSinceStart
  */
-__kernel void findIntersections(
+__kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
+void findIntersections(
 	const uint offsetW, const uint offsetH,
 	__global float4* origins, __global float4* rays, __global float4* normals,
 	const __global float* scVertices, const __global uint* scFaces, const __global float* scNormals,
@@ -204,7 +206,8 @@ __kernel void findIntersections(
  * @param {__global float4*}       accColors    Output.
  * @param {__global float4*}       colorsMasks  Output.
  */
-__kernel void initRays(
+__kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
+void initRays(
 	const uint offsetW, const uint offsetH, const float4 initRayParts,
 	const __global float* eyeIn,
 	__global float4* origins, __global float4* rays,
@@ -213,28 +216,23 @@ __kernel void initRays(
 	const int2 pos = { offsetW + get_global_id( 0 ), offsetH + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
-	// Camera eye
-	const float4 eye = (float4)( eyeIn[0], eyeIn[1], eyeIn[2], 0.0f );
-
-	// Initial ray (first of the to be created path) shooting from the eye and into the scene
-	const float4 w = (float4)( eyeIn[3], eyeIn[4], eyeIn[5], 0.0f );
-	const float4 u = (float4)( eyeIn[6], eyeIn[7], eyeIn[8], 0.0f );
-	const float4 v = (float4)( eyeIn[9], eyeIn[10], eyeIn[11], 0.0f );
+	const float4 eye = { eyeIn[0], eyeIn[1], eyeIn[2], 0.0f };
+	const float4 w = { eyeIn[3], eyeIn[4], eyeIn[5], 0.0f };
+	const float4 u = { eyeIn[6], eyeIn[7], eyeIn[8], 0.0f };
+	const float4 v = { eyeIn[9], eyeIn[10], eyeIn[11], 0.0f };
 
 	const float pxWidthAndHeight = initRayParts.x;
 	const float adjustW = initRayParts.y;
 	const float adjustH = initRayParts.z;
-	const float wgsHalf = native_divide( WORKGROUPSIZE, 2.0f );
-	const float pxwhHalf = native_divide( pxWidthAndHeight, 2.0f );
+	const float pxwhHalf = initRayParts.w;
+
+	const float wgsHalfMulPxWH = WORKGROUPSIZE_HALF * pxWidthAndHeight;
 
 	float4 initialRay = eye + w
-			- wgsHalf * pxWidthAndHeight * u
-			+ wgsHalf * pxWidthAndHeight * v
-			+ pxwhHalf * u
-			- pxwhHalf * v;
-	initialRay += ( pos.x - adjustW ) * pxWidthAndHeight * u;
-	initialRay -= ( WORKGROUPSIZE - pos.y + adjustH ) * pxWidthAndHeight * v;
-	initialRay.w = 0.0f;
+			+ wgsHalfMulPxWH * ( v - u )
+			+ pxwhHalf * ( u - v )
+			+ ( pos.x - adjustW ) * pxWidthAndHeight * u
+			- ( WORKGROUPSIZE - pos.y + adjustH ) * pxWidthAndHeight * v;
 
 	rays[workIndex] = fast_normalize( initialRay - eye ); // WARNING: fast_
 	origins[workIndex] = eye;

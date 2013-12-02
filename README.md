@@ -16,6 +16,7 @@
 * OpenGL shaders are just strings that can be changed and recompiled
 * Are some tasks in OpenCL better done on CPU than GPU?
 * Is clFinish() always necessary where I used it?
+* Access array elements in order
 
 
 ## Libraries/headers

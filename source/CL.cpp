@@ -48,8 +48,9 @@ CL::~CL() {
  */
 void CL::buildProgram() {
 	cl_int err;
+	string buildOptions = Cfg::get().value<string>( Cfg::OPENCL_BUILDOPTIONS );
 
-	err = clBuildProgram( mProgram, 0, NULL, NULL, NULL, NULL );
+	err = clBuildProgram( mProgram, 0, NULL, buildOptions.c_str(), NULL, NULL );
 	this->checkError( err, "clBuildProgram" );
 
 	cl_build_status buildStatus;
@@ -558,12 +559,14 @@ string CL::setValues( string clProgramString ) {
 	valueReplace.push_back( "IMG_HEIGHT" );
 	valueReplace.push_back( "IMG_WIDTH" );
 	valueReplace.push_back( "WORKGROUPSIZE" );
+	valueReplace.push_back( "WORKGROUPSIZE_HALF" );
 
 	// Unsigned integer values from the config
 	vector<cl_uint> configInt;
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH ) );
-	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::OPENCL_WORKGROUPSIZE ) );
+	configInt.push_back( Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE ) );
+	configInt.push_back( Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE ) / 2.0f );
 
 	char replacement[16];
 
