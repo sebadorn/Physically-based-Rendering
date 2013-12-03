@@ -14,7 +14,6 @@ __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_T
 typedef struct hit_t {
 	float4 position;
 	float distance;
-	int normalIndex;
 	int nodeIndex;
 	int faceIndex;
 } hit_t;

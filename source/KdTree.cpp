@@ -1,7 +1,5 @@
 #include "KdTree.h"
 
-#define EPSILON 0.00001f
-
 using std::vector;
 
 
@@ -62,6 +60,7 @@ KdTree::~KdTree() {
  * @param {std::vector<cl_uint>*}  faces    Faces (triangles) of the model.
  */
 void KdTree::assignFacesToLeaves( vector<cl_float>* vertices, vector<cl_uint>* faces ) {
+	cl_uint assignedFaces = 0;
 	bool add;
 
 	for( cl_uint i = 0; i < faces->size(); i += 3 ) {
@@ -122,12 +121,16 @@ void KdTree::assignFacesToLeaves( vector<cl_float>* vertices, vector<cl_uint>* f
 				}
 
 				if( add ) {
-					l->faces.push_back( i );
+					l->faces.push_back( i / 3 );
+					assignedFaces++;
 				}
 			}
 		}
 	}
 
+	char msg[128];
+	snprintf( msg, 128, "[KdTree] On average there are %.2f faces in a leaf node.", (float) assignedFaces / mLeaves.size() );
+	Logger::logDebug( msg );
 	// this->printNumFacesOfLeaves();
 }
 
@@ -260,11 +263,10 @@ bool KdTree::hitBoundingBox(
 	tmin = ( tzmin > tmin ) ? tzmin : tmin;
 	tmax = ( tzmax < tmax ) ? tzmax : tmax;
 
-	// TODO: Improve test. Preferably without using "isnan()".
 	return (
-		( tmin >= -EPSILON && tmax <= 1.0f + EPSILON ) ||
-		( isnan( tmin ) && tmax <= 1.0f + EPSILON ) ||
-		( isnan( tmax ) && tmin >= -EPSILON )
+		( tmin >= -KD_EPSILON && tmax <= 1.0f + KD_EPSILON ) ||
+		( isnan( tmin ) && tmax <= 1.0f + KD_EPSILON ) ||
+		( isnan( tmax ) && tmin >= -KD_EPSILON )
 	);
 }
 
@@ -285,7 +287,7 @@ bool KdTree::hitTriangle( glm::vec3 vStart, glm::vec3 vEnd, glm::vec3 a, glm::ve
 	glm::vec3 pVec = glm::cross( dir, edge2 );
 	cl_float det = glm::dot( edge1, pVec );
 
-	if( abs( det ) < EPSILON ) {
+	if( abs( det ) < KD_EPSILON ) {
 		return false;
 	}
 

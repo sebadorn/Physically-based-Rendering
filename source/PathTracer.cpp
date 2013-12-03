@@ -38,7 +38,7 @@ PathTracer::~PathTracer() {
  * @param {cl_float} timeSinceStart Time since start of the program in seconds.
  */
 void PathTracer::clInitRays( cl_float timeSinceStart ) {
-	mCL->setKernelArg( mKernelRays, 6, sizeof( cl_float ), &timeSinceStart );
+	mCL->setKernelArg( mKernelRays, 5, sizeof( cl_float ), &timeSinceStart );
 
 	mCL->execute( mKernelRays );
 	mCL->finish();
@@ -52,8 +52,8 @@ void PathTracer::clInitRays( cl_float timeSinceStart ) {
 void PathTracer::clPathTracing( cl_float timeSinceStart ) {
 	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 
-	mCL->setKernelArg( mKernelPathTracing, 2, sizeof( cl_float ), &timeSinceStart );
-	mCL->setKernelArg( mKernelPathTracing, 17, sizeof( cl_float ), &textureWeight );
+	mCL->setKernelArg( mKernelPathTracing, 1, sizeof( cl_float ), &timeSinceStart );
+	mCL->setKernelArg( mKernelPathTracing, 16, sizeof( cl_float ), &textureWeight );
 
 	mCL->execute( mKernelPathTracing );
 	mCL->finish();
@@ -124,7 +124,7 @@ cl_float PathTracer::getTimeSinceStart() {
  * (find intersections and accumulate the color).
  */
 void PathTracer::initArgsKernelPathTracing() {
-	cl_uint i = 1;
+	cl_uint i = 0;
 
 	// arguments for both parts
 	++i; // 2: timeSinceStart
@@ -173,7 +173,7 @@ void PathTracer::initArgsKernelRays() {
 	initRayParts.z = adjustH;
 	initRayParts.w = pxWidthAndHeight / 2.0f;
 
-	cl_uint i = 1;
+	cl_uint i = 0;
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_float4 ), &initRayParts );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufEye );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufOrigins );
@@ -218,19 +218,40 @@ void PathTracer::initOpenCLBuffers(
 	mBufKdNodeData3 = mCL->createBuffer( kdData3, sizeof( cl_int ) * kdData3.size() );
 	mBufKdNodeRopes = mCL->createBuffer( kdRopes, sizeof( cl_int ) * kdRopes.size() );
 
-	vector<cl_float> diffuseColors; // [r, g, b]
+	vector<cl_float4> diffuseColors; // [r, g, b]
 	for( int i = 0; i < materials.size(); i++ ) {
-		diffuseColors.push_back( materials[i].Kd[0] );
-		diffuseColors.push_back( materials[i].Kd[1] );
-		diffuseColors.push_back( materials[i].Kd[2] );
+		cl_float4 d = { materials[i].Kd[0], materials[i].Kd[1], materials[i].Kd[2], 0.0f };
+		diffuseColors.push_back( d );
 	}
-	mBufMaterialsColorDiffuse = mCL->createBuffer( diffuseColors, sizeof( cl_float ) * diffuseColors.size() );
+	mBufMaterialsColorDiffuse = mCL->createBuffer( diffuseColors, sizeof( cl_float4 ) * diffuseColors.size() );
 	mBufMaterialToFace = mCL->createBuffer( facesMtl, sizeof( cl_int ) * facesMtl.size() );
 
-	mBufScFaces = mCL->createBuffer( faces, sizeof( cl_uint ) * faces.size() );
-	mBufScVertices = mCL->createBuffer( vertices, sizeof( cl_float ) * vertices.size() );
-	mBufScNormals = mCL->createBuffer( normals, sizeof( cl_float ) * normals.size() );
+
+	// TODO: cleanup
+
+	vector<cl_uint4> facesUint4;
+	for( int i = 0; i < faces.size(); i += 3 ) {
+		cl_uint4 f = { faces[i], faces[i + 1], faces[i + 2], 0 };
+		facesUint4.push_back( f );
+	}
+
+	vector<cl_float4> verticesFloat4;
+	for( int i = 0; i < vertices.size(); i += 3 ) {
+		cl_float4 v = { vertices[i], vertices[i + 1], vertices[i + 2], 0.0f };
+		verticesFloat4.push_back( v );
+	}
+
+	vector<cl_float4> normalsFloat4;
+	for( int i = 0; i < normals.size(); i += 3 ) {
+		cl_float4 n = { normals[i], normals[i + 1], normals[i + 2], 0.0f };
+		normalsFloat4.push_back( n );
+	}
+
+	mBufScFaces = mCL->createBuffer( facesUint4, sizeof( cl_uint4 ) * facesUint4.size() );
+	mBufScVertices = mCL->createBuffer( verticesFloat4, sizeof( cl_float4 ) * verticesFloat4.size() );
+	mBufScNormals = mCL->createBuffer( normalsFloat4, sizeof( cl_float4 ) * normalsFloat4.size() );
 	mBufScFacesVN = mCL->createBuffer( facesVN, sizeof( cl_uint ) * facesVN.size() );
+
 
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
 

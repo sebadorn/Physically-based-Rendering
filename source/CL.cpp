@@ -282,21 +282,19 @@ void CL::execute( cl_kernel kernel ) {
 	cl_uint h = Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT );
 	cl_uint wgs = Cfg::get().value<cl_uint>( Cfg::OPENCL_WORKGROUPSIZE );
 
-	cl_uint offsetH;
-	cl_uint offsetW = 0;
+	cl_uint2 offset = { 0, 0 }; // width, height
 
 	double avgKernelTime = 0.0;
 
-	while( offsetW < w ) {
-		offsetH = 0;
+	while( offset.x < w ) {
+		offset.y = 0;
 
-		while( offsetH < h ) {
-			this->setKernelArg( kernel, 0, sizeof( cl_uint ), &offsetW );
-			this->setKernelArg( kernel, 1, sizeof( cl_uint ), &offsetH );
+		while( offset.y < h ) {
+			this->setKernelArg( kernel, 0, sizeof( cl_uint2 ), &offset );
 
 			size_t workSize[3] = {
-				std::min( w - offsetW, wgs ),
-				std::min( h - offsetH, wgs ),
+				std::min( w - offset.x, wgs ),
+				std::min( h - offset.y, wgs ),
 				1
 			};
 			err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 2, NULL, workSize, NULL, mEvents.size(), &mEvents[0], &event );
@@ -304,10 +302,10 @@ void CL::execute( cl_kernel kernel ) {
 
 			avgKernelTime += this->getKernelExecutionTime( event );
 
-			offsetH += wgs;
+			offset.y += wgs;
 		}
 
-		offsetW += wgs;
+		offset.x += wgs;
 	}
 
 	mKernelTime[kernel] = avgKernelTime;

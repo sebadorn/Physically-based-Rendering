@@ -1,6 +1,7 @@
 #ifndef KD_TREE_H
 #define KD_TREE_H
 
+#define KD_EPSILON 0.00001f
 #define KD_DIM 3
 
 #include <algorithm>

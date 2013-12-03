@@ -126,13 +126,12 @@ bool intersectBoundingBox(
  * @param  {const float4*} p
  * @return {bool}
  */
-inline bool isInsideBoundingBox( float* bbMin, float* bbMax, float4* p ) {
+inline bool isInsideBoundingBox( const float* bbMin, const float* bbMax, const float4* p ) {
 	return (
 		p->x >= bbMin[0] && p->y >= bbMin[1] && p->z >= bbMin[2] &&
 		p->x <= bbMax[0] && p->y <= bbMax[1] && p->z <= bbMax[2]
 	);
 }
-
 
 
 /**
@@ -147,7 +146,7 @@ inline bool isInsideBoundingBox( float* bbMin, float* bbMax, float4* p ) {
  * @param  {hit_t*}        result
  * @return {float}
  */
-float checkFaceIntersection(
+inline float checkFaceIntersection(
 	const float4* origin, const float4* dir, const float4* a, const float4* b, const float4* c,
 	const float tNear, const float tFar, hit_t* result
 ) {
@@ -159,41 +158,25 @@ float checkFaceIntersection(
 
 #ifdef BACKFACE_CULLING
 
-	if( det < EPSILON ) {
-		return -2.0f;
-	}
-
 	const float4 tVec = (*origin) - (*a);
 	const float u = dot( tVec, pVec );
-
-	if( u < 0.0f || u > det ) {
-		return -2.0f;
-	}
 
 	const float4 qVec = cross( tVec, edge1 );
 	const float v = dot( *dir, qVec );
 
-	if( v < 0.0f || u + v > det ) {
+	if( u < 0.0f || u > det || v < 0.0f || u + v > det ) {
 		return -2.0f;
 	}
 
 #else
 
-	if( fabs( det ) < EPSILON ) {
-		return -2.0f;
-	}
-
 	const float4 tVec = (*origin) - (*a);
 	const float u = dot( tVec, pVec ) * invDet;
-
-	if( u < 0.0f || u > 1.0f ) {
-		return -2.0f;
-	}
 
 	const float4 qVec = cross( tVec, edge1 );
 	const float v = dot( *dir, qVec ) * invDet;
 
-	if( v < 0.0f || u + v > 1.0f ) {
+	if( u < 0.0f || u > 1.0f || v < 0.0f || u + v > 1.0f ) {
 		return -2.0f;
 	}
 
