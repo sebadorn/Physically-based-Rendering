@@ -38,8 +38,8 @@ void checkFaces(
 		if( r > -1.0f ) {
 			*exitDistance = r;
 
-			if( result->distance < 0.0f || result->distance > newResult.distance ) {
-				result->distance = newResult.distance;
+			if( result->t < -1.0f || result->t > r ) {
+				result->t = r;
 				result->position = newResult.position;
 				result->nodeIndex = nodeIndex;
 				result->faceIndex = f;
@@ -105,7 +105,7 @@ bool checkFacesForShadow(
  * @param {int*}                  nodeIndex
  * @param {const __global float*} kdNodeData1
  * @param {const __global int*}   kdNodeData2
- * @param {cost float4*}          hitNear
+ * @param {const float4*}         hitNear
  * @param {float*}                bbMin
  * @param {float*}                bbMax
  */
@@ -149,10 +149,10 @@ void goToLeafNode(
  * @param {hit_t*}                result
  */
 inline void traverseKdTree(
-	const float4* origin, const float4* dir, const uint kdRoot,
+	const float4* origin, const float4* dir, int kdRoot,
 	const __global float4* scVertices, const __global uint4* scFaces,
 	const __global float* kdNodeData1, const __global int* kdNodeData2, const __global int* kdNodeData3,
-	const __global int* kdNodeRopes, hit_t* result
+	const __global int* kdNodeRopes, hit_t* result, int bounce
 ) {
 	int nodeIndex = kdRoot;
 	const uint ni9 = nodeIndex * 9;
@@ -197,7 +197,7 @@ inline void traverseKdTree(
 		);
 
 		// Exit leaf node
-		intersectBoundingBox( origin, dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
+		updateEntryDistanceAndExitRope( origin, dir, bbMin, bbMax, &entryDistance, &exitRope );
 
 		if( entryDistance >= exitDistance ) {
 			return;
@@ -271,7 +271,7 @@ inline bool shadowTest(
 		}
 
 		// Exit leaf node
-		intersectBoundingBox( origin, dir, bbMin, bbMax, &tNear, &entryDistance, &exitRope );
+		updateEntryDistanceAndExitRope( origin, dir, bbMin, bbMax, &entryDistance, &exitRope );
 
 		// Follow the rope
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];

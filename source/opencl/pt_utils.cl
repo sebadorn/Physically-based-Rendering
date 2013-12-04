@@ -24,8 +24,8 @@ inline float4 cosineWeightedDirection( const float seed, const float4 normal ) {
 
 	// compute basis from normal
 	const float4 tmp = ( fabs( normal.x ) < 0.5f )
-	           ? (float4)( 1.0f, 0.0f, 0.0f, 0.0f )
-	           : (float4)( 0.0f, 1.0f, 0.0f, 0.0f );
+	                 ? (float4)( 1.0f, 0.0f, 0.0f, 0.0f )
+	                 : (float4)( 0.0f, 1.0f, 0.0f, 0.0f );
 	const float4 sdir = cross( normal, tmp );
 	const float4 tdir = cross( normal, sdir );
 
@@ -119,6 +119,37 @@ bool intersectBoundingBox(
 }
 
 
+void updateEntryDistanceAndExitRope(
+	const float4* origin, const float4* direction, const float* bbMin, const float* bbMax,
+	float* tFar, int* exitRope
+) {
+	const float4 invDir = native_recip( *direction ); // WARNING: native_
+	const float bounds[2][3] = {
+		bbMin[0], bbMin[1], bbMin[2],
+		bbMax[0], bbMax[1], bbMax[2]
+	};
+	float tmax, tymax, tzmax;
+	const bool signX = signbit( invDir.x );
+	const bool signY = signbit( invDir.y );
+	const bool signZ = signbit( invDir.z );
+
+	// X
+	tmax = ( bounds[1 - signX][0] - origin->x ) * invDir.x;
+	// Y
+	tymax = ( bounds[1 - signY][1] - origin->y ) * invDir.y;
+
+	// X vs. Y
+	*exitRope = ( tymax < tmax ) ? 3 - signY : 1 - signX;
+	tmax = fmin( tymax, tmax );
+	// Z
+	tzmax = ( bounds[1 - signZ][2] - origin->z ) * invDir.z;
+
+	// Z vs. previous winner
+	*exitRope = ( tzmax < tmax ) ? 5 - signZ : *exitRope;
+	*tFar = fmin( tzmax, tmax );
+}
+
+
 /**
  * Test, if a point is inside a given axis aligned bounding box.
  * @param  {const float*}  bbMin
@@ -153,15 +184,14 @@ inline float checkFaceIntersection(
 	const float4 edge1 = (*b) - (*a);
 	const float4 edge2 = (*c) - (*a);
 	const float4 pVec = cross( *dir, edge2 );
+	const float4 tVec = (*origin) - (*a);
+	const float4 qVec = cross( tVec, edge1 );
 	const float det = dot( edge1, pVec );
 	const float invDet = native_recip( det ); // WARNING: native_
 
 #ifdef BACKFACE_CULLING
 
-	const float4 tVec = (*origin) - (*a);
 	const float u = dot( tVec, pVec );
-
-	const float4 qVec = cross( tVec, edge1 );
 	const float v = dot( *dir, qVec );
 
 	if( u < 0.0f || u > det || v < 0.0f || u + v > det ) {
@@ -170,10 +200,7 @@ inline float checkFaceIntersection(
 
 #else
 
-	const float4 tVec = (*origin) - (*a);
 	const float u = dot( tVec, pVec ) * invDet;
-
-	const float4 qVec = cross( tVec, edge1 );
 	const float v = dot( *dir, qVec ) * invDet;
 
 	if( u < 0.0f || u > 1.0f || v < 0.0f || u + v > 1.0f ) {
@@ -189,7 +216,6 @@ inline float checkFaceIntersection(
 	}
 
 	result->position = (*origin) + t * (*dir);
-	result->distance = fast_distance( result->position, *origin );
 
 	return t;
 }

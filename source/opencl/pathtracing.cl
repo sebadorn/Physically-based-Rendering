@@ -70,35 +70,35 @@ void accumulateColor(
  * @param kdRoot
  * @param timeSinceStart
  */
-void bounce(
+int bounce(
 	float4* origin, float4* dir, float4* normal,
 	const __global float4* scVertices, const __global uint4* scFaces,
 	const __global float4* scNormals, const __global uint* scFacesVN,
 	const __global float4* lights,
 	const __global float* kdNodeData1, const __global int* kdNodeData2,
 	const __global int* kdNodeData3, const __global int* kdNodeRopes,
-	const uint kdRoot, const float timeSinceStart
+	const uint kdRoot, const float timeSinceStart, int bounce
 ) {
 	hit_t hit;
-	hit.distance = -2.0f;
+	hit.t = -2.0f;
 	hit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
 	hit.nodeIndex = -1;
 
 	traverseKdTree(
 		origin, dir, kdRoot, scVertices, scFaces,
-		kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &hit
+		kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &hit, bounce
 	);
 
 	// How to use a barrier:
 	// barrier( CLK_LOCAL_MEM_FENCE );
 
-	if( hit.distance > -1.0f ) {
+	if( hit.t > -1.0f ) {
 		// Normal of hit position
 		const uint f = hit.faceIndex * 3;
 		*normal = scNormals[scFacesVN[f]];
 
 		// New ray
-		*dir = cosineWeightedDirection( timeSinceStart + hit.distance, *normal );
+		*dir = cosineWeightedDirection( timeSinceStart + hit.t, *normal );
 		*dir = fast_normalize( *dir ); // WARNING: fast_
 
 
@@ -127,6 +127,8 @@ void bounce(
 	}
 
 	*origin = hit.position;
+
+	return hit.nodeIndex;
 }
 
 
@@ -176,6 +178,8 @@ void pathTracing(
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
+	uint startNode = kdRoot;
+
 	float4 origin = origins[workIndex];
 	float4 dir = dirs[workIndex];
 	float4 normal = (float4)( 0.0f );
@@ -186,9 +190,9 @@ void pathTracing(
 	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
 
 	for( int i = 0; i < BOUNCES; i++ ) {
-		bounce(
+		startNode = bounce(
 			&origin, &dir, &normal, scVertices, scFaces, scNormals, scFacesVN, lights,
-			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot, timeSinceStart + i
+			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, startNode, timeSinceStart + i, i
 		);
 		if( origin.w <= -1.0f ) {
 			break;
