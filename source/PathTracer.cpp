@@ -12,12 +12,14 @@ PathTracer::PathTracer() {
 
 	mWidth = Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH );
 	mHeight = Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT );
+	mBounces = Cfg::get().value<cl_uint>( Cfg::RENDER_BOUNCES );
 
 	mCL = new CL();
 	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
 
 	mKernelRays = mCL->createKernel( "initRays" );
 	mKernelPathTracing = mCL->createKernel( "pathTracing" );
+	mKernelSetColors = mCL->createKernel( "setColors" );
 
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
 	mSampleCount = 0;
@@ -50,12 +52,20 @@ void PathTracer::clInitRays( cl_float timeSinceStart ) {
  * @param {cl_float} timeSinceStart Time since start of the program in seconds.
  */
 void PathTracer::clPathTracing( cl_float timeSinceStart ) {
-	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
-
 	mCL->setKernelArg( mKernelPathTracing, 1, sizeof( cl_float ), &timeSinceStart );
-	mCL->setKernelArg( mKernelPathTracing, 18, sizeof( cl_float ), &textureWeight );
 
 	mCL->execute( mKernelPathTracing );
+	mCL->finish();
+}
+
+
+void PathTracer::clSetColors( cl_float timeSinceStart ) {
+	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
+
+	mCL->setKernelArg( mKernelSetColors, 1, sizeof( cl_float ), &timeSinceStart );
+	mCL->setKernelArg( mKernelSetColors, 2, sizeof( cl_float ), &textureWeight );
+
+	mCL->execute( mKernelSetColors );
 	mCL->finish();
 }
 
@@ -72,6 +82,7 @@ vector<cl_float> PathTracer::generateImage() {
 
 	this->clInitRays( timeSinceStart );
 	this->clPathTracing( timeSinceStart );
+	this->clSetColors( timeSinceStart );
 
 	mCL->readImageOutput( mBufTextureOut, mWidth, mHeight, &mTextureOut[0] );
 	mSampleCount++;
@@ -126,11 +137,8 @@ cl_float PathTracer::getTimeSinceStart() {
 void PathTracer::initArgsKernelPathTracing() {
 	cl_uint i = 0;
 
-	// arguments for both parts
 	++i; // 1: timeSinceStart
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufLights );
-
-	// arguments for the path tracing/intersection tests
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufOrigins );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufRays );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScVertices );
@@ -145,12 +153,8 @@ void PathTracer::initArgsKernelPathTracing() {
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeRopes );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_int ), &mKdRootNodeIndex );
 
-	// arguments for the color accumulation
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufMaterialToFace );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufMaterialsColorDiffuse );
-	++i; // 18: textureWeight
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufTextureIn );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufTextureOut );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufHits );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufHitNormals );
 }
 
 
@@ -180,7 +184,22 @@ void PathTracer::initArgsKernelRays() {
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufEye );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufOrigins );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufRays );
-	++i; // 6: timeSinceStart
+	++i; // 5: timeSinceStart
+}
+
+
+void PathTracer::initArgsKernelSetColors() {
+	cl_uint i = 0;
+
+	++i; // 1: timeSinceStart
+	++i; // 2: textureWeight
+	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufHits );
+	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufHitNormals );
+	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufLights );
+	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufMaterialToFace );
+	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufMaterialsColorDiffuse );
+	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufTextureIn );
+	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufTextureOut );
 }
 
 
@@ -190,6 +209,7 @@ void PathTracer::initArgsKernelRays() {
 void PathTracer::initKernelArgs() {
 	this->initArgsKernelRays();
 	this->initArgsKernelPathTracing();
+	this->initArgsKernelSetColors();
 }
 
 
@@ -260,10 +280,12 @@ void PathTracer::initOpenCLBuffers(
 
 
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
-
 	mBufOrigins = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
 	mBufRays = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
 	mBufNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
+
+	mBufHits = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels * mBounces, CL_MEM_READ_WRITE );
+	mBufHitNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels * mBounces, CL_MEM_READ_WRITE );
 
 	mTextureOut = vector<cl_float>( pixels * 4, 0.0f );
 	mBufTextureIn = mCL->createImage2DReadOnly( mWidth, mHeight, &mTextureOut[0] );

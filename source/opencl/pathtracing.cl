@@ -8,52 +8,6 @@
 
 /**
  *
- * @param hit
- * @param normal
- * @param accumulatedColor
- * @param colorMask
- * @param lights
- * @param materialToFace
- * @param diffuseColors
- * @param timeSinceStart
- */
-void accumulateColor(
-	float4* hit, float4* normal, float4* accumulatedColor, float4* colorMask,
-	const __global float4* lights,
-	const __global int* materialToFace, const __global float4* diffuseColors,
-	const float timeSinceStart
-) {
-	const float4 light = lights[0];
-	const float shadowIntensity = hit->w;
-	hit->w = 0.0f;
-
-	// TODO: This is ugly, seperate the (unrelated) data
-	int face = normal->w;
-	int material = materialToFace[face];
-	normal->w = 0.0f;
-
-	const float4 surfaceColor = diffuseColors[material];
-
-	// The farther away a shadow is, the more diffuse it becomes (penumbrae)
-	const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
-	float4 toLight = newLight - (*hit);
-
-	// Lambert factor (dot product is a cosine)
-	// Source: http://learnopengles.com/android-lesson-two-ambient-and-diffuse-lighting/
-	const float diffuse = fmax( dot( *normal, fast_normalize( toLight ) ), 0.0f );
-	const float toLightLength = fast_length( toLight );
-	const float luminosity = native_recip( toLightLength * toLightLength );
-
-	const float specularHighlight = 0.0f; // Disabled for now
-
-	*colorMask *= surfaceColor;
-	*accumulatedColor += (*colorMask) * luminosity * diffuse * shadowIntensity;
-	*accumulatedColor += (*colorMask) * specularHighlight * shadowIntensity;
-}
-
-
-/**
- *
  * @param origin
  * @param dir
  * @param normal
@@ -100,27 +54,26 @@ int findPath(
 		*dir = cosineWeightedDirection( timeSinceStart + hit.t, *normal );
 		*dir = fast_normalize( *dir ); // WARNING: fast_
 
+		#ifdef SHADOWS
 
-	#ifdef SHADOWS
+			const float4 light = lights[0];
+			const float4 newLight = light + uniformlyRandomVector( timeSinceStart + hit.t ) * 0.1f;
+			float4 originForShadow = hit.position + (*normal) * EPSILON;
+			float4 toLight = newLight - hit.position;
 
-		const float4 light = lights[0];
-		const float4 newLight = light + uniformlyRandomVector( timeSinceStart + hit.t ) * 0.1f;
-		float4 originForShadow = hit.position + (*normal) * EPSILON;
-		float4 toLight = newLight - hit.position;
+			bool isInShadow = shadowTest(
+				&originForShadow, &toLight, hit.nodeIndex, scVertices, scFaces,
+				kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
+				bbMinRoot, bbMaxRoot
+			);
 
-		bool isInShadow = shadowTest(
-			&originForShadow, &toLight, hit.nodeIndex, scVertices, scFaces,
-			kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
-			bbMinRoot, bbMaxRoot
-		);
+			hit.position.w = !isInShadow;
 
-		hit.position.w = !isInShadow;
+		#else
 
-	#else
+			hit.position.w = 1.0f;
 
-		hit.position.w = 1.0f;
-
-	#endif
+		#endif
 
 		normal->w = hit.faceIndex;
 	}
@@ -133,85 +86,6 @@ int findPath(
 
 
 // KERNELS
-
-
-/**
- * KERNEL.
- * Search the kd-tree to find the closest intersection of the ray with a surface.
- * @param {const uint}             offsetW
- * @param {const uint}             offsetH
- * @param {__global float4*}       origins
- * @param {__global float4*}       rays
- * @param {__global float4*}       normals
- * @param {const __global float*}  scVertices
- * @param {const __global uint*}   scFaces
- * @param {const __global float*}  scNormals
- * @param {const __global uint*}   scFacesVN
- * @param {const __global float4*} lights
- * @param {const __global float*}  kdNodeData1
- * @param {const __global int*}    kdNodeData2
- * @param {const __global int*}    kdNodeData3
- * @param {const __global int*}    kdNodeRopes
- * @param {const uint}             kdRoot
- * @param {const float}            timeSinceStart
- */
-__kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
-void pathTracing(
-	// parameters for both
-	const uint2 offset,
-	const float timeSinceStart, const __global float4* lights,
-
-	// parameters for path tracing
-	const __global float4* origins, const __global float4* dirs,
-	const __global float4* scVertices, const __global uint4* scFaces,
-	const __global float4* scNormals, const __global uint* scFacesVN,
-	const __global float4* kdNodeSplits, const __global float4* kdNodeBbMin, const __global float4* kdNodeBbMax,
-	const __global int* kdNodeData2,
-	const __global int* kdNodeData3, const __global int* kdNodeRopes,
-	const int kdRoot,
-
-	// parameters for accumulating colors
-	const __global int* materialToFace, const __global float4* diffuseColors,
-	const float textureWeight,
-	__read_only image2d_t textureIn, __write_only image2d_t textureOut
-) {
-	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
-	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
-
-	int startNode = kdRoot;
-
-	const float4 bbMinRoot = kdNodeBbMin[kdRoot];
-	const float4 bbMaxRoot = kdNodeBbMax[kdRoot];
-
-	float4 origin = origins[workIndex];
-	float4 dir = dirs[workIndex];
-	float4 normal = (float4)( 0.0f );
-
-	float4 accumulatedColor = (float4)( 0.0f );
-	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
-
-	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
-		startNode = findPath(
-			&origin, &dir, &normal, scVertices, scFaces, scNormals, scFacesVN,
-			lights, kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes,
-			startNode, kdRoot, timeSinceStart + bounce, bounce, bbMinRoot, bbMaxRoot
-		);
-		if( startNode < 0 ) {
-			break;
-		}
-		accumulateColor(
-			&origin, &normal, &accumulatedColor, &colorMask, lights,
-			materialToFace, diffuseColors, timeSinceStart + bounce
-		);
-	}
-
-	// How to use a barrier:
-	// barrier( CLK_LOCAL_MEM_FENCE );
-
-	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
-	float4 color = mix( accumulatedColor, texturePixel, textureWeight );
-	write_imagef( textureOut, pos, color );
-}
 
 
 /**
@@ -239,9 +113,9 @@ void initRays(
 	float4 u = { eyeIn[6], eyeIn[7], eyeIn[8], 0.0f };
 	float4 v = { eyeIn[9], eyeIn[10], eyeIn[11], 0.0f };
 
-#ifdef ANTI_ALIASING
-	eye += uniformlyRandomVector( timeSinceStart ) * 0.005f;
-#endif
+	#ifdef ANTI_ALIASING
+		eye += uniformlyRandomVector( timeSinceStart ) * 0.005f;
+	#endif
 
 	const float pxWidthAndHeight = initRayParts.x;
 	const float adjustW = initRayParts.y;
@@ -258,4 +132,146 @@ void initRays(
 
 	dirs[workIndex] = fast_normalize( initialRay - eye ); // WARNING: fast_
 	origins[workIndex] = eye;
+}
+
+
+/**
+ * KERNEL.
+ * Search the kd-tree to find the closest intersection of the ray with a surface.
+ * @param {const uint}             offsetW
+ * @param {const uint}             offsetH
+ * @param {__global float4*}       origins
+ * @param {__global float4*}       rays
+ * @param {__global float4*}       normals
+ * @param {const __global float*}  scVertices
+ * @param {const __global uint*}   scFaces
+ * @param {const __global float*}  scNormals
+ * @param {const __global uint*}   scFacesVN
+ * @param {const __global float4*} lights
+ * @param {const __global float*}  kdNodeData1
+ * @param {const __global int*}    kdNodeData2
+ * @param {const __global int*}    kdNodeData3
+ * @param {const __global int*}    kdNodeRopes
+ * @param {const uint}             kdRoot
+ * @param {const float}            timeSinceStart
+ */
+__kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
+void pathTracing(
+	const uint2 offset, const float timeSinceStart,
+	const __global float4* lights,
+	const __global float4* origins, const __global float4* dirs,
+	const __global float4* scVertices, const __global uint4* scFaces,
+	const __global float4* scNormals, const __global uint* scFacesVN,
+	const __global float4* kdNodeSplits, const __global float4* kdNodeBbMin, const __global float4* kdNodeBbMax,
+	const __global int* kdNodeData2,
+	const __global int* kdNodeData3, const __global int* kdNodeRopes,
+	const int kdRoot,
+
+	__global float4* hits, __global float4* hitNormals
+) {
+	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
+	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
+
+	int startNode = kdRoot;
+
+	const float4 bbMinRoot = kdNodeBbMin[kdRoot];
+	const float4 bbMaxRoot = kdNodeBbMax[kdRoot];
+
+	float4 origin = origins[workIndex];
+	float4 dir = dirs[workIndex];
+	float4 normal = (float4)( 0.0f );
+
+	float4 accumulatedColor = (float4)( 0.0f );
+	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
+
+	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
+		startNode = findPath(
+			&origin, &dir, &normal, scVertices, scFaces, scNormals, scFacesVN,
+			lights, kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes,
+			startNode, kdRoot, timeSinceStart + bounce, bounce, bbMinRoot, bbMaxRoot
+		);
+
+		hits[workIndex * BOUNCES + bounce] = origin;
+		hitNormals[workIndex * BOUNCES + bounce] = normal;
+
+		if( startNode < 0 ) {
+			break;
+		}
+		// accumulateColor(
+		// 	&origin, &normal, &accumulatedColor, &colorMask, lights,
+		// 	materialToFace, diffuseColors, timeSinceStart + bounce
+		// );
+	}
+
+	// How to use a barrier:
+	// barrier( CLK_LOCAL_MEM_FENCE );
+}
+
+
+/**
+ *
+ * @param hit
+ * @param normal
+ * @param accumulatedColor
+ * @param colorMask
+ * @param lights
+ * @param materialToFace
+ * @param diffuseColors
+ * @param timeSinceStart
+ */
+__kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
+void setColors(
+	const uint2 offset, const float timeSinceStart, const float textureWeight,
+	const __global float4* hits, const __global float4* normals,
+	const __global float4* lights,
+	const __global int* materialToFace, const __global float4* diffuseColors,
+	__read_only image2d_t textureIn, __write_only image2d_t textureOut
+) {
+	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
+	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
+
+	float4 accumulatedColor = (float4)( 0.0f );
+	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
+
+	const float4 light = lights[0];
+
+	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
+		float4 hit = hits[workIndex * BOUNCES + bounce];
+
+		if( hit.w < -1.0f ) {
+			break;
+		}
+
+		float4 normal = normals[workIndex * BOUNCES + bounce];
+
+		const float shadowIntensity = hit.w;
+		hit.w = 0.0f;
+
+		// TODO: This is ugly, seperate the (unrelated) data
+		int face = normal.w;
+		int material = materialToFace[face];
+		normal.w = 0.0f;
+
+		const float4 surfaceColor = diffuseColors[material];
+
+		// The farther away a shadow is, the more diffuse it becomes (penumbrae)
+		const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
+		float4 toLight = newLight - hit;
+
+		// Lambert factor (dot product is a cosine)
+		// Source: http://learnopengles.com/android-lesson-two-ambient-and-diffuse-lighting/
+		const float diffuse = fmax( dot( normal, fast_normalize( toLight ) ), 0.0f );
+		const float toLightLength = fast_length( toLight );
+		const float luminosity = native_recip( toLightLength * toLightLength );
+
+		const float specularHighlight = 0.0f; // Disabled for now
+
+		colorMask *= surfaceColor;
+		accumulatedColor += colorMask * luminosity * diffuse * shadowIntensity;
+		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
+	}
+
+	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
+	float4 color = mix( accumulatedColor, texturePixel, textureWeight );
+	write_imagef( textureOut, pos, color );
 }

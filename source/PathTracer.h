@@ -44,10 +44,12 @@ class PathTracer {
 	protected:
 		void clInitRays( cl_float timeSinceStart );
 		void clPathTracing( cl_float timeSinceStart );
+		void clSetColors( cl_float timeSinceStart );
 		glm::vec3 getJitter();
 		cl_float getTimeSinceStart();
 		void initArgsKernelPathTracing();
 		void initArgsKernelRays();
+		void initArgsKernelSetColors();
 		void initKernelArgs();
 		void kdNodesToVectors(
 			vector<kdNode_t> kdNodes,
@@ -58,6 +60,7 @@ class PathTracer {
 		void updateEyeBuffer();
 
 	private:
+		cl_uint mBounces;
 		cl_uint mHeight;
 		cl_uint mWidth;
 		cl_float mFOV;
@@ -69,6 +72,7 @@ class PathTracer {
 
 		cl_kernel mKernelPathTracing;
 		cl_kernel mKernelRays;
+		cl_kernel mKernelSetColors;
 
 		cl_mem mBufScFaces;
 		cl_mem mBufScVertices;
@@ -87,6 +91,8 @@ class PathTracer {
 		cl_mem mBufMaterialToFace;
 
 		cl_mem mBufEye;
+		cl_mem mBufHitNormals;
+		cl_mem mBufHits;
 		cl_mem mBufLights;
 		cl_mem mBufNormals;
 		cl_mem mBufOrigins;
