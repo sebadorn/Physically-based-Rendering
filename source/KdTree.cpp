@@ -273,9 +273,9 @@ bool KdTree::hitBoundingBox(
 	tmax = ( tzmax < tmax ) ? tzmax : tmax;
 
 	return (
-		( tmin >= -KD_EPSILON && tmax <= 1.0f + KD_EPSILON ) ||
-		( isnan( tmin ) && tmax <= 1.0f + KD_EPSILON ) ||
-		( isnan( tmax ) && tmin >= -KD_EPSILON )
+		( tmin > 0.0f && tmax < 1.0f ) ||
+		( isnan( tmin ) && tmax < 1.0f ) ||
+		( isnan( tmax ) && tmin > 0.0f )
 	);
 }
 

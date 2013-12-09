@@ -192,31 +192,27 @@ inline float checkFaceIntersection(
 ) {
 	const float4 edge1 = (*b) - (*a);
 	const float4 edge2 = (*c) - (*a);
-	const float4 pVec = cross( *dir, edge2 );
 	const float4 tVec = (*origin) - (*a);
 	const float4 qVec = cross( tVec, edge1 );
+	const float4 pVec = cross( *dir, edge2 );
 	const float det = dot( edge1, pVec );
 	const float invDet = native_recip( det ); // WARNING: native_
 
-#ifdef BACKFACE_CULLING
+	#ifdef BACKFACE_CULLING
+		const float u = dot( tVec, pVec );
+		const float v = dot( *dir, qVec );
 
-	const float u = dot( tVec, pVec );
-	const float v = dot( *dir, qVec );
+		if( u < 0.0f || u > det || v < 0.0f || u + v > det ) {
+			return -2.0f;
+		}
+	#else
+		const float u = dot( tVec, pVec ) * invDet;
+		const float v = dot( *dir, qVec ) * invDet;
 
-	if( u < 0.0f || u > det || v < 0.0f || u + v > det ) {
-		return -2.0f;
-	}
-
-#else
-
-	const float u = dot( tVec, pVec ) * invDet;
-	const float v = dot( *dir, qVec ) * invDet;
-
-	if( u < 0.0f || u > 1.0f || v < 0.0f || u + v > 1.0f ) {
-		return -2.0f;
-	}
-
-#endif
+		if( u < 0.0f || u > 1.0f || v < 0.0f || u + v > 1.0f ) {
+			return -2.0f;
+		}
+	#endif
 
 	const float t = dot( edge2, qVec ) * invDet;
 

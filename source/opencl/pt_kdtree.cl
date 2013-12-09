@@ -171,22 +171,15 @@ inline void traverseKdTree(
 	const __global float4* kdNodeSplits, const __global float4* kdNodeBbMin, const __global float4* kdNodeBbMax,
 	const __global int* kdNodeData2, const __global int* kdNodeData3,
 	const __global int* kdNodeRopes, hit_t* result, const int bounce, const int kdRoot,
-	const float4 bbMinRoot, const float4 bbMaxRoot
+	const float initEntryDistance, const float initExitDistance
 ) {
 	int nodeIndex = startNode;
-	float bbMax[3], bbMin[3];
-
-	float entryDistance, exitDistance;
-	int exitRope;
-
-	if( !intersectBoundingBox( origin, dir, (float*) &bbMinRoot, (float*) &bbMaxRoot, &entryDistance, &exitDistance, &exitRope ) ) {
-		return;
-	}
-	entryDistance = fmax( entryDistance, 0.0f );
-
+	float entryDistance = initEntryDistance;
+	float exitDistance = initExitDistance;
 
 	float4 hitNear;
-	int faceIndex, ropeIndex;
+	float bbMax[3], bbMin[3];
+	int exitRope, faceIndex, ropeIndex;
 	int i = 0; // TODO: remove
 
 	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
@@ -244,15 +237,15 @@ inline bool shadowTest(
 	const __global float4* scVertices, const __global uint4* scFaces,
 	const __global float4* kdNodeSplits, const __global float4* kdNodeBbMin, const __global float4* kdNodeBbMax,
 	const __global int* kdNodeData2, const __global int* kdNodeData3,
-	const __global int* kdNodeRopes, const int kdRoot, const float4 bbMinRoot, const float4 bbMaxRoot
+	const __global int* kdNodeRopes, const int kdRoot,
+	const float initEntryDistance, const float initExitDistance
 ) {
 	int nodeIndex = startNode;
-	float bbMax[3], bbMin[3];
-
-	float entryDistance = 0.0f;
-	float exitDistance = fast_length( (*origin) + bbMaxRoot - bbMinRoot );
+	float entryDistance = initEntryDistance;
+	float exitDistance = initExitDistance;
 
 	float4 hitNear;
+	float bbMax[3], bbMin[3];
 	int exitRope, faceIndex, ropeIndex;
 	int i = 0; // TODO: remove
 

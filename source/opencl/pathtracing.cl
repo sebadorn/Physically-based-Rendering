@@ -32,7 +32,7 @@ int findPath(
 	const __global int* kdNodeData2,
 	const __global int* kdNodeData3, const __global int* kdNodeRopes,
 	const int startNode, const int kdRoot, const float timeSinceStart, const int bounce,
-	const float4 bbMinRoot, const float4 bbMaxRoot
+	const float initEntryDistance, const float initExitDistance
 ) {
 	hit_t hit;
 	hit.t = -2.0f;
@@ -42,7 +42,7 @@ int findPath(
 	traverseKdTree(
 		origin, dir, startNode, scVertices, scFaces,
 		kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes,
-		&hit, bounce, kdRoot, bbMinRoot, bbMaxRoot
+		&hit, bounce, kdRoot, initEntryDistance, initExitDistance
 	);
 
 	if( hit.t > -1.0f ) {
@@ -64,7 +64,7 @@ int findPath(
 			bool isInShadow = shadowTest(
 				&originForShadow, &toLight, hit.nodeIndex, scVertices, scFaces,
 				kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
-				bbMinRoot, bbMaxRoot
+				initEntryDistance, initExitDistance
 			);
 
 			hit.position.w = !isInShadow;
@@ -181,14 +181,19 @@ void pathTracing(
 	float4 dir = dirs[workIndex];
 	float4 normal = (float4)( 0.0f );
 
-	float4 accumulatedColor = (float4)( 0.0f );
-	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
+	float entryDistance, exitDistance;
+	int exitRope;
+
+	if( !intersectBoundingBox( &origin, &dir, (float*) &bbMinRoot, (float*) &bbMaxRoot, &entryDistance, &exitDistance, &exitRope ) ) {
+		hits[workIndex * BOUNCES] = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
+		return;
+	}
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		startNode = findPath(
 			&origin, &dir, &normal, scVertices, scFaces, scNormals, scFacesVN,
 			lights, kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes,
-			startNode, kdRoot, timeSinceStart + bounce, bounce, bbMinRoot, bbMaxRoot
+			startNode, kdRoot, timeSinceStart + bounce, bounce, entryDistance, exitDistance
 		);
 
 		hits[workIndex * BOUNCES + bounce] = origin;
@@ -197,10 +202,9 @@ void pathTracing(
 		if( startNode < 0 ) {
 			break;
 		}
-		// accumulateColor(
-		// 	&origin, &normal, &accumulatedColor, &colorMask, lights,
-		// 	materialToFace, diffuseColors, timeSinceStart + bounce
-		// );
+
+		entryDistance = 0.0f;
+		exitDistance = fast_length( origin + bbMaxRoot - bbMinRoot );
 	}
 
 	// How to use a barrier:
@@ -210,14 +214,16 @@ void pathTracing(
 
 /**
  *
- * @param hit
- * @param normal
- * @param accumulatedColor
- * @param colorMask
+ * @param offset
+ * @param timeSinceStart
+ * @param textureWeight
+ * @param hits
+ * @param normals
  * @param lights
  * @param materialToFace
  * @param diffuseColors
- * @param timeSinceStart
+ * @param textureIn
+ * @param textureOut
  */
 __kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
 void setColors(
@@ -230,41 +236,45 @@ void setColors(
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
+	float4 hit, normal, surfaceColor, toLight;
+	float diffuse, luminosity, shadowIntensity, specularHighlight, toLightLength;
+	int face, material;
+
 	float4 accumulatedColor = (float4)( 0.0f );
 	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
 
 	const float4 light = lights[0];
+	const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
+
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
-		float4 hit = hits[workIndex * BOUNCES + bounce];
+		hit = hits[workIndex * BOUNCES + bounce];
 
 		if( hit.w < -1.0f ) {
 			break;
 		}
 
-		float4 normal = normals[workIndex * BOUNCES + bounce];
-
-		const float shadowIntensity = hit.w;
+		normal = normals[workIndex * BOUNCES + bounce];
+		shadowIntensity = hit.w;
 		hit.w = 0.0f;
 
 		// TODO: This is ugly, seperate the (unrelated) data
-		int face = normal.w;
-		int material = materialToFace[face];
+		face = normal.w;
+		material = materialToFace[face];
 		normal.w = 0.0f;
 
-		const float4 surfaceColor = diffuseColors[material];
+		surfaceColor = diffuseColors[material];
 
 		// The farther away a shadow is, the more diffuse it becomes (penumbrae)
-		const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
-		float4 toLight = newLight - hit;
+		toLight = newLight - hit;
 
 		// Lambert factor (dot product is a cosine)
 		// Source: http://learnopengles.com/android-lesson-two-ambient-and-diffuse-lighting/
-		const float diffuse = fmax( dot( normal, fast_normalize( toLight ) ), 0.0f );
-		const float toLightLength = fast_length( toLight );
-		const float luminosity = native_recip( toLightLength * toLightLength );
+		diffuse = fmax( dot( normal, fast_normalize( toLight ) ), 0.0f );
+		toLightLength = fast_length( toLight );
+		luminosity = native_recip( toLightLength * toLightLength );
 
-		const float specularHighlight = 0.0f; // Disabled for now
+		specularHighlight = 0.0f; // Disabled for now
 
 		colorMask *= surfaceColor;
 		accumulatedColor += colorMask * luminosity * diffuse * shadowIntensity;
