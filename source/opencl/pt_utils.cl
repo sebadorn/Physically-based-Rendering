@@ -119,6 +119,15 @@ bool intersectBoundingBox(
 }
 
 
+/**
+ *
+ * @param origin
+ * @param direction
+ * @param bbMin
+ * @param bbMax
+ * @param tFar
+ * @param exitRope
+ */
 void updateEntryDistanceAndExitRope(
 	const float4* origin, const float4* direction, const float* bbMin, const float* bbMax,
 	float* tFar, int* exitRope

@@ -33,7 +33,6 @@ void accumulateColor(
 	normal->w = 0.0f;
 
 	const float4 surfaceColor = diffuseColors[material];
-	// float4 surfaceColor = (float4)( 0.6f, 0.6f, 0.6f, 0.0f );
 
 	// The farther away a shadow is, the more diffuse it becomes (penumbrae)
 	const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
@@ -70,14 +69,15 @@ void accumulateColor(
  * @param kdRoot
  * @param timeSinceStart
  */
-int bounce(
+int findPath(
 	float4* origin, float4* dir, float4* normal,
 	const __global float4* scVertices, const __global uint4* scFaces,
 	const __global float4* scNormals, const __global uint* scFacesVN,
 	const __global float4* lights,
 	const __global float* kdNodeData1, const __global int* kdNodeData2,
 	const __global int* kdNodeData3, const __global int* kdNodeRopes,
-	const uint kdRoot, const float timeSinceStart, int bounce
+	const int startNode, const int kdRoot, const float timeSinceStart, const int bounce,
+	const float* bbMinRoot, const float* bbMaxRoot
 ) {
 	hit_t hit;
 	hit.t = -2.0f;
@@ -85,8 +85,9 @@ int bounce(
 	hit.nodeIndex = -1;
 
 	traverseKdTree(
-		origin, dir, kdRoot, scVertices, scFaces,
-		kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, &hit, bounce
+		origin, dir, startNode, scVertices, scFaces,
+		kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes,
+		&hit, bounce, kdRoot, bbMinRoot, bbMaxRoot
 	);
 
 	// How to use a barrier:
@@ -105,14 +106,14 @@ int bounce(
 	#ifdef SHADOWS
 
 		const float4 light = lights[0];
-		const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
+		const float4 newLight = light + uniformlyRandomVector( timeSinceStart + hit.t ) * 0.1f;
 		float4 originForShadow = hit.position + (*normal) * EPSILON;
 		float4 toLight = newLight - hit.position;
 
-		// TODO: replace kdRoot with hit.nodeIndex
 		bool isInShadow = shadowTest(
-			&originForShadow, &toLight, kdRoot, scVertices, scFaces,
-			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes
+			&originForShadow, &toLight, hit.nodeIndex, scVertices, scFaces,
+			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
+			bbMinRoot, bbMaxRoot
 		);
 
 		hit.position.w = !isInShadow;
@@ -168,7 +169,7 @@ void pathTracing(
 	const __global float4* scNormals, const __global uint* scFacesVN,
 	const __global float* kdNodeData1, const __global int* kdNodeData2,
 	const __global int* kdNodeData3, const __global int* kdNodeRopes,
-	const uint kdRoot,
+	int kdRoot,
 
 	// parameters for accumulating colors
 	const __global int* materialToFace, const __global float4* diffuseColors,
@@ -178,28 +179,39 @@ void pathTracing(
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
-	uint startNode = kdRoot;
+	int startNode = kdRoot;
+	const uint ni9 = kdRoot * 9;
+
+	float bbMinRoot[3] = {
+		kdNodeData1[ni9 + 3],
+		kdNodeData1[ni9 + 4],
+		kdNodeData1[ni9 + 5]
+	};
+	float bbMaxRoot[3] = {
+		kdNodeData1[ni9 + 6],
+		kdNodeData1[ni9 + 7],
+		kdNodeData1[ni9 + 8]
+	};
 
 	float4 origin = origins[workIndex];
 	float4 dir = dirs[workIndex];
 	float4 normal = (float4)( 0.0f );
 
-	// New color (or: another color calculated by evaluating different light paths than before)
-	// Accumulate the colors of each hit surface
 	float4 accumulatedColor = (float4)( 0.0f );
 	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
 
-	for( int i = 0; i < BOUNCES; i++ ) {
-		startNode = bounce(
-			&origin, &dir, &normal, scVertices, scFaces, scNormals, scFacesVN, lights,
-			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, startNode, timeSinceStart + i, i
+	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
+		startNode = findPath(
+			&origin, &dir, &normal, scVertices, scFaces, scNormals, scFacesVN,
+			lights, kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes,
+			startNode, kdRoot, timeSinceStart + bounce, bounce, bbMinRoot, bbMaxRoot
 		);
-		if( origin.w <= -1.0f ) {
+		if( startNode < 0 ) {
 			break;
 		}
 		accumulateColor(
 			&origin, &normal, &accumulatedColor, &colorMask, lights,
-			materialToFace, diffuseColors, timeSinceStart + i
+			materialToFace, diffuseColors, timeSinceStart + bounce
 		);
 	}
 

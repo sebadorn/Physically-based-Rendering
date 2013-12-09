@@ -61,7 +61,7 @@ class PathTracer {
 		cl_uint mWidth;
 		cl_float mFOV;
 
-		cl_uint mKdRootNodeIndex;
+		cl_int mKdRootNodeIndex;
 		cl_uint mSampleCount;
 
 		vector<cl_float> mTextureOut;
