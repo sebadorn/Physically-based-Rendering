@@ -188,7 +188,7 @@ inline bool isInsideBoundingBox( const float* bbMin, const float* bbMax, const f
  */
 inline float checkFaceIntersection(
 	const float4* origin, const float4* dir, const float4* a, const float4* b, const float4* c,
-	const float tNear, const float tFar, hit_t* result
+	const float tNear, const float tFar
 ) {
 	const float4 edge1 = (*b) - (*a);
 	const float4 edge2 = (*c) - (*a);
@@ -223,8 +223,6 @@ inline float checkFaceIntersection(
 	if( t < EPSILON || t < tNear - EPSILON || t > tFar + EPSILON ) {
 		return -2.0f;
 	}
-
-	result->position = (*origin) + t * (*dir);
 
 	return t;
 }

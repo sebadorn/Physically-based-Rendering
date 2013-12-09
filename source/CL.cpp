@@ -34,12 +34,22 @@ CL::~CL() {
 	}
 
 	for( uint i = 0; i < mKernels.size(); i++ ) {
-		clReleaseKernel( mKernels[i] );
+		err = clReleaseKernel( mKernels[i] );
+		this->checkError( err, "clReleaseKernel" );
 	}
 
-	if( mProgram ) { clReleaseProgram( mProgram ); }
-	if( mCommandQueue ) { clReleaseCommandQueue( mCommandQueue ); }
-	if( mContext ) { clReleaseContext( mContext ); }
+	if( mProgram ) {
+		err = clReleaseProgram( mProgram );
+		this->checkError( err, "clReleaseProgram" );
+	}
+	if( mCommandQueue ) {
+		err = clReleaseCommandQueue( mCommandQueue );
+		this->checkError( err, "clReleaseCommandQueue" );
+	}
+	if( mContext ) {
+		err = clReleaseContext( mContext );
+		this->checkError( err, "clReleaseContext" );
+	}
 }
 
 
@@ -142,14 +152,14 @@ cl_mem CL::createEmptyBuffer( size_t size, cl_mem_flags flags ) {
  * @param  {cl_float*} data   Data of the image.
  * @return {cl_mem}           Handle for the buffer.
  */
-cl_mem CL::createImageReadOnly( size_t width, size_t height, cl_float* data ) {
+cl_mem CL::createImage2DReadOnly( size_t width, size_t height, cl_float* data ) {
 	cl_int err;
 	cl_image_format format;
 
 	format.image_channel_order = CL_RGBA;
 	format.image_channel_data_type = CL_FLOAT;
 
-	mReadImage = clCreateImage2D( mContext, CL_MEM_READ_ONLY, &format, width, height, 0, NULL, &err );
+	cl_mem image = clCreateImage2D( mContext, CL_MEM_READ_ONLY, &format, width, height, 0, NULL, &err );
 	this->checkError( err, "clCreateImage2D" );
 
 
@@ -157,11 +167,11 @@ cl_mem CL::createImageReadOnly( size_t width, size_t height, cl_float* data ) {
 	size_t region[] = { width, height, 1 }; // Size of object to be transferred
 	cl_event event;
 
-	err = clEnqueueWriteImage( mCommandQueue, mReadImage, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
+	err = clEnqueueWriteImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
 	this->checkError( err, "clEnqueueWriteImage" );
 	mEvents.push_back( event );
 
-	return mReadImage;
+	return image;
 }
 
 
@@ -171,17 +181,17 @@ cl_mem CL::createImageReadOnly( size_t width, size_t height, cl_float* data ) {
  * @param  {size_t} height Height of the image.
  * @return {cl_mem}        Handle for the buffer.
  */
-cl_mem CL::createImageWriteOnly( size_t width, size_t height ) {
+cl_mem CL::createImage2DWriteOnly( size_t width, size_t height ) {
 	cl_int err;
 	cl_image_format format;
 
 	format.image_channel_order = CL_RGBA;
 	format.image_channel_data_type = CL_FLOAT;
 
-	mWriteImage = clCreateImage2D( mContext, CL_MEM_READ_WRITE, &format, width, height, 0, NULL, &err );
+	cl_mem image = clCreateImage2D( mContext, CL_MEM_WRITE_ONLY, &format, width, height, 0, NULL, &err );
 	this->checkError( err, "clCreateImage2D" );
 
-	return mWriteImage;
+	return image;
 }
 
 

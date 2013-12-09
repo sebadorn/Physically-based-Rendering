@@ -15,7 +15,16 @@ KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMi
 		return;
 	}
 
+	// Maximum depth of tree
 	mDepthLimit = Cfg::get().value<cl_uint>( Cfg::KDTREE_DEPTH );
+
+	if( mDepthLimit == -1 ) {
+		mDepthLimit = ceil( log2( vertices.size() / 3 ) );
+	}
+	char msg1[64];
+	const char* text1 = "[KdTree] Maximum depth set to %d.";
+	snprintf( msg1, 64, text1, mDepthLimit );
+	Logger::logDebug( msg1 );
 
 	// Start clock
 	boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
@@ -37,10 +46,10 @@ KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMi
 
 	// Stop clock
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - start;
-	char msg[80];
-	const char* text = "[KdTree] Generated kd-tree in %g ms. %lu nodes.";
-	snprintf( msg, 80, text, (float) msdiff.total_milliseconds(), mNodes.size() );
-	Logger::logInfo( msg );
+	char msg2[128];
+	const char* text2 = "[KdTree] Generated kd-tree in %g ms. %lu nodes.";
+	snprintf( msg2, 128, text2, (float) msdiff.total_milliseconds(), mNodes.size() );
+	Logger::logInfo( msg2 );
 }
 
 

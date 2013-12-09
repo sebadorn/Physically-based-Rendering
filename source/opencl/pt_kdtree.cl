@@ -18,7 +18,6 @@ void checkFaces(
 ) {
 	float4 a, b, c;
 	float r;
-	hit_t newResult;
 
 	uint4 index;
 	int i = 1;
@@ -35,8 +34,7 @@ void checkFaces(
 		c = scVertices[index.z];
 
 		r = checkFaceIntersection(
-			origin, dir, &a, &b, &c,
-			entryDistance, *exitDistance, &newResult
+			origin, dir, &a, &b, &c, entryDistance, *exitDistance
 		);
 
 		if( r > -1.0f ) {
@@ -44,7 +42,7 @@ void checkFaces(
 
 			if( result->t > r || result->t < -1.0f ) {
 				result->t = r;
-				result->position = newResult.position;
+				result->position = (*origin) + r * (*dir);
 				result->nodeIndex = nodeIndex;
 				result->faceIndex = f;
 			}
@@ -74,7 +72,6 @@ bool checkFacesForShadow(
 ) {
 	float4 a, b, c;
 	float r;
-	hit_t newResult;
 
 	uint4 index;
 	int i = 1;
@@ -91,8 +88,7 @@ bool checkFacesForShadow(
 		c = scVertices[index.z];
 
 		r = checkFaceIntersection(
-			origin, dir, &a, &b, &c,
-			entryDistance, *exitDistance, &newResult
+			origin, dir, &a, &b, &c, entryDistance, *exitDistance
 		);
 
 		if( r > -1.0f ) {
@@ -116,16 +112,18 @@ bool checkFacesForShadow(
  * @param {const float4*}         hitNear
  */
 void goToLeafNode(
-	int* nodeIndex, const __global float* kdNodeData1, const __global int* kdNodeData2,
+	int* nodeIndex, const __global float4* kdNodeSplits, const __global int* kdNodeData2,
 	const float4* hitNear
 ) {
 	int left = kdNodeData2[(*nodeIndex) * 5];
 	int right = kdNodeData2[(*nodeIndex) * 5 + 1];
 	int axis = kdNodeData2[(*nodeIndex) * 5 + 2];
 	const float hitPos[3] = { hitNear->x, hitNear->y, hitNear->z };
+	float4 pos;
 
 	while( left >= 0 && right >= 0 ) {
-		*nodeIndex = ( hitPos[axis] < kdNodeData1[(*nodeIndex) * 9 + axis] ) ? left : right;
+		pos = kdNodeSplits[(*nodeIndex)];
+		*nodeIndex = ( hitPos[axis] < ( (float*) &pos )[axis] ) ? left : right;
 		left = kdNodeData2[(*nodeIndex) * 5];
 		right = kdNodeData2[(*nodeIndex) * 5 + 1];
 		axis = ( 1 << axis ) & 3; // ( axis + 1 ) % 3
@@ -140,13 +138,16 @@ void goToLeafNode(
  * @param {float*}                bbMin
  * @param {float*}                bbMax
  */
-inline void updateBoundingBox( const int nodeIndex, const __global float* kdNodeData1, float* bbMin, float* bbMax ) {
-	bbMin[0] = kdNodeData1[nodeIndex * 9 + 3];
-	bbMin[1] = kdNodeData1[nodeIndex * 9 + 4];
-	bbMin[2] = kdNodeData1[nodeIndex * 9 + 5];
-	bbMax[0] = kdNodeData1[nodeIndex * 9 + 6];
-	bbMax[1] = kdNodeData1[nodeIndex * 9 + 7];
-	bbMax[2] = kdNodeData1[nodeIndex * 9 + 8];
+inline void updateBoundingBox( const int nodeIndex, const __global float4* kdNodeBbMin, const __global float4* kdNodeBbMax, float* bbMin, float* bbMax ) {
+	float4 bbMin4 = kdNodeBbMin[nodeIndex];
+	float4 bbMax4 = kdNodeBbMax[nodeIndex];
+
+	bbMin[0] = bbMin4.x;
+	bbMin[1] = bbMin4.y;
+	bbMin[2] = bbMin4.z;
+	bbMax[0] = bbMax4.x;
+	bbMax[1] = bbMax4.y;
+	bbMax[2] = bbMax4.z;
 }
 
 
@@ -167,9 +168,10 @@ inline void updateBoundingBox( const int nodeIndex, const __global float* kdNode
 inline void traverseKdTree(
 	const float4* origin, const float4* dir, const int startNode,
 	const __global float4* scVertices, const __global uint4* scFaces,
-	const __global float* kdNodeData1, const __global int* kdNodeData2, const __global int* kdNodeData3,
+	const __global float4* kdNodeSplits, const __global float4* kdNodeBbMin, const __global float4* kdNodeBbMax,
+	const __global int* kdNodeData2, const __global int* kdNodeData3,
 	const __global int* kdNodeRopes, hit_t* result, const int bounce, const int kdRoot,
-	const float* bbMinRoot, const float* bbMaxRoot
+	const float4 bbMinRoot, const float4 bbMaxRoot
 ) {
 	int nodeIndex = startNode;
 	float bbMax[3], bbMin[3];
@@ -177,7 +179,7 @@ inline void traverseKdTree(
 	float entryDistance, exitDistance;
 	int exitRope;
 
-	if( !intersectBoundingBox( origin, dir, bbMinRoot, bbMaxRoot, &entryDistance, &exitDistance, &exitRope ) ) {
+	if( !intersectBoundingBox( origin, dir, (float*) &bbMinRoot, (float*) &bbMaxRoot, &entryDistance, &exitDistance, &exitRope ) ) {
 		return;
 	}
 	entryDistance = fmax( entryDistance, 0.0f );
@@ -192,7 +194,7 @@ inline void traverseKdTree(
 
 		// Find a leaf node for this ray
 		hitNear = (*origin) + entryDistance * (*dir);
-		goToLeafNode( &nodeIndex, kdNodeData1, kdNodeData2, &hitNear );
+		goToLeafNode( &nodeIndex, kdNodeSplits, kdNodeData2, &hitNear );
 
 		// At a leaf node now, check triangle faces
 		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
@@ -203,7 +205,7 @@ inline void traverseKdTree(
 		);
 
 		// Exit leaf node
-		updateBoundingBox( nodeIndex, kdNodeData1, bbMin, bbMax );
+		updateBoundingBox( nodeIndex, kdNodeBbMin, kdNodeBbMax, bbMin, bbMax );
 		updateEntryDistanceAndExitRope( origin, dir, bbMin, bbMax, &entryDistance, &exitRope );
 
 		if( entryDistance >= exitDistance ) {
@@ -218,7 +220,7 @@ inline void traverseKdTree(
 	if( result->t > -1.0f ) {
 		nodeIndex = kdRoot;
 		hitNear = result->position;
-		goToLeafNode( &nodeIndex, kdNodeData1, kdNodeData2, &hitNear );
+		goToLeafNode( &nodeIndex, kdNodeSplits, kdNodeData2, &hitNear );
 		result->nodeIndex = nodeIndex;
 	}
 }
@@ -240,17 +242,15 @@ inline void traverseKdTree(
 inline bool shadowTest(
 	const float4* origin, const float4* dir, const uint startNode,
 	const __global float4* scVertices, const __global uint4* scFaces,
-	const __global float* kdNodeData1, const __global int* kdNodeData2, const __global int* kdNodeData3,
-	const __global int* kdNodeRopes, const int kdRoot, const float* bbMinRoot, const float* bbMaxRoot
+	const __global float4* kdNodeSplits, const __global float4* kdNodeBbMin, const __global float4* kdNodeBbMax,
+	const __global int* kdNodeData2, const __global int* kdNodeData3,
+	const __global int* kdNodeRopes, const int kdRoot, const float4 bbMinRoot, const float4 bbMaxRoot
 ) {
 	int nodeIndex = startNode;
 	float bbMax[3], bbMin[3];
 
-	float4 bbMinRoot4 = { bbMinRoot[0], bbMinRoot[1], bbMinRoot[2], 0.0f };
-	float4 bbMaxRoot4 = { bbMaxRoot[0], bbMaxRoot[1], bbMaxRoot[2], 0.0f };
-
 	float entryDistance = 0.0f;
-	float exitDistance = fast_length( (*origin) + bbMaxRoot4 - bbMinRoot4 );
+	float exitDistance = fast_length( (*origin) + bbMaxRoot - bbMinRoot );
 
 	float4 hitNear;
 	int exitRope, faceIndex, ropeIndex;
@@ -261,7 +261,7 @@ inline bool shadowTest(
 
 		// Find a leaf node for this ray
 		hitNear = (*origin) + entryDistance * (*dir);
-		goToLeafNode( &nodeIndex, kdNodeData1, kdNodeData2, &hitNear );
+		goToLeafNode( &nodeIndex, kdNodeSplits, kdNodeData2, &hitNear );
 
 		// At a leaf node now, check triangle faces
 		faceIndex = kdNodeData2[nodeIndex * 5 + 3];
@@ -274,8 +274,12 @@ inline bool shadowTest(
 		}
 
 		// Exit leaf node
-		updateBoundingBox( nodeIndex, kdNodeData1, bbMin, bbMax );
+		updateBoundingBox( nodeIndex, kdNodeBbMin, kdNodeBbMax, bbMin, bbMax );
 		updateEntryDistanceAndExitRope( origin, dir, bbMin, bbMax, &entryDistance, &exitRope );
+
+		if( entryDistance > 1.0f ) {
+			return false;
+		}
 
 		// Follow the rope
 		ropeIndex = kdNodeData2[nodeIndex * 5 + 4];

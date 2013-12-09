@@ -33,8 +33,8 @@ class CL {
 		}
 
 		cl_mem createEmptyBuffer( size_t size, cl_mem_flags flags );
-		cl_mem createImageReadOnly( size_t width, size_t height, cl_float* data );
-		cl_mem createImageWriteOnly( size_t width, size_t height );
+		cl_mem createImage2DReadOnly( size_t width, size_t height, cl_float* data );
+		cl_mem createImage2DWriteOnly( size_t width, size_t height );
 		cl_kernel createKernel( const char* functionName );
 		void execute( cl_kernel kernel );
 		void finish();
@@ -67,8 +67,6 @@ class CL {
 		cl_kernel mKernel;
 		cl_platform_id mPlatform;
 		cl_program mProgram;
-		cl_mem mReadImage;
-		cl_mem mWriteImage;
 
 		vector<cl_kernel> mKernels;
 		vector<cl_event> mEvents;

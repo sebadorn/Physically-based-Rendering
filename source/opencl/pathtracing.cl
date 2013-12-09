@@ -74,10 +74,11 @@ int findPath(
 	const __global float4* scVertices, const __global uint4* scFaces,
 	const __global float4* scNormals, const __global uint* scFacesVN,
 	const __global float4* lights,
-	const __global float* kdNodeData1, const __global int* kdNodeData2,
+	const __global float4* kdNodeSplits, const __global float4* kdNodeBbMin, const __global float4* kdNodeBbMax,
+	const __global int* kdNodeData2,
 	const __global int* kdNodeData3, const __global int* kdNodeRopes,
 	const int startNode, const int kdRoot, const float timeSinceStart, const int bounce,
-	const float* bbMinRoot, const float* bbMaxRoot
+	const float4 bbMinRoot, const float4 bbMaxRoot
 ) {
 	hit_t hit;
 	hit.t = -2.0f;
@@ -86,12 +87,9 @@ int findPath(
 
 	traverseKdTree(
 		origin, dir, startNode, scVertices, scFaces,
-		kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes,
+		kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes,
 		&hit, bounce, kdRoot, bbMinRoot, bbMaxRoot
 	);
-
-	// How to use a barrier:
-	// barrier( CLK_LOCAL_MEM_FENCE );
 
 	if( hit.t > -1.0f ) {
 		// Normal of hit position
@@ -112,7 +110,7 @@ int findPath(
 
 		bool isInShadow = shadowTest(
 			&originForShadow, &toLight, hit.nodeIndex, scVertices, scFaces,
-			kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
+			kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
 			bbMinRoot, bbMaxRoot
 		);
 
@@ -167,9 +165,10 @@ void pathTracing(
 	const __global float4* origins, const __global float4* dirs,
 	const __global float4* scVertices, const __global uint4* scFaces,
 	const __global float4* scNormals, const __global uint* scFacesVN,
-	const __global float* kdNodeData1, const __global int* kdNodeData2,
+	const __global float4* kdNodeSplits, const __global float4* kdNodeBbMin, const __global float4* kdNodeBbMax,
+	const __global int* kdNodeData2,
 	const __global int* kdNodeData3, const __global int* kdNodeRopes,
-	int kdRoot,
+	const int kdRoot,
 
 	// parameters for accumulating colors
 	const __global int* materialToFace, const __global float4* diffuseColors,
@@ -180,18 +179,9 @@ void pathTracing(
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
 	int startNode = kdRoot;
-	const uint ni9 = kdRoot * 9;
 
-	float bbMinRoot[3] = {
-		kdNodeData1[ni9 + 3],
-		kdNodeData1[ni9 + 4],
-		kdNodeData1[ni9 + 5]
-	};
-	float bbMaxRoot[3] = {
-		kdNodeData1[ni9 + 6],
-		kdNodeData1[ni9 + 7],
-		kdNodeData1[ni9 + 8]
-	};
+	const float4 bbMinRoot = kdNodeBbMin[kdRoot];
+	const float4 bbMaxRoot = kdNodeBbMax[kdRoot];
 
 	float4 origin = origins[workIndex];
 	float4 dir = dirs[workIndex];
@@ -203,7 +193,7 @@ void pathTracing(
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		startNode = findPath(
 			&origin, &dir, &normal, scVertices, scFaces, scNormals, scFacesVN,
-			lights, kdNodeData1, kdNodeData2, kdNodeData3, kdNodeRopes,
+			lights, kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes,
 			startNode, kdRoot, timeSinceStart + bounce, bounce, bbMinRoot, bbMaxRoot
 		);
 		if( startNode < 0 ) {
@@ -214,6 +204,9 @@ void pathTracing(
 			materialToFace, diffuseColors, timeSinceStart + bounce
 		);
 	}
+
+	// How to use a barrier:
+	// barrier( CLK_LOCAL_MEM_FENCE );
 
 	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
 	float4 color = mix( accumulatedColor, texturePixel, textureWeight );

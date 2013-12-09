@@ -53,7 +53,7 @@ void PathTracer::clPathTracing( cl_float timeSinceStart ) {
 	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 
 	mCL->setKernelArg( mKernelPathTracing, 1, sizeof( cl_float ), &timeSinceStart );
-	mCL->setKernelArg( mKernelPathTracing, 16, sizeof( cl_float ), &textureWeight );
+	mCL->setKernelArg( mKernelPathTracing, 18, sizeof( cl_float ), &textureWeight );
 
 	mCL->execute( mKernelPathTracing );
 	mCL->finish();
@@ -127,7 +127,7 @@ void PathTracer::initArgsKernelPathTracing() {
 	cl_uint i = 0;
 
 	// arguments for both parts
-	++i; // 2: timeSinceStart
+	++i; // 1: timeSinceStart
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufLights );
 
 	// arguments for the path tracing/intersection tests
@@ -137,7 +137,9 @@ void PathTracer::initArgsKernelPathTracing() {
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScFaces );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScNormals );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScFacesVN );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeData1 );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeSplits );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeBbMin );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeBbMax );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeData2 );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeData3 );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeRopes );
@@ -146,7 +148,7 @@ void PathTracer::initArgsKernelPathTracing() {
 	// arguments for the color accumulation
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufMaterialToFace );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufMaterialsColorDiffuse );
-	++i; // 17: textureWeight
+	++i; // 18: textureWeight
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufTextureIn );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufTextureOut );
 }
@@ -207,13 +209,17 @@ void PathTracer::initOpenCLBuffers(
 	cl_uint pixels = mWidth * mHeight;
 	mKdRootNodeIndex = rootIndex;
 
-	vector<cl_float> kdData1; // [x, y, z, bbMin(x,y,z), bbMax(x,y,z)]
-	vector<cl_int> kdData2;   // [left, right, axis, facesIndex, ropesIndex]
-	vector<cl_int> kdData3;   // [numFaces, a, b, c ...]
-	vector<cl_int> kdRopes;   // [left, right, bottom, top, back, front]
-	this->kdNodesToVectors( kdNodes, &kdData1, &kdData2, &kdData3, &kdRopes );
+	vector<cl_float4> kdSplits; // [x, y, z, 0]
+	vector<cl_float4> kdBbMin;  // [x, y, z, 0]
+	vector<cl_float4> kdBbMax;  // [x, y, z, 0]
+	vector<cl_int> kdData2;     // [left, right, axis, facesIndex, ropesIndex]
+	vector<cl_int> kdData3;     // [numFaces, a, b, c ...]
+	vector<cl_int> kdRopes;     // [left, right, bottom, top, back, front]
+	this->kdNodesToVectors( kdNodes, &kdSplits, &kdBbMin, &kdBbMax, &kdData2, &kdData3, &kdRopes );
 
-	mBufKdNodeData1 = mCL->createBuffer( kdData1, sizeof( cl_float ) * kdData1.size() );
+	mBufKdNodeSplits = mCL->createBuffer( kdSplits, sizeof( cl_float4 ) * kdSplits.size() );
+	mBufKdNodeBbMin = mCL->createBuffer( kdBbMin, sizeof( cl_float4 ) * kdBbMin.size() );
+	mBufKdNodeBbMax = mCL->createBuffer( kdBbMax, sizeof( cl_float4 ) * kdBbMax.size() );
 	mBufKdNodeData2 = mCL->createBuffer( kdData2, sizeof( cl_int ) * kdData2.size() );
 	mBufKdNodeData3 = mCL->createBuffer( kdData3, sizeof( cl_int ) * kdData3.size() );
 	mBufKdNodeRopes = mCL->createBuffer( kdRopes, sizeof( cl_int ) * kdRopes.size() );
@@ -260,8 +266,8 @@ void PathTracer::initOpenCLBuffers(
 	mBufNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
 
 	mTextureOut = vector<cl_float>( pixels * 4, 0.0f );
-	mBufTextureIn = mCL->createImageReadOnly( mWidth, mHeight, &mTextureOut[0] );
-	mBufTextureOut = mCL->createImageWriteOnly( mWidth, mHeight );
+	mBufTextureIn = mCL->createImage2DReadOnly( mWidth, mHeight, &mTextureOut[0] );
+	mBufTextureOut = mCL->createImage2DWriteOnly( mWidth, mHeight );
 
 	mBufLights = mCL->createEmptyBuffer( sizeof( cl_float4 ) * lights.size(), CL_MEM_READ_ONLY );
 	this->updateLights( lights );
@@ -274,29 +280,43 @@ void PathTracer::initOpenCLBuffers(
  * Store the kd-nodes data in seperate lists for each data type
  * in order to pass it to OpenCL.
  * @param {std::vector<KdNode_t>}  kdNodes The nodes to extract the data from.
- * @param {std::vector<cl_float>*} kdData1 Data: [x, y, z, bbMin(x,y,z), bbMax(x,y,z)]
+ * @param {std::vector<cl_float4>*} kdData1 Data: [x,y,z,0, bbMin(x,y,z,0), bbMax(x,y,z,0)]
  * @param {std::vector<cl_int>*}   kdData2 Data: [left, right, axis, facesIndex, ropesIndex]
  * @param {std::vector<cl_int>*}   kdData3 Data: [numFaces, a, b, c ...]
  * @param {std::vector<cl_int>*}   kdRopes Data: [left, right, bottom, top, back, front]
  */
 void PathTracer::kdNodesToVectors(
 	vector<kdNode_t> kdNodes,
-	vector<cl_float>* kdData1, vector<cl_int>* kdData2, vector<cl_int>* kdData3,
+	vector<cl_float4>* kdSplits, vector<cl_float4>* kdBbMin, vector<cl_float4>* kdBbMax,
+	vector<cl_int>* kdData2, vector<cl_int>* kdData3,
 	vector<cl_int>* kdRopes
 ) {
 	for( cl_uint i = 0; i < kdNodes.size(); i++ ) {
 		// Vertice coordinates
-		kdData1->push_back( kdNodes[i].pos[0] );
-		kdData1->push_back( kdNodes[i].pos[1] );
-		kdData1->push_back( kdNodes[i].pos[2] );
+		cl_float4 v = {
+			kdNodes[i].pos[0],
+			kdNodes[i].pos[1],
+			kdNodes[i].pos[2],
+			0.0f
+		};
+		kdSplits->push_back( v );
 
 		// Bounding box
-		kdData1->push_back( kdNodes[i].bbMin[0] );
-		kdData1->push_back( kdNodes[i].bbMin[1] );
-		kdData1->push_back( kdNodes[i].bbMin[2] );
-		kdData1->push_back( kdNodes[i].bbMax[0] );
-		kdData1->push_back( kdNodes[i].bbMax[1] );
-		kdData1->push_back( kdNodes[i].bbMax[2] );
+		cl_float4 bbMin = {
+			kdNodes[i].bbMin[0],
+			kdNodes[i].bbMin[1],
+			kdNodes[i].bbMin[2],
+			0.0f
+		};
+		kdBbMin->push_back( bbMin );
+
+		cl_float4 bbMax = {
+			kdNodes[i].bbMax[0],
+			kdNodes[i].bbMax[1],
+			kdNodes[i].bbMax[2],
+			0.0f
+		};
+		kdBbMax->push_back( bbMax );
 
 		// Index of self and children
 		kdData2->push_back( kdNodes[i].left );
