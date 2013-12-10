@@ -25,12 +25,12 @@
  */
 int findPath(
 	float4* origin, float4* dir, float4* normal,
-	const __global float4* scVertices, const __global uint4* scFaces,
-	const __global float4* scNormals, const __global uint* scFacesVN,
-	const __global float4* lights,
-	const __global float4* kdNodeSplits, const __global float4* kdNodeBbMin, const __global float4* kdNodeBbMax,
-	const __global int* kdNodeData2,
-	const __global int* kdNodeData3, const __global int* kdNodeRopes,
+	const global float4* scVertices, const global uint4* scFaces,
+	const global float4* scNormals, const global uint* scFacesVN,
+	const global float4* lights,
+	const global float4* kdNodeSplits, const global float4* kdNodeBbMin, const global float4* kdNodeBbMax,
+	const global int* kdNodeData2,
+	const global int* kdNodeData3, const global int* kdNodeRopes,
 	const int startNode, const int kdRoot, const float timeSinceStart, const int bounce,
 	const float initEntryDistance, const float initExitDistance
 ) {
@@ -94,15 +94,15 @@ int findPath(
  * @param {const uint}             offsetW
  * @param {const uint}             offsetH
  * @param {const float4}           initRayParts
- * @param {const __global float*}  eyeIn        Camera eye position.
- * @param {__global float4*}       origins      Output. The origin of each ray. (The camera eye.)
- * @param {__global float4*}       dirs         Output. The generated rays for each pixel.
+ * @param {const global float*}  eyeIn        Camera eye position.
+ * @param {global float4*}       origins      Output. The origin of each ray. (The camera eye.)
+ * @param {global float4*}       dirs         Output. The generated rays for each pixel.
  */
-__kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
+kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
 void initRays(
 	const uint2 offset, const float4 initRayParts,
-	const __global float* eyeIn,
-	__global float4* origins, __global float4* dirs,
+	const global float* eyeIn,
+	global float4* origins, global float4* dirs,
 	const float timeSinceStart
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
@@ -140,34 +140,34 @@ void initRays(
  * Search the kd-tree to find the closest intersection of the ray with a surface.
  * @param {const uint}             offsetW
  * @param {const uint}             offsetH
- * @param {__global float4*}       origins
- * @param {__global float4*}       rays
- * @param {__global float4*}       normals
- * @param {const __global float*}  scVertices
- * @param {const __global uint*}   scFaces
- * @param {const __global float*}  scNormals
- * @param {const __global uint*}   scFacesVN
- * @param {const __global float4*} lights
- * @param {const __global float*}  kdNodeData1
- * @param {const __global int*}    kdNodeData2
- * @param {const __global int*}    kdNodeData3
- * @param {const __global int*}    kdNodeRopes
+ * @param {global float4*}       origins
+ * @param {global float4*}       rays
+ * @param {global float4*}       normals
+ * @param {const global float*}  scVertices
+ * @param {const global uint*}   scFaces
+ * @param {const global float*}  scNormals
+ * @param {const global uint*}   scFacesVN
+ * @param {const global float4*} lights
+ * @param {const global float*}  kdNodeData1
+ * @param {const global int*}    kdNodeData2
+ * @param {const global int*}    kdNodeData3
+ * @param {const global int*}    kdNodeRopes
  * @param {const uint}             kdRoot
  * @param {const float}            timeSinceStart
  */
-__kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
+kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
 void pathTracing(
 	const uint2 offset, const float timeSinceStart,
-	const __global float4* lights,
-	const __global float4* origins, const __global float4* dirs,
-	const __global float4* scVertices, const __global uint4* scFaces,
-	const __global float4* scNormals, const __global uint* scFacesVN,
-	const __global float4* kdNodeSplits, const __global float4* kdNodeBbMin, const __global float4* kdNodeBbMax,
-	const __global int* kdNodeData2,
-	const __global int* kdNodeData3, const __global int* kdNodeRopes,
+	const global float4* lights,
+	const global float4* origins, const global float4* dirs,
+	const global float4* scVertices, const global uint4* scFaces,
+	const global float4* scNormals, const global uint* scFacesVN,
+	const global float4* kdNodeSplits, const global float4* kdNodeBbMin, const global float4* kdNodeBbMax,
+	const global int* kdNodeData2,
+	const global int* kdNodeData3, const global int* kdNodeRopes,
 	const int kdRoot,
 
-	__global float4* hits, __global float4* hitNormals
+	global float4* hits, global float4* hitNormals
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
@@ -225,13 +225,13 @@ void pathTracing(
  * @param textureIn
  * @param textureOut
  */
-__kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
+kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
 void setColors(
 	const uint2 offset, const float timeSinceStart, const float textureWeight,
-	const __global float4* hits, const __global float4* normals,
-	const __global float4* lights,
-	const __global int* materialToFace, const __global float4* diffuseColors,
-	__read_only image2d_t textureIn, __write_only image2d_t textureOut
+	const global float4* hits, const global float4* normals,
+	const global float4* lights,
+	const global int* materialToFace, const global float4* diffuseColors,
+	read_only image2d_t textureIn, write_only image2d_t textureOut
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;

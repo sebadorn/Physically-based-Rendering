@@ -1,5 +1,6 @@
 #include "KdTree.h"
 
+using std::map;
 using std::vector;
 
 
@@ -325,71 +326,19 @@ bool KdTree::hitTriangle( glm::vec3 vStart, glm::vec3 vEnd, glm::vec3 a, glm::ve
 
 
 /**
- * Optimize the rope connection for a node by "pushing" it further down in the tree.
- * The neighbouring leaf node will be reached faster later by following optimized ropes.
- * @param {cl_int*}   rope  The rope (index to neighbouring node).
- * @param {cl_int}    side  The side (left, right, bottom, top, back, front) the rope leads to.
- * @param {cl_float*} bbMin Bounding box minimum.
- * @param {cl_float*} bbMax Bounding box maximum.
+ * Comparison object for sorting algorithm.
  */
-void KdTree::optimizeRope( cl_int* rope, cl_int side, cl_float* bbMin, cl_float* bbMax ) {
-	int axis;
+struct compFunc {
+	compFunc( cl_int axis ) {
+		this->axis = axis;
+	};
 
-	while( mNodes[*rope]->left >= 0 && mNodes[*rope]->right >= 0 ) {
-		axis = mNodes[*rope]->axis;
-
-		if( side % 2 == 0 ) { // left, bottom, back
-			if( axis == ( side >> 1 ) || mNodes[*rope]->pos[axis] <= bbMin[axis] ) {
-				*rope = mNodes[*rope]->right;
-			}
-			else {
-				break;
-			}
-		}
-		else { // right, top, front
-			if( axis == ( side >> 1 ) || mNodes[*rope]->pos[axis] >= bbMax[axis] ) {
-				*rope = mNodes[*rope]->left;
-			}
-			else {
-				break;
-			}
-		}
+	bool operator () ( kdNode_t* a, kdNode_t* b ) {
+		return ( a->pos[axis] < b->pos[axis] );
 	}
 
-}
-
-
-/**
- * Comparison function for sorting algorithm. Compares the X axis.
- * @param  {kdNode_t*} a Object one.
- * @param  {kdNode_t*} b Object two.
- * @return {bool}        True if a < b, false otherwise.
- */
-bool KdTree::compFunc0( kdNode_t* a, kdNode_t* b ) {
-	return ( a->pos[0] < b->pos[0] );
-}
-
-
-/**
- * Comparison function for sorting algorithm. Compares the Y axis.
- * @param  {kdNode_t*} a Object one.
- * @param  {kdNode_t*} b Object two.
- * @return {bool}        True if a < b, false otherwise.
- */
-bool KdTree::compFunc1( kdNode_t* a, kdNode_t* b ) {
-	return ( a->pos[1] < b->pos[1] );
-}
-
-
-/**
- * Comparison function for sorting algorithm. Compares the Z axis.
- * @param  {kdNode_t*} a Object one.
- * @param  {kdNode_t*} b Object two.
- * @return {bool}        True if a < b, false otherwise.
- */
-bool KdTree::compFunc2( kdNode_t* a, kdNode_t* b ) {
-	return ( a->pos[2] < b->pos[2] );
-}
+	cl_int axis;
+};
 
 
 /**
@@ -403,24 +352,7 @@ kdNode_t* KdTree::findMedian( vector<kdNode_t*>* nodes, cl_int axis ) {
 		return (*nodes)[0];
 	}
 
-	switch( axis ) {
-
-		case 0:
-			std::sort( nodes->begin(), nodes->end(), this->compFunc0 );
-			break;
-
-		case 1:
-			std::sort( nodes->begin(), nodes->end(), this->compFunc1 );
-			break;
-
-		case 2:
-			std::sort( nodes->begin(), nodes->end(), this->compFunc2 );
-			break;
-
-		default:
-			Logger::logError( "[KdTree] Unknown index for axis. No sorting done." );
-
-	}
+	std::sort( nodes->begin(), nodes->end(), compFunc( axis ) );
 
 	cl_int index = floor( nodes->size() / 2.0f );
 	kdNode_t* median = (*nodes)[index];
@@ -461,7 +393,9 @@ kdNode_t* KdTree::getRootNode() {
  * @param  {cl_float*}              bbMax Bounding box maximum.
  * @return {cl_int}                       Top element for this part of the tree.
  */
-cl_int KdTree::makeTree( vector<kdNode_t*> nodes, cl_int axis, cl_float* bbMin, cl_float* bbMax, cl_uint depth ) {
+cl_int KdTree::makeTree(
+	vector<kdNode_t*> nodes, cl_int axis, cl_float* bbMin, cl_float* bbMax, cl_uint depth
+) {
 	// No more nodes to split planes. We have reached a leaf node.
 	if( ( mDepthLimit > 0 && depth > mDepthLimit ) || nodes.size() == 0 ) {
 		mLeaves.push_back( this->createLeafNode( bbMin, bbMax ) );
@@ -510,6 +444,95 @@ cl_int KdTree::makeTree( vector<kdNode_t*> nodes, cl_int axis, cl_float* bbMin, 
 	median->right = this->makeTree( right, axis, bbMinRight, bbMaxRight, ++depth );
 
 	return median->index;
+}
+
+
+// cl_int KdTree::makeTreeSAH(
+// 	vector<kdNode_t*> nodes, cl_int axis, cl_float* bbMin, cl_float* bbMax, cl_uint depth
+// ) {
+// 	// No more nodes to split planes. We have reached a leaf node.
+// 	if( ( mDepthLimit > 0 && depth > mDepthLimit ) || nodes.size() == 0 ) {
+// 		mLeaves.push_back( this->createLeafNode( bbMin, bbMax ) );
+// 		return mLeafIndex;
+// 	}
+
+// 	kdNode_t* median = this->findMedian( &nodes, axis );
+// 	median->axis = axis;
+// 	median->bbMin[0] = bbMin[0];
+// 	median->bbMin[1] = bbMin[1];
+// 	median->bbMin[2] = bbMin[2];
+// 	median->bbMax[0] = bbMax[0];
+// 	median->bbMax[1] = bbMax[1];
+// 	median->bbMax[2] = bbMax[2];
+
+// 	vector<kdNode_t*> left;
+// 	vector<kdNode_t*> right;
+// 	bool leftSide = true;
+
+// 	for( cl_uint i = 0; i < nodes.size(); i++ ) {
+// 		if( leftSide ) {
+// 			if( nodes[i] == median ) {
+// 				leftSide = false;
+// 			}
+// 			else {
+// 				left.push_back( nodes[i] );
+// 			}
+// 		}
+// 		else {
+// 			right.push_back( nodes[i] );
+// 		}
+// 	}
+
+// 	// Bounding box of the "left" part
+// 	cl_float bbMinLeft[3] = { bbMin[0], bbMin[1], bbMin[2] };
+// 	cl_float bbMaxLeft[3] = { bbMax[0], bbMax[1], bbMax[2] };
+// 	bbMaxLeft[axis] = median->pos[median->axis];
+
+// 	// Bounding box of the "right" part
+// 	cl_float bbMinRight[3] = { bbMin[0], bbMin[1], bbMin[2] };
+// 	cl_float bbMaxRight[3] = { bbMax[0], bbMax[1], bbMax[2] };
+// 	bbMinRight[axis] = median->pos[median->axis];
+
+// 	axis = ( axis + 1 ) % KD_DIM;
+// 	median->left = this->makeTree( left, axis, bbMinLeft, bbMaxLeft, ++depth );
+// 	median->right = this->makeTree( right, axis, bbMinRight, bbMaxRight, ++depth );
+
+// 	return median->index;
+// }
+
+
+/**
+ * Optimize the rope connection for a node by "pushing" it further down in the tree.
+ * The neighbouring leaf node will be reached faster later by following optimized ropes.
+ * @param {cl_int*}   rope  The rope (index to neighbouring node).
+ * @param {cl_int}    side  The side (left, right, bottom, top, back, front) the rope leads to.
+ * @param {cl_float*} bbMin Bounding box minimum.
+ * @param {cl_float*} bbMax Bounding box maximum.
+ */
+void KdTree::optimizeRope( cl_int* rope, cl_int side, cl_float* bbMin, cl_float* bbMax ) {
+	int axis;
+
+	while( mNodes[*rope]->left >= 0 && mNodes[*rope]->right >= 0 ) {
+		axis = mNodes[*rope]->axis;
+
+		if( side % 2 == 0 ) { // left, bottom, back
+			if( axis == ( side >> 1 ) || mNodes[*rope]->pos[axis] <= bbMin[axis] ) {
+				*rope = mNodes[*rope]->right;
+			}
+			else {
+				break;
+			}
+		}
+		else { // right, top, front
+			if( axis == ( side >> 1 ) || mNodes[*rope]->pos[axis] >= bbMax[axis] ) {
+				*rope = mNodes[*rope]->left;
+			}
+			else {
+				break;
+			}
+		}
+	}
+
 }
 
 
