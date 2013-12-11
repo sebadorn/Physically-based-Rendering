@@ -25,12 +25,11 @@
  */
 int findPath(
 	float4* origin, float4* dir, float4* normal,
-	const global float4* scVertices, const global uint4* scFaces,
 	const global float4* scNormals, const global uint* scFacesVN,
 	const global float4* lights,
-	const global float4* kdNodeSplits, const global float4* kdNodeBbMin, const global float4* kdNodeBbMax,
+	const global float4* kdNodeSplits, const global float4* kdNodeBB,
 	const global int* kdNodeData2,
-	const global int* kdNodeData3, const global int* kdNodeRopes,
+	const global float* kdNodeData3, const global int* kdNodeRopes,
 	const int startNode, const int kdRoot, const float timeSinceStart, const int bounce,
 	const float initEntryDistance, const float initExitDistance
 ) {
@@ -40,8 +39,8 @@ int findPath(
 	hit.nodeIndex = -1;
 
 	traverseKdTree(
-		origin, dir, startNode, scVertices, scFaces,
-		kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes,
+		origin, dir, startNode,
+		kdNodeSplits, kdNodeBB, kdNodeData2, kdNodeData3, kdNodeRopes,
 		&hit, bounce, kdRoot, initEntryDistance, initExitDistance
 	);
 
@@ -62,8 +61,8 @@ int findPath(
 			float4 toLight = newLight - hit.position;
 
 			bool isInShadow = shadowTest(
-				&originForShadow, &toLight, hit.nodeIndex, scVertices, scFaces,
-				kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
+				&originForShadow, &toLight, hit.nodeIndex,
+				kdNodeSplits, kdNodeBB, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
 				initEntryDistance, initExitDistance
 			);
 
@@ -160,11 +159,9 @@ void pathTracing(
 	const uint2 offset, const float timeSinceStart,
 	const global float4* lights,
 	const global float4* origins, const global float4* dirs,
-	const global float4* scVertices, const global uint4* scFaces,
 	const global float4* scNormals, const global uint* scFacesVN,
-	const global float4* kdNodeSplits, const global float4* kdNodeBbMin, const global float4* kdNodeBbMax,
-	const global int* kdNodeData2,
-	const global int* kdNodeData3, const global int* kdNodeRopes,
+	const global float4* kdNodeSplits, const global float4* kdNodeBB,
+	const global int* kdNodeData2, const global float* kdNodeData3, const global int* kdNodeRopes,
 	const int kdRoot,
 
 	global float4* hits, global float4* hitNormals
@@ -174,8 +171,8 @@ void pathTracing(
 
 	int startNode = kdRoot;
 
-	const float4 bbMinRoot = kdNodeBbMin[kdRoot];
-	const float4 bbMaxRoot = kdNodeBbMax[kdRoot];
+	const float4 bbMinRoot = kdNodeBB[kdRoot * 2];
+	const float4 bbMaxRoot = kdNodeBB[kdRoot * 2 + 1];
 
 	float4 origin = origins[workIndex];
 	float4 dir = dirs[workIndex];
@@ -191,8 +188,8 @@ void pathTracing(
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		startNode = findPath(
-			&origin, &dir, &normal, scVertices, scFaces, scNormals, scFacesVN,
-			lights, kdNodeSplits, kdNodeBbMin, kdNodeBbMax, kdNodeData2, kdNodeData3, kdNodeRopes,
+			&origin, &dir, &normal, scNormals, scFacesVN,
+			lights, kdNodeSplits, kdNodeBB, kdNodeData2, kdNodeData3, kdNodeRopes,
 			startNode, kdRoot, timeSinceStart + bounce, bounce, entryDistance, exitDistance
 		);
 

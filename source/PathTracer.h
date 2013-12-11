@@ -53,9 +53,9 @@ class PathTracer {
 		void initKernelArgs();
 		void kdNodesToVectors(
 			vector<kdNode_t> kdNodes,
-			vector<cl_float4>* kdSplits, vector<cl_float4>* kdBbMin, vector<cl_float4>* kdBbMax,
-			vector<cl_int>* kdData2, vector<cl_int>* kdData3,
-			vector<cl_int>* kdRopes
+			vector<cl_float4>* kdSplits, vector<cl_float4>* kdBB,
+			vector<cl_int>* kdData2, vector<cl_float>* kdData3,
+			vector<cl_int>* kdRopes, vector<cl_uint> faces, vector<cl_float> vertices
 		);
 		void updateEyeBuffer();
 
@@ -74,15 +74,12 @@ class PathTracer {
 		cl_kernel mKernelRays;
 		cl_kernel mKernelSetColors;
 
-		cl_mem mBufScFaces;
-		cl_mem mBufScVertices;
 		cl_mem mBufScNormals;
 		cl_mem mBufScFacesVN;
 
 		cl_mem mBufKdNodes;
 		cl_mem mBufKdNodeSplits;
-		cl_mem mBufKdNodeBbMin;
-		cl_mem mBufKdNodeBbMax;
+		cl_mem mBufKdNodeBB;
 		cl_mem mBufKdNodeData2;
 		cl_mem mBufKdNodeData3;
 		cl_mem mBufKdNodeRopes;

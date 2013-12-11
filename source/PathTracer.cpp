@@ -141,13 +141,10 @@ void PathTracer::initArgsKernelPathTracing() {
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufLights );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufOrigins );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufRays );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScVertices );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScFaces );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScNormals );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScFacesVN );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeSplits );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeBbMin );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeBbMax );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeBB );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeData2 );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeData3 );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeRopes );
@@ -230,18 +227,19 @@ void PathTracer::initOpenCLBuffers(
 	mKdRootNodeIndex = rootIndex;
 
 	vector<cl_float4> kdSplits; // [x, y, z, 0]
-	vector<cl_float4> kdBbMin;  // [x, y, z, 0]
-	vector<cl_float4> kdBbMax;  // [x, y, z, 0]
+	vector<cl_float4> kdBB;  // [x, y, z, 0]
 	vector<cl_int> kdData2;     // [left, right, axis, facesIndex, ropesIndex]
-	vector<cl_int> kdData3;     // [numFaces, a, b, c ...]
+	vector<cl_float> kdData3;   // [numFaces, a, b, c ...]
 	vector<cl_int> kdRopes;     // [left, right, bottom, top, back, front]
-	this->kdNodesToVectors( kdNodes, &kdSplits, &kdBbMin, &kdBbMax, &kdData2, &kdData3, &kdRopes );
+	this->kdNodesToVectors(
+		kdNodes, &kdSplits, &kdBB, &kdData2, &kdData3, &kdRopes,
+		faces, vertices
+	);
 
 	mBufKdNodeSplits = mCL->createBuffer( kdSplits, sizeof( cl_float4 ) * kdSplits.size() );
-	mBufKdNodeBbMin = mCL->createBuffer( kdBbMin, sizeof( cl_float4 ) * kdBbMin.size() );
-	mBufKdNodeBbMax = mCL->createBuffer( kdBbMax, sizeof( cl_float4 ) * kdBbMax.size() );
+	mBufKdNodeBB = mCL->createBuffer( kdBB, sizeof( cl_float4 ) * kdBB.size() );
 	mBufKdNodeData2 = mCL->createBuffer( kdData2, sizeof( cl_int ) * kdData2.size() );
-	mBufKdNodeData3 = mCL->createBuffer( kdData3, sizeof( cl_int ) * kdData3.size() );
+	mBufKdNodeData3 = mCL->createBuffer( kdData3, sizeof( cl_float ) * kdData3.size() );
 	mBufKdNodeRopes = mCL->createBuffer( kdRopes, sizeof( cl_int ) * kdRopes.size() );
 
 	vector<cl_float4> diffuseColors; // [r, g, b]
@@ -253,28 +251,12 @@ void PathTracer::initOpenCLBuffers(
 	mBufMaterialToFace = mCL->createBuffer( facesMtl, sizeof( cl_int ) * facesMtl.size() );
 
 
-	// TODO: cleanup
-
-	vector<cl_uint4> facesUint4;
-	for( int i = 0; i < faces.size(); i += 3 ) {
-		cl_uint4 f = { faces[i], faces[i + 1], faces[i + 2], 0 };
-		facesUint4.push_back( f );
-	}
-
-	vector<cl_float4> verticesFloat4;
-	for( int i = 0; i < vertices.size(); i += 3 ) {
-		cl_float4 v = { vertices[i], vertices[i + 1], vertices[i + 2], 0.0f };
-		verticesFloat4.push_back( v );
-	}
-
 	vector<cl_float4> normalsFloat4;
 	for( int i = 0; i < normals.size(); i += 3 ) {
 		cl_float4 n = { normals[i], normals[i + 1], normals[i + 2], 0.0f };
 		normalsFloat4.push_back( n );
 	}
 
-	mBufScFaces = mCL->createBuffer( facesUint4, sizeof( cl_uint4 ) * facesUint4.size() );
-	mBufScVertices = mCL->createBuffer( verticesFloat4, sizeof( cl_float4 ) * verticesFloat4.size() );
 	mBufScNormals = mCL->createBuffer( normalsFloat4, sizeof( cl_float4 ) * normalsFloat4.size() );
 	mBufScFacesVN = mCL->createBuffer( facesVN, sizeof( cl_uint ) * facesVN.size() );
 
@@ -309,10 +291,12 @@ void PathTracer::initOpenCLBuffers(
  */
 void PathTracer::kdNodesToVectors(
 	vector<kdNode_t> kdNodes,
-	vector<cl_float4>* kdSplits, vector<cl_float4>* kdBbMin, vector<cl_float4>* kdBbMax,
-	vector<cl_int>* kdData2, vector<cl_int>* kdData3,
-	vector<cl_int>* kdRopes
+	vector<cl_float4>* kdSplits, vector<cl_float4>* kdBB,
+	vector<cl_int>* kdData2, vector<cl_float>* kdData3, vector<cl_int>* kdRopes,
+	vector<cl_uint> faces, vector<cl_float> vertices
 ) {
+	cl_uint f;
+
 	for( cl_uint i = 0; i < kdNodes.size(); i++ ) {
 		// Vertice coordinates
 		cl_float4 v = {
@@ -330,15 +314,14 @@ void PathTracer::kdNodesToVectors(
 			kdNodes[i].bbMin[2],
 			0.0f
 		};
-		kdBbMin->push_back( bbMin );
-
 		cl_float4 bbMax = {
 			kdNodes[i].bbMax[0],
 			kdNodes[i].bbMax[1],
 			kdNodes[i].bbMax[2],
 			0.0f
 		};
-		kdBbMax->push_back( bbMax );
+		kdBB->push_back( bbMin );
+		kdBB->push_back( bbMax );
 
 		// Index of self and children
 		kdData2->push_back( kdNodes[i].left );
@@ -347,12 +330,27 @@ void PathTracer::kdNodesToVectors(
 
 		// Index of faces of this node in kdData3
 		kdData2->push_back( ( kdNodes[i].faces.size() > 0 ) ? kdData3->size() : -1 );
+		// Number of faces in this node
+		kdData2->push_back( kdNodes[i].faces.size() * 10 );
 
 		// Faces
-		kdData3->push_back( kdNodes[i].faces.size() );
-
 		for( cl_uint j = 0; j < kdNodes[i].faces.size(); j++ ) {
-			kdData3->push_back( kdNodes[i].faces[j] );
+			f = kdNodes[i].faces[j] * 3;
+			kdData3->push_back( vertices[faces[f] * 3] );
+			kdData3->push_back( vertices[faces[f] * 3 + 1] );
+			kdData3->push_back( vertices[faces[f] * 3 + 2] );
+
+			f++;
+			kdData3->push_back( vertices[faces[f] * 3] );
+			kdData3->push_back( vertices[faces[f] * 3 + 1] );
+			kdData3->push_back( vertices[faces[f] * 3 + 2] );
+
+			f++;
+			kdData3->push_back( vertices[faces[f] * 3] );
+			kdData3->push_back( vertices[faces[f] * 3 + 1] );
+			kdData3->push_back( vertices[faces[f] * 3 + 2] );
+
+			kdData3->push_back( (cl_float) kdNodes[i].faces[j] );
 		}
 
 		// Ropes
