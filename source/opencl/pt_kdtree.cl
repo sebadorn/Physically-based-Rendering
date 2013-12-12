@@ -275,7 +275,7 @@ inline void traverseKdTree(
  * @param  {const global int*}   kdNodeRopes
  * @return {bool}
  */
-inline bool shadowTest(
+inline bool shadowTestIntersection(
 	const float4* origin, const float4* dir, const uint startNode,
 	const global float4* kdNodeSplits, const global float4* kdNodeBB,
 	const global int* kdNodeData2, const global float* kdNodeData3,

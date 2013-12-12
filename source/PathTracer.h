@@ -45,11 +45,13 @@ class PathTracer {
 		void clInitRays( cl_float timeSinceStart );
 		void clPathTracing( cl_float timeSinceStart );
 		void clSetColors( cl_float timeSinceStart );
+		void clShadowTest( cl_float timeSinceStart );
 		glm::vec3 getJitter();
 		cl_float getTimeSinceStart();
 		void initArgsKernelPathTracing();
 		void initArgsKernelRays();
 		void initArgsKernelSetColors();
+		void initArgsKernelShadowTest();
 		void initKernelArgs();
 		void kdNodesToVectors(
 			vector<kdNode_t> kdNodes,
@@ -73,6 +75,7 @@ class PathTracer {
 		cl_kernel mKernelPathTracing;
 		cl_kernel mKernelRays;
 		cl_kernel mKernelSetColors;
+		cl_kernel mKernelShadowTest;
 
 		cl_mem mBufScNormals;
 		cl_mem mBufScFacesVN;

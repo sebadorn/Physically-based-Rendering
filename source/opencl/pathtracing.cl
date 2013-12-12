@@ -53,27 +53,28 @@ int findPath(
 		*dir = cosineWeightedDirection( timeSinceStart + hit.t, *normal );
 		*dir = fast_normalize( *dir ); // WARNING: fast_
 
-		#ifdef SHADOWS
+		// #ifdef SHADOWS
 
-			const float4 light = lights[0];
-			const float4 newLight = light + uniformlyRandomVector( timeSinceStart + hit.t ) * 0.1f;
-			float4 originForShadow = hit.position + (*normal) * EPSILON;
-			float4 toLight = newLight - hit.position;
+		// 	const float4 light = lights[0];
+		// 	const float4 newLight = light + uniformlyRandomVector( timeSinceStart + hit.t ) * 0.1f;
+		// 	float4 originForShadow = hit.position + (*normal) * EPSILON;
+		// 	float4 toLight = newLight - hit.position;
 
-			bool isInShadow = shadowTest(
-				&originForShadow, &toLight, hit.nodeIndex,
-				kdNodeSplits, kdNodeBB, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
-				initEntryDistance, initExitDistance
-			);
+		// 	bool isInShadow = shadowTest(
+		// 		&originForShadow, &toLight, hit.nodeIndex,
+		// 		kdNodeSplits, kdNodeBB, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
+		// 		initEntryDistance, initExitDistance
+		// 	);
 
-			hit.position.w = !isInShadow;
+		// 	hit.position.w = !isInShadow;
 
-		#else
+		// #else
 
-			hit.position.w = 1.0f;
+		// 	hit.position.w = 1.0f;
 
-		#endif
+		// #endif
 
+		hit.position.w = (float) hit.nodeIndex;
 		normal->w = hit.faceIndex;
 	}
 
@@ -206,6 +207,61 @@ void pathTracing(
 
 	// How to use a barrier:
 	// barrier( CLK_LOCAL_MEM_FENCE );
+}
+
+
+kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
+void shadowTest(
+	const uint2 offset, const float timeSinceStart,
+	const global float4* lights,
+	const global float4* origins, const global float4* dirs,
+	const global float4* scNormals, const global uint* scFacesVN,
+	const global float4* kdNodeSplits, const global float4* kdNodeBB,
+	const global int* kdNodeData2, const global float* kdNodeData3, const global int* kdNodeRopes,
+	const int kdRoot,
+
+	global float4* hits, global float4* hitNormals
+) {
+	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
+	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
+
+	const float4 bbMinRoot = kdNodeBB[kdRoot * 2];
+	const float4 bbMaxRoot = kdNodeBB[kdRoot * 2 + 1];
+
+	const float entryDistance = 0.0f;
+	float exitDistance;
+	int exitRope;
+	uint startNode;
+
+	float4 normal, origin;
+
+	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
+		origin = hits[workIndex * BOUNCES + bounce];
+		normal = hitNormals[workIndex * BOUNCES + bounce];
+
+		if( origin.w <= -1.0f ) {
+			break;
+		}
+
+		startNode = (uint) origin.w;
+		origin.w = 0.0f;
+		normal.w = 0.0f;
+		exitDistance = fast_length( origin + bbMaxRoot - bbMinRoot );
+
+		float4 light = lights[0];
+		float4 newLight = light + uniformlyRandomVector( timeSinceStart + bounce ) * 0.1f;
+		float4 originForShadow = origin + normal * EPSILON;
+		float4 toLight = newLight - origin;
+
+		bool isInShadow = shadowTestIntersection(
+			&originForShadow, &toLight, startNode,
+			kdNodeSplits, kdNodeBB, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
+			entryDistance, exitDistance
+		);
+
+		origin.w = !isInShadow;
+		hits[workIndex * BOUNCES + bounce] = origin;
+	}
 }
 
 
