@@ -20,7 +20,7 @@ using std::vector;
 
 
 typedef struct kdNode_t {
-	vector<cl_int> faces;
+	vector<cl_uint> faces;
 	vector<cl_int> ropes;
 	cl_float pos[3];
 	cl_float bbMax[3];
@@ -46,17 +46,32 @@ class KdTree {
 		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	protected:
-		void assignFacesToLeaves( vector<cl_float>* vertices, vector<cl_uint>* faces );
-		kdNode_t* createLeafNode( cl_float* bbMin, cl_float* bbMax );
+		kdNode_t* createLeafNode(
+			cl_float* bbMin, cl_float* bbMax,
+			vector<cl_float> vertices, vector<cl_uint> faces
+		);
 		void createRopes( kdNode_t* node, vector<cl_int> ropes );
 		vector<kdNode_t*> createUnconnectedNodes( vector<cl_float>* vertices );
 		kdNode_t* findMedian( vector<kdNode_t*>* nodes, cl_int axis );
+		vector<cl_float> getFaceBB( cl_float v0[3], cl_float v1[3], cl_float v2[3] );
 		cl_int makeTree(
-			vector<kdNode_t*> t, cl_int axis, cl_float* bbMin, cl_float* bbMax, cl_uint depth
+			vector<kdNode_t*> t, cl_int axis, cl_float* bbMin, cl_float* bbMax,
+			vector<cl_float> vertices, vector<cl_uint> faces, cl_uint depth
 		);
 		void optimizeRope( cl_int* rope, cl_int side, cl_float* bbMin, cl_float* bbMax );
+		void printLeafFacesStat();
 		void printNode( kdNode_t* node );
 		void printNumFacesOfLeaves();
+		void setDepthLimit( vector<cl_float> vertices );
+		void splitFaces(
+			vector<cl_float> vertices, vector<cl_uint> faces,
+			cl_float bbMaxLeft[3], cl_float bbMinRight[3],
+			vector<cl_uint>* leftFaces, vector<cl_uint>* rightFaces
+		);
+		void splitNodesAtMedian(
+			vector<kdNode_t*> nodes, kdNode_t* median,
+			vector<kdNode_t*>* leftNodes, vector<kdNode_t*>* rightNodes
+		);
 		void visualizeNextNode( kdNode_t* node, vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	private:

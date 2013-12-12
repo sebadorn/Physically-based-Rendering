@@ -295,7 +295,7 @@ void PathTracer::kdNodesToVectors(
 	vector<cl_int>* kdData2, vector<cl_float>* kdData3, vector<cl_int>* kdRopes,
 	vector<cl_uint> faces, vector<cl_float> vertices
 ) {
-	cl_uint f;
+	cl_uint a, b, c, pos;
 
 	for( cl_uint i = 0; i < kdNodes.size(); i++ ) {
 		// Vertice coordinates
@@ -331,26 +331,37 @@ void PathTracer::kdNodesToVectors(
 		// Index of faces of this node in kdData3
 		kdData2->push_back( ( kdNodes[i].faces.size() > 0 ) ? kdData3->size() : -1 );
 		// Number of faces in this node
-		kdData2->push_back( kdNodes[i].faces.size() * 10 );
+		kdData2->push_back( kdNodes[i].faces.size() / 3 * 10 );
 
 		// Faces
-		for( cl_uint j = 0; j < kdNodes[i].faces.size(); j++ ) {
-			f = kdNodes[i].faces[j] * 3;
-			kdData3->push_back( vertices[faces[f] * 3] );
-			kdData3->push_back( vertices[faces[f] * 3 + 1] );
-			kdData3->push_back( vertices[faces[f] * 3 + 2] );
+		for( cl_uint j = 0; j < kdNodes[i].faces.size(); j += 3 ) {
+			a = kdNodes[i].faces[j] * 3;
+			kdData3->push_back( vertices[a] );
+			kdData3->push_back( vertices[a + 1] );
+			kdData3->push_back( vertices[a + 2] );
 
-			f++;
-			kdData3->push_back( vertices[faces[f] * 3] );
-			kdData3->push_back( vertices[faces[f] * 3 + 1] );
-			kdData3->push_back( vertices[faces[f] * 3 + 2] );
+			b = kdNodes[i].faces[j + 1] * 3;
+			kdData3->push_back( vertices[b] );
+			kdData3->push_back( vertices[b + 1] );
+			kdData3->push_back( vertices[b + 2] );
 
-			f++;
-			kdData3->push_back( vertices[faces[f] * 3] );
-			kdData3->push_back( vertices[faces[f] * 3 + 1] );
-			kdData3->push_back( vertices[faces[f] * 3 + 2] );
+			c = kdNodes[i].faces[j + 2] * 3;
+			kdData3->push_back( vertices[c] );
+			kdData3->push_back( vertices[c + 1] );
+			kdData3->push_back( vertices[c + 2] );
 
-			kdData3->push_back( (cl_float) kdNodes[i].faces[j] );
+			// Find index of face in original (complete) face list.
+			// This index will be needed to assign the right material to the face.
+			pos = 0;
+
+			for( cl_uint k = 0; k < faces.size(); k += 3 ) {
+				if( faces[k] == a / 3 && faces[k + 1] == b / 3 && faces[k + 2] == c / 3 ) {
+					pos = k / 3;
+					break;
+				}
+			}
+
+			kdData3->push_back( (cl_float) pos );
 		}
 
 		// Ropes
