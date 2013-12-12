@@ -17,8 +17,8 @@
  * @param scFacesVN
  * @param lights
  * @param kdNodeData1
- * @param kdNodeData2
- * @param kdNodeData3
+ * @param kdNodeMeta
+ * @param kdNodeFaces
  * @param kdNodeRopes
  * @param kdRoot
  * @param timeSinceStart
@@ -27,9 +27,9 @@ int findPath(
 	float4* origin, float4* dir, float4* normal,
 	const global float4* scNormals, const global uint* scFacesVN,
 	const global float4* lights,
-	const global float4* kdNodeSplits, const global float4* kdNodeBB,
-	const global int* kdNodeData2,
-	const global float* kdNodeData3, const global int* kdNodeRopes,
+	const global float4* kdNodeSplits, const global float* kdNodeBB,
+	const global int* kdNodeMeta,
+	const global float* kdNodeFaces, const global int* kdNodeRopes,
 	const int startNode, const int kdRoot, const float timeSinceStart, const int bounce,
 	const float initEntryDistance, const float initExitDistance
 ) {
@@ -40,7 +40,7 @@ int findPath(
 
 	traverseKdTree(
 		origin, dir, startNode,
-		kdNodeSplits, kdNodeBB, kdNodeData2, kdNodeData3, kdNodeRopes,
+		kdNodeSplits, kdNodeBB, kdNodeMeta, kdNodeFaces, kdNodeRopes,
 		&hit, bounce, kdRoot, initEntryDistance, initExitDistance
 	);
 
@@ -52,27 +52,6 @@ int findPath(
 		// New ray
 		*dir = cosineWeightedDirection( timeSinceStart + hit.t, *normal );
 		*dir = fast_normalize( *dir ); // WARNING: fast_
-
-		// #ifdef SHADOWS
-
-		// 	const float4 light = lights[0];
-		// 	const float4 newLight = light + uniformlyRandomVector( timeSinceStart + hit.t ) * 0.1f;
-		// 	float4 originForShadow = hit.position + (*normal) * EPSILON;
-		// 	float4 toLight = newLight - hit.position;
-
-		// 	bool isInShadow = shadowTest(
-		// 		&originForShadow, &toLight, hit.nodeIndex,
-		// 		kdNodeSplits, kdNodeBB, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
-		// 		initEntryDistance, initExitDistance
-		// 	);
-
-		// 	hit.position.w = !isInShadow;
-
-		// #else
-
-		// 	hit.position.w = 1.0f;
-
-		// #endif
 
 		hit.position.w = (float) hit.nodeIndex;
 		normal->w = hit.faceIndex;
@@ -91,46 +70,45 @@ int findPath(
 /**
  * KERNEL.
  * Generate the initial rays into the scene.
- * @param {const uint}             offsetW
- * @param {const uint}             offsetH
- * @param {const float4}           initRayParts
- * @param {const global float*}  eyeIn        Camera eye position.
- * @param {global float4*}       origins      Output. The origin of each ray. (The camera eye.)
- * @param {global float4*}       dirs         Output. The generated rays for each pixel.
+ * @param {const uint2}         offset
+ * @param {const float4}        initRayParts
+ * @param {const global float*} eyeIn          Camera eye position.
+ * @param {global float4*}      origins        Output. The origin of each ray. (The camera eye.)
+ * @param {global float4*}      dirs           Output. The generated rays for each pixel.
+ * @param {const float}         timeSinceStart
  */
-kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
-void initRays(
+kernel void initRays(
 	const uint2 offset, const float4 initRayParts,
 	const global float* eyeIn,
 	global float4* origins, global float4* dirs,
 	const float timeSinceStart
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
-	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
 	float4 eye = { eyeIn[0], eyeIn[1], eyeIn[2], 0.0f };
-	float4 w = { eyeIn[3], eyeIn[4], eyeIn[5], 0.0f };
-	float4 u = { eyeIn[6], eyeIn[7], eyeIn[8], 0.0f };
-	float4 v = { eyeIn[9], eyeIn[10], eyeIn[11], 0.0f };
+	const float4 w = { eyeIn[3], eyeIn[4], eyeIn[5], 0.0f };
+	const float4 u = { eyeIn[6], eyeIn[7], eyeIn[8], 0.0f };
+	const float4 v = { eyeIn[9], eyeIn[10], eyeIn[11], 0.0f };
 
 	#ifdef ANTI_ALIASING
 		eye += uniformlyRandomVector( timeSinceStart ) * 0.005f;
 	#endif
 
-	const float pxWidthAndHeight = initRayParts.x;
-	const float adjustW = initRayParts.y;
-	const float adjustH = initRayParts.z;
-	const float pxwhHalf = initRayParts.w;
+	#define pxWidthAndHeight initRayParts.x
+	#define adjustW initRayParts.y
+	#define adjustH initRayParts.z
+	#define pxwhHalf initRayParts.w
 
+	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 	const float wgsHalfMulPxWH = WORKGROUPSIZE_HALF * pxWidthAndHeight;
 
-	float4 initialRay = eye + w
+	const float4 initialRay = w
 			+ wgsHalfMulPxWH * ( v - u )
 			+ pxwhHalf * ( u - v )
 			+ ( pos.x - adjustW ) * pxWidthAndHeight * u
 			- ( WORKGROUPSIZE - pos.y + adjustH ) * pxWidthAndHeight * v;
 
-	dirs[workIndex] = fast_normalize( initialRay - eye ); // WARNING: fast_
+	dirs[workIndex] = fast_normalize( initialRay ); // WARNING: fast_
 	origins[workIndex] = eye;
 }
 
@@ -149,22 +127,20 @@ void initRays(
  * @param {const global uint*}   scFacesVN
  * @param {const global float4*} lights
  * @param {const global float*}  kdNodeData1
- * @param {const global int*}    kdNodeData2
- * @param {const global int*}    kdNodeData3
+ * @param {const global int*}    kdNodeMeta
+ * @param {const global int*}    kdNodeFaces
  * @param {const global int*}    kdNodeRopes
  * @param {const uint}             kdRoot
  * @param {const float}            timeSinceStart
  */
-kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
-void pathTracing(
+kernel void pathTracing(
 	const uint2 offset, const float timeSinceStart,
 	const global float4* lights,
 	const global float4* origins, const global float4* dirs,
 	const global float4* scNormals, const global uint* scFacesVN,
-	const global float4* kdNodeSplits, const global float4* kdNodeBB,
-	const global int* kdNodeData2, const global float* kdNodeData3, const global int* kdNodeRopes,
+	const global float* kdNodeSplits, const global float* kdNodeBB,
+	const global int* kdNodeMeta, const global float* kdNodeFaces, const global int* kdNodeRopes,
 	const int kdRoot,
-
 	global float4* hits, global float4* hitNormals
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
@@ -172,8 +148,18 @@ void pathTracing(
 
 	int startNode = kdRoot;
 
-	const float4 bbMinRoot = kdNodeBB[kdRoot * 2];
-	const float4 bbMaxRoot = kdNodeBB[kdRoot * 2 + 1];
+	const float4 bbMinRoot = {
+		kdNodeBB[kdRoot * 6],
+		kdNodeBB[kdRoot * 6 + 1],
+		kdNodeBB[kdRoot * 6 + 2],
+		0.0f
+	};
+	const float4 bbMaxRoot = {
+		kdNodeBB[kdRoot * 6 + 3],
+		kdNodeBB[kdRoot * 6 + 4],
+		kdNodeBB[kdRoot * 6 + 5],
+		0.0f
+	};
 
 	float4 origin = origins[workIndex];
 	float4 dir = dirs[workIndex];
@@ -190,7 +176,7 @@ void pathTracing(
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		startNode = findPath(
 			&origin, &dir, &normal, scNormals, scFacesVN,
-			lights, kdNodeSplits, kdNodeBB, kdNodeData2, kdNodeData3, kdNodeRopes,
+			lights, kdNodeSplits, kdNodeBB, kdNodeMeta, kdNodeFaces, kdNodeRopes,
 			startNode, kdRoot, timeSinceStart + bounce, bounce, entryDistance, exitDistance
 		);
 
@@ -210,30 +196,52 @@ void pathTracing(
 }
 
 
-kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
-void shadowTest(
+/**
+ * KERNEL.
+ * Test hit surfaces for being in a shadow.
+ * @param {const uint2} offset
+ * @param {const float} timeSinceStart
+ * @param {const global float4*} lights
+ * @param {const global float4*} kdNodeSplits
+ * @param {const global float4*} kdNodeBB
+ * @param {const gloabl int*} kdNodeMeta
+ * @param {const global float*} kdNodeFaces
+ * @param {const global int*} kdNodeRopes
+ * @param {const int} kdRoot
+ * @param {global float4*} hits
+ * @param {const global float4* hitNormals}
+ */
+kernel void shadowTest(
 	const uint2 offset, const float timeSinceStart,
 	const global float4* lights,
-	const global float4* origins, const global float4* dirs,
-	const global float4* scNormals, const global uint* scFacesVN,
-	const global float4* kdNodeSplits, const global float4* kdNodeBB,
-	const global int* kdNodeData2, const global float* kdNodeData3, const global int* kdNodeRopes,
+	const global float* kdNodeSplits, const global float* kdNodeBB,
+	const global int* kdNodeMeta, const global float* kdNodeFaces, const global int* kdNodeRopes,
 	const int kdRoot,
-
-	global float4* hits, global float4* hitNormals
+	global float4* hits, const global float4* hitNormals
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
-	const float4 bbMinRoot = kdNodeBB[kdRoot * 2];
-	const float4 bbMaxRoot = kdNodeBB[kdRoot * 2 + 1];
+	const float4 bbMinRoot = {
+		kdNodeBB[kdRoot * 6],
+		kdNodeBB[kdRoot * 6 + 1],
+		kdNodeBB[kdRoot * 6 + 2],
+		0.0f
+	};
+	const float4 bbMaxRoot = {
+		kdNodeBB[kdRoot * 6 + 3],
+		kdNodeBB[kdRoot * 6 + 4],
+		kdNodeBB[kdRoot * 6 + 5],
+		0.0f
+	};
 
-	const float entryDistance = 0.0f;
 	float exitDistance;
 	int exitRope;
 	uint startNode;
 
 	float4 normal, origin;
+	const float4 light = lights[0];
+	bool isInShadow;
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		origin = hits[workIndex * BOUNCES + bounce];
@@ -248,15 +256,13 @@ void shadowTest(
 		normal.w = 0.0f;
 		exitDistance = fast_length( origin + bbMaxRoot - bbMinRoot );
 
-		float4 light = lights[0];
-		float4 newLight = light + uniformlyRandomVector( timeSinceStart + bounce ) * 0.1f;
+		float4 newLight = light + uniformlyRandomVector( timeSinceStart + exitDistance ) * 0.1f - origin;
 		float4 originForShadow = origin + normal * EPSILON;
-		float4 toLight = newLight - origin;
 
-		bool isInShadow = shadowTestIntersection(
-			&originForShadow, &toLight, startNode,
-			kdNodeSplits, kdNodeBB, kdNodeData2, kdNodeData3, kdNodeRopes, kdRoot,
-			entryDistance, exitDistance
+		isInShadow = shadowTestIntersection(
+			&originForShadow, &newLight, startNode,
+			kdNodeSplits, kdNodeBB, kdNodeMeta, kdNodeFaces, kdNodeRopes, kdRoot,
+			fmin( exitDistance, 1.0f )
 		);
 
 		origin.w = !isInShadow;
@@ -278,8 +284,7 @@ void shadowTest(
  * @param textureIn
  * @param textureOut
  */
-kernel __attribute__( ( work_group_size_hint( WORKGROUPSIZE, WORKGROUPSIZE, 1 ) ) )
-void setColors(
+kernel void setColors(
 	const uint2 offset, const float timeSinceStart, const float textureWeight,
 	const global float4* hits, const global float4* normals,
 	const global float4* lights,
@@ -287,7 +292,6 @@ void setColors(
 	read_only image2d_t textureIn, write_only image2d_t textureOut
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
-	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
 	float4 hit, normal, surfaceColor, toLight;
 	float diffuse, luminosity, shadowIntensity, specularHighlight, toLightLength;
@@ -299,24 +303,27 @@ void setColors(
 	const float4 light = lights[0];
 	const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
 
+	const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
+	float4 prefetch_hit = hits[workIndex];
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
-		hit = hits[workIndex * BOUNCES + bounce];
+		hit = prefetch_hit;
 
 		if( hit.w < -1.0f ) {
 			break;
 		}
 
-		normal = normals[workIndex * BOUNCES + bounce];
+		normal = normals[workIndex + bounce];
+
 		shadowIntensity = hit.w;
 		hit.w = 0.0f;
 
-		// TODO: This is ugly, seperate the (unrelated) data
 		face = normal.w;
 		material = materialToFace[face];
 		normal.w = 0.0f;
 
 		surfaceColor = diffuseColors[material];
+		prefetch_hit = hits[workIndex + bounce + 1];
 
 		// The farther away a shadow is, the more diffuse it becomes (penumbrae)
 		toLight = newLight - hit;
@@ -335,6 +342,6 @@ void setColors(
 	}
 
 	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
-	float4 color = mix( accumulatedColor, texturePixel, textureWeight );
+	const float4 color = mix( accumulatedColor, texturePixel, textureWeight );
 	write_imagef( textureOut, pos, color );
 }

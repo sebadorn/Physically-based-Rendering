@@ -6,14 +6,14 @@
  * @param {const float4*}         dir
  * @param {const global float*}   scVertices
  * @param {const global uint*}    scFaces
- * @param {const global int*}     kdNodeData3
+ * @param {const global int*}     kdNodeFaces
  * @param {const float}           entryDistance
  * @param {float*}                exitDistance
  * @param {hit_t*}                result
  */
 void checkFaces(
 	const int nodeIndex, const int faceIndex, const float4* origin, const float4* dir,
-	const int numFaces, const global float* kdNodeData3,
+	const int numFaces, const global float* kdNodeFaces,
 	const float entryDistance, float* exitDistance, hit_t* result
 ) {
 	float4 a = (float4)( 0.0f );
@@ -26,31 +26,31 @@ void checkFaces(
 
 	uint j = faceIndex;
 
-	prefetch_a.x = kdNodeData3[j];
-	prefetch_a.y = kdNodeData3[j + 1];
-	prefetch_a.z = kdNodeData3[j + 2];
-	prefetch_b.x = kdNodeData3[j + 3];
-	prefetch_b.y = kdNodeData3[j + 4];
-	prefetch_b.z = kdNodeData3[j + 5];
-	prefetch_c.x = kdNodeData3[j + 6];
-	prefetch_c.y = kdNodeData3[j + 7];
-	prefetch_c.z = kdNodeData3[j + 8];
+	prefetch_a.x = kdNodeFaces[j];
+	prefetch_a.y = kdNodeFaces[j + 1];
+	prefetch_a.z = kdNodeFaces[j + 2];
+	prefetch_b.x = kdNodeFaces[j + 3];
+	prefetch_b.y = kdNodeFaces[j + 4];
+	prefetch_b.z = kdNodeFaces[j + 5];
+	prefetch_c.x = kdNodeFaces[j + 6];
+	prefetch_c.y = kdNodeFaces[j + 7];
+	prefetch_c.z = kdNodeFaces[j + 8];
 
 	for( uint i = 0; i < numFaces; i += 10 ) {
+		j = faceIndex + i + 10;
 		a = prefetch_a;
 		b = prefetch_b;
 		c = prefetch_c;
 
-		j = faceIndex + i + 10;
-		prefetch_a.x = kdNodeData3[j];
-		prefetch_a.y = kdNodeData3[j + 1];
-		prefetch_a.z = kdNodeData3[j + 2];
-		prefetch_b.x = kdNodeData3[j + 3];
-		prefetch_b.y = kdNodeData3[j + 4];
-		prefetch_b.z = kdNodeData3[j + 5];
-		prefetch_c.x = kdNodeData3[j + 6];
-		prefetch_c.y = kdNodeData3[j + 7];
-		prefetch_c.z = kdNodeData3[j + 8];
+		prefetch_a.x = kdNodeFaces[j];
+		prefetch_a.y = kdNodeFaces[j + 1];
+		prefetch_a.z = kdNodeFaces[j + 2];
+		prefetch_b.x = kdNodeFaces[j + 3];
+		prefetch_b.y = kdNodeFaces[j + 4];
+		prefetch_b.z = kdNodeFaces[j + 5];
+		prefetch_c.x = kdNodeFaces[j + 6];
+		prefetch_c.y = kdNodeFaces[j + 7];
+		prefetch_c.z = kdNodeFaces[j + 8];
 
 		r = checkFaceIntersection(
 			*origin, *dir, a, b, c,
@@ -63,7 +63,7 @@ void checkFaces(
 			if( result->t > r || result->t < -1.0f ) {
 				result->t = r;
 				result->nodeIndex = nodeIndex;
-				result->faceIndex = (uint) kdNodeData3[faceIndex + i + 9];
+				result->faceIndex = (uint) kdNodeFaces[j - 1];
 			}
 		}
 	}
@@ -83,14 +83,14 @@ void checkFaces(
  * @param  {const float4*}         dir
  * @param  {const global float*} scVertices
  * @param  {const global uint*}  scFaces
- * @param  {const global int*}   kdNodeData3
+ * @param  {const global int*}   kdNodeFaces
  * @param  {const float}           entryDistance
  * @param  {float*}                exitDistance
  * @return {bool}                                True, if a hit is detected between origin and light, false otherwise.
  */
 bool checkFacesForShadow(
 	const int nodeIndex, const int faceIndex, const float4* origin, const float4* dir,
-	const int numFaces, const global float* kdNodeData3,
+	const int numFaces, const global float* kdNodeFaces,
 	const float entryDistance, float* exitDistance
 ) {
 	float4 a = (float4)( 0.0f );
@@ -103,31 +103,31 @@ bool checkFacesForShadow(
 
 	uint j = faceIndex;
 
-	prefetch_a.x = kdNodeData3[j];
-	prefetch_a.y = kdNodeData3[j + 1];
-	prefetch_a.z = kdNodeData3[j + 2];
-	prefetch_b.x = kdNodeData3[j + 3];
-	prefetch_b.y = kdNodeData3[j + 4];
-	prefetch_b.z = kdNodeData3[j + 5];
-	prefetch_c.x = kdNodeData3[j + 6];
-	prefetch_c.y = kdNodeData3[j + 7];
-	prefetch_c.z = kdNodeData3[j + 8];
+	prefetch_a.x = kdNodeFaces[j];
+	prefetch_a.y = kdNodeFaces[j + 1];
+	prefetch_a.z = kdNodeFaces[j + 2];
+	prefetch_b.x = kdNodeFaces[j + 3];
+	prefetch_b.y = kdNodeFaces[j + 4];
+	prefetch_b.z = kdNodeFaces[j + 5];
+	prefetch_c.x = kdNodeFaces[j + 6];
+	prefetch_c.y = kdNodeFaces[j + 7];
+	prefetch_c.z = kdNodeFaces[j + 8];
 
 	for( uint i = 0; i < numFaces; i += 10 ) {
+		j = faceIndex + i + 10;
 		a = prefetch_a;
 		b = prefetch_b;
 		c = prefetch_c;
 
-		j = faceIndex + i + 10;
-		prefetch_a.x = kdNodeData3[j];
-		prefetch_a.y = kdNodeData3[j + 1];
-		prefetch_a.z = kdNodeData3[j + 2];
-		prefetch_b.x = kdNodeData3[j + 3];
-		prefetch_b.y = kdNodeData3[j + 4];
-		prefetch_b.z = kdNodeData3[j + 5];
-		prefetch_c.x = kdNodeData3[j + 6];
-		prefetch_c.y = kdNodeData3[j + 7];
-		prefetch_c.z = kdNodeData3[j + 8];
+		prefetch_a.x = kdNodeFaces[j];
+		prefetch_a.y = kdNodeFaces[j + 1];
+		prefetch_a.z = kdNodeFaces[j + 2];
+		prefetch_b.x = kdNodeFaces[j + 3];
+		prefetch_b.y = kdNodeFaces[j + 4];
+		prefetch_b.z = kdNodeFaces[j + 5];
+		prefetch_c.x = kdNodeFaces[j + 6];
+		prefetch_c.y = kdNodeFaces[j + 7];
+		prefetch_c.z = kdNodeFaces[j + 8];
 
 		r = checkFaceIntersection(
 			*origin, *dir, a, b, c,
@@ -150,25 +150,23 @@ bool checkFacesForShadow(
 /**
  * Traverse down the kd-tree to find a leaf node the given ray intersects.
  * @param {int*}                  nodeIndex
- * @param {const global float*} kdNodeData1
- * @param {const global int*}   kdNodeData2
+ * @param {const global float*}   kdNodeSplits
+ * @param {const global int*}     kdNodeMeta
  * @param {const float4*}         hitNear
  */
 void goToLeafNode(
-	int* nodeIndex, const global float4* kdNodeSplits, const global int* kdNodeData2,
-	const float4* hitNear
+	int* nodeIndex, const global float* kdNodeSplits, const global int* kdNodeMeta,
+	const float* hitNear
 ) {
-	int left = kdNodeData2[(*nodeIndex) * 6];
-	int right = kdNodeData2[(*nodeIndex) * 6 + 1];
-	int axis = kdNodeData2[(*nodeIndex) * 6 + 2];
-	const float hitPos[3] = { hitNear->x, hitNear->y, hitNear->z };
-	float4 pos;
+	int left = kdNodeMeta[(*nodeIndex) * 6];
+	int right = kdNodeMeta[(*nodeIndex) * 6 + 1];
+	int axis = kdNodeMeta[(*nodeIndex) * 6 + 2];
 
 	while( left >= 0 && right >= 0 ) {
-		pos = kdNodeSplits[(*nodeIndex)];
-		*nodeIndex = ( hitPos[axis] < ( (float*) &pos )[axis] ) ? left : right;
-		left = kdNodeData2[(*nodeIndex) * 6];
-		right = kdNodeData2[(*nodeIndex) * 6 + 1];
+		*nodeIndex = ( hitNear[axis] < kdNodeSplits[(*nodeIndex) * 3 + axis] ) ? left : right;
+
+		left = kdNodeMeta[(*nodeIndex) * 6];
+		right = kdNodeMeta[(*nodeIndex) * 6 + 1];
 		axis = MOD_3[axis + 1];
 	}
 }
@@ -177,78 +175,66 @@ void goToLeafNode(
 /**
  * Set the values for the bounding box of the given node.
  * @param {const int}             nodeIndex
- * @param {const global float*} kdNodeData1
+ * @param {const global float*} kdNodeSplits
  * @param {float*}                bbMin
  * @param {float*}                bbMax
  */
-inline void updateBoundingBox( const int nodeIndex, const global float4* kdNodeBB, float* bbMin, float* bbMax ) {
-	float4 bbMin4 = kdNodeBB[nodeIndex * 2];
-	float4 bbMax4 = kdNodeBB[nodeIndex * 2 + 1];
-
-	bbMin[0] = bbMin4.x;
-	bbMin[1] = bbMin4.y;
-	bbMin[2] = bbMin4.z;
-	bbMax[0] = bbMax4.x;
-	bbMax[1] = bbMax4.y;
-	bbMax[2] = bbMax4.z;
+inline void updateBoundingBox( const int nodeIndex, const global float* kdNodeBB, float* bbMin, float* bbMax ) {
+	bbMin[0] = kdNodeBB[nodeIndex * 6];
+	bbMin[1] = kdNodeBB[nodeIndex * 6 + 1];
+	bbMin[2] = kdNodeBB[nodeIndex * 6 + 2];
+	bbMax[0] = kdNodeBB[nodeIndex * 6 + 3];
+	bbMax[1] = kdNodeBB[nodeIndex * 6 + 4];
+	bbMax[2] = kdNodeBB[nodeIndex * 6 + 5];
 }
 
 
 /**
  * Find the closest hit of the ray with a surface.
  * Uses stackless kd-tree traversal.
- * @param {const float4*}         origin
- * @param {const float4*}         dir
- * @param {const uint}            startNode
- * @param {const global float*} scVertices
- * @param {const global uint*}  scFaces
- * @param {const global float*} kdNodeData1
- * @param {const global int*}   kdNodeData2
- * @param {const global int*}   kdNodeData3
+ * @param {const float4*}       origin
+ * @param {const float4*}       dir
+ * @param {int}                 nodeIndex
+ * @param {const global float*} kdNodeSplits
+ * @param {const global float*} kdNodeBB
+ * @param {const global int*}   kdNodeMeta
+ * @param {const global float*} kdNodeFaces
  * @param {const global int*}   kdNodeRopes
- * @param {hit_t*}                result
+ * @param {hit_t*}              result
+ * @param {const int}           bounce
+ * @param {const int}           kdRoot
+ * @param {const float}         entryDistance
+ * @param {const float}         exitDistance
  */
-inline void traverseKdTree(
-	const float4* origin, const float4* dir, const int startNode,
-	const global float4* kdNodeSplits, const global float4* kdNodeBB,
-	const global int* kdNodeData2, const global float* kdNodeData3,
+void traverseKdTree(
+	const float4* origin, const float4* dir, int nodeIndex,
+	const global float* kdNodeSplits, const global float* kdNodeBB,
+	const global int* kdNodeMeta, const global float* kdNodeFaces,
 	const global int* kdNodeRopes, hit_t* result, const int bounce, const int kdRoot,
-	const float initEntryDistance, const float initExitDistance
+	float entryDistance, float exitDistance
 ) {
-	int nodeIndex = startNode;
-	float entryDistance = initEntryDistance;
-	float exitDistance = initExitDistance;
-
 	float4 hitNear;
 	float bbMax[3], bbMin[3];
 	int exitRope, faceIndex, numFaces, ropeIndex;
-	int i = 0; // TODO: remove
 
 	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
-		if( i++ > 1000 ) return; // TODO: remove
+		// Find a leaf node that the ray hits
+		hitNear = fma( entryDistance, *dir, *origin );
+		goToLeafNode( &nodeIndex, kdNodeSplits, kdNodeMeta, (float*) &hitNear );
 
-		// Find a leaf node for this ray
-		hitNear = (*origin) + entryDistance * (*dir);
-		goToLeafNode( &nodeIndex, kdNodeSplits, kdNodeData2, &hitNear );
-
-		// At a leaf node now, check triangle faces
-		faceIndex = kdNodeData2[nodeIndex * 6 + 3];
-		numFaces = kdNodeData2[nodeIndex * 6 + 4];
-		// Follow the rope
-		ropeIndex = kdNodeData2[nodeIndex * 6 + 5];
+		// Check all faces of the leaf node
+		faceIndex = kdNodeMeta[nodeIndex * 6 + 3];
+		numFaces = kdNodeMeta[nodeIndex * 6 + 4];
+		ropeIndex = kdNodeMeta[nodeIndex * 6 + 5];
 
 		checkFaces(
 			nodeIndex, faceIndex, origin, dir, numFaces,
-			kdNodeData3, entryDistance, &exitDistance, result
+			kdNodeFaces, entryDistance, &exitDistance, result
 		);
 
 		// Exit leaf node
 		updateBoundingBox( nodeIndex, kdNodeBB, bbMin, bbMax );
 		updateEntryDistanceAndExitRope( origin, dir, bbMin, bbMax, &entryDistance, &exitRope );
-
-		if( entryDistance >= exitDistance ) {
-			break;
-		}
 
 		nodeIndex = kdNodeRopes[ropeIndex + exitRope];
 	}
@@ -256,7 +242,7 @@ inline void traverseKdTree(
 	if( result->t > -1.0f ) {
 		nodeIndex = kdRoot;
 		hitNear = result->position;
-		goToLeafNode( &nodeIndex, kdNodeSplits, kdNodeData2, &hitNear );
+		goToLeafNode( &nodeIndex, kdNodeSplits, kdNodeMeta, &hitNear );
 		result->nodeIndex = nodeIndex;
 	}
 }
@@ -264,49 +250,44 @@ inline void traverseKdTree(
 
 /**
  * Test if from the current hit location there is an unobstracted direct path to the light source.
- * @param  {const float4*}         origin
- * @param  {const float4*}         toLight
- * @param  {const uint}            startNode
- * @param  {const global float*} scVertices
- * @param  {const global uint*}  scFaces
- * @param  {const global float*} kdNodeData1
- * @param  {const global int*}   kdNodeData2
- * @param  {const global int*}   kdNodeData3
+ * @param  {const float4*}       origin
+ * @param  {const float4*}       dir
+ * @param  {int}                 nodeIndex
+ * @param  {const global float*} kdNodeSplits
+ * @param  {const global float*} kdNodeBB
+ * @param  {const global int*}   kdNodeMeta
+ * @param  {const global float*} kdNodeFaces
  * @param  {const global int*}   kdNodeRopes
+ * @param  {const int}           kdRoot
+ * @param  {const float}         exitDistance
  * @return {bool}
  */
-inline bool shadowTestIntersection(
-	const float4* origin, const float4* dir, const uint startNode,
-	const global float4* kdNodeSplits, const global float4* kdNodeBB,
-	const global int* kdNodeData2, const global float* kdNodeData3,
+bool shadowTestIntersection(
+	const float4* origin, const float4* dir, int nodeIndex,
+	const global float* kdNodeSplits, const global float* kdNodeBB,
+	const global int* kdNodeMeta, const global float* kdNodeFaces,
 	const global int* kdNodeRopes, const int kdRoot,
-	const float initEntryDistance, const float initExitDistance
+	float exitDistance
 ) {
-	int nodeIndex = startNode;
-	float entryDistance = initEntryDistance;
-	float exitDistance = initExitDistance;
+	float entryDistance = 0.0f;
 
 	float4 hitNear;
 	float bbMax[3], bbMin[3];
 	int exitRope, faceIndex, numFaces, ropeIndex;
-	int i = 0; // TODO: remove
 
 	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
-		if( i++ > 1000 ) return false; // TODO: remove
+		// Find a leaf node that the ray hits
+		hitNear = fma( entryDistance, *dir, *origin );
+		goToLeafNode( &nodeIndex, kdNodeSplits, kdNodeMeta, (float*) &hitNear );
 
-		// Find a leaf node for this ray
-		hitNear = (*origin) + entryDistance * (*dir);
-		goToLeafNode( &nodeIndex, kdNodeSplits, kdNodeData2, &hitNear );
-
-		// At a leaf node now, check triangle faces
-		faceIndex = kdNodeData2[nodeIndex * 6 + 3];
-		numFaces = kdNodeData2[nodeIndex * 6 + 4];
-		// Follow the rope
-		ropeIndex = kdNodeData2[nodeIndex * 6 + 5];
+		// Check all faces of the leaf node
+		faceIndex = kdNodeMeta[nodeIndex * 6 + 3];
+		numFaces = kdNodeMeta[nodeIndex * 6 + 4];
+		ropeIndex = kdNodeMeta[nodeIndex * 6 + 5];
 
 		if( checkFacesForShadow(
 			nodeIndex, faceIndex, origin, dir, numFaces,
-			kdNodeData3, entryDistance, &exitDistance
+			kdNodeFaces, entryDistance, &exitDistance
 		) ) {
 			return true;
 		}
@@ -314,10 +295,6 @@ inline bool shadowTestIntersection(
 		// Exit leaf node
 		updateBoundingBox( nodeIndex, kdNodeBB, bbMin, bbMax );
 		updateEntryDistanceAndExitRope( origin, dir, bbMin, bbMax, &entryDistance, &exitRope );
-
-		if( entryDistance > 1.0f ) {
-			return false;
-		}
 
 		nodeIndex = kdNodeRopes[ropeIndex + exitRope];
 	}

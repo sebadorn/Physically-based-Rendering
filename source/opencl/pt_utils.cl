@@ -115,7 +115,7 @@ bool intersectBoundingBox(
 	*tNear = fmax( tzmin, tmin );
 	*tFar = fmin( tzmax, tmax );
 
-	return true;
+	return !( tmin > tzmax || tzmin > tmax );
 }
 
 
@@ -193,8 +193,8 @@ inline float checkFaceIntersection_MoellerTrumbore(
 	const float4 edge1 = b - a;
 	const float4 edge2 = c - a;
 	const float4 tVec = origin - a;
-	const float4 qVec = cross( tVec, edge1 );
 	const float4 pVec = cross( dir, edge2 );
+	const float4 qVec = cross( tVec, edge1 );
 	const float det = dot( edge1, pVec );
 	const float invDet = native_recip( det ); // WARNING: native_
 
@@ -239,32 +239,6 @@ inline float checkFaceIntersection_Barycentric(
 		return -2.0f;
 	}
 
-	// // Project into 2D (slower because of more conditions?)
-	// float4 nAbs = fabs( planeNormal );
-
-	// int k = ( nAbs.x > nAbs.y )
-	//       ? ( ( nAbs.x > nAbs.z ) ? 1 : 3 )  // X : Z
-	//       : ( ( nAbs.y > nAbs.z ) ? 2 : 3 ); // Y : Z
-
-	// int u = MOD_3[k];
-	// int v = MOD_3[k + 1];
-
-	// float2 o = { ( (float*) &oa )[u], ( (float*) &oa )[v] };
-	// float2 d = { ( (float*) dir )[u], ( (float*) dir )[v] };
-	// float2 e1 = { ( (float*) &edge1 )[u], ( (float*) &edge1 )[v] };
-	// float2 e2 = { ( (float*) &edge2 )[u], ( (float*) &edge2 )[v] };
-	// float2 hit = o + t * d;
-	// float2 g = { hit.y, -hit.x };
-
-	// float denum = native_recip( e1.x * e2.y - e1.y * e2.x );
-	// float beta = dot( e1, g ) * denum;
-	// float gamma = dot( e2, -g ) * denum;
-
-	// if( beta < 0.0f || gamma < 0.0f || beta + gamma > 1.0f ) {
-	// 	return -2.0f;
-	// }
-
-	// No projection, stay in 3D
 	float4 hit = oa + t * dir;
 
 	float uDotU = dot( edge1, edge1 );

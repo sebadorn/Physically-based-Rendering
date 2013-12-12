@@ -60,6 +60,9 @@ class CL {
 
 	private:
 		bool mDoCheckErrors;
+		cl_uint mWorkHeight;
+		cl_uint mWorkWidth;
+		cl_uint mWorkGroupSize;
 
 		cl_command_queue mCommandQueue;
 		cl_context mContext;

@@ -292,27 +292,27 @@ bool KdTree::hitTriangle( glm::vec3 vStart, glm::vec3 vEnd, glm::vec3 a, glm::ve
 	glm::vec3 edge1 = b - a;
 	glm::vec3 edge2 = c - a;
 	glm::vec3 pVec = glm::cross( dir, edge2 );
-	cl_float det = glm::dot( edge1, pVec );
+	cl_float invDet = 1.0f / glm::dot( edge1, pVec );
 
-	if( abs( det ) < KD_EPSILON ) {
+	if( abs( invDet ) < KD_EPSILON ) {
 		return false;
 	}
 
 	glm::vec3 tVec = vStart - a;
-	cl_float u = glm::dot( tVec, pVec ) / det;
+	cl_float u = glm::dot( tVec, pVec ) * invDet;
 
 	if( u < 0.0f || u > 1.0f ) {
 		return false;
 	}
 
 	glm::vec3 qVec = glm::cross( tVec, edge1 );
-	cl_float v = glm::dot( dir, qVec ) / det;
+	cl_float v = glm::dot( dir, qVec ) * invDet;
 
 	if( v < 0.0f || u + v > 1.0f ) {
 		return false;
 	}
 
-	cl_float t = glm::dot( edge2, qVec ) / det;
+	cl_float t = glm::dot( edge2, qVec ) * invDet;
 
 	if( t < 0.0f || t > 1.0f ) {
 		return false;
@@ -539,7 +539,7 @@ void KdTree::setDepthLimit( vector<cl_float> vertices ) {
 	mDepthLimit = Cfg::get().value<cl_uint>( Cfg::KDTREE_DEPTH );
 
 	if( mDepthLimit == -1 ) {
-		mDepthLimit = ceil( log2( vertices.size() / 3 ) );
+		mDepthLimit = floor( log2( vertices.size() / 3 ) );
 	}
 
 	char msg[64];

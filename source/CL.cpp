@@ -15,6 +15,9 @@ CL::CL() {
 	mProgram = NULL;
 
 	mDoCheckErrors = Cfg::get().value<bool>( Cfg::OPENCL_CHECKERRORS );
+	mWorkWidth = Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH );
+	mWorkHeight = Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT );
+	mWorkGroupSize = Cfg::get().value<cl_uint>( Cfg::OPENCL_WORKGROUPSIZE );
 
 	this->getDefaultPlatform();
 	this->getDefaultDevice();
@@ -288,34 +291,34 @@ void CL::execute( cl_kernel kernel ) {
 	cl_int err;
 	cl_event event;
 
-	cl_uint w = Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH );
-	cl_uint h = Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT );
-	cl_uint wgs = Cfg::get().value<cl_uint>( Cfg::OPENCL_WORKGROUPSIZE );
-
 	cl_uint2 offset = { 0, 0 }; // width, height
-
 	double avgKernelTime = 0.0;
 
-	while( offset.x < w ) {
+	// Workaround to set a local work size, even if it doesn't divide the
+	// global work size without rest. Compared to the "normal" way of just
+	// letting OpenCL do its thing and not choosing a local work size, no
+	// performance drawback could be observed.
+
+	while( offset.x < mWorkWidth ) {
 		offset.y = 0;
 
-		while( offset.y < h ) {
+		while( offset.y < mWorkHeight ) {
 			this->setKernelArg( kernel, 0, sizeof( cl_uint2 ), &offset );
 
-			size_t workSize[3] = {
-				std::min( w - offset.x, wgs ),
-				std::min( h - offset.y, wgs ),
+			size_t globalWorkSize[3] = {
+				std::min( mWorkWidth - offset.x, mWorkGroupSize ),
+				std::min( mWorkHeight - offset.y, mWorkGroupSize ),
 				1
 			};
-			err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 2, NULL, workSize, NULL, mEvents.size(), &mEvents[0], &event );
+			err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 3, NULL, globalWorkSize, NULL, mEvents.size(), &mEvents[0], &event );
 			this->checkError( err, "clEnqueueNDRangeKernel" );
 
 			avgKernelTime += this->getKernelExecutionTime( event );
 
-			offset.y += wgs;
+			offset.y += mWorkGroupSize;
 		}
 
-		offset.x += wgs;
+		offset.x += mWorkGroupSize;
 	}
 
 	mKernelTime[kernel] = avgKernelTime;
@@ -368,6 +371,14 @@ void CL::getDefaultDevice() {
 		}
 		free( value );
 	}
+
+
+	// Get the maximum work group size
+	size_t maxWorkGroupSize;
+	clGetDeviceInfo( devices[0], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof( size_t ), &maxWorkGroupSize, NULL );
+	char msg[64];
+	snprintf( msg, 64, "[OpenCL] Max work group size is %lu.", maxWorkGroupSize );
+	Logger::logInfo( msg );
 
 
 	this->initContext( devices );
@@ -453,7 +464,12 @@ map<cl_kernel, double> CL::getKernelTimes() {
  */
 void CL::initContext( cl_device_id* devices ) {
 	cl_int err;
-	cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties) mPlatform, 0 };
+	cl_context_properties properties[] = {
+		CL_CONTEXT_PLATFORM,
+		(cl_context_properties) mPlatform,
+		0
+	};
+
 	mContext = clCreateContext( properties, 1, devices, NULL, NULL, &err );
 
 	if( !this->checkError( err, "clCreateContext" ) ) {

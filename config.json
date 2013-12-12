@@ -36,7 +36,7 @@
 
 	"kdtree": {
 		// Maximum depth of leaf nodes. Set a positive, non-negative value or:
-		// -1 - ceil( log2( #vertices ) )
+		// -1 - floor( log2( #vertices ) )
 		//  0 - no limit
 		"depth": -1
 	},
