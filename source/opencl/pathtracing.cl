@@ -116,22 +116,21 @@ kernel void initRays(
 /**
  * KERNEL.
  * Search the kd-tree to find the closest intersection of the ray with a surface.
- * @param {const uint}             offsetW
- * @param {const uint}             offsetH
- * @param {global float4*}       origins
- * @param {global float4*}       rays
- * @param {global float4*}       normals
- * @param {const global float*}  scVertices
- * @param {const global uint*}   scFaces
- * @param {const global float*}  scNormals
- * @param {const global uint*}   scFacesVN
+ * @param {const uint2}          offset
+ * @param {const float}          timeSinceStart
  * @param {const global float4*} lights
- * @param {const global float*}  kdNodeData1
+ * @param {global float4*}       origins
+ * @param {global float4*}       dirs
+ * @param {const global float4*} scNormals
+ * @param {const global uint*}   scFacesVN
+ * @param {const global float*}  kdNodeSplits
+ * @param {const global float*}  kdNodeBB
  * @param {const global int*}    kdNodeMeta
  * @param {const global int*}    kdNodeFaces
  * @param {const global int*}    kdNodeRopes
- * @param {const uint}             kdRoot
- * @param {const float}            timeSinceStart
+ * @param {const int}            kdRoot
+ * @param {global float4*}       hits
+ * @param {global float4*}       hitNormals
  */
 kernel void pathTracing(
 	const uint2 offset, const float timeSinceStart,

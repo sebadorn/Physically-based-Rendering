@@ -90,7 +90,7 @@ void Camera::cameraReset() {
 	mCamera.upZ = 0.0f;
 	mCamera.rotX = 0.0f;
 	mCamera.rotY = 0.0f;
-	this->updateParent();
+	this->updateCameraRot( 0, 0 );
 }
 
 

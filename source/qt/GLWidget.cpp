@@ -325,6 +325,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 	// Ready
 	this->startRendering();
+	this->calculateMatrices();
 }
 
 

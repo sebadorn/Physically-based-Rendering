@@ -60,7 +60,7 @@
 		// Build options to try:
 		// -cl-fast-relaxed-math
 		// -cl-mad-enable
-		"build_options": "-cl-mad-enable",
+		"build_options": "-cl-strict-aliasing -cl-mad-enable",
 		// Check each executed OpenCL function for encountered errors.
 		// (Disabling doesn't show any performance improvements.)
 		"check_errors": true,

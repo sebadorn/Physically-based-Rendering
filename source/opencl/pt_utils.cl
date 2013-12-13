@@ -39,8 +39,8 @@ inline float4 cosineWeightedDirection( const float seed, const float4 normal ) {
  * @return {float4}            Random vector.
  */
 inline float4 uniformlyRandomDirection( const float seed ) {
-	const float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
-	const float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
+	const float v = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
+	const float u = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
 	const float z = 1.0f - 2.0f * u;
 	const float r = native_sqrt( 1.0f - z * z );
 	const float angle = PI_X2 * v;
