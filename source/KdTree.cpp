@@ -16,23 +16,25 @@ KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMi
 		return;
 	}
 
+	mIndexCounter = 0;
 	this->setDepthLimit( vertices );
 
 	// Start clock
 	boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
 
 	// Create nodes for tree
-	mNodes = this->createUnconnectedNodes( &vertices );
-	mLeafIndex = mNodes.size() - 1;
+	vector<cl_float4> vertsForNodes;
+	for( cl_uint i = 0; i < vertices.size(); i += 3 ) {
+		cl_float4 node = { vertices[i], vertices[i + 1], vertices[i + 2], 0.0f };
+		vertsForNodes.push_back( node );
+	}
 
 	// Generate kd-tree
-	cl_int rootIndex = this->makeTree( mNodes, 0, bbMin, bbMax, vertices, faces, 1 );
-	mNodes.insert( mNodes.end(), mLeaves.begin(), mLeaves.end() );
-	mRoot = mNodes[rootIndex];
+	mRoot = this->makeTree( vertsForNodes, 0, bbMin, bbMax, vertices, faces, 1 );
 
 	this->printLeafFacesStat();
 
-	this->createRopes( mRoot, vector<cl_int>( 6, -1 ) );
+	this->createRopes( mRoot, vector<kdNode_t*>( 6, NULL ) );
 
 	// Stop clock
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - start;
@@ -65,10 +67,8 @@ kdNode_t* KdTree::createLeafNode(
 	cl_float* bbMin, cl_float* bbMax,
 	vector<cl_float> vertices, vector<cl_uint> faces
 ) {
-	mLeafIndex++;
-
 	kdNode_t* leaf = new kdNode_t;
-	leaf->index = mLeafIndex;
+	leaf->index = mLeaves.size();
 	leaf->axis = -1;
 	leaf->bbMin[0] = bbMin[0];
 	leaf->bbMin[1] = bbMin[1];
@@ -76,8 +76,8 @@ kdNode_t* KdTree::createLeafNode(
 	leaf->bbMax[0] = bbMax[0];
 	leaf->bbMax[1] = bbMax[1];
 	leaf->bbMax[2] = bbMax[2];
-	leaf->left = -1;
-	leaf->right = -1;
+	leaf->left = NULL;
+	leaf->right = NULL;
 
 	bool add;
 
@@ -150,54 +150,70 @@ kdNode_t* KdTree::createLeafNode(
  * @param {kdNode_t*}           node  The current node to process.
  * @param {std::vector<cl_int>} ropes Current list of ropes for this node.
  */
-void KdTree::createRopes( kdNode_t* node, vector<cl_int> ropes ) {
-	if( node->left < 0 && node->right < 0 ) {
+void KdTree::createRopes( kdNode_t* node, vector<kdNode_t*> ropes ) {
+	if( node->axis < 0 ) {
 		node->ropes = ropes;
 		return;
 	}
 
 	for( int i = 0; i < 6; i++ ) {
-		if( ropes[i] < 0 ) {
+		if( ropes[i] == NULL ) {
 			continue;
 		}
-		this->optimizeRope( &(ropes[i]), i, node->bbMin, node->bbMax );
+		this->optimizeRope( &ropes, i, node->bbMin, node->bbMax );
 	}
 
 	cl_int sideLeft = node->axis * 2;
 	cl_int sideRight = node->axis * 2 + 1;
 
-	vector<cl_int> ropesLeft( ropes );
+	vector<kdNode_t*> ropesLeft( ropes );
 	ropesLeft[sideRight] = node->right;
-	this->createRopes( mNodes[node->left], ropesLeft );
+	this->createRopes( node->left, ropesLeft );
 
-	vector<cl_int> ropesRight( ropes );
+	vector<kdNode_t*> ropesRight( ropes );
 	ropesRight[sideLeft] = node->left;
-	this->createRopes( mNodes[node->right], ropesRight );
+	this->createRopes( node->right, ropesRight );
 }
 
 
 /**
- * Create nodes for the tree from the given vertices.
- * At this point the nodes are still unconnected.
- * @param  {std::vector<cl_float>*} vertices Vertices to create nodes of.
- * @return {std::vector<kdNode_t*>}          List of unconnected kd-nodes.
+ * Comparison object for sorting algorithm.
  */
-vector<kdNode_t*> KdTree::createUnconnectedNodes( vector<cl_float>* vertices ) {
-	vector<kdNode_t*> nodes;
+struct compFunc {
+	compFunc( cl_int axis ) {
+		this->axis = axis;
+	};
 
-	for( cl_uint i = 0; i < vertices->size(); i += 3 ) {
-		kdNode_t* node = new kdNode_t;
-		node->index = i / 3;
-		node->pos[0] = (*vertices)[i];
-		node->pos[1] = (*vertices)[i + 1];
-		node->pos[2] = (*vertices)[i + 2];
-		node->left = -1;
-		node->right = -1;
-
-		nodes.push_back( node );
+	bool operator () ( cl_float4 a, cl_float4 b ) {
+		return ( ( (cl_float*) &a )[axis] < ( (cl_float*) &b )[axis] );
 	}
 
-	return nodes;
+	cl_int axis;
+};
+
+
+/**
+ * Find the median object of the given nodes.
+ * @param  {std::vector<kdNode_t*>*} nodes Pointer to the current list of nodes to find the median of.
+ * @param  {cl_int}                  axis  Index of the axis to compare.
+ * @return {kdNode_t*}                     The object that is the median.
+ */
+kdNode_t* KdTree::findMedian( vector<cl_float4>* vertsForNodes, cl_int axis ) {
+	kdNode_t* median = new kdNode_t;
+	cl_int index = 0;
+
+	if( vertsForNodes->size() > 1 ) {
+		std::sort( vertsForNodes->begin(), vertsForNodes->end(), compFunc( axis ) );
+		index = floor( vertsForNodes->size() / 2.0f );
+	}
+
+	cl_float4 medianVert = (*vertsForNodes)[index];
+
+	median->pos[0] = medianVert.x;
+	median->pos[1] = medianVert.y;
+	median->pos[2] = medianVert.z;
+
+	return median;
 }
 
 
@@ -220,6 +236,30 @@ vector<cl_float> KdTree::getFaceBB( cl_float v0[3], cl_float v1[3], cl_float v2[
 	bb[5] = glm::max( glm::max( v0[2], v1[2] ), v2[2] );
 
 	return bb;
+}
+
+
+/**
+ * Get the list of generated nodes.
+ * @return {std::vector<kdNode_t>} The nodes of the kd-tree.
+ */
+vector<kdNode_t> KdTree::getNodes() {
+	vector<kdNode_t> nodes;
+
+	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
+		nodes.push_back( *mNodes[i] );
+	}
+
+	return nodes;
+}
+
+
+/**
+ * Get the root node of the kd-tree.
+ * @return {kdNode_t*} Pointer to the root node.
+ */
+kdNode_t* KdTree::getRootNode() {
+	return mRoot;
 }
 
 
@@ -323,66 +363,6 @@ bool KdTree::hitTriangle( glm::vec3 vStart, glm::vec3 vEnd, glm::vec3 a, glm::ve
 
 
 /**
- * Comparison object for sorting algorithm.
- */
-struct compFunc {
-	compFunc( cl_int axis ) {
-		this->axis = axis;
-	};
-
-	bool operator () ( kdNode_t* a, kdNode_t* b ) {
-		return ( a->pos[axis] < b->pos[axis] );
-	}
-
-	cl_int axis;
-};
-
-
-/**
- * Find the median object of the given nodes.
- * @param  {std::vector<kdNode_t*>*} nodes Pointer to the current list of nodes to find the median of.
- * @param  {cl_int}                  axis  Index of the axis to compare.
- * @return {kdNode_t*}                     The object that is the median.
- */
-kdNode_t* KdTree::findMedian( vector<kdNode_t*>* nodes, cl_int axis ) {
-	if( nodes->size() == 1 ) {
-		return (*nodes)[0];
-	}
-
-	std::sort( nodes->begin(), nodes->end(), compFunc( axis ) );
-
-	cl_int index = floor( nodes->size() / 2.0f );
-	kdNode_t* median = (*nodes)[index];
-
-	return median;
-}
-
-
-/**
- * Get the list of generated nodes.
- * @return {std::vector<kdNode_t>} The nodes of the kd-tree.
- */
-vector<kdNode_t> KdTree::getNodes() {
-	vector<kdNode_t> nodes;
-
-	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
-		nodes.push_back( *mNodes[i] );
-	}
-
-	return nodes;
-}
-
-
-/**
- * Get the root node of the kd-tree.
- * @return {kdNode_t*} Pointer to the root node.
- */
-kdNode_t* KdTree::getRootNode() {
-	return mRoot;
-}
-
-
-/**
  * Build a kd-tree.
  * @param  {std::vector<kdNode_t*>} nodes List of nodes to build the tree from.
  * @param  {cl_int}                 axis  Axis to use as criterium.
@@ -390,17 +370,21 @@ kdNode_t* KdTree::getRootNode() {
  * @param  {cl_float*}              bbMax Bounding box maximum.
  * @return {cl_int}                       Top element for this part of the tree.
  */
-cl_int KdTree::makeTree(
-	vector<kdNode_t*> nodes, cl_int axis, cl_float* bbMin, cl_float* bbMax,
+kdNode_t* KdTree::makeTree(
+	vector<cl_float4> vertsForNodes, cl_int axis, cl_float* bbMin, cl_float* bbMax,
 	vector<cl_float> vertices, vector<cl_uint> faces, cl_uint depth
 ) {
 	// No more nodes to split planes. We have reached a leaf node.
-	if( ( mDepthLimit > 0 && depth > mDepthLimit ) || nodes.size() == 0 ) {
-		mLeaves.push_back( this->createLeafNode( bbMin, bbMax, vertices, faces ) );
-		return mLeafIndex;
+	if( ( mDepthLimit > 0 && depth > mDepthLimit ) || vertsForNodes.size() == 0 ) {
+		kdNode_t* leafNode = this->createLeafNode( bbMin, bbMax, vertices, faces );
+		mNodes.push_back( leafNode );
+		mLeaves.push_back( leafNode );
+
+		return leafNode;
 	}
 
-	kdNode_t* median = this->findMedian( &nodes, axis );
+	kdNode_t* median = this->findMedian( &vertsForNodes, axis );
+	median->index = mNonLeaves.size();
 	median->axis = axis;
 	median->bbMin[0] = bbMin[0];
 	median->bbMin[1] = bbMin[1];
@@ -408,10 +392,12 @@ cl_int KdTree::makeTree(
 	median->bbMax[0] = bbMax[0];
 	median->bbMax[1] = bbMax[1];
 	median->bbMax[2] = bbMax[2];
+	mNodes.push_back( median );
+	mNonLeaves.push_back( median );
 
-	vector<kdNode_t*> leftNodes;
-	vector<kdNode_t*> rightNodes;
-	this->splitNodesAtMedian( nodes, median, &leftNodes, &rightNodes );
+	vector<cl_float4> leftNodes;
+	vector<cl_float4> rightNodes;
+	this->splitNodesAtMedian( vertsForNodes, median, &leftNodes, &rightNodes );
 
 	// Bounding box of the "left" part
 	cl_float bbMinLeft[3] = { bbMin[0], bbMin[1], bbMin[2] };
@@ -432,7 +418,7 @@ cl_int KdTree::makeTree(
 	median->left = this->makeTree( leftNodes, axis, bbMinLeft, bbMaxLeft, vertices, leftFaces, depth );
 	median->right = this->makeTree( rightNodes, axis, bbMinRight, bbMaxRight, vertices, rightFaces, depth );
 
-	return median->index;
+	return median;
 }
 
 
@@ -444,42 +430,29 @@ cl_int KdTree::makeTree(
  * @param {cl_float*} bbMin Bounding box minimum.
  * @param {cl_float*} bbMax Bounding box maximum.
  */
-void KdTree::optimizeRope( cl_int* rope, cl_int side, cl_float* bbMin, cl_float* bbMax ) {
+void KdTree::optimizeRope( vector<kdNode_t*>* ropes, cl_int side, cl_float* bbMin, cl_float* bbMax ) {
 	int axis;
 
-	while( mNodes[*rope]->left >= 0 && mNodes[*rope]->right >= 0 ) {
-		axis = mNodes[*rope]->axis;
+	while( (*ropes)[side]->axis >= 0 ) {
+		axis = (*ropes)[side]->axis;
 
 		if( side % 2 == 0 ) { // left, bottom, back
-			if( axis == ( side >> 1 ) || mNodes[*rope]->pos[axis] <= bbMin[axis] ) {
-				*rope = mNodes[*rope]->right;
+			if( axis == ( side >> 1 ) || (*ropes)[side]->pos[axis] <= bbMin[axis] ) {
+				(*ropes)[side] = (*ropes)[side]->right;
 			}
 			else {
 				break;
 			}
 		}
 		else { // right, top, front
-			if( axis == ( side >> 1 ) || mNodes[*rope]->pos[axis] >= bbMax[axis] ) {
-				*rope = mNodes[*rope]->left;
+			if( axis == ( side >> 1 ) || (*ropes)[side]->pos[axis] >= bbMax[axis] ) {
+				(*ropes)[side] = (*ropes)[side]->left;
 			}
 			else {
 				break;
 			}
 		}
 	}
-}
-
-
-/**
- * Print the tree to console.
- */
-void KdTree::print() {
-	if( mRoot == NULL ) {
-		printf( "Tree is empty.\n" );
-		return;
-	}
-
-	this->printNode( mRoot );
 }
 
 
@@ -494,29 +467,9 @@ void KdTree::printLeafFacesStat() {
 	}
 
 	char msg[128];
-	const char* text = "[KdTree] On average there are %.2f faces in a leaf node.";
-	snprintf( msg, 128, text, facesTotal / (float) mLeaves.size() );
+	const char* text = "[KdTree] On average there are %.2f faces in the %lu leaf nodes.";
+	snprintf( msg, 128, text, facesTotal / (float) mLeaves.size(), mLeaves.size() );
 	Logger::logDebug( msg );
-}
-
-
-/**
- * Print part of the tree to console.
- * @param {kdNode_t*} node Starting node.
- */
-void KdTree::printNode( kdNode_t* node ) {
-	if( node->left == -1 && node->right == -1 ) {
-		printf( "END\n" );
-		return;
-	}
-
-	printf( "(%g %g %g) ", node->pos[0], node->pos[1], node->pos[2] );
-	if( node->left >= 0 ) {
-		printf( "l" ); this->printNode( mNodes[node->left] );
-	}
-	if( node->right >= 0 ) {
-		printf( "r" ); this->printNode( mNodes[node->right] );
-	}
 }
 
 
@@ -604,14 +557,14 @@ void KdTree::splitFaces(
  * @param {std::vector<kdNode_t*>*} rightNodes
  */
 void KdTree::splitNodesAtMedian(
-	vector<kdNode_t*> nodes, kdNode_t* median,
-	vector<kdNode_t*>* leftNodes, vector<kdNode_t*>* rightNodes
+	vector<cl_float4> nodes, kdNode_t* median,
+	vector<cl_float4>* leftNodes, vector<cl_float4>* rightNodes
 ) {
 	bool leftSide = true;
 
 	for( cl_uint i = 0; i < nodes.size(); i++ ) {
 		if( leftSide ) {
-			if( nodes[i] == median ) {
+			if( nodes[i].x == median->pos[0] && nodes[i].y == median->pos[1] && nodes[i].z == median->pos[2] ) {
 				leftSide = false;
 			}
 			else {
@@ -644,7 +597,7 @@ void KdTree::visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) {
  * @param {std::vector<cl_uint>*}  indices  Vector to put the indices into.
  */
 void KdTree::visualizeNextNode( kdNode_t* node, vector<cl_float>* vertices, vector<cl_uint>* indices ) {
-	if( node->left == -1 && node->right == -1 ) {
+	if( node->axis < 0 ) {
 		return;
 	}
 
@@ -695,12 +648,8 @@ void KdTree::visualizeNextNode( kdNode_t* node, vector<cl_float>* vertices, vect
 	indices->insert( indices->end(), newIndices, newIndices + 8 );
 
 	// Proceed with left side
-	if( node->left > -1 ) {
-		this->visualizeNextNode( mNodes[node->left], vertices, indices );
-	}
+	this->visualizeNextNode( node->left, vertices, indices );
 
 	// Proceed width right side
-	if( node->right > -1 ) {
-		this->visualizeNextNode( mNodes[node->right], vertices, indices );
-	}
+	this->visualizeNextNode( node->right, vertices, indices );
 }

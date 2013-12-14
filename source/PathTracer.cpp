@@ -157,13 +157,11 @@ void PathTracer::initArgsKernelPathTracing() {
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufRays );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScNormals );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScFacesVN );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeSplits );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeBB );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeMeta );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNonLeaves );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdLeaves );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_float8 ), &mKdRootBB );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeFaces );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeRopes );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_int ), &mKdRootNodeIndex );
-
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufHits );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufHitNormals );
 }
@@ -222,13 +220,11 @@ void PathTracer::initArgsKernelShadowTest() {
 
 	++i; // 1: timeSinceStart
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufLights );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdNodeSplits );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdNodeBB );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdNodeMeta );
+	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdNonLeaves );
+	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdLeaves );
+	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_float8 ), &mKdRootBB );
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdNodeFaces );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdNodeRopes );
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_int ), &mKdRootNodeIndex );
-
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufHits );
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufHitNormals );
 }
@@ -261,21 +257,27 @@ void PathTracer::initOpenCLBuffers(
 	cl_uint pixels = mWidth * mHeight;
 	mKdRootNodeIndex = rootIndex;
 
-	vector<cl_float> kdSplits; // [x, y, z]
-	vector<cl_float> kdBB;      // [x, y, z, x, y, z]
-	vector<cl_int> kdMeta;      // [left, right, axis, facesIndex, numFaces, ropesIndex]
-	vector<cl_float> kdFaces;   // [a, b, c, ..., faceIndex]
-	vector<cl_int> kdRopes;     // [left, right, bottom, top, back, front]
-	this->kdNodesToVectors(
-		kdNodes, &kdSplits, &kdBB, &kdMeta, &kdFaces, &kdRopes,
-		faces, vertices
-	);
+	vector<kdNonLeaf_cl> kdNonLeaves;
+	vector<kdLeaf_cl> kdLeaves;
+	vector<cl_float> kdFaces; // [a, b, c, ..., faceIndex]
 
-	mBufKdNodeSplits = mCL->createBuffer( kdSplits, sizeof( cl_float ) * kdSplits.size() );
-	mBufKdNodeBB = mCL->createBuffer( kdBB, sizeof( cl_float ) * kdBB.size() );
-	mBufKdNodeMeta = mCL->createBuffer( kdMeta, sizeof( cl_int ) * kdMeta.size() );
+	this->kdNodesToVectors( kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, faces, vertices );
+
+	cl_float8 kdRootBB = {
+		kdNodes[rootIndex].bbMin[0],
+		kdNodes[rootIndex].bbMin[1],
+		kdNodes[rootIndex].bbMin[2],
+		0.0f,
+		kdNodes[rootIndex].bbMax[0],
+		kdNodes[rootIndex].bbMax[1],
+		kdNodes[rootIndex].bbMax[2],
+		0.0f
+	};
+	mKdRootBB = kdRootBB;
+
+	mBufKdNonLeaves = mCL->createBuffer( kdNonLeaves, sizeof( kdNonLeaf_cl ) * kdNonLeaves.size() );
+	mBufKdLeaves = mCL->createBuffer( kdLeaves, sizeof( kdLeaf_cl ) * kdLeaves.size() );
 	mBufKdNodeFaces = mCL->createBuffer( kdFaces, sizeof( cl_float ) * kdFaces.size() );
-	mBufKdNodeRopes = mCL->createBuffer( kdRopes, sizeof( cl_int ) * kdRopes.size() );
 
 	vector<cl_float4> diffuseColors; // [r, g, b]
 	for( int i = 0; i < materials.size(); i++ ) {
@@ -287,8 +289,14 @@ void PathTracer::initOpenCLBuffers(
 
 
 	vector<cl_float4> normalsFloat4;
+
 	for( int i = 0; i < normals.size(); i += 3 ) {
-		cl_float4 n = { normals[i], normals[i + 1], normals[i + 2], 0.0f };
+		cl_float4 n = {
+			normals[i],
+			normals[i + 1],
+			normals[i + 2],
+			0.0f
+		};
 		normalsFloat4.push_back( n );
 	}
 
@@ -328,37 +336,76 @@ void PathTracer::initOpenCLBuffers(
  * @param {std::vector<cl_float>*} vertices Vertices.
  */
 void PathTracer::kdNodesToVectors(
-	vector<kdNode_t> kdNodes,
-	vector<cl_float>* kdSplits, vector<cl_float>* kdBB,
-	vector<cl_int>* kdMeta, vector<cl_float>* kdFaces, vector<cl_int>* kdRopes,
+	vector<kdNode_t> kdNodes, vector<cl_float>* kdFaces,
+	vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves,
 	vector<cl_uint> faces, vector<cl_float> vertices
 ) {
 	cl_uint a, b, c, pos;
 
 	for( cl_uint i = 0; i < kdNodes.size(); i++ ) {
-		// Vertice coordinates
-		kdSplits->push_back( kdNodes[i].pos[0] );
-		kdSplits->push_back( kdNodes[i].pos[1] );
-		kdSplits->push_back( kdNodes[i].pos[2] );
+		// Non-leaf node
+		if( kdNodes[i].axis >= 0 ) {
+			kdNonLeaf_cl node;
 
-		// Bounding box
-		kdBB->push_back( kdNodes[i].bbMin[0] );
-		kdBB->push_back( kdNodes[i].bbMin[1] );
-		kdBB->push_back( kdNodes[i].bbMin[2] );
+			cl_float4 split = {
+				kdNodes[i].pos[0],
+				kdNodes[i].pos[1],
+				kdNodes[i].pos[2],
+				(cl_float) kdNodes[i].axis
+			};
+			node.split = split;
 
-		kdBB->push_back( kdNodes[i].bbMax[0] );
-		kdBB->push_back( kdNodes[i].bbMax[1] );
-		kdBB->push_back( kdNodes[i].bbMax[2] );
+			cl_int4 children = {
+				kdNodes[i].left->index,
+				kdNodes[i].right->index,
+				( kdNodes[i].left->axis < 0 ), // is left node a leaf
+				( kdNodes[i].right->axis < 0 ) // is right node a leaf
+			};
+			node.children = children;
 
-		// Index of self and children
-		kdMeta->push_back( kdNodes[i].left );
-		kdMeta->push_back( kdNodes[i].right );
-		kdMeta->push_back( kdNodes[i].axis );
+			kdNonLeaves->push_back( node );
+		}
+		// Leaf node
+		else {
+			kdLeaf_cl node;
+			vector<kdNode_t*> nodeRopes = kdNodes[i].ropes;
 
-		// Index of faces of this node in kdFaces
-		kdMeta->push_back( ( kdNodes[i].faces.size() > 0 ) ? kdFaces->size() : -1 );
-		// Number of faces in this node
-		kdMeta->push_back( kdNodes[i].faces.size() / 3 * 10 );
+			cl_int8 ropes = {
+				( nodeRopes[0] == NULL ) ? 0 : nodeRopes[0]->index + 1,
+				( nodeRopes[1] == NULL ) ? 0 : nodeRopes[1]->index + 1,
+				( nodeRopes[2] == NULL ) ? 0 : nodeRopes[2]->index + 1,
+				( nodeRopes[3] == NULL ) ? 0 : nodeRopes[3]->index + 1,
+				( nodeRopes[4] == NULL ) ? 0 : nodeRopes[4]->index + 1,
+				( nodeRopes[5] == NULL ) ? 0 : nodeRopes[5]->index + 1,
+				0, 0
+			};
+
+			// Set highest bit as flag for being a leaf node.
+			// The -1 isn't going to be a problem, because the entryDistance < exitDistance condition
+			// in the kernel will stop the loop, because the wrong index can cause any harm.
+			ropes.s0 = ( ropes.s0 != 0 && nodeRopes[0]->axis < 0 ) ? -ropes.s0 : ropes.s0;
+			ropes.s1 = ( ropes.s1 != 0 && nodeRopes[1]->axis < 0 ) ? -ropes.s1 : ropes.s1;
+			ropes.s2 = ( ropes.s2 != 0 && nodeRopes[2]->axis < 0 ) ? -ropes.s2 : ropes.s2;
+			ropes.s3 = ( ropes.s3 != 0 && nodeRopes[3]->axis < 0 ) ? -ropes.s3 : ropes.s3;
+			ropes.s4 = ( ropes.s4 != 0 && nodeRopes[4]->axis < 0 ) ? -ropes.s4 : ropes.s4;
+			ropes.s5 = ( ropes.s5 != 0 && nodeRopes[5]->axis < 0 ) ? -ropes.s5 : ropes.s5;
+
+			// Index of faces of this node in kdFaces
+			ropes.s6 = ( kdNodes[i].faces.size() > 0 ) ? kdFaces->size() : -1;
+
+			// Number of faces in this node
+			ropes.s7 = kdNodes[i].faces.size() / 3 * 10;
+
+			node.ropes = ropes;
+
+			// Bounding box
+			cl_float4 bbMin = { kdNodes[i].bbMin[0], kdNodes[i].bbMin[1], kdNodes[i].bbMin[2], 0.0f };
+			cl_float4 bbMax = { kdNodes[i].bbMax[0], kdNodes[i].bbMax[1], kdNodes[i].bbMax[2], 0.0f };
+			node.bbMin = bbMin;
+			node.bbMax = bbMax;
+
+			kdLeaves->push_back( node );
+		}
 
 		// Faces
 		for( cl_uint j = 0; j < kdNodes[i].faces.size(); j += 3 ) {
@@ -389,18 +436,6 @@ void PathTracer::kdNodesToVectors(
 			}
 
 			kdFaces->push_back( (cl_float) pos );
-		}
-
-		// Ropes
-		if( kdNodes[i].left < 0 && kdNodes[i].right < 0 ) {
-			kdMeta->push_back( kdRopes->size() );
-
-			for( cl_uint j = 0; j < kdNodes[i].ropes.size(); j++ ) {
-				kdRopes->push_back( kdNodes[i].ropes[j] );
-			}
-		}
-		else {
-			kdMeta->push_back( -1 );
 		}
 	}
 }

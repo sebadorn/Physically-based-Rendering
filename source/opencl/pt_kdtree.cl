@@ -53,8 +53,7 @@ void checkFaces(
 		prefetch_c.z = kdNodeFaces[j + 8];
 
 		r = checkFaceIntersection(
-			*origin, *dir, a, b, c,
-			entryDistance, *exitDistance
+			*origin, *dir, a, b, c, entryDistance, *exitDistance
 		);
 
 		if( r > -1.0f ) {
@@ -130,8 +129,7 @@ bool checkFacesForShadow(
 		prefetch_c.z = kdNodeFaces[j + 8];
 
 		r = checkFaceIntersection(
-			*origin, *dir, a, b, c,
-			entryDistance, *exitDistance
+			*origin, *dir, a, b, c, entryDistance, *exitDistance
 		);
 
 		if( r > -1.0f ) {
@@ -154,39 +152,29 @@ bool checkFacesForShadow(
  * @param {const global int*}     kdNodeMeta
  * @param {const float4*}         hitNear
  */
-void goToLeafNode(
-	int* nodeIndex, const global float* kdNodeSplits, const global int* kdNodeMeta,
-	const float* hitNear
-) {
-	int left = kdNodeMeta[(*nodeIndex) * 6];
-	int right = kdNodeMeta[(*nodeIndex) * 6 + 1];
-	int axis = kdNodeMeta[(*nodeIndex) * 6 + 2];
+int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const float4 hitNear ) {
+	float4 split;
+	int4 children;
+	int axis = (int) kdNonLeaves[nodeIndex].split.w;
 
-	while( left >= 0 && right >= 0 ) {
-		*nodeIndex = ( hitNear[axis] < kdNodeSplits[(*nodeIndex) * 3 + axis] ) ? left : right;
+	while( true ) {
+		split = kdNonLeaves[nodeIndex].split;
+		children = kdNonLeaves[nodeIndex].children;
+		nodeIndex = ( ( (float*) &hitNear )[axis] < ( (float*) &split )[axis] ) ? children.x : children.y;
 
-		left = kdNodeMeta[(*nodeIndex) * 6];
-		right = kdNodeMeta[(*nodeIndex) * 6 + 1];
+		if(
+			( nodeIndex == children.x && children.z == 1 ) ||
+			( nodeIndex == children.y && children.w == 1 )
+		) {
+			return nodeIndex;
+		}
+
 		axis = MOD_3[axis + 1];
 	}
+
+	return -1;
 }
 
-
-/**
- * Set the values for the bounding box of the given node.
- * @param {const int}             nodeIndex
- * @param {const global float*} kdNodeSplits
- * @param {float*}                bbMin
- * @param {float*}                bbMax
- */
-inline void updateBoundingBox( const int nodeIndex, const global float* kdNodeBB, float* bbMin, float* bbMax ) {
-	bbMin[0] = kdNodeBB[nodeIndex * 6];
-	bbMin[1] = kdNodeBB[nodeIndex * 6 + 1];
-	bbMin[2] = kdNodeBB[nodeIndex * 6 + 2];
-	bbMax[0] = kdNodeBB[nodeIndex * 6 + 3];
-	bbMax[1] = kdNodeBB[nodeIndex * 6 + 4];
-	bbMax[2] = kdNodeBB[nodeIndex * 6 + 5];
-}
 
 
 /**
@@ -208,42 +196,38 @@ inline void updateBoundingBox( const int nodeIndex, const global float* kdNodeBB
  */
 void traverseKdTree(
 	const float4* origin, const float4* dir, int nodeIndex,
-	const global float* kdNodeSplits, const global float* kdNodeBB,
-	const global int* kdNodeMeta, const global float* kdNodeFaces,
-	const global int* kdNodeRopes, hit_t* result, const int bounce, const int kdRoot,
+	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
+	const global float* kdNodeFaces,
+	hit_t* result, const int bounce, const int kdRoot,
 	float entryDistance, float exitDistance
 ) {
-	float4 hitNear;
-	float bbMax[3], bbMin[3];
-	int exitRope, faceIndex, numFaces, ropeIndex;
+	kdLeaf currentNode;
+	int8 ropes;
+	int exitRope;
 
 	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
-		// Find a leaf node that the ray hits
-		hitNear = fma( entryDistance, *dir, *origin );
-		goToLeafNode( &nodeIndex, kdNodeSplits, kdNodeMeta, (float*) &hitNear );
-
-		// Check all faces of the leaf node
-		faceIndex = kdNodeMeta[nodeIndex * 6 + 3];
-		numFaces = kdNodeMeta[nodeIndex * 6 + 4];
-		ropeIndex = kdNodeMeta[nodeIndex * 6 + 5];
+		currentNode = kdLeaves[nodeIndex];
+		ropes = currentNode.ropes;
 
 		checkFaces(
-			nodeIndex, faceIndex, origin, dir, numFaces,
+			nodeIndex, ropes.s6, origin, dir, ropes.s7,
 			kdNodeFaces, entryDistance, &exitDistance, result
 		);
 
 		// Exit leaf node
-		updateBoundingBox( nodeIndex, kdNodeBB, bbMin, bbMax );
-		updateEntryDistanceAndExitRope( origin, dir, bbMin, bbMax, &entryDistance, &exitRope );
+		updateEntryDistanceAndExitRope(
+			origin, dir, currentNode.bbMin, currentNode.bbMax,
+			&entryDistance, &exitRope
+		);
 
-		nodeIndex = kdNodeRopes[ropeIndex + exitRope];
+		nodeIndex = ( (int*) &ropes )[exitRope];
+		nodeIndex = ( nodeIndex < 1 )
+		          ? -nodeIndex - 1
+		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance, *dir, *origin ) );
 	}
 
 	if( result->t > -1.0f ) {
-		nodeIndex = kdRoot;
-		hitNear = result->position;
-		goToLeafNode( &nodeIndex, kdNodeSplits, kdNodeMeta, &hitNear );
-		result->nodeIndex = nodeIndex;
+		result->nodeIndex = goToLeafNode( kdRoot, kdNonLeaves, result->position );
 	}
 }
 
@@ -264,39 +248,37 @@ void traverseKdTree(
  */
 bool shadowTestIntersection(
 	const float4* origin, const float4* dir, int nodeIndex,
-	const global float* kdNodeSplits, const global float* kdNodeBB,
-	const global int* kdNodeMeta, const global float* kdNodeFaces,
-	const global int* kdNodeRopes, const int kdRoot,
-	float exitDistance
+	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
+	const global float* kdNodeFaces,
+	const int kdRoot
 ) {
+	kdLeaf currentNode;
+	int8 ropes;
+	int exitRope;
 	float entryDistance = 0.0f;
-
-	float4 hitNear;
-	float bbMax[3], bbMin[3];
-	int exitRope, faceIndex, numFaces, ropeIndex;
+	float exitDistance = 1.0f;
 
 	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
-		// Find a leaf node that the ray hits
-		hitNear = fma( entryDistance, *dir, *origin );
-		goToLeafNode( &nodeIndex, kdNodeSplits, kdNodeMeta, (float*) &hitNear );
-
-		// Check all faces of the leaf node
-		faceIndex = kdNodeMeta[nodeIndex * 6 + 3];
-		numFaces = kdNodeMeta[nodeIndex * 6 + 4];
-		ropeIndex = kdNodeMeta[nodeIndex * 6 + 5];
+		currentNode = kdLeaves[nodeIndex];
+		ropes = currentNode.ropes;
 
 		if( checkFacesForShadow(
-			nodeIndex, faceIndex, origin, dir, numFaces,
+			nodeIndex, ropes.s6, origin, dir, ropes.s7,
 			kdNodeFaces, entryDistance, &exitDistance
 		) ) {
 			return true;
 		}
 
 		// Exit leaf node
-		updateBoundingBox( nodeIndex, kdNodeBB, bbMin, bbMax );
-		updateEntryDistanceAndExitRope( origin, dir, bbMin, bbMax, &entryDistance, &exitRope );
+		updateEntryDistanceAndExitRope(
+			origin, dir, currentNode.bbMin, currentNode.bbMax,
+			&entryDistance, &exitRope
+		);
 
-		nodeIndex = kdNodeRopes[ropeIndex + exitRope];
+		nodeIndex = ( (int*) &ropes )[exitRope];
+		nodeIndex = ( nodeIndex < 1 )
+		          ? -nodeIndex - 1
+		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance, *dir, *origin ) );
 	}
 
 	return false;

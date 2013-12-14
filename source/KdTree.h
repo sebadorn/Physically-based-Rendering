@@ -19,17 +19,17 @@ using std::map;
 using std::vector;
 
 
-typedef struct kdNode_t {
+struct kdNode_t {
 	vector<cl_uint> faces;
-	vector<cl_int> ropes;
+	vector<kdNode_t*> ropes;
 	cl_float pos[3];
 	cl_float bbMax[3];
 	cl_float bbMin[3];
 	cl_int axis;
 	cl_int index;
-	cl_int left;
-	cl_int right;
-} kdNode_t;
+	kdNode_t* left;
+	kdNode_t* right;
+};
 
 
 class KdTree {
@@ -42,7 +42,6 @@ class KdTree {
 		vector<kdNode_t> getNodes();
 		bool hitBoundingBox( glm::vec3 bbMin, glm::vec3 bbMax, glm::vec3 origin, glm::vec3 dir );
 		bool hitTriangle( glm::vec3 vStart, glm::vec3 vEnd, glm::vec3 a, glm::vec3 b, glm::vec3 c );
-		void print();
 		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	protected:
@@ -50,17 +49,17 @@ class KdTree {
 			cl_float* bbMin, cl_float* bbMax,
 			vector<cl_float> vertices, vector<cl_uint> faces
 		);
-		void createRopes( kdNode_t* node, vector<cl_int> ropes );
-		vector<kdNode_t*> createUnconnectedNodes( vector<cl_float>* vertices );
-		kdNode_t* findMedian( vector<kdNode_t*>* nodes, cl_int axis );
+		void createRopes( kdNode_t* node, vector<kdNode_t*> ropes );
+		kdNode_t* findMedian( vector<cl_float4>* nodes, cl_int axis );
 		vector<cl_float> getFaceBB( cl_float v0[3], cl_float v1[3], cl_float v2[3] );
-		cl_int makeTree(
-			vector<kdNode_t*> t, cl_int axis, cl_float* bbMin, cl_float* bbMax,
+		kdNode_t* makeTree(
+			vector<cl_float4> t, cl_int axis, cl_float* bbMin, cl_float* bbMax,
 			vector<cl_float> vertices, vector<cl_uint> faces, cl_uint depth
 		);
-		void optimizeRope( cl_int* rope, cl_int side, cl_float* bbMin, cl_float* bbMax );
+		void optimizeRope(
+			vector<kdNode_t*>* ropes, cl_int side, cl_float* bbMin, cl_float* bbMax
+		);
 		void printLeafFacesStat();
-		void printNode( kdNode_t* node );
 		void printNumFacesOfLeaves();
 		void setDepthLimit( vector<cl_float> vertices );
 		void splitFaces(
@@ -69,8 +68,8 @@ class KdTree {
 			vector<cl_uint>* leftFaces, vector<cl_uint>* rightFaces
 		);
 		void splitNodesAtMedian(
-			vector<kdNode_t*> nodes, kdNode_t* median,
-			vector<kdNode_t*>* leftNodes, vector<kdNode_t*>* rightNodes
+			vector<cl_float4> nodes, kdNode_t* median,
+			vector<cl_float4>* leftNodes, vector<cl_float4>* rightNodes
 		);
 		void visualizeNextNode( kdNode_t* node, vector<cl_float>* vertices, vector<cl_uint>* indices );
 
@@ -81,8 +80,10 @@ class KdTree {
 
 		kdNode_t* mRoot;
 		vector<kdNode_t*> mNodes;
+		vector<kdNode_t*> mNonLeaves;
 		vector<kdNode_t*> mLeaves;
 		cl_uint mDepthLimit;
+		cl_uint mIndexCounter;
 		cl_int mLeafIndex;
 
 };

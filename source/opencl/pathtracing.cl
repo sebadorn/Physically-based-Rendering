@@ -27,9 +27,8 @@ int findPath(
 	float4* origin, float4* dir, float4* normal,
 	const global float4* scNormals, const global uint* scFacesVN,
 	const global float4* lights,
-	const global float4* kdNodeSplits, const global float* kdNodeBB,
-	const global int* kdNodeMeta,
-	const global float* kdNodeFaces, const global int* kdNodeRopes,
+	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
+	const global float* kdNodeFaces,
 	const int startNode, const int kdRoot, const float timeSinceStart, const int bounce,
 	const float initEntryDistance, const float initExitDistance
 ) {
@@ -39,8 +38,7 @@ int findPath(
 	hit.nodeIndex = -1;
 
 	traverseKdTree(
-		origin, dir, startNode,
-		kdNodeSplits, kdNodeBB, kdNodeMeta, kdNodeFaces, kdNodeRopes,
+		origin, dir, startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
 		&hit, bounce, kdRoot, initEntryDistance, initExitDistance
 	);
 
@@ -137,45 +135,35 @@ kernel void pathTracing(
 	const global float4* lights,
 	const global float4* origins, const global float4* dirs,
 	const global float4* scNormals, const global uint* scFacesVN,
-	const global float* kdNodeSplits, const global float* kdNodeBB,
-	const global int* kdNodeMeta, const global float* kdNodeFaces, const global int* kdNodeRopes,
-	const int kdRoot,
+	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
+	const float8 kdRootBB,
+	const global float* kdNodeFaces, const int kdRoot,
 	global float4* hits, global float4* hitNormals
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
-	int startNode = kdRoot;
-
-	const float4 bbMinRoot = {
-		kdNodeBB[kdRoot * 6],
-		kdNodeBB[kdRoot * 6 + 1],
-		kdNodeBB[kdRoot * 6 + 2],
-		0.0f
-	};
-	const float4 bbMaxRoot = {
-		kdNodeBB[kdRoot * 6 + 3],
-		kdNodeBB[kdRoot * 6 + 4],
-		kdNodeBB[kdRoot * 6 + 5],
-		0.0f
-	};
+	const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, kdRootBB.s3 };
+	const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, kdRootBB.s7 };
 
 	float4 origin = origins[workIndex];
 	float4 dir = dirs[workIndex];
 	float4 normal = (float4)( 0.0f );
 
-	float entryDistance, exitDistance;
-	int exitRope;
+	float entryDistance = 0.0f;
+	float exitDistance = FLT_MAX;
 
-	if( !intersectBoundingBox( &origin, &dir, (float*) &bbMinRoot, (float*) &bbMaxRoot, &entryDistance, &exitDistance, &exitRope ) ) {
+	if( !intersectBoundingBox( &origin, &dir, bbMinRoot, bbMaxRoot, &entryDistance, &exitDistance ) ) {
 		hits[workIndex * BOUNCES] = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
 		return;
 	}
 
+	int startNode = goToLeafNode( kdRoot, kdNonLeaves, fma( entryDistance, dir, origin ) );
+
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		startNode = findPath(
-			&origin, &dir, &normal, scNormals, scFacesVN,
-			lights, kdNodeSplits, kdNodeBB, kdNodeMeta, kdNodeFaces, kdNodeRopes,
+			&origin, &dir, &normal, scNormals, scFacesVN, lights,
+			kdNonLeaves, kdLeaves, kdNodeFaces,
 			startNode, kdRoot, timeSinceStart + bounce, bounce, entryDistance, exitDistance
 		);
 
@@ -187,7 +175,7 @@ kernel void pathTracing(
 		}
 
 		entryDistance = 0.0f;
-		exitDistance = fast_length( origin + bbMaxRoot - bbMinRoot );
+		exitDistance = FLT_MAX;
 	}
 
 	// How to use a barrier:
@@ -211,40 +199,29 @@ kernel void pathTracing(
  * @param {const global float4* hitNormals}
  */
 kernel void shadowTest(
-	const uint2 offset, const float timeSinceStart,
-	const global float4* lights,
-	const global float* kdNodeSplits, const global float* kdNodeBB,
-	const global int* kdNodeMeta, const global float* kdNodeFaces, const global int* kdNodeRopes,
+	const uint2 offset, const float timeSinceStart, const global float4* lights,
+	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
+	const float8 kdRootBB, const global float* kdNodeFaces,
 	const int kdRoot,
 	global float4* hits, const global float4* hitNormals
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
-	const float4 bbMinRoot = {
-		kdNodeBB[kdRoot * 6],
-		kdNodeBB[kdRoot * 6 + 1],
-		kdNodeBB[kdRoot * 6 + 2],
-		0.0f
-	};
-	const float4 bbMaxRoot = {
-		kdNodeBB[kdRoot * 6 + 3],
-		kdNodeBB[kdRoot * 6 + 4],
-		kdNodeBB[kdRoot * 6 + 5],
-		0.0f
-	};
+	const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, kdRootBB.s3 };
+	const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, kdRootBB.s7 };
 
-	float exitDistance;
 	int exitRope;
-	uint startNode;
+	uint index, startNode;
 
 	float4 normal, origin;
 	const float4 light = lights[0];
 	bool isInShadow;
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
-		origin = hits[workIndex * BOUNCES + bounce];
-		normal = hitNormals[workIndex * BOUNCES + bounce];
+		index = workIndex * BOUNCES + bounce;
+		origin = hits[index];
+		normal = hitNormals[index];
 
 		if( origin.w <= -1.0f ) {
 			break;
@@ -253,19 +230,16 @@ kernel void shadowTest(
 		startNode = (uint) origin.w;
 		origin.w = 0.0f;
 		normal.w = 0.0f;
-		exitDistance = fast_length( origin + bbMaxRoot - bbMinRoot );
 
-		float4 newLight = light + uniformlyRandomVector( timeSinceStart + exitDistance ) * 0.1f - origin;
+		float4 newLight = light - origin + uniformlyRandomVector( timeSinceStart + fast_length( origin ) ) * 0.1f;
 		float4 originForShadow = origin + normal * EPSILON;
 
 		isInShadow = shadowTestIntersection(
-			&originForShadow, &newLight, startNode,
-			kdNodeSplits, kdNodeBB, kdNodeMeta, kdNodeFaces, kdNodeRopes, kdRoot,
-			fmin( exitDistance, 1.0f )
+			&originForShadow, &newLight, startNode, kdNonLeaves, kdLeaves, kdNodeFaces, kdRoot
 		);
 
 		origin.w = !isInShadow;
-		hits[workIndex * BOUNCES + bounce] = origin;
+		hits[index] = origin;
 	}
 }
 
@@ -303,6 +277,7 @@ kernel void setColors(
 	const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
 
 	const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
+	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
 	float4 prefetch_hit = hits[workIndex];
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
@@ -340,7 +315,6 @@ kernel void setColors(
 		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
 	}
 
-	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
 	const float4 color = mix( accumulatedColor, texturePixel, textureWeight );
 	write_imagef( textureOut, pos, color );
 }

@@ -19,6 +19,18 @@
 using std::vector;
 
 
+struct kdNonLeaf_cl {
+	cl_float4 split;  // [x, y, z, (cl_int) axis]
+	cl_int4 children; // [left, right, isLeftLeaf, isRightLeaf]
+};
+
+struct kdLeaf_cl {
+	cl_int8 ropes; // [left, right, bottom, top, back, front, facesIndex, numFaces]
+	cl_float4 bbMin;
+	cl_float4 bbMax;
+};
+
+
 class Camera;
 
 
@@ -54,10 +66,9 @@ class PathTracer {
 		void initArgsKernelShadowTest();
 		void initKernelArgs();
 		void kdNodesToVectors(
-			vector<kdNode_t> kdNodes,
-			vector<cl_float>* kdSplits, vector<cl_float>* kdBB,
-			vector<cl_int>* kdMeta, vector<cl_float>* kdFaces,
-			vector<cl_int>* kdRopes, vector<cl_uint> faces, vector<cl_float> vertices
+			vector<kdNode_t> kdNodes, vector<cl_float>* kdFaces,
+			vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves,
+			vector<cl_uint> faces, vector<cl_float> vertices
 		);
 		void updateEyeBuffer();
 
@@ -69,6 +80,7 @@ class PathTracer {
 
 		cl_int mKdRootNodeIndex;
 		cl_uint mSampleCount;
+		cl_float8 mKdRootBB;
 
 		vector<cl_float> mTextureOut;
 
@@ -80,12 +92,9 @@ class PathTracer {
 		cl_mem mBufScNormals;
 		cl_mem mBufScFacesVN;
 
-		cl_mem mBufKdNodes;
-		cl_mem mBufKdNodeSplits;
-		cl_mem mBufKdNodeBB;
-		cl_mem mBufKdNodeMeta;
+		cl_mem mBufKdNonLeaves;
+		cl_mem mBufKdLeaves;
 		cl_mem mBufKdNodeFaces;
-		cl_mem mBufKdNodeRopes;
 
 		cl_mem mBufMaterialsColorDiffuse;
 		cl_mem mBufMaterialToFace;

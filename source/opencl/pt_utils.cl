@@ -62,100 +62,59 @@ inline float4 uniformlyRandomVector( const float seed ) {
 
 
 /**
- * Source: http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
- * Source: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
+ * Source: http://graphics.cg.uni-saarland.de/fileadmin/cguds/courses/ws0910/cg/rc/web_sites/Ziesche/
+ * Which is based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
  * @param  {const float4*} origin
- * @param  {const float4*} direction
+ * @param  {const float4*} dir
  * @param  {const float*}  bbMin
  * @param  {const float*}  bbMax
  * @param  {float*}        tNear
  * @param  {float*}        tFar
- * @param  {int*}          exitRope
  * @return {bool}
  */
 bool intersectBoundingBox(
-	const float4* origin, const float4* direction, const float* bbMin, const float* bbMax,
-	float* tNear, float* tFar, int* exitRope
+	const float4* origin, const float4* dir, const float4 bbMin, const float4 bbMax,
+	float* tNear, float* tFar
 ) {
-	const float4 invDir = native_recip( *direction ); // WARNING: native_
-	const float bounds[2][3] = {
-		bbMin[0], bbMin[1], bbMin[2],
-		bbMax[0], bbMax[1], bbMax[2]
-	};
-	float tmin, tmax, tymin, tymax, tzmin, tzmax;
-	const bool signX = signbit( invDir.x );
-	const bool signY = signbit( invDir.y );
-	const bool signZ = signbit( invDir.z );
+	float4 t1 = native_divide( bbMin - (*origin), *dir );
+	float4 tMax = native_divide( bbMax - (*origin), *dir );
+	float4 tMin = fmin( t1, tMax );
+	tMax = fmax( t1, tMax );
 
-	// X
-	tmin = ( bounds[signX][0] - origin->x ) * invDir.x;
-	tmax = ( bounds[1 - signX][0] - origin->x ) * invDir.x;
-	// Y
-	tymin = ( bounds[signY][1] - origin->y ) * invDir.y;
-	tymax = ( bounds[1 - signY][1] - origin->y ) * invDir.y;
+	*tNear = fmax( fmax( tMin.x, tMin.y ), tMin.z );
+	*tFar = fmin( fmin( tMax.x, tMax.y ), fmin( tMax.z, *tFar ) );
 
-	if( tmin > tymax || tymin > tmax ) {
-		return false;
-	}
-
-	// X vs. Y
-	*exitRope = ( tymax < tmax ) ? 3 - signY : 1 - signX;
-	tmin = fmax( tymin, tmin );
-	tmax = fmin( tymax, tmax );
-	// Z
-	tzmin = ( bounds[signZ][2] - origin->z ) * invDir.z;
-	tzmax = ( bounds[1 - signZ][2] - origin->z ) * invDir.z;
-
-	if( tmin > tzmax || tzmin > tmax ) {
-		return false;
-	}
-
-	// Z vs. previous winner
-	*exitRope = ( tzmax < tmax ) ? 5 - signZ : *exitRope;
-	*tNear = fmax( tzmin, tmin );
-	*tFar = fmin( tzmax, tmax );
-
-	return !( tmin > tzmax || tzmin > tmax );
+	return ( *tNear <= *tFar );
 }
 
 
 /**
- *
- * @param origin
- * @param direction
- * @param bbMin
- * @param bbMax
- * @param tFar
- * @param exitRope
+ * Source: http://graphics.cg.uni-saarland.de/fileadmin/cguds/courses/ws0910/cg/rc/web_sites/Ziesche/
+ * Which is based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
+ * @param {const float4*} origin
+ * @param {const float4*} dir
+ * @param {const float*}  bbMin
+ * @param {const float*}  bbMax
+ * @param {float*}        tFar
+ * @param {int*}          exitRope
  */
 void updateEntryDistanceAndExitRope(
-	const float4* origin, const float4* direction, const float* bbMin, const float* bbMax,
+	const float4* origin, const float4* dir, const float4 bbMin, const float4 bbMax,
 	float* tFar, int* exitRope
 ) {
-	const float4 invDir = native_recip( *direction ); // WARNING: native_
-	const float bounds[2][3] = {
-		bbMin[0], bbMin[1], bbMin[2],
-		bbMax[0], bbMax[1], bbMax[2]
-	};
-	float tmax, tymax, tzmax;
+	const float4 invDir = native_recip( *dir ); // WARNING: native_
 	const bool signX = signbit( invDir.x );
 	const bool signY = signbit( invDir.y );
 	const bool signZ = signbit( invDir.z );
 
-	// X
-	tmax = ( bounds[1 - signX][0] - origin->x ) * invDir.x;
-	// Y
-	tymax = ( bounds[1 - signY][1] - origin->y ) * invDir.y;
+	float4 t1 = native_divide( bbMin - (*origin), *dir );
+	float4 tMax = native_divide( bbMax - (*origin), *dir );
+	tMax = fmax( t1, tMax );
 
-	// X vs. Y
-	*exitRope = ( tymax < tmax ) ? 3 - signY : 1 - signX;
-	tmax = fmin( tymax, tmax );
-	// Z
-	tzmax = ( bounds[1 - signZ][2] - origin->z ) * invDir.z;
+	*tFar = fmin( fmin( tMax.x, tMax.y ), tMax.z );
 
-	// Z vs. previous winner
-	*exitRope = ( tzmax < tmax ) ? 5 - signZ : *exitRope;
-	*tFar = fmin( tzmax, tmax );
+	*exitRope = ( *tFar == tMax.y ) ? 3 - signY : 1 - signX;
+	*exitRope = ( *tFar == tMax.z ) ? 5 - signZ : *exitRope;
 }
 
 
@@ -197,28 +156,21 @@ inline float checkFaceIntersection_MoellerTrumbore(
 	const float4 qVec = cross( tVec, edge1 );
 	const float det = dot( edge1, pVec );
 	const float invDet = native_recip( det ); // WARNING: native_
+	float t = dot( edge2, qVec ) * invDet;
+
+	#define MT_FINAL_T_TEST fmax( t - tFar, tNear - t ) > EPSILON || t < EPSILON
 
 	#ifdef BACKFACE_CULLING
 		const float u = dot( tVec, pVec );
 		const float v = dot( dir, qVec );
 
-		if( u < 0.0f || u > det || v < 0.0f || u + v > det ) {
-			return -2.0f;
-		}
+		t = ( fmin( u, v ) < 0.0f || u > det || u + v > det || MT_FINAL_T_TEST ) ? -2.0f : t;
 	#else
 		const float u = dot( tVec, pVec ) * invDet;
 		const float v = dot( dir, qVec ) * invDet;
 
-		if( u < 0.0f || u > 1.0f || v < 0.0f || u + v > 1.0f ) {
-			return -2.0f;
-		}
+		t = ( fmin( u, v ) < 0.0f || u > 1.0f || u + v > 1.0f || MT_FINAL_T_TEST ) ? -2.0f : t;
 	#endif
-
-	const float t = dot( edge2, qVec ) * invDet;
-
-	if( t < EPSILON || t < tNear - EPSILON || t > tFar + EPSILON ) {
-		return -2.0f;
-	}
 
 	return t;
 }
