@@ -1,7 +1,7 @@
 #ifndef KD_TREE_H
 #define KD_TREE_H
 
-#define KD_EPSILON 0.00001f
+#define KD_EPSILON 0.000001f
 #define KD_DIM 3
 
 #include <algorithm>
@@ -54,7 +54,8 @@ class KdTree {
 		vector<cl_float> getFaceBB( cl_float v0[3], cl_float v1[3], cl_float v2[3] );
 		kdNode_t* makeTree(
 			vector<cl_float4> t, cl_int axis, cl_float* bbMin, cl_float* bbMax,
-			vector<cl_float> vertices, vector<cl_uint> faces, cl_uint depth
+			vector<cl_float> vertices, vector<cl_uint> faces,
+			vector< vector<cl_float> > splitsByAxis, cl_uint depth
 		);
 		void optimizeRope(
 			vector<kdNode_t*>* ropes, cl_int side, cl_float* bbMin, cl_float* bbMax

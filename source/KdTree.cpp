@@ -19,6 +19,11 @@ KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMi
 	mIndexCounter = 0;
 	this->setDepthLimit( vertices );
 
+	vector< vector<cl_float> > splitsByAxis;
+	splitsByAxis.push_back( vector<cl_float>() );
+	splitsByAxis.push_back( vector<cl_float>() );
+	splitsByAxis.push_back( vector<cl_float>() );
+
 	// Start clock
 	boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
 
@@ -30,7 +35,7 @@ KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMi
 	}
 
 	// Generate kd-tree
-	mRoot = this->makeTree( vertsForNodes, 0, bbMin, bbMax, vertices, faces, 1 );
+	mRoot = this->makeTree( vertsForNodes, 0, bbMin, bbMax, vertices, faces, splitsByAxis, 1 );
 
 	this->printLeafFacesStat();
 
@@ -130,6 +135,7 @@ kdNode_t* KdTree::createLeafNode(
 		if( !add && this->hitBoundingBox( bbMin, bbMax, c, a - c ) ) {
 			add = true;
 		}
+
 		if( !add && this->hitTriangle( bbMin, bbMax, a, b, c ) ) {
 			add = true;
 		}
@@ -311,9 +317,9 @@ bool KdTree::hitBoundingBox(
 	tmax = ( tzmax < tmax ) ? tzmax : tmax;
 
 	return (
-		( tmin > 0.0f && tmax < 1.0f ) ||
-		( isnan( tmin ) && tmax < 1.0f ) ||
-		( isnan( tmax ) && tmin > 0.0f )
+		( tmin >= 0.0f && tmax <= 1.0f ) ||
+		( isnan( tmin ) && tmax <= 1.0f ) ||
+		( isnan( tmax ) && tmin >= 0.0f )
 	);
 }
 
@@ -372,7 +378,8 @@ bool KdTree::hitTriangle( glm::vec3 vStart, glm::vec3 vEnd, glm::vec3 a, glm::ve
  */
 kdNode_t* KdTree::makeTree(
 	vector<cl_float4> vertsForNodes, cl_int axis, cl_float* bbMin, cl_float* bbMax,
-	vector<cl_float> vertices, vector<cl_uint> faces, cl_uint depth
+	vector<cl_float> vertices, vector<cl_uint> faces,
+	vector< vector<cl_float> > splitsByAxis, cl_uint depth
 ) {
 	// No more nodes to split planes. We have reached a leaf node.
 	if( ( mDepthLimit > 0 && depth > mDepthLimit ) || vertsForNodes.size() == 0 ) {
@@ -384,6 +391,19 @@ kdNode_t* KdTree::makeTree(
 	}
 
 	kdNode_t* median = this->findMedian( &vertsForNodes, axis );
+
+	// Don't use the same coordinate on an axis more than once
+	vector<cl_float> splits = splitsByAxis[axis];
+	if( std::find( splits.begin(), splits.end(), median->pos[axis] ) != splits.end() ) {
+		kdNode_t* leafNode = this->createLeafNode( bbMin, bbMax, vertices, faces );
+		mNodes.push_back( leafNode );
+		mLeaves.push_back( leafNode );
+
+		return leafNode;
+	}
+
+	splitsByAxis[axis].push_back( median->pos[axis] );
+
 	median->index = mNonLeaves.size();
 	median->axis = axis;
 	median->bbMin[0] = bbMin[0];
@@ -415,8 +435,8 @@ kdNode_t* KdTree::makeTree(
 
 	axis = ( axis + 1 ) % KD_DIM;
 	depth++;
-	median->left = this->makeTree( leftNodes, axis, bbMinLeft, bbMaxLeft, vertices, leftFaces, depth );
-	median->right = this->makeTree( rightNodes, axis, bbMinRight, bbMaxRight, vertices, rightFaces, depth );
+	median->left = this->makeTree( leftNodes, axis, bbMinLeft, bbMaxLeft, vertices, leftFaces, splitsByAxis, depth );
+	median->right = this->makeTree( rightNodes, axis, bbMinRight, bbMaxRight, vertices, rightFaces, splitsByAxis, depth );
 
 	return median;
 }
@@ -492,7 +512,7 @@ void KdTree::setDepthLimit( vector<cl_float> vertices ) {
 	mDepthLimit = Cfg::get().value<cl_uint>( Cfg::KDTREE_DEPTH );
 
 	if( mDepthLimit == -1 ) {
-		mDepthLimit = floor( log2( vertices.size() / 3 ) );
+		mDepthLimit = ceil( log2( vertices.size() / 3 ) );
 	}
 
 	char msg[64];
