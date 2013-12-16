@@ -36,7 +36,7 @@
 
 	"kdtree": {
 		// Maximum depth of leaf nodes. Set a positive, non-negative value or:
-		// -1 - floor( log2( #vertices ) )
+		// -1 - round( log2( #vertices ) )
 		//  0 - no limit
 		"depth": -1
 	},
@@ -80,11 +80,11 @@
 		"backface_culling": false,
 		// Number of times a light ray bounces.
 		// More bounces = less FPS.
-		"bounces": 3,
+		"bounces": 1,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 33.0,
 		// Shadows (bad on performance).
-		"shadows": true
+		"shadows": false
 	},
 
 	"shader": {

@@ -340,7 +340,8 @@ void PathTracer::kdNodesToVectors(
 	vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves,
 	vector<cl_uint> faces, vector<cl_float> vertices
 ) {
-	cl_uint a, b, c, pos;
+	cl_uint a, b, c;
+	cl_int pos;
 
 	for( cl_uint i = 0; i < kdNodes.size(); i++ ) {
 		// Non-leaf node
@@ -364,6 +365,10 @@ void PathTracer::kdNodesToVectors(
 			node.children = children;
 
 			kdNonLeaves->push_back( node );
+
+			if( kdNodes[i].faces.size() > 0 ) {
+				Logger::logWarning( "[PathTracer] Converting kd-node data: Non-leaf node with faces." );
+			}
 		}
 		// Leaf node
 		else {
@@ -405,6 +410,10 @@ void PathTracer::kdNodesToVectors(
 			node.bbMax = bbMax;
 
 			kdLeaves->push_back( node );
+
+			if( kdNodes[i].faces.size() == 0 ) {
+				Logger::logWarning( "[PathTracer] Converting kd-node data: Leaf node without any faces." );
+			}
 		}
 
 		// Faces
@@ -426,13 +435,17 @@ void PathTracer::kdNodesToVectors(
 
 			// Find index of face in original (complete) face list.
 			// This index will be needed to assign the right material to the face.
-			pos = 0;
+			pos = -1;
 
 			for( cl_uint k = 0; k < faces.size(); k += 3 ) {
 				if( faces[k] == a / 3 && faces[k + 1] == b / 3 && faces[k + 2] == c / 3 ) {
 					pos = k / 3;
 					break;
 				}
+			}
+
+			if( pos == -1 ) {
+				Logger::logError( "[PathTracer] Converting kd-node data: No index for face found." );
 			}
 
 			kdFaces->push_back( (cl_float) pos );

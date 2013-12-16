@@ -196,10 +196,9 @@ int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const floa
  */
 void traverseKdTree(
 	const float4* origin, const float4* dir, int nodeIndex,
-	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
-	const global float* kdNodeFaces,
-	hit_t* result, const int bounce, const int kdRoot,
-	float entryDistance, float exitDistance
+	const int kdRoot, const global kdNonLeaf* kdNonLeaves,
+	const global kdLeaf* kdLeaves, const global float* kdNodeFaces,
+	hit_t* result, const int bounce, float entryDistance, float exitDistance
 ) {
 	kdLeaf currentNode;
 	int8 ropes;
@@ -248,9 +247,8 @@ void traverseKdTree(
  */
 bool shadowTestIntersection(
 	const float4* origin, const float4* dir, int nodeIndex,
-	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
-	const global float* kdNodeFaces,
-	const int kdRoot
+	const int kdRoot, const global kdNonLeaf* kdNonLeaves,
+	const global kdLeaf* kdLeaves, const global float* kdNodeFaces
 ) {
 	kdLeaf currentNode;
 	int8 ropes;

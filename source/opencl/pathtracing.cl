@@ -24,13 +24,12 @@
  * @param timeSinceStart
  */
 int findPath(
-	float4* origin, float4* dir, float4* normal,
-	const global float4* scNormals, const global uint* scFacesVN,
-	const global float4* lights,
-	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
-	const global float* kdNodeFaces,
-	const int startNode, const int kdRoot, const float timeSinceStart, const int bounce,
-	const float initEntryDistance, const float initExitDistance
+	float4* origin, float4* dir, float4* normal, const global float4* scNormals,
+	const global uint* scFacesVN, const global float4* lights,
+	const int startNode, const int kdRoot, const global kdNonLeaf* kdNonLeaves,
+	const global kdLeaf* kdLeaves, const global float* kdNodeFaces,
+	const float timeSinceStart, const int bounce,
+	const float entryDistance, const float exitDistance
 ) {
 	hit_t hit;
 	hit.t = -2.0f;
@@ -38,8 +37,8 @@ int findPath(
 	hit.nodeIndex = -1;
 
 	traverseKdTree(
-		origin, dir, startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
-		&hit, bounce, kdRoot, initEntryDistance, initExitDistance
+		origin, dir, startNode, kdRoot, kdNonLeaves, kdLeaves, kdNodeFaces,
+		&hit, bounce, entryDistance, exitDistance
 	);
 
 	if( hit.t > -1.0f ) {
@@ -143,8 +142,8 @@ kernel void pathTracing(
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
-	const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, kdRootBB.s3 };
-	const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, kdRootBB.s7 };
+	const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, 0.0f };
+	const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, 0.0f };
 
 	float4 origin = origins[workIndex];
 	float4 dir = dirs[workIndex];
@@ -163,8 +162,8 @@ kernel void pathTracing(
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		startNode = findPath(
 			&origin, &dir, &normal, scNormals, scFacesVN, lights,
-			kdNonLeaves, kdLeaves, kdNodeFaces,
-			startNode, kdRoot, timeSinceStart + bounce, bounce, entryDistance, exitDistance
+			startNode, kdRoot, kdNonLeaves, kdLeaves, kdNodeFaces,
+			timeSinceStart + bounce, bounce, entryDistance, exitDistance
 		);
 
 		hits[workIndex * BOUNCES + bounce] = origin;
@@ -174,7 +173,7 @@ kernel void pathTracing(
 			break;
 		}
 
-		entryDistance = 0.0f;
+		entryDistance = EPSILON;
 		exitDistance = FLT_MAX;
 	}
 
@@ -208,15 +207,18 @@ kernel void shadowTest(
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
-	const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, kdRootBB.s3 };
-	const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, kdRootBB.s7 };
+	#ifdef SHADOWS
+		const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, kdRootBB.s3 };
+		const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, kdRootBB.s7 };
 
-	int exitRope;
-	uint index, startNode;
+		int exitRope;
+		uint startNode;
+		const float4 light = lights[0];
+		bool isInShadow;
+	#endif
 
 	float4 normal, origin;
-	const float4 light = lights[0];
-	bool isInShadow;
+	uint index;
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		index = workIndex * BOUNCES + bounce;
@@ -227,18 +229,23 @@ kernel void shadowTest(
 			break;
 		}
 
-		startNode = (uint) origin.w;
-		origin.w = 0.0f;
-		normal.w = 0.0f;
+		#ifdef SHADOWS
+			startNode = (uint) origin.w;
+			origin.w = 0.0f;
+			normal.w = 0.0f;
 
-		float4 newLight = light - origin + uniformlyRandomVector( timeSinceStart + fast_length( origin ) ) * 0.1f;
-		float4 originForShadow = origin + normal * EPSILON;
+			float4 newLight = light - origin + uniformlyRandomVector( timeSinceStart + fast_length( origin ) ) * 0.1f;
+			float4 originForShadow = origin + normal * EPSILON;
 
-		isInShadow = shadowTestIntersection(
-			&originForShadow, &newLight, startNode, kdNonLeaves, kdLeaves, kdNodeFaces, kdRoot
-		);
+			isInShadow = shadowTestIntersection(
+				&originForShadow, &newLight, startNode, kdRoot, kdNonLeaves, kdLeaves, kdNodeFaces
+			);
 
-		origin.w = !isInShadow;
+			origin.w = !isInShadow;
+		#else
+			origin.w = 1.0f;
+		#endif
+
 		hits[index] = origin;
 	}
 }

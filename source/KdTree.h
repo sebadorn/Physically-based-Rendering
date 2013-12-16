@@ -2,7 +2,6 @@
 #define KD_TREE_H
 
 #define KD_EPSILON 0.000001f
-#define KD_DIM 3
 
 #include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -40,8 +39,6 @@ class KdTree {
 
 		kdNode_t* getRootNode();
 		vector<kdNode_t> getNodes();
-		bool hitBoundingBox( glm::vec3 bbMin, glm::vec3 bbMax, glm::vec3 origin, glm::vec3 dir );
-		bool hitTriangle( glm::vec3 vStart, glm::vec3 vEnd, glm::vec3 a, glm::vec3 b, glm::vec3 c );
 		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	protected:
@@ -64,21 +61,17 @@ class KdTree {
 		void printNumFacesOfLeaves();
 		void setDepthLimit( vector<cl_float> vertices );
 		void splitFaces(
+			cl_uint axis, cl_float axisSpli,
 			vector<cl_float> vertices, vector<cl_uint> faces,
-			cl_float bbMaxLeft[3], cl_float bbMinRight[3],
 			vector<cl_uint>* leftFaces, vector<cl_uint>* rightFaces
 		);
 		void splitNodesAtMedian(
-			vector<cl_float4> nodes, kdNode_t* median,
+			cl_uint axis, vector<cl_float4> nodes, kdNode_t* median,
 			vector<cl_float4>* leftNodes, vector<cl_float4>* rightNodes
 		);
 		void visualizeNextNode( kdNode_t* node, vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	private:
-		static bool compFunc0( kdNode_t* a, kdNode_t* b );
-		static bool compFunc1( kdNode_t* a, kdNode_t* b );
-		static bool compFunc2( kdNode_t* a, kdNode_t* b );
-
 		kdNode_t* mRoot;
 		vector<kdNode_t*> mNodes;
 		vector<kdNode_t*> mNonLeaves;
