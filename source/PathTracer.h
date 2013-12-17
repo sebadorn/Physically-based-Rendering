@@ -44,8 +44,7 @@ class PathTracer {
 		void initOpenCLBuffers(
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
 			vector<cl_uint> facesVN, vector<cl_int> facesMtl, vector<material_t> materials,
-			vector<light_t> lights,
-			vector<kdNode_t> kdNodes, cl_uint rootIndex
+			vector<light_t> lights, vector<kdNode_t> kdNodes, kdNode_t* rootNode
 		);
 		void resetSampleCount();
 		void setCamera( Camera* camera );
@@ -78,7 +77,6 @@ class PathTracer {
 		cl_uint mWidth;
 		cl_float mFOV;
 
-		cl_int mKdRootNodeIndex;
 		cl_uint mSampleCount;
 		cl_float8 mKdRootBB;
 

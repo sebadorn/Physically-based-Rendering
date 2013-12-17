@@ -54,9 +54,7 @@ class KdTree {
 			vector<cl_float> vertices, vector<cl_uint> faces,
 			vector< vector<cl_float> > splitsByAxis, cl_uint depth
 		);
-		void optimizeRope(
-			vector<kdNode_t*>* ropes, cl_int side, cl_float* bbMin, cl_float* bbMax
-		);
+		void optimizeRope( vector<kdNode_t*>* ropes, cl_float* bbMin, cl_float* bbMax );
 		void printLeafFacesStat();
 		void printNumFacesOfLeaves();
 		void setDepthLimit( vector<cl_float> vertices );

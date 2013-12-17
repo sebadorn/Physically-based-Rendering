@@ -68,7 +68,7 @@ void checkFaces(
 	}
 
 	result->position = ( result->t > -1.0f )
-	                 ? (*origin) + result->t * (*dir)
+	                 ? fma( result->t, *dir, *origin )
 	                 : result->position;
 }
 
@@ -155,24 +155,26 @@ bool checkFacesForShadow(
 int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const float4 hitNear ) {
 	float4 split;
 	int4 children;
-	int axis = (int) kdNonLeaves[nodeIndex].split.w;
+	uint axis = (uint) kdNonLeaves[nodeIndex].split.w;
+	float hitPos[3] = { hitNear.x, hitNear.y, hitNear.z };
 
 	while( true ) {
 		split = kdNonLeaves[nodeIndex].split;
 		children = kdNonLeaves[nodeIndex].children;
-		nodeIndex = ( ( (float*) &hitNear )[axis] < ( (float*) &split )[axis] ) ? children.x : children.y;
+		float splitPos[3] = { split.x, split.y, split.z };
+		nodeIndex = ( hitPos[axis] < splitPos[axis] ) ? children.x : children.y;
 
 		if(
 			( nodeIndex == children.x && children.z == 1 ) ||
 			( nodeIndex == children.y && children.w == 1 )
 		) {
-			return nodeIndex;
+			break;
 		}
 
 		axis = MOD_3[axis + 1];
 	}
 
-	return -1;
+	return nodeIndex;
 }
 
 
@@ -196,7 +198,7 @@ int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const floa
  */
 void traverseKdTree(
 	const float4* origin, const float4* dir, int nodeIndex,
-	const int kdRoot, const global kdNonLeaf* kdNonLeaves,
+	const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global float* kdNodeFaces,
 	hit_t* result, const int bounce, float entryDistance, float exitDistance
 ) {
@@ -226,7 +228,7 @@ void traverseKdTree(
 	}
 
 	if( result->t > -1.0f ) {
-		result->nodeIndex = goToLeafNode( kdRoot, kdNonLeaves, result->position );
+		result->nodeIndex = goToLeafNode( 0, kdNonLeaves, result->position );
 	}
 }
 
@@ -241,13 +243,12 @@ void traverseKdTree(
  * @param  {const global int*}   kdNodeMeta
  * @param  {const global float*} kdNodeFaces
  * @param  {const global int*}   kdNodeRopes
- * @param  {const int}           kdRoot
  * @param  {const float}         exitDistance
  * @return {bool}
  */
 bool shadowTestIntersection(
 	const float4* origin, const float4* dir, int nodeIndex,
-	const int kdRoot, const global kdNonLeaf* kdNonLeaves,
+	const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global float* kdNodeFaces
 ) {
 	kdLeaf currentNode;

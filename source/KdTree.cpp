@@ -19,20 +19,20 @@ KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMi
 	mIndexCounter = 0;
 	this->setDepthLimit( vertices );
 
-	vector< vector<cl_float> > splitsByAxis;
-	splitsByAxis.push_back( vector<cl_float>() );
-	splitsByAxis.push_back( vector<cl_float>() );
-	splitsByAxis.push_back( vector<cl_float>() );
-
 	// Start clock
 	boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
 
-	// Create nodes for tree
+	// Pack vertices into float4
 	vector<cl_float4> vertsForNodes;
 	for( cl_uint i = 0; i < vertices.size(); i += 3 ) {
 		cl_float4 node = { vertices[i], vertices[i + 1], vertices[i + 2], 0.0f };
 		vertsForNodes.push_back( node );
 	}
+
+	vector< vector<cl_float> > splitsByAxis;
+	splitsByAxis.push_back( vector<cl_float>() );
+	splitsByAxis.push_back( vector<cl_float>() );
+	splitsByAxis.push_back( vector<cl_float>() );
 
 	// Generate kd-tree
 	mRoot = this->makeTree( vertsForNodes, 0, bbMin, bbMax, vertices, faces, splitsByAxis, 1 );
@@ -43,10 +43,13 @@ KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMi
 
 	// Stop clock
 	boost::posix_time::time_duration msdiff = boost::posix_time::microsec_clock::local_time() - start;
-	char msg2[128];
-	const char* text2 = "[KdTree] Generated kd-tree in %g ms. %lu nodes.";
-	snprintf( msg2, 128, text2, (float) msdiff.total_milliseconds(), mNodes.size() );
-	Logger::logInfo( msg2 );
+
+	char msg[128];
+	snprintf(
+		msg, 128, "[KdTree] Generated kd-tree in %g ms. %lu nodes.",
+		(float) msdiff.total_milliseconds(), mNodes.size()
+	);
+	Logger::logInfo( msg );
 }
 
 
@@ -100,12 +103,7 @@ void KdTree::createRopes( kdNode_t* node, vector<kdNode_t*> ropes ) {
 		return;
 	}
 
-	for( int i = 0; i < 6; i++ ) {
-		if( ropes[i] == NULL ) {
-			continue;
-		}
-		this->optimizeRope( &ropes, i, node->bbMin, node->bbMax );
-	}
+	this->optimizeRope( &ropes, node->bbMin, node->bbMax );
 
 	cl_int sideLeft = node->axis * 2;
 	cl_int sideRight = node->axis * 2 + 1;
@@ -309,26 +307,36 @@ kdNode_t* KdTree::makeTree(
  * @param {cl_float*} bbMin Bounding box minimum.
  * @param {cl_float*} bbMax Bounding box maximum.
  */
-void KdTree::optimizeRope( vector<kdNode_t*>* ropes, cl_int side, cl_float* bbMin, cl_float* bbMax ) {
-	int axis;
+void KdTree::optimizeRope( vector<kdNode_t*>* ropes, cl_float* bbMin, cl_float* bbMax ) {
+	if( !Cfg::get().value<bool>( Cfg::KDTREE_OPTIMIZEROPES ) ) {
+		return;
+	}
 
-	while( (*ropes)[side]->axis >= 0 ) {
-		axis = (*ropes)[side]->axis;
+	cl_uint axis;
 
-		if( side % 2 == 0 ) { // left, bottom, back
-			if( axis == ( side >> 1 ) || (*ropes)[side]->pos[axis] <= bbMin[axis] ) {
-				(*ropes)[side] = (*ropes)[side]->right;
-			}
-			else {
-				break;
-			}
+	for( int side = 0; side < 6; side++ ) {
+		if( (*ropes)[side] == NULL ) {
+			continue;
 		}
-		else { // right, top, front
-			if( axis == ( side >> 1 ) || (*ropes)[side]->pos[axis] >= bbMax[axis] ) {
-				(*ropes)[side] = (*ropes)[side]->left;
+
+		while( (*ropes)[side]->axis >= 0 ) {
+			axis = (*ropes)[side]->axis;
+
+			if( side % 2 == 0 ) { // left, bottom, back
+				if( axis == ( side >> 1 ) || (*ropes)[side]->pos[axis] <= bbMin[axis] ) {
+					(*ropes)[side] = (*ropes)[side]->right;
+				}
+				else {
+					break;
+				}
 			}
-			else {
-				break;
+			else { // right, top, front
+				if( axis == ( side >> 1 ) || (*ropes)[side]->pos[axis] >= bbMax[axis] ) {
+					(*ropes)[side] = (*ropes)[side]->left;
+				}
+				else {
+					break;
+				}
 			}
 		}
 	}
@@ -348,7 +356,7 @@ void KdTree::printLeafFacesStat() {
 	char msg[128];
 	const char* text = "[KdTree] On average there are %.2f faces in the %lu leaf nodes.";
 	snprintf( msg, 128, text, facesTotal / (float) mLeaves.size(), mLeaves.size() );
-	Logger::logDebug( msg );
+	Logger::logInfo( msg );
 }
 
 
@@ -376,7 +384,7 @@ void KdTree::setDepthLimit( vector<cl_float> vertices ) {
 
 	char msg[64];
 	snprintf( msg, 64, "[KdTree] Maximum depth set to %d.", mDepthLimit );
-	Logger::logDebug( msg );
+	Logger::logInfo( msg );
 }
 
 
@@ -457,7 +465,11 @@ void KdTree::splitNodesAtMedian(
 		node = nodes[i];
 
 		if( leftSide ) {
-			if( ( (cl_float*) &node )[axis] == median->pos[axis] ) {
+			if(
+				node.x == median->pos[0] &&
+				node.y == median->pos[1] &&
+				node.z == median->pos[2]
+			) {
 				leftSide = false;
 			}
 			else {

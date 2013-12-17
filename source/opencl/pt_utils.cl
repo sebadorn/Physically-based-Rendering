@@ -73,12 +73,12 @@ inline float4 uniformlyRandomVector( const float seed ) {
  * @return {bool}
  */
 bool intersectBoundingBox(
-	const float4* origin, const float4* dir, const float4 bbMin, const float4 bbMax,
+	const float4 origin, const float4 dir, const float4 bbMin, const float4 bbMax,
 	float* tNear, float* tFar
 ) {
-	float4 invDir = native_recip( *dir );
-	float4 t1 = ( bbMin - (*origin) ) * invDir;
-	float4 tMax = ( bbMax - (*origin) ) * invDir;
+	float4 invDir = native_recip( dir );
+	float4 t1 = ( bbMin - origin ) * invDir;
+	float4 tMax = ( bbMax - origin ) * invDir;
 	float4 tMin = fmin( t1, tMax );
 	tMax = fmax( t1, tMax );
 

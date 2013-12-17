@@ -317,8 +317,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mPathTracer->initOpenCLBuffers(
 		mVertices, mFaces, mNormals,
 		ml->getFacesVN(), ml->getFacesMtl(), ml->getMaterials(),
-		mLights,
-		mKdTree->getNodes(), mKdTree->getRootNode()->index
+		mLights, mKdTree->getNodes(), mKdTree->getRootNode()
 	);
 
 	delete ml;

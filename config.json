@@ -38,7 +38,8 @@
 		// Maximum depth of leaf nodes. Set a positive, non-negative value or:
 		// -1 - round( log2( #vertices ) )
 		//  0 - no limit
-		"depth": -1
+		"depth": -1,
+		"optimize_ropes": false
 	},
 
 	"lights": {

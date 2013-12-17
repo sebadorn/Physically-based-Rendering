@@ -161,7 +161,6 @@ void PathTracer::initArgsKernelPathTracing() {
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdLeaves );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_float8 ), &mKdRootBB );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeFaces );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_int ), &mKdRootNodeIndex );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufHits );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufHitNormals );
 }
@@ -224,7 +223,6 @@ void PathTracer::initArgsKernelShadowTest() {
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdLeaves );
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_float8 ), &mKdRootBB );
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdNodeFaces );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_int ), &mKdRootNodeIndex );
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufHits );
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufHitNormals );
 }
@@ -251,11 +249,9 @@ void PathTracer::initKernelArgs() {
 void PathTracer::initOpenCLBuffers(
 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
 	vector<cl_uint> facesVN, vector<cl_int> facesMtl, vector<material_t> materials,
-	vector<light_t> lights,
-	vector<kdNode_t> kdNodes, cl_uint rootIndex
+	vector<light_t> lights, vector<kdNode_t> kdNodes, kdNode_t* rootNode
 ) {
 	cl_uint pixels = mWidth * mHeight;
-	mKdRootNodeIndex = rootIndex;
 
 	vector<kdNonLeaf_cl> kdNonLeaves;
 	vector<kdLeaf_cl> kdLeaves;
@@ -264,14 +260,8 @@ void PathTracer::initOpenCLBuffers(
 	this->kdNodesToVectors( kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, faces, vertices );
 
 	cl_float8 kdRootBB = {
-		kdNodes[rootIndex].bbMin[0],
-		kdNodes[rootIndex].bbMin[1],
-		kdNodes[rootIndex].bbMin[2],
-		0.0f,
-		kdNodes[rootIndex].bbMax[0],
-		kdNodes[rootIndex].bbMax[1],
-		kdNodes[rootIndex].bbMax[2],
-		0.0f
+		rootNode->bbMin[0], rootNode->bbMin[1], rootNode->bbMin[2], 0.0f,
+		rootNode->bbMax[0], rootNode->bbMax[1], rootNode->bbMax[2], 0.0f
 	};
 	mKdRootBB = kdRootBB;
 

@@ -20,13 +20,12 @@
  * @param kdNodeMeta
  * @param kdNodeFaces
  * @param kdNodeRopes
- * @param kdRoot
  * @param timeSinceStart
  */
 int findPath(
 	float4* origin, float4* dir, float4* normal, const global float4* scNormals,
 	const global uint* scFacesVN, const global float4* lights,
-	const int startNode, const int kdRoot, const global kdNonLeaf* kdNonLeaves,
+	const int startNode, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global float* kdNodeFaces,
 	const float timeSinceStart, const int bounce,
 	const float entryDistance, const float exitDistance
@@ -37,7 +36,7 @@ int findPath(
 	hit.nodeIndex = -1;
 
 	traverseKdTree(
-		origin, dir, startNode, kdRoot, kdNonLeaves, kdLeaves, kdNodeFaces,
+		origin, dir, startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
 		&hit, bounce, entryDistance, exitDistance
 	);
 
@@ -124,7 +123,6 @@ kernel void initRays(
  * @param {const global float*}  kdNodeBB
  * @param {const global int*}    kdNodeMeta
  * @param {const global int*}    kdNodeFaces
- * @param {const global int*}    kdNodeRopes
  * @param {const int}            kdRoot
  * @param {global float4*}       hits
  * @param {global float4*}       hitNormals
@@ -136,7 +134,7 @@ kernel void pathTracing(
 	const global float4* scNormals, const global uint* scFacesVN,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
 	const float8 kdRootBB,
-	const global float* kdNodeFaces, const int kdRoot,
+	const global float* kdNodeFaces,
 	global float4* hits, global float4* hitNormals
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
@@ -152,17 +150,17 @@ kernel void pathTracing(
 	float entryDistance = 0.0f;
 	float exitDistance = FLT_MAX;
 
-	if( !intersectBoundingBox( &origin, &dir, bbMinRoot, bbMaxRoot, &entryDistance, &exitDistance ) ) {
+	if( !intersectBoundingBox( origin, dir, bbMinRoot, bbMaxRoot, &entryDistance, &exitDistance ) ) {
 		hits[workIndex * BOUNCES] = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
 		return;
 	}
 
-	int startNode = goToLeafNode( kdRoot, kdNonLeaves, fma( entryDistance, dir, origin ) );
+	int startNode = goToLeafNode( 0, kdNonLeaves, fma( entryDistance, dir, origin ) );
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		startNode = findPath(
 			&origin, &dir, &normal, scNormals, scFacesVN, lights,
-			startNode, kdRoot, kdNonLeaves, kdLeaves, kdNodeFaces,
+			startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
 			timeSinceStart + bounce, bounce, entryDistance, exitDistance
 		);
 
@@ -193,7 +191,6 @@ kernel void pathTracing(
  * @param {const gloabl int*} kdNodeMeta
  * @param {const global float*} kdNodeFaces
  * @param {const global int*} kdNodeRopes
- * @param {const int} kdRoot
  * @param {global float4*} hits
  * @param {const global float4* hitNormals}
  */
@@ -201,7 +198,6 @@ kernel void shadowTest(
 	const uint2 offset, const float timeSinceStart, const global float4* lights,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
 	const float8 kdRootBB, const global float* kdNodeFaces,
-	const int kdRoot,
 	global float4* hits, const global float4* hitNormals
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
@@ -225,7 +221,7 @@ kernel void shadowTest(
 		origin = hits[index];
 		normal = hitNormals[index];
 
-		if( origin.w <= -1.0f ) {
+		if( origin.w < -1.0f ) {
 			break;
 		}
 
@@ -238,7 +234,7 @@ kernel void shadowTest(
 			float4 originForShadow = origin + normal * EPSILON;
 
 			isInShadow = shadowTestIntersection(
-				&originForShadow, &newLight, startNode, kdRoot, kdNonLeaves, kdLeaves, kdNodeFaces
+				&originForShadow, &newLight, startNode, kdNonLeaves, kdLeaves, kdNodeFaces
 			);
 
 			origin.w = !isInShadow;
