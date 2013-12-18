@@ -39,7 +39,7 @@
 		// -1 - round( log2( #vertices ) )
 		//  0 - no limit
 		"depth": -1,
-		"optimize_ropes": false
+		"optimize_ropes": true
 	},
 
 	"lights": {
@@ -61,7 +61,8 @@
 		// Build options to try:
 		// -cl-fast-relaxed-math
 		// -cl-mad-enable
-		"build_options": "-cl-strict-aliasing -cl-mad-enable",
+		// -cl-strict-aliasing
+		"build_options": "-cl-mad-enable",
 		// Check each executed OpenCL function for encountered errors.
 		// (Disabling doesn't show any performance improvements.)
 		"check_errors": true,
@@ -81,11 +82,11 @@
 		"backface_culling": false,
 		// Number of times a light ray bounces.
 		// More bounces = less FPS.
-		"bounces": 1,
+		"bounces": 2,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 33.0,
 		// Shadows (bad on performance).
-		"shadows": false
+		"shadows": true
 	},
 
 	"shader": {

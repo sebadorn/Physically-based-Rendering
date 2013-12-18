@@ -58,13 +58,10 @@ class KdTree {
 		void printLeafFacesStat();
 		void printNumFacesOfLeaves();
 		void setDepthLimit( vector<cl_float> vertices );
-		void splitFaces(
+		void splitVerticesAndFacesAtMedian(
 			cl_uint axis, cl_float axisSpli,
 			vector<cl_float> vertices, vector<cl_uint> faces,
-			vector<cl_uint>* leftFaces, vector<cl_uint>* rightFaces
-		);
-		void splitNodesAtMedian(
-			cl_uint axis, vector<cl_float4> nodes, kdNode_t* median,
+			vector<cl_uint>* leftFaces, vector<cl_uint>* rightFaces,
 			vector<cl_float4>* leftNodes, vector<cl_float4>* rightNodes
 		);
 		void visualizeNextNode( kdNode_t* node, vector<cl_float>* vertices, vector<cl_uint>* indices );

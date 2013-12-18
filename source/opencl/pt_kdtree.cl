@@ -12,7 +12,7 @@
  * @param {hit_t*}                result
  */
 void checkFaces(
-	const int nodeIndex, const int faceIndex, const float4* origin, const float4* dir,
+	const int nodeIndex, const int faceIndex, const float4 origin, const float4 dir,
 	const int numFaces, const global float* kdNodeFaces,
 	const float entryDistance, float* exitDistance, hit_t* result
 ) {
@@ -53,7 +53,7 @@ void checkFaces(
 		prefetch_c.z = kdNodeFaces[j + 8];
 
 		r = checkFaceIntersection(
-			*origin, *dir, a, b, c, entryDistance, *exitDistance
+			origin, dir, a, b, c, entryDistance, *exitDistance
 		);
 
 		if( r > -1.0f ) {
@@ -68,7 +68,7 @@ void checkFaces(
 	}
 
 	result->position = ( result->t > -1.0f )
-	                 ? fma( result->t, *dir, *origin )
+	                 ? fma( result->t, dir, origin )
 	                 : result->position;
 }
 
@@ -155,7 +155,7 @@ bool checkFacesForShadow(
 int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const float4 hitNear ) {
 	float4 split;
 	int4 children;
-	uint axis = (uint) kdNonLeaves[nodeIndex].split.w;
+	int axis = (int) kdNonLeaves[nodeIndex].split.w;
 	float hitPos[3] = { hitNear.x, hitNear.y, hitNear.z };
 
 	while( true ) {
@@ -211,7 +211,7 @@ void traverseKdTree(
 		ropes = currentNode.ropes;
 
 		checkFaces(
-			nodeIndex, ropes.s6, origin, dir, ropes.s7,
+			nodeIndex, ropes.s6, *origin, *dir, ropes.s7,
 			kdNodeFaces, entryDistance, &exitDistance, result
 		);
 
