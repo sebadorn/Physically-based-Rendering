@@ -18,6 +18,9 @@ using std::map;
 using std::vector;
 
 
+/**
+ * Node of the kd-tree, used for non-leaves and leaves alike.
+ */
 struct kdNode_t {
 	vector<cl_uint> faces;
 	vector<kdNode_t*> ropes;
@@ -28,6 +31,38 @@ struct kdNode_t {
 	cl_int index;
 	kdNode_t* left;
 	kdNode_t* right;
+};
+
+
+/**
+ * Comparison object for sorting algorithm.
+ */
+struct kdSortFloat4 {
+	cl_int axis;
+
+	kdSortFloat4( cl_int axis ) : axis( axis ) {};
+
+	bool operator () ( cl_float4 a, cl_float4 b ) const {
+		return ( ( (cl_float*) &a )[axis] < ( (cl_float*) &b )[axis] );
+	}
+};
+
+
+/**
+ * Comparison object for searching algorithm.
+ */
+struct kdSearchFloat4 {
+	cl_float4* v;
+
+	kdSearchFloat4( cl_float4* v ) : v( v ) {};
+
+	bool operator () ( cl_float4 cmp ) const {
+		return (
+			v->x == cmp.x &&
+			v->y == cmp.y &&
+			v->z == cmp.z
+		);
+	}
 };
 
 
@@ -56,7 +91,6 @@ class KdTree {
 		);
 		void optimizeRope( vector<kdNode_t*>* ropes, cl_float* bbMin, cl_float* bbMax );
 		void printLeafFacesStat();
-		void printNumFacesOfLeaves();
 		void setDepthLimit( vector<cl_float> vertices );
 		void splitVerticesAndFacesAtMedian(
 			cl_uint axis, cl_float axisSpli,
@@ -64,16 +98,15 @@ class KdTree {
 			vector<cl_uint>* leftFaces, vector<cl_uint>* rightFaces,
 			vector<cl_float4>* leftNodes, vector<cl_float4>* rightNodes
 		);
+		vector<cl_float4> verticesToFloat4( vector<cl_float> vertices );
 		void visualizeNextNode( kdNode_t* node, vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	private:
-		kdNode_t* mRoot;
+		vector<kdNode_t*> mLeaves;
 		vector<kdNode_t*> mNodes;
 		vector<kdNode_t*> mNonLeaves;
-		vector<kdNode_t*> mLeaves;
+		kdNode_t* mRoot;
 		cl_uint mDepthLimit;
-		cl_uint mIndexCounter;
-		cl_int mLeafIndex;
 
 };
 
