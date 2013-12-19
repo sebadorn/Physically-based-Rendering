@@ -84,6 +84,15 @@ class KdTree {
 		void createRopes( kdNode_t* node, vector<kdNode_t*> ropes );
 		kdNode_t* findMedian( vector<cl_float4>* nodes, cl_int axis );
 		vector<cl_float> getFaceBB( cl_float v0[3], cl_float v1[3], cl_float v2[3] );
+		bool hasSameCoordinates( cl_float* a, cl_float* b ) const;
+		bool isVertexOnLeft(
+			cl_float* v, cl_uint axis, cl_float* medianPos,
+			vector<cl_float4> vertsForNodes, vector<cl_float4>* leftNodes
+		) const;
+		bool isVertexOnRight(
+			cl_float* v, cl_uint axis, cl_float* medianPos,
+			vector<cl_float4> vertsForNodes, vector<cl_float4>* rightNodes
+		) const;
 		kdNode_t* makeTree(
 			vector<cl_float4> t, cl_int axis, cl_float* bbMin, cl_float* bbMax,
 			vector<cl_float> vertices, vector<cl_uint> faces,
@@ -93,7 +102,7 @@ class KdTree {
 		void printLeafFacesStat();
 		void setDepthLimit( vector<cl_float> vertices );
 		void splitVerticesAndFacesAtMedian(
-			cl_uint axis, cl_float axisSpli,
+			cl_uint axis, cl_float* medianPos, vector<cl_float4> vertsForNodes,
 			vector<cl_float> vertices, vector<cl_uint> faces,
 			vector<cl_uint>* leftFaces, vector<cl_uint>* rightFaces,
 			vector<cl_float4>* leftNodes, vector<cl_float4>* rightNodes

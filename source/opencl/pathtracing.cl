@@ -171,7 +171,7 @@ kernel void pathTracing(
 			break;
 		}
 
-		entryDistance = EPSILON;
+		entryDistance = 0.0f;
 		exitDistance = FLT_MAX;
 	}
 

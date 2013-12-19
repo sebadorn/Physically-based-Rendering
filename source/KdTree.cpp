@@ -187,6 +187,45 @@ kdNode_t* KdTree::getRootNode() {
 }
 
 
+bool KdTree::hasSameCoordinates( cl_float* a, cl_float* b ) const {
+	return (
+		a[0] == b[0] &&
+		a[1] == b[1] &&
+		a[2] == b[2]
+	);
+}
+
+
+bool KdTree::isVertexOnLeft(
+	cl_float* v, cl_uint axis, cl_float* medianPos,
+	vector<cl_float4> vertsForNodes, vector<cl_float4>* leftNodes
+) const {
+	cl_float4 clV = { v[0], v[1], v[2], 0.0f };
+
+	return (
+		!this->hasSameCoordinates( v, medianPos ) &&
+		v[axis] <= medianPos[axis] &&
+		std::find_if( vertsForNodes.begin(), vertsForNodes.end(), kdSearchFloat4( &clV ) ) != vertsForNodes.end() &&
+		std::find_if( leftNodes->begin(), leftNodes->end(), kdSearchFloat4( &clV ) ) == leftNodes->end()
+	);
+}
+
+
+bool KdTree::isVertexOnRight(
+	cl_float* v, cl_uint axis, cl_float* medianPos,
+	vector<cl_float4> vertsForNodes, vector<cl_float4>* rightNodes
+) const {
+	cl_float4 clV = { v[0], v[1], v[2], 0.0f };
+
+	return (
+		!this->hasSameCoordinates( v, medianPos ) &&
+		v[axis] >= medianPos[axis] &&
+		std::find_if( vertsForNodes.begin(), vertsForNodes.end(), kdSearchFloat4( &clV ) ) != vertsForNodes.end() &&
+		std::find_if( rightNodes->begin(), rightNodes->end(), kdSearchFloat4( &clV ) ) == rightNodes->end()
+	);
+}
+
+
 /**
  * Build a kd-tree.
  * @param  {std::vector<cl_float4>}               vertsForNodes Vertices to make kd-nodes from.
@@ -243,7 +282,7 @@ kdNode_t* KdTree::makeTree(
 	// Assign vertices and faces to each side
 	vector<cl_uint> leftFaces, rightFaces;
 	vector<cl_float4> leftNodes, rightNodes;
-	this->splitVerticesAndFacesAtMedian( axis, median->pos[axis], vertices, faces, &leftFaces, &rightFaces, &leftNodes, &rightNodes );
+	this->splitVerticesAndFacesAtMedian( axis, median->pos, vertsForNodes, vertices, faces, &leftFaces, &rightFaces, &leftNodes, &rightNodes );
 
 	// Don't want any nodes without faces
 	if( leftFaces.size() == 0 || rightFaces.size() == 0 ) {
@@ -359,11 +398,12 @@ void KdTree::setDepthLimit( vector<cl_float> vertices ) {
  * @param {std::vector<cl_float4>*} rightNodes Output. Vertices for the right child node.
  */
 void KdTree::splitVerticesAndFacesAtMedian(
-	cl_uint axis, cl_float axisSplit,
+	cl_uint axis, cl_float* medianPos, vector<cl_float4> vertsForNodes,
 	vector<cl_float> vertices, vector<cl_uint> faces,
 	vector<cl_uint>* leftFaces, vector<cl_uint>* rightFaces,
 	vector<cl_float4>* leftNodes, vector<cl_float4>* rightNodes
 ) {
+	cl_float axisSplit = medianPos[axis];
 	cl_uint a, b, c;
 	vector<cl_float> vBB;
 
@@ -395,13 +435,13 @@ void KdTree::splitVerticesAndFacesAtMedian(
 			leftFaces->push_back( b / 3 );
 			leftFaces->push_back( c / 3 );
 
-			if( v0[axis] <= axisSplit && std::find_if( leftNodes->begin(), leftNodes->end(), kdSearchFloat4( &clV0 ) ) == leftNodes->end() ) {
+			if( this->isVertexOnLeft( v0, axis, medianPos, vertsForNodes, leftNodes ) ) {
 				leftNodes->push_back( clV0 );
 			}
-			if( v1[axis] <= axisSplit && std::find_if( leftNodes->begin(), leftNodes->end(), kdSearchFloat4( &clV1 ) ) == leftNodes->end() ) {
+			if( this->isVertexOnLeft( v1, axis, medianPos, vertsForNodes, leftNodes ) ) {
 				leftNodes->push_back( clV1 );
 			}
-			if( v2[axis] <= axisSplit && std::find_if( leftNodes->begin(), leftNodes->end(), kdSearchFloat4( &clV2 ) ) == leftNodes->end() ) {
+			if( this->isVertexOnLeft( v2, axis, medianPos, vertsForNodes, leftNodes ) ) {
 				leftNodes->push_back( clV2 );
 			}
 		}
@@ -419,13 +459,13 @@ void KdTree::splitVerticesAndFacesAtMedian(
 			rightFaces->push_back( b / 3 );
 			rightFaces->push_back( c / 3 );
 
-			if( v0[axis] >= axisSplit && std::find_if( rightNodes->begin(), rightNodes->end(), kdSearchFloat4( &clV0 ) ) == rightNodes->end() ) {
+			if( this->isVertexOnRight( v0, axis, medianPos, vertsForNodes, rightNodes ) ) {
 				rightNodes->push_back( clV0 );
 			}
-			if( v1[axis] >= axisSplit && std::find_if( rightNodes->begin(), rightNodes->end(), kdSearchFloat4( &clV1 ) ) == rightNodes->end() ) {
+			if( this->isVertexOnRight( v1, axis, medianPos, vertsForNodes, rightNodes ) ) {
 				rightNodes->push_back( clV1 );
 			}
-			if( v2[axis] >= axisSplit && std::find_if( rightNodes->begin(), rightNodes->end(), kdSearchFloat4( &clV2 ) ) == rightNodes->end() ) {
+			if( this->isVertexOnRight( v2, axis, medianPos, vertsForNodes, rightNodes ) ) {
 				rightNodes->push_back( clV2 );
 			}
 		}

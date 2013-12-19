@@ -557,7 +557,7 @@ void GLWidget::paintScene() {
 			glGetUniformLocation( mGLProgramSimple, "mvp" ),
 			1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
 		);
-		GLfloat color[4] = { 0.6f, 0.85f, 1.0f, 0.8f };
+		GLfloat color[4] = { 0.6f, 0.85f, 1.0f, 0.5f };
 		glUniform4fv( glGetUniformLocation( mGLProgramSimple, "fragColor" ), 1, color );
 
 		GLfloat translate[3] = { 0.0f, 0.0f, 0.0f };
