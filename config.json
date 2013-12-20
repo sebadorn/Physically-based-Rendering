@@ -39,6 +39,9 @@
 		// -1 - round( log2( #vertices ) )
 		//  0 - no limit
 		"depth": -1,
+		// Minimum of faces per leaf node.
+		// However, 1 split is minimum and will occur regardless
+		"min_faces": 16,
 		"optimize_ropes": true
 	},
 

@@ -82,7 +82,9 @@ class KdTree {
 			vector<cl_float> vertices, vector<cl_uint> faces
 		);
 		void createRopes( kdNode_t* node, vector<kdNode_t*> ropes );
-		kdNode_t* findMedian( vector<cl_float4>* nodes, cl_int axis );
+		kdNode_t* findMedian(
+			vector<cl_float4> nodes, cl_int axis, vector<cl_float> splits
+		);
 		vector<cl_float> getFaceBB( cl_float v0[3], cl_float v1[3], cl_float v2[3] );
 		bool hasSameCoordinates( cl_float* a, cl_float* b ) const;
 		bool isVertexOnLeft(
@@ -116,6 +118,7 @@ class KdTree {
 		vector<kdNode_t*> mNonLeaves;
 		kdNode_t* mRoot;
 		cl_uint mDepthLimit;
+		cl_uint mMinFaces;
 
 };
 

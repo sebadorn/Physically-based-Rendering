@@ -14,7 +14,7 @@
 void checkFaces(
 	const int nodeIndex, const int faceIndex, const float4 origin, const float4 dir,
 	const int numFaces, const global float* kdNodeFaces,
-	const float entryDistance, float* exitDistance, hit_t* result
+	const float entryDistance, float* exitDistance, const float boxExitLimit, hit_t* result
 ) {
 	float4 a = (float4)( 0.0f );
 	float4 b = (float4)( 0.0f );
@@ -53,7 +53,8 @@ void checkFaces(
 		prefetch_c.z = kdNodeFaces[j + 8];
 
 		r = checkFaceIntersection(
-			origin, dir, a, b, c, entryDistance, *exitDistance
+			origin, dir, a, b, c,
+			entryDistance, fmin( *exitDistance, boxExitLimit )
 		);
 
 		if( r > -1.0f ) {
@@ -205,14 +206,21 @@ void traverseKdTree(
 	kdLeaf currentNode;
 	int8 ropes;
 	int exitRope;
+	float boxExitLimit;
 
 	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
 		currentNode = kdLeaves[nodeIndex];
 		ropes = currentNode.ropes;
 
+		// TODO: own function for boxExitLimit
+		updateEntryDistanceAndExitRope(
+			origin, dir, currentNode.bbMin, currentNode.bbMax,
+			&boxExitLimit, &exitRope
+		);
+
 		checkFaces(
 			nodeIndex, ropes.s6, *origin, *dir, ropes.s7,
-			kdNodeFaces, entryDistance, &exitDistance, result
+			kdNodeFaces, entryDistance, &exitDistance, boxExitLimit, result
 		);
 
 		// Exit leaf node
