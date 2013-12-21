@@ -4,6 +4,8 @@
 
 #FILE:pt_kdtree.cl:FILE#
 
+#FILE:pt_specrend.cl:FILE#
+
 
 
 /**
