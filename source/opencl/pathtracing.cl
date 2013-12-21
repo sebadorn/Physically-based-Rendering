@@ -157,7 +157,7 @@ kernel void pathTracing(
 		return;
 	}
 
-	int startNode = goToLeafNode( 0, kdNonLeaves, fma( entryDistance, dir, origin ) );
+	int startNode = goToLeafNode( 0, kdNonLeaves, fma( entryDistance + EPSILON, dir, origin ) );
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		startNode = findPath(
@@ -176,9 +176,6 @@ kernel void pathTracing(
 		entryDistance = 0.0f;
 		exitDistance = FLT_MAX;
 	}
-
-	// How to use a barrier:
-	// barrier( CLK_LOCAL_MEM_FENCE );
 }
 
 
@@ -302,6 +299,8 @@ kernel void setColors(
 		normal.w = 0.0f;
 
 		surfaceColor = diffuseColors[material];
+		// surfaceColor = wavelengthToRGB( 600.0f );
+
 		prefetch_hit = hits[workIndex + bounce + 1];
 
 		// The farther away a shadow is, the more diffuse it becomes (penumbrae)

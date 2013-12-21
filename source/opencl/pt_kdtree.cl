@@ -232,11 +232,7 @@ void traverseKdTree(
 		nodeIndex = ( (int*) &ropes )[exitRope];
 		nodeIndex = ( nodeIndex < 1 )
 		          ? -nodeIndex - 1
-		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance, *dir, *origin ) );
-	}
-
-	if( result->t > -1.0f ) {
-		result->nodeIndex = goToLeafNode( 0, kdNonLeaves, result->position );
+		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance + EPSILON, *dir, *origin ) );
 	}
 }
 
@@ -285,7 +281,7 @@ bool shadowTestIntersection(
 		nodeIndex = ( (int*) &ropes )[exitRope];
 		nodeIndex = ( nodeIndex < 1 )
 		          ? -nodeIndex - 1
-		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance, *dir, *origin ) );
+		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance + EPSILON, *dir, *origin ) );
 	}
 
 	return false;
