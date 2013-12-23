@@ -263,10 +263,6 @@ kdNode_t* KdTree::makeTree(
 	if( ( mDepthLimit > 0 && depth > mDepthLimit ) || vertsForNodes.size() == 0 ) {
 		return this->createLeafNode( bbMin, bbMax, vertices, faces );
 	}
-	if( depth > 1 && mMinFaces > faces.size() / 3 ) {
-		// Logger::logDebug( "[KdTree] Less faces than set as minimum. Making this node a leaf." );
-		return this->createLeafNode( bbMin, bbMax, vertices, faces );
-	}
 
 
 	// Build node from found median
@@ -296,6 +292,23 @@ kdNode_t* KdTree::makeTree(
 	cl_float bbMaxRight[3] = { bbMax[0], bbMax[1], bbMax[2] };
 	bbMinRight[axis] = median->pos[axis];
 
+
+	if(
+		depth > 1 &&
+		(
+			bbMaxLeft[0] - bbMinLeft[0] < 0.00001f ||
+			bbMaxLeft[1] - bbMinLeft[1] < 0.00001f ||
+			bbMaxLeft[2] - bbMinLeft[2] < 0.00001f ||
+			bbMaxRight[0] - bbMinRight[0] < 0.00001f ||
+			bbMaxRight[1] - bbMinRight[1] < 0.00001f ||
+			bbMaxRight[2] - bbMinRight[2] < 0.00001f
+		)
+	) {
+		Logger::logDebug( "[KdTree] Bounding box of child node would be too small. Making this node a leaf." );
+		return this->createLeafNode( bbMin, bbMax, vertices, faces );
+	}
+
+
 	// Assign vertices and faces to each side
 	vector<cl_uint> leftFaces, rightFaces;
 	vector<cl_float4> leftNodes, rightNodes;
@@ -321,6 +334,13 @@ kdNode_t* KdTree::makeTree(
 			Logger::logDebug( "[KdTree] Left and right child node would contain same faces. Making this node a leaf." );
 			return this->createLeafNode( bbMin, bbMax, vertices, faces );
 		}
+	}
+
+
+	// Keep limit for minimum faces per node
+	if( depth > 1 && mMinFaces > glm::min( leftFaces.size(), rightFaces.size() ) / 3 ) {
+		Logger::logDebug( "[KdTree] Left and/or right child node would have less faces than set as minimum. Making this node a leaf." );
+		return this->createLeafNode( bbMin, bbMax, vertices, faces );
 	}
 
 

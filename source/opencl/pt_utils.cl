@@ -90,6 +90,25 @@ bool intersectBoundingBox(
 
 
 /**
+ * Basically a shortened version of udpateEntryDistanceAndExitRope().
+ * @param {const float4*} origin
+ * @param {const float4*} dir
+ * @param {const float*}  bbMin
+ * @param {const float*}  bbMax
+ * @param {float*}        tFar
+ */
+void updateBoxExitLimit(
+	const float4* origin, const float4* dir, const float4 bbMin, const float4 bbMax, float* tFar
+) {
+	float4 t1 = native_divide( bbMin - (*origin), *dir );
+	float4 tMax = native_divide( bbMax - (*origin), *dir );
+	tMax = fmax( t1, tMax );
+
+	*tFar = fmin( fmin( tMax.x, tMax.y ), tMax.z );
+}
+
+
+/**
  * Source: http://graphics.cg.uni-saarland.de/fileadmin/cguds/courses/ws0910/cg/rc/web_sites/Ziesche/
  * Which is based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
  * @param {const float4*} origin

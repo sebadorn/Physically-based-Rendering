@@ -157,7 +157,7 @@ kernel void pathTracing(
 		return;
 	}
 
-	int startNode = goToLeafNode( 0, kdNonLeaves, fma( entryDistance + EPSILON, dir, origin ) );
+	int startNode = goToLeafNode( 0, kdNonLeaves, fma( entryDistance, dir, origin ) );
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		startNode = findPath(

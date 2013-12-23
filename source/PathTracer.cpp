@@ -377,18 +377,19 @@ void PathTracer::kdNodesToVectors(
 
 			// Set highest bit as flag for being a leaf node.
 			// The -1 isn't going to be a problem, because the entryDistance < exitDistance condition
-			// in the kernel will stop the loop, because the wrong index can cause any harm.
-			ropes.s0 = ( ropes.s0 != 0 && nodeRopes[0]->axis < 0 ) ? -ropes.s0 : ropes.s0;
-			ropes.s1 = ( ropes.s1 != 0 && nodeRopes[1]->axis < 0 ) ? -ropes.s1 : ropes.s1;
-			ropes.s2 = ( ropes.s2 != 0 && nodeRopes[2]->axis < 0 ) ? -ropes.s2 : ropes.s2;
-			ropes.s3 = ( ropes.s3 != 0 && nodeRopes[3]->axis < 0 ) ? -ropes.s3 : ropes.s3;
-			ropes.s4 = ( ropes.s4 != 0 && nodeRopes[4]->axis < 0 ) ? -ropes.s4 : ropes.s4;
-			ropes.s5 = ( ropes.s5 != 0 && nodeRopes[5]->axis < 0 ) ? -ropes.s5 : ropes.s5;
+			// in the kernel will stop the loop.
+			ropes.s0 *= ( ropes.s0 != 0 && nodeRopes[0]->axis < 0 ) ? -1 : 1;
+			ropes.s1 *= ( ropes.s1 != 0 && nodeRopes[1]->axis < 0 ) ? -1 : 1;
+			ropes.s2 *= ( ropes.s2 != 0 && nodeRopes[2]->axis < 0 ) ? -1 : 1;
+			ropes.s3 *= ( ropes.s3 != 0 && nodeRopes[3]->axis < 0 ) ? -1 : 1;
+			ropes.s4 *= ( ropes.s4 != 0 && nodeRopes[4]->axis < 0 ) ? -1 : 1;
+			ropes.s5 *= ( ropes.s5 != 0 && nodeRopes[5]->axis < 0 ) ? -1 : 1;
 
 			// Index of faces of this node in kdFaces
 			ropes.s6 = ( kdNodes[i].faces.size() > 0 ) ? kdFaces->size() : -1;
 
 			// Number of faces in this node
+			// "* 10" for the step with in a loop, because of each single coordinate
 			ropes.s7 = kdNodes[i].faces.size() / 3 * 10;
 
 			node.ropes = ropes;

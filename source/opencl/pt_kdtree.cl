@@ -157,7 +157,7 @@ int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const floa
 	float4 split;
 	int4 children;
 	int axis = (int) kdNonLeaves[nodeIndex].split.w;
-	float hitPos[3] = { hitNear.x, hitNear.y, hitNear.z };
+	const float hitPos[3] = { hitNear.x, hitNear.y, hitNear.z };
 
 	while( true ) {
 		split = kdNonLeaves[nodeIndex].split;
@@ -212,11 +212,7 @@ void traverseKdTree(
 		currentNode = kdLeaves[nodeIndex];
 		ropes = currentNode.ropes;
 
-		// TODO: own function for boxExitLimit
-		updateEntryDistanceAndExitRope(
-			origin, dir, currentNode.bbMin, currentNode.bbMax,
-			&boxExitLimit, &exitRope
-		);
+		updateBoxExitLimit( origin, dir, currentNode.bbMin, currentNode.bbMax, &boxExitLimit );
 
 		checkFaces(
 			nodeIndex, ropes.s6, *origin, *dir, ropes.s7,
@@ -230,9 +226,14 @@ void traverseKdTree(
 		);
 
 		nodeIndex = ( (int*) &ropes )[exitRope];
+
+		if( entryDistance >= exitDistance || nodeIndex == 0 ) {
+			break;
+		}
+
 		nodeIndex = ( nodeIndex < 1 )
 		          ? -nodeIndex - 1
-		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance + EPSILON, *dir, *origin ) );
+		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance, *dir, *origin ) );
 	}
 }
 
