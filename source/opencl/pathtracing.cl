@@ -38,7 +38,7 @@ int findPath(
 	hit.nodeIndex = -1;
 
 	traverseKdTree(
-		origin, dir, startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
+		*origin, *dir, startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
 		&hit, bounce, entryDistance, exitDistance
 	);
 
@@ -114,32 +114,32 @@ kernel void initRays(
 /**
  * KERNEL.
  * Search the kd-tree to find the closest intersection of the ray with a surface.
- * @param {const uint2}          offset
- * @param {const float}          timeSinceStart
- * @param {const global float4*} lights
- * @param {global float4*}       origins
- * @param {global float4*}       dirs
- * @param {const global float4*} scNormals
- * @param {const global uint*}   scFacesVN
- * @param {const global float*}  kdNodeSplits
- * @param {const global float*}  kdNodeBB
- * @param {const global int*}    kdNodeMeta
- * @param {const global int*}    kdNodeFaces
- * @param {const int}            kdRoot
- * @param {global float4*}       hits
- * @param {global float4*}       hitNormals
+ * @param {const uint2}              offset
+ * @param {const float}              timeSinceStart
+ * @param {const global float4*}     lights
+ * @param {global float4*}           origins
+ * @param {global float4*}           dirs
+ * @param {const global float4*}     scNormals
+ * @param {const global uint*}       scFacesVN
+ * @param {const global kdNonLeaf*}  kdNonLeaves
+ * @param {const global kdLeaf*}     kdLeaves
+ * @param {const global float*}      kdNodeBB
+ * @param {const global int*}        kdNodeFaces
+ * @param {global float4*}           hits
+ * @param {global float4*}           hitNormals
  */
 kernel void pathTracing(
-	const uint2 offset, const float timeSinceStart,
-	const global float4* lights,
+	const uint2 offset, const float timeSinceStart, const global float4* lights,
 	const global float4* origins, const global float4* dirs,
 	const global float4* scNormals, const global uint* scFacesVN,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
-	const float8 kdRootBB,
-	const global float* kdNodeFaces,
+	const float8 kdRootBB, const global float* kdNodeFaces,
 	global float4* hits, global float4* hitNormals
 ) {
-	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
+	const int2 pos = {
+		offset.x + get_global_id( 0 ),
+		offset.y + get_global_id( 1 )
+	};
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
 	const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, 0.0f };
@@ -149,7 +149,7 @@ kernel void pathTracing(
 	float4 dir = dirs[workIndex];
 	float4 normal = (float4)( 0.0f );
 
-	float entryDistance = 0.0f;
+	float entryDistance;
 	float exitDistance = FLT_MAX;
 
 	if( !intersectBoundingBox( origin, dir, bbMinRoot, bbMaxRoot, &entryDistance, &exitDistance ) ) {
@@ -173,7 +173,7 @@ kernel void pathTracing(
 			break;
 		}
 
-		entryDistance = 0.0f;
+		entryDistance = -EPSILON;
 		exitDistance = FLT_MAX;
 	}
 }

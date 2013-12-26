@@ -42,8 +42,11 @@ KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMi
 	boost::posix_time::ptime timerEnd = boost::posix_time::microsec_clock::local_time();
 	float timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 
-	char msg[128];
-	snprintf( msg, 128, "[KdTree] Generated kd-tree in %g ms. %lu nodes.", timeDiff, mNodes.size() );
+	char msg[256];
+	snprintf(
+		msg, 256, "[KdTree] Generated kd-tree in %g ms. %lu nodes (%lu leaves).",
+		timeDiff, mNodes.size(), mLeaves.size()
+	);
 	Logger::logInfo( msg );
 }
 
@@ -219,10 +222,9 @@ bool KdTree::isVertexOnLeft(
 	cl_float4 clV = { v[0], v[1], v[2], 0.0f };
 
 	return (
-		!this->hasSameCoordinates( v, medianPos ) &&
 		v[axis] <= medianPos[axis] &&
-		std::find_if( vertsForNodes.begin(), vertsForNodes.end(), kdSearchFloat4( &clV ) ) != vertsForNodes.end() &&
-		std::find_if( leftNodes->begin(), leftNodes->end(), kdSearchFloat4( &clV ) ) == leftNodes->end()
+		std::find_if( vertsForNodes.begin(), vertsForNodes.end(), kdSearchFloat4( clV ) ) != vertsForNodes.end() &&
+		std::find_if( leftNodes->begin(), leftNodes->end(), kdSearchFloat4( clV ) ) == leftNodes->end()
 	);
 }
 
@@ -234,10 +236,9 @@ bool KdTree::isVertexOnRight(
 	cl_float4 clV = { v[0], v[1], v[2], 0.0f };
 
 	return (
-		!this->hasSameCoordinates( v, medianPos ) &&
 		v[axis] >= medianPos[axis] &&
-		std::find_if( vertsForNodes.begin(), vertsForNodes.end(), kdSearchFloat4( &clV ) ) != vertsForNodes.end() &&
-		std::find_if( rightNodes->begin(), rightNodes->end(), kdSearchFloat4( &clV ) ) == rightNodes->end()
+		std::find_if( vertsForNodes.begin(), vertsForNodes.end(), kdSearchFloat4( clV ) ) != vertsForNodes.end() &&
+		std::find_if( rightNodes->begin(), rightNodes->end(), kdSearchFloat4( clV ) ) == rightNodes->end()
 	);
 }
 
@@ -370,6 +371,7 @@ void KdTree::optimizeRope( vector<kdNode_t*>* ropes, cl_float* bbMin, cl_float* 
 		return;
 	}
 
+	kdNode_t* sideNode;
 	cl_uint axis;
 
 	for( int side = 0; side < 6; side++ ) {
@@ -378,19 +380,20 @@ void KdTree::optimizeRope( vector<kdNode_t*>* ropes, cl_float* bbMin, cl_float* 
 		}
 
 		while( (*ropes)[side]->axis >= 0 ) {
-			axis = (*ropes)[side]->axis;
+			sideNode = (*ropes)[side];
+			axis = sideNode->axis;
 
 			if( side % 2 == 0 ) { // left, bottom, back
-				if( axis == ( side >> 1 ) || (*ropes)[side]->pos[axis] <= bbMin[axis] ) {
-					(*ropes)[side] = (*ropes)[side]->right;
+				if( axis == side / 2 || sideNode->pos[axis] <= bbMin[axis] ) {
+					(*ropes)[side] = sideNode->right;
 				}
 				else {
 					break;
 				}
 			}
 			else { // right, top, front
-				if( axis == ( side >> 1 ) || (*ropes)[side]->pos[axis] >= bbMax[axis] ) {
-					(*ropes)[side] = (*ropes)[side]->left;
+				if( axis == ( side - 1 ) / 2 || sideNode->pos[axis] >= bbMax[axis] ) {
+					(*ropes)[side] = sideNode->left;
 				}
 				else {
 					break;

@@ -52,15 +52,15 @@ struct kdSortFloat4 {
  * Comparison object for searching algorithm.
  */
 struct kdSearchFloat4 {
-	cl_float4* v;
+	cl_float4 v;
 
-	kdSearchFloat4( cl_float4* v ) : v( v ) {};
+	kdSearchFloat4( cl_float4 v ) : v( v ) {};
 
 	bool operator () ( cl_float4 cmp ) const {
 		return (
-			v->x == cmp.x &&
-			v->y == cmp.y &&
-			v->z == cmp.z
+			v.x == cmp.x &&
+			v.y == cmp.y &&
+			v.z == cmp.z
 		);
 	}
 };

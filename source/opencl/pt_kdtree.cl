@@ -36,8 +36,8 @@ void checkFaces(
 	prefetch_c.y = kdNodeFaces[j + 7];
 	prefetch_c.z = kdNodeFaces[j + 8];
 
-	for( uint i = 0; i < numFaces; i += 10 ) {
-		j = faceIndex + i + 10;
+	for( uint i = 0; i < numFaces; i++ ) {
+		j = faceIndex + i * 10 + 10;
 		a = prefetch_a;
 		b = prefetch_b;
 		c = prefetch_c;
@@ -113,8 +113,8 @@ bool checkFacesForShadow(
 	prefetch_c.y = kdNodeFaces[j + 7];
 	prefetch_c.z = kdNodeFaces[j + 8];
 
-	for( uint i = 0; i < numFaces; i += 10 ) {
-		j = faceIndex + i + 10;
+	for( uint i = 0; i < numFaces; i++ ) {
+		j = faceIndex + i * 10 + 10;
 		a = prefetch_a;
 		b = prefetch_b;
 		c = prefetch_c;
@@ -148,20 +148,18 @@ bool checkFacesForShadow(
 
 /**
  * Traverse down the kd-tree to find a leaf node the given ray intersects.
- * @param {int*}                  nodeIndex
- * @param {const global float*}   kdNodeSplits
- * @param {const global int*}     kdNodeMeta
- * @param {const float4*}         hitNear
+ * @param  {int}                     nodeIndex
+ * @param  {const global kdNonLeaf*} kdNonLeaves
+ * @param  {const float4}            hitNear
+ * @return {int}
  */
 int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const float4 hitNear ) {
-	float4 split;
-	int4 children;
-	int axis = (int) kdNonLeaves[nodeIndex].split.w;
+	float4 split = kdNonLeaves[nodeIndex].split;
+	int4 children = kdNonLeaves[nodeIndex].children;
+	int axis = split.w;
 	const float hitPos[3] = { hitNear.x, hitNear.y, hitNear.z };
 
 	while( true ) {
-		split = kdNonLeaves[nodeIndex].split;
-		children = kdNonLeaves[nodeIndex].children;
 		float splitPos[3] = { split.x, split.y, split.z };
 		nodeIndex = ( hitPos[axis] < splitPos[axis] ) ? children.x : children.y;
 
@@ -169,13 +167,15 @@ int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const floa
 			( nodeIndex == children.x && children.z == 1 ) ||
 			( nodeIndex == children.y && children.w == 1 )
 		) {
-			break;
+			return nodeIndex;
 		}
 
 		axis = MOD_3[axis + 1];
+		children = kdNonLeaves[nodeIndex].children;
+		split = kdNonLeaves[nodeIndex].split;
 	}
 
-	return nodeIndex;
+	return -1;
 }
 
 
@@ -198,25 +198,24 @@ int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const floa
  * @param {const float}         exitDistance
  */
 void traverseKdTree(
-	const float4* origin, const float4* dir, int nodeIndex,
+	const float4 origin, const float4 dir, int nodeIndex,
 	const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global float* kdNodeFaces,
 	hit_t* result, const int bounce, float entryDistance, float exitDistance
 ) {
 	kdLeaf currentNode;
 	int8 ropes;
-	int exitRope;
-	float boxExitLimit;
+	int exitRope = 0;
+	float boxExitLimit = 0.0f;
 
 	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
 		currentNode = kdLeaves[nodeIndex];
 		ropes = currentNode.ropes;
-
-		updateBoxExitLimit( origin, dir, currentNode.bbMin, currentNode.bbMax, &boxExitLimit );
+		boxExitLimit = getBoxExitLimit( origin, dir, currentNode.bbMin, currentNode.bbMax );
 
 		checkFaces(
-			nodeIndex, ropes.s6, *origin, *dir, ropes.s7,
-			kdNodeFaces, entryDistance, &exitDistance, boxExitLimit, result
+			nodeIndex, ropes.s6, origin, dir, ropes.s7, kdNodeFaces,
+			entryDistance, &exitDistance, boxExitLimit, result
 		);
 
 		// Exit leaf node
@@ -226,14 +225,9 @@ void traverseKdTree(
 		);
 
 		nodeIndex = ( (int*) &ropes )[exitRope];
-
-		if( entryDistance >= exitDistance || nodeIndex == 0 ) {
-			break;
-		}
-
 		nodeIndex = ( nodeIndex < 1 )
 		          ? -nodeIndex - 1
-		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance, *dir, *origin ) );
+		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance, dir, origin ) );
 	}
 }
 
@@ -267,15 +261,15 @@ bool shadowTestIntersection(
 		ropes = currentNode.ropes;
 
 		if( checkFacesForShadow(
-			nodeIndex, ropes.s6, origin, dir, ropes.s7,
-			kdNodeFaces, entryDistance, &exitDistance
+			nodeIndex, ropes.s6, origin, dir, ropes.s7, kdNodeFaces,
+			entryDistance, &exitDistance
 		) ) {
 			return true;
 		}
 
 		// Exit leaf node
 		updateEntryDistanceAndExitRope(
-			origin, dir, currentNode.bbMin, currentNode.bbMax,
+			*origin, *dir, currentNode.bbMin, currentNode.bbMax,
 			&entryDistance, &exitRope
 		);
 

@@ -91,20 +91,20 @@ bool intersectBoundingBox(
 
 /**
  * Basically a shortened version of udpateEntryDistanceAndExitRope().
- * @param {const float4*} origin
- * @param {const float4*} dir
- * @param {const float*}  bbMin
- * @param {const float*}  bbMax
- * @param {float*}        tFar
+ * @param  {const float4*} origin
+ * @param  {const float4*} dir
+ * @param  {const float*}  bbMin
+ * @param  {const float*}  bbMax
+ * @return {float}
  */
-void updateBoxExitLimit(
-	const float4* origin, const float4* dir, const float4 bbMin, const float4 bbMax, float* tFar
+float getBoxExitLimit(
+	const float4 origin, const float4 dir, const float4 bbMin, const float4 bbMax
 ) {
-	float4 t1 = native_divide( bbMin - (*origin), *dir );
-	float4 tMax = native_divide( bbMax - (*origin), *dir );
+	float4 t1 = native_divide( bbMin - origin, dir );
+	float4 tMax = native_divide( bbMax - origin, dir );
 	tMax = fmax( t1, tMax );
 
-	*tFar = fmin( fmin( tMax.x, tMax.y ), tMax.z );
+	return fmin( fmin( tMax.x, tMax.y ), tMax.z );
 }
 
 
@@ -119,16 +119,16 @@ void updateBoxExitLimit(
  * @param {int*}          exitRope
  */
 void updateEntryDistanceAndExitRope(
-	const float4* origin, const float4* dir, const float4 bbMin, const float4 bbMax,
+	const float4 origin, const float4 dir, const float4 bbMin, const float4 bbMax,
 	float* tFar, int* exitRope
 ) {
-	const float4 invDir = native_recip( *dir ); // WARNING: native_
+	const float4 invDir = native_recip( dir ); // WARNING: native_
 	const bool signX = signbit( invDir.x );
 	const bool signY = signbit( invDir.y );
 	const bool signZ = signbit( invDir.z );
 
-	float4 t1 = native_divide( bbMin - (*origin), *dir );
-	float4 tMax = native_divide( bbMax - (*origin), *dir );
+	float4 t1 = native_divide( bbMin - origin, dir );
+	float4 tMax = native_divide( bbMax - origin, dir );
 	tMax = fmax( t1, tMax );
 
 	*tFar = fmin( fmin( tMax.x, tMax.y ), tMax.z );

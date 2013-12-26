@@ -389,8 +389,7 @@ void PathTracer::kdNodesToVectors(
 			ropes.s6 = ( kdNodes[i].faces.size() > 0 ) ? kdFaces->size() : -1;
 
 			// Number of faces in this node
-			// "* 10" for the step with in a loop, because of each single coordinate
-			ropes.s7 = kdNodes[i].faces.size() / 3 * 10;
+			ropes.s7 = kdNodes[i].faces.size() / 3;
 
 			node.ropes = ropes;
 
@@ -405,43 +404,56 @@ void PathTracer::kdNodesToVectors(
 			if( kdNodes[i].faces.size() == 0 ) {
 				Logger::logWarning( "[PathTracer] Converting kd-node data: Leaf node without any faces." );
 			}
-		}
 
-		// Faces
-		for( cl_uint j = 0; j < kdNodes[i].faces.size(); j += 3 ) {
-			a = kdNodes[i].faces[j] * 3;
-			kdFaces->push_back( vertices[a] );
-			kdFaces->push_back( vertices[a + 1] );
-			kdFaces->push_back( vertices[a + 2] );
+			// Faces
+			for( cl_uint j = 0; j < kdNodes[i].faces.size(); j += 3 ) {
+				a = kdNodes[i].faces[j] * 3;
+				kdFaces->push_back( vertices[a] );
+				kdFaces->push_back( vertices[a + 1] );
+				kdFaces->push_back( vertices[a + 2] );
 
-			b = kdNodes[i].faces[j + 1] * 3;
-			kdFaces->push_back( vertices[b] );
-			kdFaces->push_back( vertices[b + 1] );
-			kdFaces->push_back( vertices[b + 2] );
+				b = kdNodes[i].faces[j + 1] * 3;
+				kdFaces->push_back( vertices[b] );
+				kdFaces->push_back( vertices[b + 1] );
+				kdFaces->push_back( vertices[b + 2] );
 
-			c = kdNodes[i].faces[j + 2] * 3;
-			kdFaces->push_back( vertices[c] );
-			kdFaces->push_back( vertices[c + 1] );
-			kdFaces->push_back( vertices[c + 2] );
+				c = kdNodes[i].faces[j + 2] * 3;
+				kdFaces->push_back( vertices[c] );
+				kdFaces->push_back( vertices[c + 1] );
+				kdFaces->push_back( vertices[c + 2] );
 
-			// Find index of face in original (complete) face list.
-			// This index will be needed to assign the right material to the face.
-			pos = -1;
+				// Find index of face in original (complete) face list.
+				// This index will be needed to assign the right material to the face.
+				pos = -1;
 
-			for( cl_uint k = 0; k < faces.size(); k += 3 ) {
-				if( faces[k] == a / 3 && faces[k + 1] == b / 3 && faces[k + 2] == c / 3 ) {
-					pos = k / 3;
-					break;
+				for( cl_uint k = 0; k < faces.size(); k += 3 ) {
+					if( faces[k] == a / 3 && faces[k + 1] == b / 3 && faces[k + 2] == c / 3 ) {
+						pos = k / 3;
+						break;
+					}
 				}
-			}
 
-			if( pos == -1 ) {
-				Logger::logError( "[PathTracer] Converting kd-node data: No index for face found." );
-			}
+				if( pos < 0 ) {
+					Logger::logError( "[PathTracer] Converting kd-node data: No index for face found." );
+				}
 
-			kdFaces->push_back( (cl_float) pos );
+				kdFaces->push_back( (cl_float) pos );
+			}
 		}
 	}
+
+	// for( int i = 0; i < kdLeaves->size(); i++ ) {
+	// 	kdLeaf_cl l = (*kdLeaves)[i];
+	// 	printf(
+	// 		"leaf | %d | ropes( %d %d %d %d %d %d ) | faces index %d | #faces %d\n",
+	// 		i, l.ropes.s0, l.ropes.s1, l.ropes.s2, l.ropes.s3, l.ropes.s4, l.ropes.s5,
+	// 		l.ropes.s6, l.ropes.s7
+	// 	);
+	// }
+	// for( int i = 0; i < kdNonLeaves->size(); i++ ) {
+	// 	kdNonLeaf_cl nl = (*kdNonLeaves)[i];
+	// 	printf( "non-leaf | %d | children( %d %d ) | isLeaf( %d %d )\n", i, nl.children.x, nl.children.y, nl.children.z, nl.children.w );
+	// }
 }
 
 
