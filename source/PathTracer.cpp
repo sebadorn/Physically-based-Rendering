@@ -342,15 +342,16 @@ void PathTracer::kdNodesToVectors(
 				kdNodes[i].pos[0],
 				kdNodes[i].pos[1],
 				kdNodes[i].pos[2],
-				(cl_float) kdNodes[i].axis
+				0.0f
 			};
 			node.split = split;
+			node.axis = kdNodes[i].axis;
 
 			cl_int4 children = {
 				kdNodes[i].left->index,
 				kdNodes[i].right->index,
-				( kdNodes[i].left->axis < 0 ), // is left node a leaf
-				( kdNodes[i].right->axis < 0 ) // is right node a leaf
+				( kdNodes[i].left->axis < 0 ) ? 1 : 0, // is left node a leaf
+				( kdNodes[i].right->axis < 0 ) ? 1 : 0 // is right node a leaf
 			};
 			node.children = children;
 
@@ -386,7 +387,7 @@ void PathTracer::kdNodesToVectors(
 			ropes.s5 *= ( ropes.s5 != 0 && nodeRopes[5]->axis < 0 ) ? -1 : 1;
 
 			// Index of faces of this node in kdFaces
-			ropes.s6 = ( kdNodes[i].faces.size() > 0 ) ? kdFaces->size() : -1;
+			ropes.s6 = kdFaces->size();
 
 			// Number of faces in this node
 			ropes.s7 = kdNodes[i].faces.size() / 3;
@@ -394,8 +395,18 @@ void PathTracer::kdNodesToVectors(
 			node.ropes = ropes;
 
 			// Bounding box
-			cl_float4 bbMin = { kdNodes[i].bbMin[0], kdNodes[i].bbMin[1], kdNodes[i].bbMin[2], 0.0f };
-			cl_float4 bbMax = { kdNodes[i].bbMax[0], kdNodes[i].bbMax[1], kdNodes[i].bbMax[2], 0.0f };
+			cl_float4 bbMin = {
+				kdNodes[i].bbMin[0],
+				kdNodes[i].bbMin[1],
+				kdNodes[i].bbMin[2],
+				0.0f
+			};
+			cl_float4 bbMax = {
+				kdNodes[i].bbMax[0],
+				kdNodes[i].bbMax[1],
+				kdNodes[i].bbMax[2],
+				0.0f
+			};
 			node.bbMin = bbMin;
 			node.bbMax = bbMax;
 

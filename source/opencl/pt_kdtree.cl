@@ -36,8 +36,8 @@ void checkFaces(
 	prefetch_c.y = kdNodeFaces[j + 7];
 	prefetch_c.z = kdNodeFaces[j + 8];
 
-	for( uint i = 0; i < numFaces; i++ ) {
-		j = faceIndex + i * 10 + 10;
+	for( uint i = 1; i <= numFaces; i++ ) {
+		j = faceIndex + i * 10;
 		a = prefetch_a;
 		b = prefetch_b;
 		c = prefetch_c;
@@ -154,25 +154,30 @@ bool checkFacesForShadow(
  * @return {int}
  */
 int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const float4 hitNear ) {
-	float4 split = kdNonLeaves[nodeIndex].split;
-	int4 children = kdNonLeaves[nodeIndex].children;
-	int axis = split.w;
-	const float hitPos[3] = { hitNear.x, hitNear.y, hitNear.z };
+	float4 split;
+	int4 children;
+
+	int axis = kdNonLeaves[nodeIndex].axis;
+	float hitPos[3] = { hitNear.x, hitNear.y, hitNear.z };
+	float splitPos[3];
+	bool isOnLeft;
 
 	while( true ) {
-		float splitPos[3] = { split.x, split.y, split.z };
-		nodeIndex = ( hitPos[axis] < splitPos[axis] ) ? children.x : children.y;
+		children = kdNonLeaves[nodeIndex].children;
+		split = kdNonLeaves[nodeIndex].split;
 
-		if(
-			( nodeIndex == children.x && children.z == 1 ) ||
-			( nodeIndex == children.y && children.w == 1 )
-		) {
+		splitPos[0] = split.x;
+		splitPos[1] = split.y;
+		splitPos[2] = split.z;
+
+		isOnLeft = ( hitPos[axis] < splitPos[axis] );
+		nodeIndex = isOnLeft ? children.x : children.y;
+
+		if( ( isOnLeft && children.z ) || ( !isOnLeft && children.w ) ) {
 			return nodeIndex;
 		}
 
 		axis = MOD_3[axis + 1];
-		children = kdNonLeaves[nodeIndex].children;
-		split = kdNonLeaves[nodeIndex].split;
 	}
 
 	return -1;
@@ -206,7 +211,7 @@ void traverseKdTree(
 	kdLeaf currentNode;
 	int8 ropes;
 	int exitRope = 0;
-	float boxExitLimit = 0.0f;
+	float boxExitLimit = FLT_MAX;
 
 	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
 		currentNode = kdLeaves[nodeIndex];

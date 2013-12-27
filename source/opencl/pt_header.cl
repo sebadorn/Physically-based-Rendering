@@ -23,9 +23,10 @@ typedef struct {
 } hit_t __attribute__( ( aligned( 32 ) ) );
 
 typedef struct {
-	float4 split;  // [x, y, z, (cast) axis]
+	float4 split;  // [x, y, z, w]
 	int4 children; // [left, right, isLeftLeaf, isRightLeaf]
-} kdNonLeaf __attribute__( ( aligned( 32 ) ) );
+	int axis;
+} kdNonLeaf;
 
 typedef struct {
 	int8 ropes; // [left, right, back, front, bottom, top, facesIndex, numFaces]

@@ -27,37 +27,37 @@
 int findPath(
 	float4* origin, float4* dir, float4* normal, const global float4* scNormals,
 	const global uint* scFacesVN, const global float4* lights,
-	const int startNode, const global kdNonLeaf* kdNonLeaves,
+	int startNode, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global float* kdNodeFaces,
 	const float timeSinceStart, const int bounce,
 	const float entryDistance, const float exitDistance
 ) {
-	hit_t hit;
-	hit.t = -2.0f;
-	hit.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
-	hit.nodeIndex = -1;
+	hit_t result;
+	result.t = -2.0f;
+	result.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
+	result.nodeIndex = -1;
 
 	traverseKdTree(
 		*origin, *dir, startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
-		&hit, bounce, entryDistance, exitDistance
+		&result, bounce, entryDistance, exitDistance
 	);
 
-	if( hit.t > -1.0f ) {
+	if( result.t > -1.0f ) {
 		// Normal of hit position
-		const uint f = hit.faceIndex * 3;
+		const uint f = result.faceIndex * 3;
 		*normal = scNormals[scFacesVN[f]];
 
 		// New ray
-		*dir = cosineWeightedDirection( timeSinceStart + hit.t, *normal );
+		*dir = cosineWeightedDirection( timeSinceStart + result.t, *normal );
 		*dir = fast_normalize( *dir ); // WARNING: fast_
 
-		hit.position.w = (float) hit.nodeIndex;
-		normal->w = hit.faceIndex;
+		result.position.w = (float) result.nodeIndex;
+		normal->w = result.faceIndex;
 	}
 
-	*origin = hit.position;
+	*origin = result.position;
 
-	return hit.nodeIndex;
+	return result.nodeIndex;
 }
 
 
@@ -149,7 +149,7 @@ kernel void pathTracing(
 	float4 dir = dirs[workIndex];
 	float4 normal = (float4)( 0.0f );
 
-	float entryDistance;
+	float entryDistance = 0.0f;
 	float exitDistance = FLT_MAX;
 
 	if( !intersectBoundingBox( origin, dir, bbMinRoot, bbMaxRoot, &entryDistance, &exitDistance ) ) {
@@ -157,7 +157,8 @@ kernel void pathTracing(
 		return;
 	}
 
-	int startNode = goToLeafNode( 0, kdNonLeaves, fma( entryDistance, dir, origin ) );
+	float4 hitRoot = fma( entryDistance, dir, origin );
+	int startNode = goToLeafNode( 0, kdNonLeaves, hitRoot );
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		startNode = findPath(
@@ -173,7 +174,7 @@ kernel void pathTracing(
 			break;
 		}
 
-		entryDistance = -EPSILON;
+		entryDistance = 0.0f;
 		exitDistance = FLT_MAX;
 	}
 }

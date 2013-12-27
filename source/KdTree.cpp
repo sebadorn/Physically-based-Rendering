@@ -313,7 +313,12 @@ kdNode_t* KdTree::makeTree(
 	// Assign vertices and faces to each side
 	vector<cl_uint> leftFaces, rightFaces;
 	vector<cl_float4> leftNodes, rightNodes;
-	this->splitVerticesAndFacesAtMedian( axis, median->pos, vertsForNodes, vertices, faces, &leftFaces, &rightFaces, &leftNodes, &rightNodes );
+
+	this->splitVerticesAndFacesAtMedian(
+		axis, median->pos, vertsForNodes, vertices, faces,
+		&leftFaces, &rightFaces, &leftNodes, &rightNodes
+	);
+
 
 	// Don't want any nodes without faces
 	if( leftFaces.size() == 0 || rightFaces.size() == 0 ) {

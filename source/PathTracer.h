@@ -20,8 +20,9 @@ using std::vector;
 
 
 struct kdNonLeaf_cl {
-	cl_float4 split;  // [x, y, z, (cl_int) axis]
+	cl_float4 split;  // [x, y, z, w]
 	cl_int4 children; // [left, right, isLeftLeaf, isRightLeaf]
+	cl_int axis;
 };
 
 struct kdLeaf_cl {
