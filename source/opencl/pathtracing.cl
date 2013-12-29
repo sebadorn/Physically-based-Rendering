@@ -256,14 +256,15 @@ kernel void shadowTest(
 kernel void setColors(
 	const uint2 offset, const float timeSinceStart, const float textureWeight,
 	const global ray4* rays, const global float4* lights,
-	const global int* faceToMaterial, const global float4* diffuseColors,
+	const global int* faceToMaterial, const global material* materials,
 	read_only image2d_t textureIn, write_only image2d_t textureOut
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 
-	float4 hit, reflectedLight, surfaceColor, toLight;
+	float4 hit, reflectedLight, diffuseColor, toLight;
 	float diffuse, luminosity, shadowIntensity, specularHighlight, toLightLength;
-	int face, material;
+	int face;
+	material mtl;
 
 	float4 accumulatedColor = (float4)( 0.0f );
 	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
@@ -284,9 +285,9 @@ kernel void setColors(
 
 		hit = fma( ray.t, ray.dir, ray.origin );
 
-		material = faceToMaterial[ray.faceIndex];
-		surfaceColor = diffuseColors[material];
-		// surfaceColor = wavelengthToRGB( 600.0f );
+		material mtl = materials[faceToMaterial[ray.faceIndex]];
+		diffuseColor = mtl.Kd;
+		// diffuseColor = wavelengthToRGB( 600.0f );
 
 		// The farther away a shadow is, the more diffuse it becomes (penumbrae)
 		toLight = newLight - hit;
@@ -299,9 +300,9 @@ kernel void setColors(
 
 		reflectedLight = fast_normalize( reflect( toLight, ray.normal ) );
 		specularHighlight = fmax( 0.0f, dot( reflectedLight, fast_normalize( hit - ray.origin ) ) );
-		specularHighlight = 2.0f * pow( specularHighlight, 20.0f );
+		specularHighlight = 2.0f * pow( specularHighlight, mtl.Ns );
 
-		colorMask *= surfaceColor;
+		colorMask *= diffuseColor;
 		accumulatedColor += colorMask * luminosity * diffuse * ray.shadow;
 		accumulatedColor += colorMask * specularHighlight * ray.shadow;
 	}

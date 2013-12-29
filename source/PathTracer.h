@@ -40,6 +40,16 @@ struct kdLeaf_cl {
 	cl_float4 bbMax;
 };
 
+struct material_cl_t {
+	cl_float4 Ka;
+	cl_float4 Kd;
+	cl_float4 Ks;
+	cl_float d;
+	cl_float Ni;
+	cl_float Ns;
+	cl_int illum;
+};
+
 
 class Camera;
 
@@ -104,7 +114,8 @@ class PathTracer {
 		cl_mem mBufKdLeaves;
 		cl_mem mBufKdNodeFaces;
 
-		cl_mem mBufMaterialsColorDiffuse;
+		// cl_mem mBufMaterialsColorDiffuse;
+		cl_mem mBufMaterials;
 		cl_mem mBufMaterialToFace;
 
 		cl_mem mBufEye;

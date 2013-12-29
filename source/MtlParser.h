@@ -2,6 +2,7 @@
 #define MTLPARSER_H
 
 #include <boost/algorithm/string.hpp>
+#include <CL/cl.hpp>
 #include <fstream>
 #include <GL/gl.h>
 #include <string>
@@ -15,21 +16,25 @@ using std::vector;
 
 /**
  * Material:
- * d - Transparency (dissolve), sometimes the identifier is "Tr".
+ * d     - Transparency (dissolve), sometimes the identifier is "Tr".
  * illum - Illumination model.
- * Ka - Ambient color (rgb).
- * Kd - Diffuse color (rgb).
- * Ks - Specular color (rgb).
- * Ni - Optical density between [0.001, 10.0].
- *      A value of 1.0 means the light doesn't bend as it passes through.
- *      Glass has a value of around 1.5.
- * Ns - Specular exponent between [0.0, 1000.0].
+ * Ka    - Ambient color (rgb).
+ * Kd    - Diffuse color (rgb).
+ * Ks    - Specular color (rgb).
+ * Ni    - Optical density between [0.001, 10.0].
+ *         A value of 1.0 means the light doesn't bend as it passes through.
+ *         Glass has a value of around 1.5.
+ * Ns    - Specular exponent between [0.0, 1000.0].
  */
 struct material_t {
 	string mtlName;
-	GLfloat d, Ni, Ns;
-	GLfloat Ka[3], Kd[3], Ks[3];
-	GLint illum;
+	cl_float4 Ka;
+	cl_float4 Kd;
+	cl_float4 Ks;
+	cl_float d;
+	cl_float Ni;
+	cl_float Ns;
+	cl_int illum;
 };
 
 

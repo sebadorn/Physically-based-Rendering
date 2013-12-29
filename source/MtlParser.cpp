@@ -9,11 +9,13 @@ using std::vector;
  * @return {material_t} Default material.
  */
 material_t MtlParser::getEmptyMaterial() {
+	cl_float4 zeros = { 0.0f, 0.0f, 0.0f, 0.0f };
+
 	material_t mtl;
 	mtl.mtlName = "";
-	mtl.Ka[0] = 0.0f; mtl.Ka[1] = 0.0f; mtl.Ka[2] = 0.0f;
-	mtl.Kd[0] = 0.0f; mtl.Kd[1] = 0.0f; mtl.Kd[2] = 0.0f;
-	mtl.Ks[0] = 0.0f; mtl.Ks[1] = 0.0f; mtl.Ks[2] = 0.0f;
+	mtl.Ka = zeros;
+	mtl.Kd = zeros;
+	mtl.Ks = zeros;
 	mtl.Ns = 100.0f;
 	mtl.Ni = 1.0f;
 	mtl.d = 1.0f;
@@ -104,9 +106,9 @@ void MtlParser::load( string file ) {
 				Logger::logWarning( "[MtlParser] Not enough parameters for <Ka>. Ignoring attribute." );
 				continue;
 			}
-			mtl.Ka[0] = atof( parts[1].c_str() );
-			mtl.Ka[1] = atof( parts[2].c_str() );
-			mtl.Ka[2] = atof( parts[3].c_str() );
+			mtl.Ka.x = atof( parts[1].c_str() );
+			mtl.Ka.y = atof( parts[2].c_str() );
+			mtl.Ka.z = atof( parts[3].c_str() );
 		}
 		// Diffuse color
 		else if( parts[0] == "Kd" ) {
@@ -114,9 +116,9 @@ void MtlParser::load( string file ) {
 				Logger::logWarning( "[MtlParser] Not enough parameters for <Kd>. Ignoring attribute." );
 				continue;
 			}
-			mtl.Kd[0] = atof( parts[1].c_str() );
-			mtl.Kd[1] = atof( parts[2].c_str() );
-			mtl.Kd[2] = atof( parts[3].c_str() );
+			mtl.Kd.x = atof( parts[1].c_str() );
+			mtl.Kd.y = atof( parts[2].c_str() );
+			mtl.Kd.z = atof( parts[3].c_str() );
 		}
 		// Specular color
 		else if( parts[0] == "Ks" ) {
@@ -124,9 +126,9 @@ void MtlParser::load( string file ) {
 				Logger::logWarning( "[MtlParser] Not enough parameters for <Ks>. Ignoring attribute." );
 				continue;
 			}
-			mtl.Ks[0] = atof( parts[1].c_str() );
-			mtl.Ks[1] = atof( parts[2].c_str() );
-			mtl.Ks[2] = atof( parts[3].c_str() );
+			mtl.Ks.x = atof( parts[1].c_str() );
+			mtl.Ks.y = atof( parts[2].c_str() );
+			mtl.Ks.z = atof( parts[3].c_str() );
 		}
 		// Optical density
 		else if( parts[0] == "Ni" ) {
