@@ -19,10 +19,19 @@
 using std::vector;
 
 
+struct ray4 {
+	cl_float4 origin;
+	cl_float4 dir;
+	cl_float4 normal;
+	cl_float t;
+	cl_float shadow;
+	cl_int nodeIndex;
+	cl_int faceIndex;
+};
+
 struct kdNonLeaf_cl {
-	cl_float4 split;  // [x, y, z, w]
+	cl_float4 split;  // [x, y, z, (cl_int) axis]
 	cl_int4 children; // [left, right, isLeftLeaf, isRightLeaf]
-	cl_int axis;
 };
 
 struct kdLeaf_cl {
@@ -99,11 +108,8 @@ class PathTracer {
 		cl_mem mBufMaterialToFace;
 
 		cl_mem mBufEye;
-		cl_mem mBufHitNormals;
-		cl_mem mBufHits;
 		cl_mem mBufLights;
 		cl_mem mBufNormals;
-		cl_mem mBufOrigins;
 		cl_mem mBufRays;
 		cl_mem mBufTextureIn;
 		cl_mem mBufTextureOut;

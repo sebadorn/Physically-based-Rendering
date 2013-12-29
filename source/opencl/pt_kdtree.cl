@@ -12,9 +12,9 @@
  * @param {hit_t*}                result
  */
 void checkFaces(
-	const int nodeIndex, const int faceIndex, const float4 origin, const float4 dir,
+	ray4* ray, const int nodeIndex, const int faceIndex,
 	const int numFaces, const global float* kdNodeFaces,
-	const float entryDistance, float* exitDistance, const float boxExitLimit, hit_t* result
+	const float entryDistance, float* exitDistance, const float boxExitLimit
 ) {
 	float4 a = (float4)( 0.0f );
 	float4 b = (float4)( 0.0f );
@@ -53,24 +53,20 @@ void checkFaces(
 		prefetch_c.z = kdNodeFaces[j + 8];
 
 		r = checkFaceIntersection(
-			origin, dir, a, b, c,
+			ray->origin, ray->dir, a, b, c,
 			entryDistance, fmin( *exitDistance, boxExitLimit )
 		);
 
 		if( r > -1.0f ) {
 			*exitDistance = r;
 
-			if( result->t > r || result->t < -1.0f ) {
-				result->t = r;
-				result->nodeIndex = nodeIndex;
-				result->faceIndex = (uint) kdNodeFaces[j - 1];
+			if( ray->t > r || ray->t < -1.0f ) {
+				ray->t = r;
+				ray->nodeIndex = nodeIndex;
+				ray->faceIndex = kdNodeFaces[j - 1];
 			}
 		}
 	}
-
-	result->position = ( result->t > -1.0f )
-	                 ? fma( result->t, dir, origin )
-	                 : result->position;
 }
 
 
@@ -89,7 +85,7 @@ void checkFaces(
  * @return {bool}                                True, if a hit is detected between origin and light, false otherwise.
  */
 bool checkFacesForShadow(
-	const int nodeIndex, const int faceIndex, const float4* origin, const float4* dir,
+	ray4* ray, const int nodeIndex, const int faceIndex,
 	const int numFaces, const global float* kdNodeFaces,
 	const float entryDistance, float* exitDistance
 ) {
@@ -130,7 +126,7 @@ bool checkFacesForShadow(
 		prefetch_c.z = kdNodeFaces[j + 8];
 
 		r = checkFaceIntersection(
-			*origin, *dir, a, b, c, entryDistance, *exitDistance
+			ray->origin, ray->dir, a, b, c, entryDistance, *exitDistance
 		);
 
 		if( r > -1.0f ) {
@@ -157,7 +153,7 @@ int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const floa
 	float4 split;
 	int4 children;
 
-	int axis = kdNonLeaves[nodeIndex].axis;
+	int axis = kdNonLeaves[nodeIndex].split.w;
 	float hitPos[3] = { hitNear.x, hitNear.y, hitNear.z };
 	float splitPos[3];
 	bool isOnLeft;
@@ -203,10 +199,10 @@ int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const floa
  * @param {const float}         exitDistance
  */
 void traverseKdTree(
-	const float4 origin, const float4 dir, int nodeIndex,
+	ray4* ray, int nodeIndex,
 	const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global float* kdNodeFaces,
-	hit_t* result, const int bounce, float entryDistance, float exitDistance
+	const int bounce, float entryDistance, float exitDistance
 ) {
 	kdLeaf currentNode;
 	int8 ropes;
@@ -216,23 +212,23 @@ void traverseKdTree(
 	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
 		currentNode = kdLeaves[nodeIndex];
 		ropes = currentNode.ropes;
-		boxExitLimit = getBoxExitLimit( origin, dir, currentNode.bbMin, currentNode.bbMax );
+		boxExitLimit = getBoxExitLimit( ray->origin, ray->dir, currentNode.bbMin, currentNode.bbMax );
 
 		checkFaces(
-			nodeIndex, ropes.s6, origin, dir, ropes.s7, kdNodeFaces,
-			entryDistance, &exitDistance, boxExitLimit, result
+			ray, nodeIndex, ropes.s6, ropes.s7, kdNodeFaces,
+			entryDistance, &exitDistance, boxExitLimit
 		);
 
 		// Exit leaf node
 		updateEntryDistanceAndExitRope(
-			origin, dir, currentNode.bbMin, currentNode.bbMax,
+			ray->origin, ray->dir, currentNode.bbMin, currentNode.bbMax,
 			&entryDistance, &exitRope
 		);
 
 		nodeIndex = ( (int*) &ropes )[exitRope];
 		nodeIndex = ( nodeIndex < 1 )
 		          ? -nodeIndex - 1
-		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance, dir, origin ) );
+		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance, ray->dir, ray->origin ) );
 	}
 }
 
@@ -251,13 +247,13 @@ void traverseKdTree(
  * @return {bool}
  */
 bool shadowTestIntersection(
-	const float4* origin, const float4* dir, int nodeIndex,
-	const global kdNonLeaf* kdNonLeaves,
+	ray4* ray, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global float* kdNodeFaces
 ) {
 	kdLeaf currentNode;
 	int8 ropes;
 	int exitRope;
+	int nodeIndex = ray->nodeIndex;
 	float entryDistance = 0.0f;
 	float exitDistance = 1.0f;
 
@@ -266,7 +262,7 @@ bool shadowTestIntersection(
 		ropes = currentNode.ropes;
 
 		if( checkFacesForShadow(
-			nodeIndex, ropes.s6, origin, dir, ropes.s7, kdNodeFaces,
+			ray, nodeIndex, ropes.s6, ropes.s7, kdNodeFaces,
 			entryDistance, &exitDistance
 		) ) {
 			return true;
@@ -274,14 +270,14 @@ bool shadowTestIntersection(
 
 		// Exit leaf node
 		updateEntryDistanceAndExitRope(
-			*origin, *dir, currentNode.bbMin, currentNode.bbMax,
+			ray->origin, ray->dir, currentNode.bbMin, currentNode.bbMax,
 			&entryDistance, &exitRope
 		);
 
 		nodeIndex = ( (int*) &ropes )[exitRope];
 		nodeIndex = ( nodeIndex < 1 )
 		          ? -nodeIndex - 1
-		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance + EPSILON, *dir, *origin ) );
+		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance, ray->dir, ray->origin ) );
 	}
 
 	return false;

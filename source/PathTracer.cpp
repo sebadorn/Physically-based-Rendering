@@ -41,7 +41,7 @@ PathTracer::~PathTracer() {
  * @param {cl_float} timeSinceStart Time since start of the program in seconds.
  */
 void PathTracer::clInitRays( cl_float timeSinceStart ) {
-	mCL->setKernelArg( mKernelRays, 5, sizeof( cl_float ), &timeSinceStart );
+	mCL->setKernelArg( mKernelRays, 1, sizeof( cl_float ), &timeSinceStart );
 
 	mCL->execute( mKernelRays );
 	mCL->finish();
@@ -153,16 +153,13 @@ void PathTracer::initArgsKernelPathTracing() {
 
 	++i; // 1: timeSinceStart
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufLights );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufOrigins );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufRays );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScNormals );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScFacesVN );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNonLeaves );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdLeaves );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_float8 ), &mKdRootBB );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeFaces );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufHits );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufHitNormals );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufRays );
 }
 
 
@@ -188,11 +185,11 @@ void PathTracer::initArgsKernelRays() {
 	initRayParts.w = pxWidthAndHeight / 2.0f;
 
 	cl_uint i = 0;
+
+	++i; // 1: timeSinceStart
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_float4 ), &initRayParts );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufEye );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufOrigins );
 	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufRays );
-	++i; // 5: timeSinceStart
 }
 
 
@@ -201,8 +198,7 @@ void PathTracer::initArgsKernelSetColors() {
 
 	++i; // 1: timeSinceStart
 	++i; // 2: textureWeight
-	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufHits );
-	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufHitNormals );
+	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufRays );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufLights );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufMaterialToFace );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufMaterialsColorDiffuse );
@@ -223,8 +219,7 @@ void PathTracer::initArgsKernelShadowTest() {
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdLeaves );
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_float8 ), &mKdRootBB );
 	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdNodeFaces );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufHits );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufHitNormals );
+	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufRays );
 }
 
 
@@ -295,12 +290,8 @@ void PathTracer::initOpenCLBuffers(
 
 
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
-	mBufOrigins = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
-	mBufRays = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
 	mBufNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
-
-	mBufHits = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels * mBounces, CL_MEM_READ_WRITE );
-	mBufHitNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels * mBounces, CL_MEM_READ_WRITE );
+	mBufRays = mCL->createEmptyBuffer( sizeof( ray4 ) * pixels * mBounces, CL_MEM_READ_WRITE );
 
 	mTextureOut = vector<cl_float>( pixels * 4, 0.0f );
 	mBufTextureIn = mCL->createImage2DReadOnly( mWidth, mHeight, &mTextureOut[0] );
@@ -342,10 +333,9 @@ void PathTracer::kdNodesToVectors(
 				kdNodes[i].pos[0],
 				kdNodes[i].pos[1],
 				kdNodes[i].pos[2],
-				0.0f
+				(cl_float) kdNodes[i].axis
 			};
 			node.split = split;
-			node.axis = kdNodes[i].axis;
 
 			cl_int4 children = {
 				kdNodes[i].left->index,
@@ -452,19 +442,6 @@ void PathTracer::kdNodesToVectors(
 			}
 		}
 	}
-
-	// for( int i = 0; i < kdLeaves->size(); i++ ) {
-	// 	kdLeaf_cl l = (*kdLeaves)[i];
-	// 	printf(
-	// 		"leaf | %d | ropes( %d %d %d %d %d %d ) | faces index %d | #faces %d\n",
-	// 		i, l.ropes.s0, l.ropes.s1, l.ropes.s2, l.ropes.s3, l.ropes.s4, l.ropes.s5,
-	// 		l.ropes.s6, l.ropes.s7
-	// 	);
-	// }
-	// for( int i = 0; i < kdNonLeaves->size(); i++ ) {
-	// 	kdNonLeaf_cl nl = (*kdNonLeaves)[i];
-	// 	printf( "non-leaf | %d | children( %d %d ) | isLeaf( %d %d )\n", i, nl.children.x, nl.children.y, nl.children.z, nl.children.w );
-	// }
 }
 
 

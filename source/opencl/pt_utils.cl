@@ -33,6 +33,11 @@ inline float4 cosineWeightedDirection( const float seed, const float4 normal ) {
 }
 
 
+float4 reflect( float4 dir, float4 normal ) {
+	return dir - 2.0f * dot( normal, dir ) * normal;
+}
+
+
 /**
  * Get a vector in a random direction.
  * @param  {const float}  seed Seed for the random value.

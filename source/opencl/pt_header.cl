@@ -16,17 +16,19 @@ constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_
 constant int MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
 
 typedef struct {
-	float4 position;
+	float4 origin;
+	float4 dir;
+	float4 normal;
 	float t;
+	float shadow;
 	int nodeIndex;
 	int faceIndex;
-} hit_t __attribute__( ( aligned( 32 ) ) );
+} ray4 __attribute__( ( aligned( 64 ) ) );
 
 typedef struct {
-	float4 split;  // [x, y, z, w]
+	float4 split;  // [x, y, z, axis]
 	int4 children; // [left, right, isLeftLeaf, isRightLeaf]
-	int axis;
-} kdNonLeaf;
+} kdNonLeaf __attribute__( ( aligned( 32 ) ) );
 
 typedef struct {
 	int8 ropes; // [left, right, back, front, bottom, top, facesIndex, numFaces]

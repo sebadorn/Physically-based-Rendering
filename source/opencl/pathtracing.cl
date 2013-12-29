@@ -24,40 +24,34 @@
  * @param kdNodeRopes
  * @param timeSinceStart
  */
-int findPath(
-	float4* origin, float4* dir, float4* normal, const global float4* scNormals,
+ray4 findPath(
+	ray4* ray, const global float4* scNormals,
 	const global uint* scFacesVN, const global float4* lights,
 	int startNode, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global float* kdNodeFaces,
 	const float timeSinceStart, const int bounce,
 	const float entryDistance, const float exitDistance
 ) {
-	hit_t result;
-	result.t = -2.0f;
-	result.position = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
-	result.nodeIndex = -1;
-
 	traverseKdTree(
-		*origin, *dir, startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
-		&result, bounce, entryDistance, exitDistance
+		ray, startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
+		bounce, entryDistance, exitDistance
 	);
 
-	if( result.t > -1.0f ) {
-		// Normal of hit position
-		const uint f = result.faceIndex * 3;
-		*normal = scNormals[scFacesVN[f]];
+	ray4 newRay;
+	newRay.t = -2.0f;
+	newRay.nodeIndex = -1;
+	newRay.faceIndex = -1;
 
-		// New ray
-		*dir = cosineWeightedDirection( timeSinceStart + result.t, *normal );
-		*dir = fast_normalize( *dir ); // WARNING: fast_
+	if( ray->nodeIndex >= 0 ) {
+		const uint f = ray->faceIndex * 3;
+		ray->normal = scNormals[scFacesVN[f]];
 
-		result.position.w = (float) result.nodeIndex;
-		normal->w = result.faceIndex;
+		newRay.origin = fma( ray->t, ray->dir, ray->origin );
+		newRay.dir = fast_normalize( reflect( ray->dir, ray->normal ) );
+		// newRay.dir = fast_normalize( cosineWeightedDirection( timeSinceStart + ray->t, newRay.normal ) );
 	}
 
-	*origin = result.position;
-
-	return result.nodeIndex;
+	return newRay;
 }
 
 
@@ -76,10 +70,9 @@ int findPath(
  * @param {const float}         timeSinceStart
  */
 kernel void initRays(
-	const uint2 offset, const float4 initRayParts,
-	const global float* eyeIn,
-	global float4* origins, global float4* dirs,
-	const float timeSinceStart
+	const uint2 offset, const float timeSinceStart,
+	const float4 initRayParts, const global float* eyeIn,
+	global ray4* rays
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 
@@ -106,8 +99,11 @@ kernel void initRays(
 			+ ( pos.x - adjustW ) * pxWidthAndHeight * u
 			- ( WORKGROUPSIZE - pos.y + adjustH ) * pxWidthAndHeight * v;
 
-	dirs[workIndex] = fast_normalize( initialRay ); // WARNING: fast_
-	origins[workIndex] = eye;
+	ray4 ray;
+	ray.origin = eye;
+	ray.dir = fast_normalize( initialRay );
+
+	rays[workIndex * BOUNCES] = ray;
 }
 
 
@@ -130,11 +126,10 @@ kernel void initRays(
  */
 kernel void pathTracing(
 	const uint2 offset, const float timeSinceStart, const global float4* lights,
-	const global float4* origins, const global float4* dirs,
 	const global float4* scNormals, const global uint* scFacesVN,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
 	const float8 kdRootBB, const global float* kdNodeFaces,
-	global float4* hits, global float4* hitNormals
+	global ray4* rays
 ) {
 	const int2 pos = {
 		offset.x + get_global_id( 0 ),
@@ -145,35 +140,37 @@ kernel void pathTracing(
 	const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, 0.0f };
 	const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, 0.0f };
 
-	float4 origin = origins[workIndex];
-	float4 dir = dirs[workIndex];
-	float4 normal = (float4)( 0.0f );
+	ray4 newRay, ray;
+	ray = rays[workIndex * BOUNCES];
+	ray.t = -2.0f;
+	ray.nodeIndex = -1;
+	ray.faceIndex = -1;
 
 	float entryDistance = 0.0f;
 	float exitDistance = FLT_MAX;
 
-	if( !intersectBoundingBox( origin, dir, bbMinRoot, bbMaxRoot, &entryDistance, &exitDistance ) ) {
-		hits[workIndex * BOUNCES] = (float4)( 0.0f, 0.0f, 0.0f, -2.0f );
+	if( !intersectBoundingBox( ray.origin, ray.dir, bbMinRoot, bbMaxRoot, &entryDistance, &exitDistance ) ) {
+		rays[workIndex * BOUNCES] = ray;
 		return;
 	}
 
-	float4 hitRoot = fma( entryDistance, dir, origin );
-	int startNode = goToLeafNode( 0, kdNonLeaves, hitRoot );
+	int startNode = goToLeafNode( 0, kdNonLeaves, fma( entryDistance, ray.dir, ray.origin ) );
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
-		startNode = findPath(
-			&origin, &dir, &normal, scNormals, scFacesVN, lights,
+		newRay = findPath(
+			&ray, scNormals, scFacesVN, lights,
 			startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
 			timeSinceStart + bounce, bounce, entryDistance, exitDistance
 		);
 
-		hits[workIndex * BOUNCES + bounce] = origin;
-		hitNormals[workIndex * BOUNCES + bounce] = normal;
+		rays[workIndex * BOUNCES + bounce] = ray;
 
-		if( startNode < 0 ) {
+		if( ray.nodeIndex < 0 ) {
 			break;
 		}
 
+		startNode = ray.nodeIndex;
+		ray = newRay;
 		entryDistance = 0.0f;
 		exitDistance = FLT_MAX;
 	}
@@ -191,14 +188,13 @@ kernel void pathTracing(
  * @param {const gloabl int*} kdNodeMeta
  * @param {const global float*} kdNodeFaces
  * @param {const global int*} kdNodeRopes
- * @param {global float4*} hits
- * @param {const global float4* hitNormals}
+ * @param {global ray4*} rays
  */
 kernel void shadowTest(
 	const uint2 offset, const float timeSinceStart, const global float4* lights,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
 	const float8 kdRootBB, const global float* kdNodeFaces,
-	global float4* hits, const global float4* hitNormals
+	global ray4* rays
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
@@ -213,36 +209,33 @@ kernel void shadowTest(
 		bool isInShadow;
 	#endif
 
-	float4 normal, origin;
-	uint index;
+	float4 hit;
+	uint index = workIndex * BOUNCES;
+	ray4 ray;
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
-		index = workIndex * BOUNCES + bounce;
-		origin = hits[index];
-		normal = hitNormals[index];
+		ray = rays[index + bounce];
 
-		if( origin.w < -1.0f ) {
+		if( ray.nodeIndex < 0 ) {
 			break;
 		}
 
 		#ifdef SHADOWS
-			startNode = (uint) origin.w;
-			origin.w = 0.0f;
-			normal.w = 0.0f;
+			hit = fma( ray.t, ray.dir, ray.origin );
 
-			float4 newLight = light - origin + uniformlyRandomVector( timeSinceStart + fast_length( origin ) ) * 0.1f;
-			float4 originForShadow = origin + normal * EPSILON;
+			ray4 shadowRay;
+			shadowRay.nodeIndex = ray.nodeIndex;
+			shadowRay.origin = hit + ray.normal * EPSILON;
+			shadowRay.dir = light - hit + uniformlyRandomVector( timeSinceStart + fast_length( hit ) ) * 0.1f;
 
-			isInShadow = shadowTestIntersection(
-				&originForShadow, &newLight, startNode, kdNonLeaves, kdLeaves, kdNodeFaces
-			);
+			isInShadow = shadowTestIntersection( &shadowRay, kdNonLeaves, kdLeaves, kdNodeFaces );
 
-			origin.w = !isInShadow;
+			ray.shadow = !isInShadow;
 		#else
-			origin.w = 1.0f;
+			ray.shadow = 1.0f;
 		#endif
 
-		hits[index] = origin;
+		rays[index + bounce] = ray;
 	}
 }
 
@@ -262,14 +255,13 @@ kernel void shadowTest(
  */
 kernel void setColors(
 	const uint2 offset, const float timeSinceStart, const float textureWeight,
-	const global float4* hits, const global float4* normals,
-	const global float4* lights,
-	const global int* materialToFace, const global float4* diffuseColors,
+	const global ray4* rays, const global float4* lights,
+	const global int* faceToMaterial, const global float4* diffuseColors,
 	read_only image2d_t textureIn, write_only image2d_t textureOut
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 
-	float4 hit, normal, surfaceColor, toLight;
+	float4 hit, reflectedLight, surfaceColor, toLight;
 	float diffuse, luminosity, shadowIntensity, specularHighlight, toLightLength;
 	int face, material;
 
@@ -281,45 +273,42 @@ kernel void setColors(
 
 	const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
 	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
-	float4 prefetch_hit = hits[workIndex];
+	ray4 ray;
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
-		hit = prefetch_hit;
+		ray = rays[workIndex + bounce];
 
-		if( hit.w < -1.0f ) {
+		if( ray.nodeIndex < 0 ) {
 			break;
 		}
 
-		normal = normals[workIndex + bounce];
+		hit = fma( ray.t, ray.dir, ray.origin );
 
-		shadowIntensity = hit.w;
-		hit.w = 0.0f;
-
-		face = normal.w;
-		material = materialToFace[face];
-		normal.w = 0.0f;
-
+		material = faceToMaterial[ray.faceIndex];
 		surfaceColor = diffuseColors[material];
 		// surfaceColor = wavelengthToRGB( 600.0f );
-
-		prefetch_hit = hits[workIndex + bounce + 1];
 
 		// The farther away a shadow is, the more diffuse it becomes (penumbrae)
 		toLight = newLight - hit;
 
 		// Lambert factor (dot product is a cosine)
 		// Source: http://learnopengles.com/android-lesson-two-ambient-and-diffuse-lighting/
-		diffuse = fmax( dot( normal, fast_normalize( toLight ) ), 0.0f );
+		diffuse = fmax( dot( ray.normal, fast_normalize( toLight ) ), 0.0f );
 		toLightLength = fast_length( toLight );
 		luminosity = native_recip( toLightLength * toLightLength );
 
-		specularHighlight = 0.0f; // Disabled for now
+		reflectedLight = fast_normalize( reflect( toLight, ray.normal ) );
+		specularHighlight = fmax( 0.0f, dot( reflectedLight, fast_normalize( hit - ray.origin ) ) );
+		specularHighlight = 2.0f * pow( specularHighlight, 20.0f );
 
 		colorMask *= surfaceColor;
-		accumulatedColor += colorMask * luminosity * diffuse * shadowIntensity;
-		accumulatedColor += colorMask * specularHighlight * shadowIntensity;
+		accumulatedColor += colorMask * luminosity * diffuse * ray.shadow;
+		accumulatedColor += colorMask * specularHighlight * ray.shadow;
 	}
 
-	const float4 color = mix( accumulatedColor, texturePixel, textureWeight );
+	const float4 color = mix(
+		clamp( accumulatedColor, 0.0f, 1.0f ),
+		texturePixel, textureWeight
+	);
 	write_imagef( textureOut, pos, color );
 }
