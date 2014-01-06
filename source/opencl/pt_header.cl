@@ -6,11 +6,11 @@
 #define IMG_HEIGHT #IMG_HEIGHT#
 #define IMG_WIDTH #IMG_WIDTH#
 #define PI_X2 6.28318530718f
+#define SPECULAR_HIGHLIGHT #SPECULAR_HIGHLIGHT#
 #define WORKGROUPSIZE #WORKGROUPSIZE#
 #define WORKGROUPSIZE_HALF #WORKGROUPSIZE_HALF#
 
-// "_Barycentric" or "_MoellerTrumbore"
-#define checkFaceIntersection checkFaceIntersection_MoellerTrumbore
+#define BIT_ISSET( var, pos ) ( (var) & ( 1 << (pos) ) )
 
 constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 constant int MOD_3[6] = { 0, 1, 2, 0, 1, 2 };

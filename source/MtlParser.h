@@ -25,6 +25,7 @@ using std::vector;
  *         A value of 1.0 means the light doesn't bend as it passes through.
  *         Glass has a value of around 1.5.
  * Ns    - Specular exponent between [0.0, 1000.0].
+ *         A value of 0.0 will be interpreted as disabled specular highlights. (Implementation dependent.)
  */
 struct material_t {
 	string mtlName;

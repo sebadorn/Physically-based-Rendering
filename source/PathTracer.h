@@ -114,9 +114,8 @@ class PathTracer {
 		cl_mem mBufKdLeaves;
 		cl_mem mBufKdNodeFaces;
 
-		// cl_mem mBufMaterialsColorDiffuse;
 		cl_mem mBufMaterials;
-		cl_mem mBufMaterialToFace;
+		cl_mem mBufFaceToMaterial;
 
 		cl_mem mBufEye;
 		cl_mem mBufLights;

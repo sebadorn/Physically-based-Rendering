@@ -67,7 +67,7 @@ inline float4 uniformlyRandomVector( const float seed ) {
 
 
 /**
- * Source: http://graphics.cg.uni-saarland.de/fileadmin/cguds/courses/ws0910/cg/rc/web_sites/Ziesche/
+ * Source: http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
  * Which is based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
  * @param  {const float4*} origin
  * @param  {const float4*} dir
@@ -114,7 +114,7 @@ float getBoxExitLimit(
 
 
 /**
- * Source: http://graphics.cg.uni-saarland.de/fileadmin/cguds/courses/ws0910/cg/rc/web_sites/Ziesche/
+ * Source: http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
  * Which is based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
  * @param {const float4*} origin
  * @param {const float4*} dir
@@ -169,7 +169,7 @@ inline bool isInsideBoundingBox( const float* bbMin, const float* bbMax, const f
  * @param  {hit_t*}        result
  * @return {float}
  */
-inline float checkFaceIntersection_MoellerTrumbore(
+inline float checkFaceIntersection(
 	const float4 origin, const float4 dir, const float4 a, const float4 b, const float4 c,
 	const float tNear, const float tFar
 ) {
@@ -195,41 +195,6 @@ inline float checkFaceIntersection_MoellerTrumbore(
 
 		t = ( fmin( u, v ) < 0.0f || u > 1.0f || u + v > 1.0f || MT_FINAL_T_TEST ) ? -2.0f : t;
 	#endif
-
-	return t;
-}
-
-
-inline float checkFaceIntersection_Barycentric(
-	const float4 origin, const float4 dir, const float4 a, const float4 b, const float4 c,
-	const float tNear, const float tFar
-) {
-	float4 edge1 = c - a;
-	float4 edge2 = b - a;
-	float4 oa = origin - a;
-	float4 planeNormal = cross( edge1, edge2 );
-
-	float t = native_divide( -dot( oa, planeNormal ), dot( dir, planeNormal ) );
-
-	if( t < EPSILON || t < tNear - EPSILON || t > tFar + EPSILON ) {
-		return -2.0f;
-	}
-
-	float4 hit = oa + t * dir;
-
-	float uDotU = dot( edge1, edge1 );
-	float uDotV = dot( edge1, edge2 );
-	float vDotV = dot( edge2, edge2 );
-	float wDotV = dot( hit, edge2 );
-	float wDotU = dot( hit, edge1 );
-
-	float d = native_recip( uDotV * uDotV - uDotU * vDotV );
-	float beta = ( uDotV * wDotV - vDotV * wDotU ) * d;
-	float gamma = ( uDotV * wDotU - uDotU * wDotV ) * d;
-
-	if( beta < 0.0f || gamma < 0.0f || beta + gamma > 1.0f ) {
-		return -2.0f;
-	}
 
 	return t;
 }

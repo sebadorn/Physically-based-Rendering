@@ -60,7 +60,7 @@ void checkFaces(
 		if( r > -1.0f ) {
 			*exitDistance = r;
 
-			if( ray->t > r || ray->t < -1.0f ) {
+			if( ray->t > r || ray->nodeIndex < 0 ) {
 				ray->t = r;
 				ray->nodeIndex = nodeIndex;
 				ray->faceIndex = kdNodeFaces[j - 1];
@@ -199,8 +199,7 @@ int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const floa
  * @param {const float}         exitDistance
  */
 void traverseKdTree(
-	ray4* ray, int nodeIndex,
-	const global kdNonLeaf* kdNonLeaves,
+	ray4* ray, int nodeIndex, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global float* kdNodeFaces,
 	const int bounce, float entryDistance, float exitDistance
 ) {

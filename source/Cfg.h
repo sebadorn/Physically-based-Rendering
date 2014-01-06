@@ -38,6 +38,7 @@ class Cfg {
 		static const char* RENDER_BOUNCES;
 		static const char* RENDER_INTERVAL;
 		static const char* RENDER_SHADOWS;
+		static const char* RENDER_SPECULARHIGHLIGHT;
 		static const char* OPENCL_BUILDOPTIONS;
 		static const char* OPENCL_CHECKERRORS;
 		static const char* OPENCL_PROGRAM;

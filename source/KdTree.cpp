@@ -320,29 +320,6 @@ kdNode_t* KdTree::makeTree(
 	);
 
 
-	// Don't want any nodes without faces
-	if( leftFaces.size() == 0 || rightFaces.size() == 0 ) {
-		Logger::logDebug( "[KdTree] No faces for at least one child node. Making this node a leaf." );
-		return this->createLeafNode( bbMin, bbMax, vertices, faces );
-	}
-
-	if( leftFaces.size() == rightFaces.size() ) {
-		bool different = false;
-
-		for( int i = 0; i < leftFaces.size(); i++ ) {
-			if( leftFaces[i] != rightFaces[i] ) {
-				different = true;
-				break;
-			}
-		}
-
-		if( !different ) {
-			Logger::logDebug( "[KdTree] Left and right child node would contain same faces. Making this node a leaf." );
-			return this->createLeafNode( bbMin, bbMax, vertices, faces );
-		}
-	}
-
-
 	// Keep limit for minimum faces per node
 	if( depth > 1 && mMinFaces > glm::min( leftFaces.size(), rightFaces.size() ) / 3 ) {
 		Logger::logDebug( "[KdTree] Left and/or right child node would have less faces than set as minimum. Making this node a leaf." );

@@ -585,6 +585,7 @@ string CL::setValues( string clProgramString ) {
 	valueReplace.push_back( "BOUNCES" );
 	valueReplace.push_back( "IMG_HEIGHT" );
 	valueReplace.push_back( "IMG_WIDTH" );
+	valueReplace.push_back( "SPECULAR_HIGHLIGHT" );
 	valueReplace.push_back( "WORKGROUPSIZE" );
 	valueReplace.push_back( "WORKGROUPSIZE_HALF" );
 
@@ -593,6 +594,7 @@ string CL::setValues( string clProgramString ) {
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_BOUNCES ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH ) );
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SPECULARHIGHLIGHT ) );
 	configInt.push_back( Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE ) );
 	configInt.push_back( Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE ) / 2.0f );
 

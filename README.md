@@ -1,6 +1,5 @@
 ## ToDo
 
-* `Feature` Specular highlights
 * `Feature` Dynamic lights (for now: number)
 * `Improve` Normals are only supported per face, but not per vertex
 * `Improve` Surface Area Heuristic (SAH) for kd-tree

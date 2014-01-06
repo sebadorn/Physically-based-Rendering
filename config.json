@@ -89,7 +89,13 @@
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 33.0,
 		// Shadows (bad on performance).
-		"shadows": true
+		"shadows": true,
+		// The model to use for specular highlights.
+		// 0: Disabled
+		// 1: Phong
+		// 2: Blinn-Phong
+		// 3: Gauss
+		"specular_highlight": 1
 	},
 
 	"shader": {

@@ -30,7 +30,8 @@ ray4 findPath(
 	int startNode, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global float* kdNodeFaces,
 	const float timeSinceStart, const int bounce,
-	const float entryDistance, const float exitDistance
+	const float entryDistance, const float exitDistance,
+	const global int* faceToMaterial, const global material* materials
 ) {
 	traverseKdTree(
 		ray, startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
@@ -47,8 +48,11 @@ ray4 findPath(
 		ray->normal = scNormals[scFacesVN[f]];
 
 		newRay.origin = fma( ray->t, ray->dir, ray->origin );
-		newRay.dir = fast_normalize( reflect( ray->dir, ray->normal ) );
-		// newRay.dir = fast_normalize( cosineWeightedDirection( timeSinceStart + ray->t, newRay.normal ) );
+
+		int illum = materials[faceToMaterial[ray->faceIndex]].illum;
+		newRay.dir = ( illum == 3 )
+		           ? fast_normalize( reflect( ray->dir, ray->normal ) )
+		           : fast_normalize( cosineWeightedDirection( timeSinceStart + ray->t, ray->normal ) );
 	}
 
 	return newRay;
@@ -129,7 +133,7 @@ kernel void pathTracing(
 	const global float4* scNormals, const global uint* scFacesVN,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
 	const float8 kdRootBB, const global float* kdNodeFaces,
-	global ray4* rays
+	global ray4* rays, const global int* faceToMaterial, const global material* materials
 ) {
 	const int2 pos = {
 		offset.x + get_global_id( 0 ),
@@ -140,8 +144,8 @@ kernel void pathTracing(
 	const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, 0.0f };
 	const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, 0.0f };
 
-	ray4 newRay, ray;
-	ray = rays[workIndex * BOUNCES];
+	ray4 newRay;
+	ray4 ray = rays[workIndex * BOUNCES];
 	ray.t = -2.0f;
 	ray.nodeIndex = -1;
 	ray.faceIndex = -1;
@@ -160,7 +164,8 @@ kernel void pathTracing(
 		newRay = findPath(
 			&ray, scNormals, scFacesVN, lights,
 			startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
-			timeSinceStart + bounce, bounce, entryDistance, exitDistance
+			timeSinceStart + bounce, bounce, entryDistance, exitDistance,
+			faceToMaterial, materials
 		);
 
 		rays[workIndex * BOUNCES + bounce] = ray;
@@ -261,10 +266,8 @@ kernel void setColors(
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 
-	float4 hit, reflectedLight, diffuseColor, toLight;
-	float diffuse, luminosity, shadowIntensity, specularHighlight, toLightLength;
-	int face;
-	material mtl;
+	float4 hit, toLight;
+	float diffuse, luminosity, toLightLength;
 
 	float4 accumulatedColor = (float4)( 0.0f );
 	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
@@ -275,6 +278,18 @@ kernel void setColors(
 	const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
 	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
 	ray4 ray;
+	material mtl;
+
+	// Vars: Specular highlight
+	float4 reflectedLight;
+	float4 H; // half-angle direction between L (vector to light) and V (viewpoint vector)
+	float specularHighlight;
+
+	// Vars: Light as wavelengths
+	float4 rgb = (float4)( 0.0f );
+	ulong lightWavelengths = ( 1 << 63 ) - 1 + ( 1 << 63 ); // limit of ulong (64 bit) = all bits set to 1
+	ulong absorbs = ~( 0 );
+
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		ray = rays[workIndex + bounce];
@@ -286,8 +301,6 @@ kernel void setColors(
 		hit = fma( ray.t, ray.dir, ray.origin );
 
 		material mtl = materials[faceToMaterial[ray.faceIndex]];
-		diffuseColor = mtl.Kd;
-		// diffuseColor = wavelengthToRGB( 600.0f );
 
 		// The farther away a shadow is, the more diffuse it becomes (penumbrae)
 		toLight = newLight - hit;
@@ -298,13 +311,56 @@ kernel void setColors(
 		toLightLength = fast_length( toLight );
 		luminosity = native_recip( toLightLength * toLightLength );
 
-		reflectedLight = fast_normalize( reflect( toLight, ray.normal ) );
-		specularHighlight = fmax( 0.0f, dot( reflectedLight, fast_normalize( hit - ray.origin ) ) );
-		specularHighlight = 2.0f * pow( specularHighlight, mtl.Ns );
 
-		colorMask *= diffuseColor;
+		// Specular highlight
+
+		#if SPECULAR_HIGHLIGHT == 0
+
+			// Disabled
+			specularHighlight = 0.0f;
+
+		#elif SPECULAR_HIGHLIGHT == 1
+
+			// Phong
+			reflectedLight = fast_normalize( reflect( light - hit, ray.normal ) );
+			specularHighlight = fmax( 0.0f, dot( reflectedLight, fast_normalize( hit - ray.origin ) ) );
+			specularHighlight = pow( specularHighlight, mtl.Ns );
+
+		#elif SPECULAR_HIGHLIGHT == 2
+
+			// Blinn-Phong
+			H = fast_normalize( ( light - hit ) + ( ray.origin - hit ) );
+			specularHighlight = fmax( 0.0f, dot( ray.normal, H ) );
+			specularHighlight = pow( specularHighlight, mtl.Ns );
+
+		#elif SPECULAR_HIGHLIGHT == 3
+
+			// Gauss
+			H = fast_normalize( ( light - hit ) + ( ray.origin - hit ) );
+			float angle = acos( clamp( dot( ray.normal, H ), 0.0f, 1.0f ) );
+			float exponent = angle * mtl.Ns;
+			exponent = -( exponent * exponent );
+			specularHighlight = exp( exponent );
+
+		#endif
+
+
+		// lightWavelengths &= absorbs;
+
+		// for( int i = 0; i < 40; i++ ) {
+		// 	if( BIT_ISSET( lightWavelengths, i ) ) {
+		// 		rgb += wavelengthToRGB( 380.0f + i * 10.0f );
+		// 	}
+		// }
+		// rgb = normalize( rgb );
+
+		// colorMask *= rgb;
+		colorMask *= mtl.Kd;
+
 		accumulatedColor += colorMask * luminosity * diffuse * ray.shadow;
-		accumulatedColor += colorMask * specularHighlight * ray.shadow;
+		accumulatedColor += ( mtl.Ns == 0.0f )
+		                 ? (float4)( 0.0f )
+		                 : colorMask * luminosity * specularHighlight * ray.shadow;
 	}
 
 	const float4 color = mix(

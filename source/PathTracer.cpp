@@ -160,6 +160,8 @@ void PathTracer::initArgsKernelPathTracing() {
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_float8 ), &mKdRootBB );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNodeFaces );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufRays );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufFaceToMaterial );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufMaterials );
 }
 
 
@@ -200,7 +202,7 @@ void PathTracer::initArgsKernelSetColors() {
 	++i; // 2: textureWeight
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufRays );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufLights );
-	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufMaterialToFace );
+	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufFaceToMaterial );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufMaterials );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufTextureIn );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufTextureOut );
@@ -264,12 +266,6 @@ void PathTracer::initOpenCLBuffers(
 	mBufKdLeaves = mCL->createBuffer( kdLeaves, sizeof( kdLeaf_cl ) * kdLeaves.size() );
 	mBufKdNodeFaces = mCL->createBuffer( kdFaces, sizeof( cl_float ) * kdFaces.size() );
 
-	// vector<cl_float4> diffuseColors; // [r, g, b]
-	// for( int i = 0; i < materials.size(); i++ ) {
-	// 	cl_float4 d = { materials[i].Kd[0], materials[i].Kd[1], materials[i].Kd[2], 0.0f };
-	// 	diffuseColors.push_back( d );
-	// }
-	// mBufMaterialsColorDiffuse = mCL->createBuffer( diffuseColors, sizeof( cl_float4 ) * diffuseColors.size() );
 
 	vector<material_cl_t> materialsCL;
 	for( int i = 0; i < materials.size(); i++ ) {
@@ -285,7 +281,7 @@ void PathTracer::initOpenCLBuffers(
 		materialsCL.push_back( mtl );
 	}
 	mBufMaterials = mCL->createBuffer( materialsCL, sizeof( material_cl_t ) * materialsCL.size() );
-	mBufMaterialToFace = mCL->createBuffer( facesMtl, sizeof( cl_int ) * facesMtl.size() );
+	mBufFaceToMaterial = mCL->createBuffer( facesMtl, sizeof( cl_int ) * facesMtl.size() );
 
 
 	vector<cl_float4> normalsFloat4;

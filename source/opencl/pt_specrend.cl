@@ -66,16 +66,16 @@ constant colorSystem Rec709system = { 0.64f,   0.33f,   0.30f,   0.60f,   0.15f,
     Given 1976 coordinates u', v', determine 1931 chromaticities x, y
 */
 void upvp_to_xy( float up, float vp, float* xc, float* yc ) {
-	*xc = ( 9.0f * up ) / ( ( 6.0f * up ) - ( 16.0f * vp ) + 12.0f );
-	*yc = ( 4.0f * vp ) / ( ( 6.0f * up ) - ( 16.0f * vp ) + 12.0f );
+	*xc = ( 9.0f * up ) / ( 6.0f * up - 16.0f * vp + 12.0f );
+	*yc = ( 4.0f * vp ) / ( 6.0f * up - 16.0f * vp + 12.0f );
 }
 
 /*  	    	    	    XY_TO_UPVP
     Given 1931 chromaticities x, y, determine 1976 coordinates u', v'
 */
 void xy_to_upvp( float xc, float yc, float* up, float* vp ) {
-	*up = ( 4.0f * xc ) / ( ( -2.0f * xc ) + ( 12.0f * yc ) + 3.0f );
-	*vp = ( 9.0f * yc ) / ( ( -2.0f * xc ) + ( 12.0f * yc ) + 3.0f );
+	*up = ( 4.0f * xc ) / ( -2.0f * xc + 12.0f * yc + 3.0f );
+	*vp = ( 9.0f * yc ) / ( -2.0f * xc + 12.0f * yc + 3.0f );
 }
 
 /*                             XYZ_TO_RGB
@@ -94,11 +94,7 @@ void xy_to_upvp( float xc, float yc, float* up, float* vp ) {
     components so the largest nonzero component has value 1.
 
 */
-void xyz_to_rgb(
-	colorSystem cs,
-	float xc, float yc, float zc,
-	float* r, float* g, float* b
-) {
+void xyz_to_rgb( colorSystem cs, float xc, float yc, float zc, float* r, float* g, float* b ) {
 	float xr, yr, zr, xg, yg, zg, xb, yb, zb;
 	float xw, yw, zw;
 	float rx, ry, rz, gx, gy, gz, bx, by, bz;
@@ -122,24 +118,24 @@ void xyz_to_rgb(
 
 	/* xyz -> rgb matrix, before scaling to white. */
 
-	rx = ( yg * zb ) - ( yb * zg );
-	ry = ( xb * zg ) - ( xg * zb );
-	rz = ( xg * yb ) - ( xb * yg );
+	rx = yg * zb - yb * zg;
+	ry = xb * zg - xg * zb;
+	rz = xg * yb - xb * yg;
 
-	gx = ( yb * zr ) - ( yr * zb );
-	gy = ( xr * zb ) - ( xb * zr );
-	gz = ( xb * yr ) - ( xr * yb );
+	gx = yb * zr - yr * zb;
+	gy = xr * zb - xb * zr;
+	gz = xb * yr - xr * yb;
 
-	bx = ( yr * zg ) - ( yg * zr );
-	by = ( xg * zr ) - ( xr * zg );
-	bz = ( xr * yg ) - ( xg * yr );
+	bx = yr * zg - yg * zr;
+	by = xg * zr - xr * zg;
+	bz = xr * yg - xg * yr;
 
 	/* White scaling factors.
 	   Dividing by yw scales the white luminance to unity, as conventional. */
 
-	rw = ( ( rx * xw ) + ( ry * yw ) + ( rz * zw ) ) / yw;
-	gw = ( ( gx * xw ) + ( gy * yw ) + ( gz * zw ) ) / yw;
-	bw = ( ( bx * xw ) + ( by * yw ) + ( bz * zw ) ) / yw;
+	rw = ( rx * xw + ry * yw + rz * zw ) / yw;
+	gw = ( gx * xw + gy * yw + gz * zw ) / yw;
+	bw = ( bx * xw + by * yw + bz * zw ) / yw;
 
 	/* xyz -> rgb matrix, correctly scaled to white. */
 
@@ -157,9 +153,9 @@ void xyz_to_rgb(
 
 	/* rgb of the desired point */
 
-	*r = ( rx * xc ) + ( ry * yc ) + ( rz * zc );
-	*g = ( gx * xc ) + ( gy * yc ) + ( gz * zc );
-	*b = ( bx * xc ) + ( by * yc ) + ( bz * zc );
+	*r = rx * xc + ry * yc + rz * zc;
+	*g = gx * xc + gy * yc + gz * zc;
+	*b = bx * xc + by * yc + bz * zc;
 }
 
 /*                            INSIDE_GAMUT
@@ -169,11 +165,7 @@ void xyz_to_rgb(
      primary weights are non-negative.
 */
 int inside_gamut( float r, float g, float b ) {
-	return (
-		r >= 0.0f &&
-		g >= 0.0f &&
-		b >= 0.0f
-	);
+	return ( r >= 0.0f && g >= 0.0f && b >= 0.0f );
 }
 
 /*                          CONSTRAIN_RGB
@@ -188,12 +180,8 @@ int inside_gamut( float r, float g, float b ) {
 int constrain_rgb( float* r, float* g, float* b ) {
 	float w;
 
-	/* Amount of white needed is w = - min(0, *r, *g, *b) */
-
-	w = ( 0.0f < *r ) ? 0.0f : *r;
-	w = ( w < *g ) ? w : *g;
-	w = ( w < *b ) ? w : *b;
-	w = -w;
+	/* Amount of white needed is w = -min(0, *r, *g, *b) */
+	w = -fmin( fmin( 0.0f, *r ), fmin( *g, *b ) );
 
 	/* Add just enough white to make r, g, b all positive. */
 
@@ -226,10 +214,10 @@ void gamma_correct( const colorSystem* cs, float* c ) {
 		float cc = 0.018f;
 
 		if( *c < cc ) {
-			*c *= ( ( 1.099f * pow( cc, 0.45f ) ) - 0.099f ) / cc;
+			*c *= ( 1.099f * pow( cc, 0.45f ) - 0.099f ) / cc;
 		}
 		else {
-			*c = ( 1.099f * pow( *c, 0.45f ) ) - 0.099f;
+			*c = 1.099f * pow( *c, 0.45f ) - 0.099f;
 		}
 	}
 	else {
@@ -332,7 +320,7 @@ void spectrum_to_xyz( float wavelength, float* x, float* y, float* z ) {
 	X = me * cie_colour_match[index][0];
 	Y = me * cie_colour_match[index][1];
 	Z = me * cie_colour_match[index][2];
-	XYZ = ( X + Y + Z );
+	XYZ = X + Y + Z;
 
 	*x = X / XYZ;
 	*y = Y / XYZ;
