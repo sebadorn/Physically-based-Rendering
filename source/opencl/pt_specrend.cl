@@ -62,6 +62,9 @@ constant colorSystem HDTVsystem   = { 0.670f,  0.330f,  0.210f,  0.710f,  0.150f
 constant colorSystem CIEsystem    = { 0.7355f, 0.2645f, 0.2658f, 0.7243f, 0.1669f, 0.0085f, IlluminantE,   GAMMA_REC709 };
 constant colorSystem Rec709system = { 0.64f,   0.33f,   0.30f,   0.60f,   0.15f,   0.06f,   IlluminantD65, GAMMA_REC709 };
 
+constant colorSystem CustomSystem = { 0.73f,   0.27f,   0.27f,   0.73f,   0.27f,   0.008f,  IlluminantE,   GAMMA_REC709 };
+
+
 /*  	    	    	    UPVP_TO_XY
     Given 1976 coordinates u', v', determine 1931 chromaticities x, y
 */
@@ -253,12 +256,11 @@ void norm_rgb( float* r, float* g, float* b ) {
     Calculate, by Planck's radiation law, the emittance of a black body
     of temperature bbTemp at the given wavelength (in metres).
 */
-#define BB_TEMP 5000.0f /* Hidden temperature argument to BB_SPECTRUM. */
 
 float bb_spectrum( float wavelength ) {
     float wlm = wavelength * 1e-9; /* Wavelength in meters */
 
-    return ( 3.74183e-16 * pow( wlm, -5.0f ) ) / ( exp(1.4388e-2 / ( wlm * BB_TEMP ) ) - 1.0f );
+    return ( 3.74183e-16 * pow( wlm, -5.0f ) ) / ( exp( 1.4388e-2 / ( wlm * SPECTRUM_BB_TEMP ) ) - 1.0f );
 }
 
 
@@ -333,11 +335,11 @@ float4 wavelengthToRGB( float wavelength ) {
 	float r, g, b;
 
 	spectrum_to_xyz( wavelength, &x, &y, &z );
-	xyz_to_rgb( SMPTEsystem, x, y, z, &r, &g, &b );
-	constrain_rgb( &r, &g, &b );
-	norm_rgb( &r, &g, &b );
+	xyz_to_rgb( SPECTRUM_COLORSYSTEM, x, y, z, &r, &g, &b );
+	// constrain_rgb( &r, &g, &b );
+	// norm_rgb( &r, &g, &b );
 
-	return (float4)( r, g, b, 0.0f );
+	return fast_normalize( (float4)( r, g, b, 0.0f ) );
 }
 
 
