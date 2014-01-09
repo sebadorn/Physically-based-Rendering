@@ -4,7 +4,7 @@
 
 #FILE:pt_kdtree.cl:FILE#
 
-#FILE:pt_specrend.cl:FILE#
+#FILE:pt_spectral.cl:FILE#
 
 
 
@@ -320,20 +320,26 @@ kernel void setColors(
 
 	const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
 	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
+
 	ray4 ray;
 	material mtl;
+	float d = 1.0f;
 
-	// Vars: Specular highlight
+
+	// spectrum
+	float spectrumLight[40];
+
+	for( int i = 0; i < 40; i++ ) {
+		spectrumLight[i] = 0.5f;
+	}
+
+	float4 rgb = spectrumToRGB( spectrumLight );
+
+
+	// specular highlight
 	float4 reflectedLight;
 	float4 H; // half-angle direction between L (vector to light) and V (viewpoint vector)
 	float specularHighlight;
-
-	// Vars: Light as wavelengths
-	float4 rgb;
-	ulong lightWavelengths = ( 1 << 63 ) - 1 + ( 1 << 63 ); // limit of ulong (64 bit) = all bits set to 1
-	ulong absorbs = ~( ( 1 << 20 ) - 1 );
-
-	float d = 1.0f;
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		ray = rays[workIndex + bounce];
@@ -357,23 +363,7 @@ kernel void setColors(
 
 		specularHighlight = calcSpecularHighlight( light, hit, ray, mtl.Ns );
 
-		// if( faceToMaterial[ray.faceIndex] == 2 ) {
-		// 	lightWavelengths &= ~( ( 1 << 30 ) - 1 );
-		// }
-		// rgb = (float4)( 0.0f );
-
-		// // Visible spectrum: 380nm - 700nm
-		// for( int i = 0; i <= 64; i++ ) {
-		// 	// if( BIT_ISSET( lightWavelengths, i ) ) {
-		// 		rgb += wavelengthToRGB( 380.0f + i * 5.0f );
-		// 	// }
-		// }
-
-		// rgb = wavelengthToRGB( 590.0f );
-		// rgb = normalize( rgb );
-
-		// colorMask *= rgb;
-		colorMask *= mtl.Kd * d + accumulatedColor * ( 1.0f - d );
+		colorMask *= /*mtl.Kd*/rgb * d + accumulatedColor * ( 1.0f - d );
 
 		accumulatedColor += colorMask * luminosity * diffuse * ray.shadow;
 		accumulatedColor += ( mtl.Ns == 0.0f )

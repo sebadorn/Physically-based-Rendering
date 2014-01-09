@@ -32,6 +32,7 @@ const char* Cfg::PERS_ZFAR = "camera.perspective.zfar";
 const char* Cfg::PERS_ZNEAR = "camera.perspective.znear";
 const char* Cfg::SHADER_PATH = "shader.path";
 const char* Cfg::SHADER_NAME = "shader.name";
+const char* Cfg::SPECTRAL_COLORSYSTEM = "spectral.color_system";
 const char* Cfg::WINDOW_HEIGHT = "window.height";
 const char* Cfg::WINDOW_TITLE = "window.title";
 const char* Cfg::WINDOW_WIDTH = "window.width";

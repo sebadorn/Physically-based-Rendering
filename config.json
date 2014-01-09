@@ -103,6 +103,16 @@
 		"path": "source/shader/"
 	},
 
+	"spectral": {
+		// 0: NTSC
+		// 1: EBU
+		// 2: SMPTE
+		// 3: HDTV
+		// 4: CIE (default)
+		// 5: Rec709
+		"color_system": 4
+	},
+
 	"window": {
 		"height": 512,
 		"title": "Physically-based Renderer",

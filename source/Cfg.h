@@ -48,6 +48,7 @@ class Cfg {
 		static const char* PERS_ZNEAR;
 		static const char* SHADER_PATH;
 		static const char* SHADER_NAME;
+		static const char* SPECTRAL_COLORSYSTEM;
 		static const char* WINDOW_HEIGHT;
 		static const char* WINDOW_TITLE;
 		static const char* WINDOW_WIDTH;

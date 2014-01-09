@@ -554,51 +554,48 @@ void CL::setKernelArg( cl_kernel kernel, cl_uint index, size_t size, void* data 
  * @return {std::string}                 The adjusted file content.
  */
 string CL::setValues( string clProgramString ) {
-	// Placeholder names in the OpenCL file
-	vector<string> boolReplace;
-	boolReplace.push_back( "ANTI_ALIASING" );
-	boolReplace.push_back( "BACKFACE_CULLING" );
-	boolReplace.push_back( "SHADOWS" );
+	vector<string> valueReplace;
+	string search, value;
+	size_t foundStrPos;
+	char replacement[16];
 
-	// Boolean values from the config
+
+	// Define or don't define
+
+	valueReplace.clear();
+	valueReplace.push_back( "ANTI_ALIASING" );
+	valueReplace.push_back( "BACKFACE_CULLING" );
+	valueReplace.push_back( "SHADOWS" );
+
 	vector<bool> configValue;
 	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_ANTIALIAS ) );
 	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_BACKFACECULLING ) );
 	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_SHADOWS ) );
 
-	string search, value;
-	size_t foundStrPos;
-
-	for( int i = 0; i < boolReplace.size(); i++ ) {
-		search = "#" + boolReplace[i] + "#";
+	for( int i = 0; i < valueReplace.size(); i++ ) {
+		search = "#" + valueReplace[i] + "#";
 		foundStrPos = clProgramString.find( search );
 
 		if( foundStrPos != string::npos ) {
-			value = configValue[i] ? "#define " + boolReplace[i] + " 1" : "";
+			value = configValue[i] ? "#define " + valueReplace[i] + " 1" : "";
 			clProgramString.replace( foundStrPos, search.length(), value );
 		}
 	}
 
 
-	// Placeholder names in the OpenCL file
-	vector<string> valueReplace;
+	// Unsigned integer replacement
+
+	valueReplace.clear();
 	valueReplace.push_back( "BOUNCES" );
 	valueReplace.push_back( "IMG_HEIGHT" );
 	valueReplace.push_back( "IMG_WIDTH" );
 	valueReplace.push_back( "SPECULAR_HIGHLIGHT" );
-	valueReplace.push_back( "WORKGROUPSIZE" );
-	valueReplace.push_back( "WORKGROUPSIZE_HALF" );
 
-	// Unsigned integer values from the config
 	vector<cl_uint> configInt;
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_BOUNCES ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SPECULARHIGHLIGHT ) );
-	configInt.push_back( Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE ) );
-	configInt.push_back( Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE ) / 2.0f );
-
-	char replacement[16];
 
 	for( int i = 0; i < valueReplace.size(); i++ ) {
 		search = "#" + valueReplace[i] + "#";
@@ -606,6 +603,58 @@ string CL::setValues( string clProgramString ) {
 
 		if( foundStrPos != string::npos ) {
 			snprintf( replacement, 16, "%u", configInt[i] );
+			clProgramString.replace( foundStrPos, search.length(), replacement );
+		}
+	}
+
+
+	// Float replacement
+
+	valueReplace.clear();
+	valueReplace.push_back( "WORKGROUPSIZE" );
+	valueReplace.push_back( "WORKGROUPSIZE_HALF" );
+
+	vector<cl_float> configFloat;
+	configFloat.push_back( Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE ) );
+	configFloat.push_back( Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE ) / 2.0f );
+
+	for( int i = 0; i < valueReplace.size(); i++ ) {
+		search = "#" + valueReplace[i] + "#";
+		foundStrPos = clProgramString.find( search );
+
+		if( foundStrPos != string::npos ) {
+			snprintf( replacement, 16, "%f", configFloat[i] );
+			clProgramString.replace( foundStrPos, search.length(), replacement );
+		}
+	}
+
+
+	// String replacement
+
+	valueReplace.clear();
+	valueReplace.push_back( "SPECTRAL_COLORSYSTEM" );
+
+	vector<string> configStr;
+	string cs;
+
+	switch( Cfg::get().value<cl_int>( Cfg::SPECTRAL_COLORSYSTEM ) ) {
+		case 0: cs = "NTSC"; break;
+		case 1: cs = "EBU"; break;
+		case 2: cs = "SMPTE"; break;
+		case 3: cs = "HDTV"; break;
+		case 4: cs = "CIE"; break;
+		case 5: cs = "Rec709"; break;
+		default: cs = "CIE";
+	}
+
+	configStr.push_back( cs.append( "system" ) );
+
+	for( int i = 0; i < valueReplace.size(); i++ ) {
+		search = "#" + valueReplace[i] + "#";
+		foundStrPos = clProgramString.find( search );
+
+		if( foundStrPos != string::npos ) {
+			snprintf( replacement, 16, "%s", configStr[i].c_str() );
 			clProgramString.replace( foundStrPos, search.length(), replacement );
 		}
 	}
