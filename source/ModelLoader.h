@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "ObjParser.h"
+#include "SpecParser.h"
 
 using std::map;
 using std::string;
@@ -44,7 +45,9 @@ class ModelLoader {
 		vector<GLuint> getFacesVT();
 		vector<light_t> getLights();
 		vector<material_t> getMaterials();
+		map<string, string> getMaterialToSPD();
 		vector<GLfloat> getNormals();
+		map<string, vector<cl_float> > getSpectralPowerDistributions();
 		vector<GLfloat> getTextureCoordinates();
 		vector<GLfloat> getVertices();
 		void loadModel( string filepath, string filename );
@@ -56,6 +59,7 @@ class ModelLoader {
 
 	private:
 		ObjParser* mObjParser;
+		SpecParser* mSpecParser;
 
 		map<string, GLuint> mFileToTextureID;
 		map<GLuint, GLuint> mTextureIDs;

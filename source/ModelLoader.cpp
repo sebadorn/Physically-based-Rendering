@@ -9,6 +9,7 @@ using namespace boost::property_tree;
  */
 ModelLoader::ModelLoader() {
 	mObjParser = new ObjParser();
+	mSpecParser = new SpecParser();
 }
 
 
@@ -17,6 +18,7 @@ ModelLoader::ModelLoader() {
  */
 ModelLoader::~ModelLoader() {
 	delete mObjParser;
+	delete mSpecParser;
 }
 
 
@@ -115,11 +117,29 @@ vector<material_t> ModelLoader::getMaterials() {
 
 
 /**
+ * Get the association of material names to spectral power distribution.
+ * @return {std::map<std::string, std::string>}
+ */
+map<string, string> ModelLoader::getMaterialToSPD() {
+	return mSpecParser->getMaterialToSPD();
+}
+
+
+/**
  * Get the vertex normals.
  * @return {std::vector<GLfloat>} Normals.
  */
 vector<GLfloat> ModelLoader::getNormals() {
 	return mObjParser->getNormals();
+}
+
+
+/**
+ * Get the spectral power distributions.
+ * @return {std::map<std::string, std::vector<cl_float>>}
+ */
+map<string, vector<cl_float> > ModelLoader::getSpectralPowerDistributions() {
+	return mSpecParser->getSpectralPowerDistributions();
 }
 
 
@@ -203,8 +223,10 @@ void ModelLoader::loadLights( string filepath, string filename ) {
  */
 void ModelLoader::loadModel( string filepath, string filename ) {
 	mObjParser->load( filepath, filename );
-	vector<GLuint> facesV = mObjParser->getFacesV();
-	vector<GLfloat> vertices = mObjParser->getVertices();
+	mSpecParser->load( filepath, filename );
+
+	vector<cl_uint> facesV = mObjParser->getFacesV();
+	vector<cl_float> vertices = mObjParser->getVertices();
 	mBoundingBox = this->computeBoundingBox( vertices );
 
 	char msg[256];
@@ -222,7 +244,7 @@ void ModelLoader::loadModel( string filepath, string filename ) {
  * @return {GLuint}               ID of the created texture.
  */
 GLuint ModelLoader::loadTexture( string filepath ) {
-	Logger::logWarning( "[ModelLoader] loadTexture() not implemented yet, since moving away from Assimp" );
+	Logger::logWarning( "[ModelLoader] loadTexture() not implemented yet, since moving away from Assimp." );
 	return 0;
 
 	// ilInit();

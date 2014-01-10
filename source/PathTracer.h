@@ -41,13 +41,12 @@ struct kdLeaf_cl {
 };
 
 struct material_cl_t {
-	cl_float4 Ka;
-	cl_float4 Kd;
 	cl_float4 Ks;
 	cl_float d;
 	cl_float Ni;
 	cl_float Ns;
 	cl_int illum;
+	cl_int spdDiffuse;
 };
 
 
@@ -63,8 +62,7 @@ class PathTracer {
 		CL* getCLObject();
 		void initOpenCLBuffers(
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-			vector<cl_uint> facesVN, vector<cl_int> facesMtl, vector<material_t> materials,
-			vector<light_t> lights, vector<kdNode_t> kdNodes, kdNode_t* rootNode
+			ModelLoader* ml, vector<light_t> lights, vector<kdNode_t> kdNodes, kdNode_t* rootNode
 		);
 		void resetSampleCount();
 		void setCamera( Camera* camera );
@@ -84,10 +82,19 @@ class PathTracer {
 		void initArgsKernelSetColors();
 		void initArgsKernelShadowTest();
 		void initKernelArgs();
+		void initOpenCLBuffers_KdTree(
+			vector<cl_float> vertices, vector<cl_uint> faces,
+			vector<kdNode_t> kdNodes, kdNode_t* rootNode
+		);
+		void initOpenCLBuffers_Lights( vector<light_t> lights );
+		void initOpenCLBuffers_Materials( ModelLoader* ml );
+		void initOpenCLBuffers_Normals( vector<cl_float> normals, ModelLoader* ml );
+		void initOpenCLBuffers_Rays();
+		void initOpenCLBuffers_Textures();
 		void kdNodesToVectors(
+			vector<cl_float> vertices, vector<cl_uint> faces,
 			vector<kdNode_t> kdNodes, vector<cl_float>* kdFaces,
-			vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves,
-			vector<cl_uint> faces, vector<cl_float> vertices
+			vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves
 		);
 		void updateEyeBuffer();
 
@@ -116,6 +123,7 @@ class PathTracer {
 
 		cl_mem mBufMaterials;
 		cl_mem mBufFaceToMaterial;
+		cl_mem mBufSPDs;
 
 		cl_mem mBufEye;
 		cl_mem mBufLights;

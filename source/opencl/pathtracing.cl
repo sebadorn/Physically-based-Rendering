@@ -304,7 +304,7 @@ kernel void shadowTest(
 kernel void setColors(
 	const uint2 offset, const float timeSinceStart, const float textureWeight,
 	const global ray4* rays, const global float4* lights,
-	const global int* faceToMaterial, const global material* materials,
+	const global int* faceToMaterial, const global material* materials, const global float* specPowerDists,
 	read_only image2d_t textureIn, write_only image2d_t textureOut
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
@@ -326,14 +326,11 @@ kernel void setColors(
 	float d = 1.0f;
 
 
-	// spectrum
-	float spectrumLight[40];
-
+	// Spectral power distribution of the light
+	float spdLight[40];
 	for( int i = 0; i < 40; i++ ) {
-		spectrumLight[i] = 0.5f;
+		spdLight[i] = 0.5f;
 	}
-
-	float4 rgb = spectrumToRGB( spectrumLight );
 
 
 	// specular highlight
@@ -363,7 +360,12 @@ kernel void setColors(
 
 		specularHighlight = calcSpecularHighlight( light, hit, ray, mtl.Ns );
 
-		colorMask *= /*mtl.Kd*/rgb * d + accumulatedColor * ( 1.0f - d );
+
+		for( int i = 0; i < 40; i++ ) {
+			spdLight[i] *= specPowerDists[mtl.spdDiffuse * 40 + i];
+		}
+
+		colorMask *= spectrumToRGB( spdLight ) * d + accumulatedColor * ( 1.0f - d );
 
 		accumulatedColor += colorMask * luminosity * diffuse * ray.shadow;
 		accumulatedColor += ( mtl.Ns == 0.0f )
@@ -372,6 +374,7 @@ kernel void setColors(
 
 		d = mtl.d;
 	}
+
 
 	const float4 color = mix(
 		clamp( accumulatedColor, 0.0f, 1.0f ),

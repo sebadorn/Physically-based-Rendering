@@ -204,6 +204,7 @@ void PathTracer::initArgsKernelSetColors() {
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufLights );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufFaceToMaterial );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufMaterials );
+	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufSPDs );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufTextureIn );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufTextureOut );
 }
@@ -238,23 +239,45 @@ void PathTracer::initKernelArgs() {
 
 /**
  * Init the needed OpenCL buffers: Faces, vertices, camera eye and rays.
- * @param {std::vector<cl_float>*} vertices  Vertices of the model.
- * @param {std::vector<cl_uint>*}  faces     Faces (triangles) of the model.
- * @param {std::vector<kdNode_t>}  kdNodes   The nodes of the kd-tree.
- * @param {cl_uint}                rootIndex Index of the root kd node.
+ * @param {std::vector<cl_float>} vertices Vertices of the model.
+ * @param {std::vector<cl_uint>}  faces    Faces (triangles) of the model.
+ * @param {std::vector<cl_float>} normals  Normals of the model.
+ * @param {ModelLoader*}          ml       Model loader already holding the needed model data.
+ * @param {std::vector<light_t>}  lights   Lights of the scene.
+ * @param {std::vector<kdNode_t>} kdNodes  Nodes of the kd-tree.
+ * @param {kdNode_t*}             rootNode Root node of the kd-tree.
  */
 void PathTracer::initOpenCLBuffers(
 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-	vector<cl_uint> facesVN, vector<cl_int> facesMtl, vector<material_t> materials,
-	vector<light_t> lights, vector<kdNode_t> kdNodes, kdNode_t* rootNode
+	ModelLoader* ml, vector<light_t> lights, vector<kdNode_t> kdNodes, kdNode_t* rootNode
 ) {
-	cl_uint pixels = mWidth * mHeight;
+	this->initOpenCLBuffers_KdTree( vertices, faces, kdNodes, rootNode );
+	this->initOpenCLBuffers_Materials( ml );
+	this->initOpenCLBuffers_Normals( normals, ml );
+	this->initOpenCLBuffers_Rays();
+	this->initOpenCLBuffers_Textures();
+	this->initOpenCLBuffers_Lights( lights );
 
+	this->initKernelArgs();
+}
+
+
+/**
+ * Init OpenCL buffers for the kd-tree.
+ * @param {std::vector<cl_float>} vertices Vertices of the model.
+ * @param {std::vector<cl_uint>}  faces    Faces (triangles) of the model.
+ * @param {std::vector<kdNode_t>} kdNodes  Nodes of the kd-tree.
+ * @param {kdNode_t*}             rootNode Root node of the kd-tree.
+ */
+void PathTracer::initOpenCLBuffers_KdTree(
+	vector<cl_float> vertices, vector<cl_uint> faces,
+	vector<kdNode_t> kdNodes, kdNode_t* rootNode
+) {
 	vector<kdNonLeaf_cl> kdNonLeaves;
 	vector<kdLeaf_cl> kdLeaves;
 	vector<cl_float> kdFaces; // [a, b, c, ..., faceIndex]
 
-	this->kdNodesToVectors( kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, faces, vertices );
+	this->kdNodesToVectors( vertices, faces, kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves );
 
 	cl_float8 kdRootBB = {
 		rootNode->bbMin[0], rootNode->bbMin[1], rootNode->bbMin[2], 0.0f,
@@ -265,25 +288,75 @@ void PathTracer::initOpenCLBuffers(
 	mBufKdNonLeaves = mCL->createBuffer( kdNonLeaves, sizeof( kdNonLeaf_cl ) * kdNonLeaves.size() );
 	mBufKdLeaves = mCL->createBuffer( kdLeaves, sizeof( kdLeaf_cl ) * kdLeaves.size() );
 	mBufKdNodeFaces = mCL->createBuffer( kdFaces, sizeof( cl_float ) * kdFaces.size() );
+}
+
+
+/**
+ * Init OpenCL buffers for the lights.
+ * @param {std::vector<light_t>} lights Lights of the scene.
+ */
+void PathTracer::initOpenCLBuffers_Lights( vector<light_t> lights ) {
+	mBufLights = mCL->createEmptyBuffer( sizeof( cl_float4 ) * lights.size(), CL_MEM_READ_ONLY );
+	this->updateLights( lights );
+}
+
+
+/**
+ * Init OpenCL buffers for the materials, including spectral power distributions.
+ * @param {ModelLoader*} ml Model loader already holding the needed model data.
+ */
+void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
+	vector<cl_int> facesMtl = ml->getFacesMtl();
+	vector<material_t> materials = ml->getMaterials();
+	map<string, string> mtl2spd = ml->getMaterialToSPD();
+	map<string, vector<cl_float> > spectra = ml->getSpectralPowerDistributions();
+
+	vector<cl_float> spd, spectraCL;
+	map<string, cl_uint> specID;
+	map<string, vector<cl_float> >::iterator it;
+	int specCounter = 0;
+
+	for( it = spectra.begin(); it != spectra.end(); it++, specCounter++ ) {
+		specID[it->first] = specCounter;
+		spd = it->second;
+
+		// Spectral power distribution has wavelength steps of 5nm, but we use only 10nm steps
+		for( int i = 0; i < spd.size(); i += 2 ) {
+			spectraCL.push_back( spd[i] );
+		}
+	}
 
 
 	vector<material_cl_t> materialsCL;
+
 	for( int i = 0; i < materials.size(); i++ ) {
 		material_cl_t mtl;
-		mtl.Ka = materials[i].Ka;
-		mtl.Kd = materials[i].Kd;
 		mtl.Ks = materials[i].Ks;
 		mtl.d = materials[i].d;
 		mtl.Ni = materials[i].Ni;
 		mtl.Ns = materials[i].Ns;
 		mtl.illum = materials[i].illum;
 
+		string spdName = mtl2spd[materials[i].mtlName];
+		mtl.spdDiffuse = specID[spdName];
+
 		materialsCL.push_back( mtl );
 	}
-	mBufMaterials = mCL->createBuffer( materialsCL, sizeof( material_cl_t ) * materialsCL.size() );
+
+
 	mBufFaceToMaterial = mCL->createBuffer( facesMtl, sizeof( cl_int ) * facesMtl.size() );
+	mBufMaterials = mCL->createBuffer( materialsCL, sizeof( material_cl_t ) * materialsCL.size() );
+	mBufSPDs = mCL->createBuffer( spectraCL, sizeof( cl_float ) * spectraCL.size() );
+}
 
 
+/**
+ * Init OpenCL buffers of the normals.
+ * @param {std::vector<cl_float>} normals Normals of the model.
+ * @param {ModelLoader*}          ml      Model loader already holding the needed model data.
+ */
+void PathTracer::initOpenCLBuffers_Normals( vector<cl_float> normals, ModelLoader* ml ) {
+	vector<cl_uint> facesVN = ml->getFacesVN();
 	vector<cl_float4> normalsFloat4;
 
 	for( int i = 0; i < normals.size(); i += 3 ) {
@@ -298,39 +371,44 @@ void PathTracer::initOpenCLBuffers(
 
 	mBufScNormals = mCL->createBuffer( normalsFloat4, sizeof( cl_float4 ) * normalsFloat4.size() );
 	mBufScFacesVN = mCL->createBuffer( facesVN, sizeof( cl_uint ) * facesVN.size() );
+}
 
 
+/**
+ * Init OpenCL buffers of the rays.
+ */
+void PathTracer::initOpenCLBuffers_Rays() {
+	cl_uint pixels = mWidth * mHeight;
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
 	mBufNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
 	mBufRays = mCL->createEmptyBuffer( sizeof( ray4 ) * pixels * mBounces, CL_MEM_READ_WRITE );
+}
 
-	mTextureOut = vector<cl_float>( pixels * 4, 0.0f );
+
+/**
+ * Init OpenCL buffers of the textures.
+ */
+void PathTracer::initOpenCLBuffers_Textures() {
+	mTextureOut = vector<cl_float>( mWidth * mHeight * 4, 0.0f );
 	mBufTextureIn = mCL->createImage2DReadOnly( mWidth, mHeight, &mTextureOut[0] );
 	mBufTextureOut = mCL->createImage2DWriteOnly( mWidth, mHeight );
-
-	mBufLights = mCL->createEmptyBuffer( sizeof( cl_float4 ) * lights.size(), CL_MEM_READ_ONLY );
-	this->updateLights( lights );
-
-	this->initKernelArgs();
 }
 
 
 /**
  * Store the kd-nodes data in seperate lists for each data type
  * in order to pass it to OpenCL.
- * @param {std::vector<KdNode_t>}  kdNodes  The nodes to extract the data from.
- * @param {std::vector<cl_float>*} kdSplits Data: [x, y, z]
- * @param {std::vector<cl_float>*} kdBB     Data: [x, y, z, x, y, z]
- * @param {std::vector<cl_int>*}   kdMeta   Data: [left, right, axis, facesIndex, numFaces, ropesIndex]
- * @param {std::vector<cl_int>*}   kdFaces  Data: [a, b, c ..., faceIndex]
- * @param {std::vector<cl_int>*}   kdRopes  Data: [left, right, bottom, top, back, front]
- * @param {std::vector<cl_uint>*}  faces    Faces.
- * @param {std::vector<cl_float>*} vertices Vertices.
+ * @param {std::vector<cl_float>*}     vertices    Vertices.
+ * @param {std::vector<cl_uint>*}      faces       Faces.
+ * @param {std::vector<KdNode_t>}      kdNodes     All nodes of the kd-tree.
+ * @param {std::vector<cl_float>*}     kdFaces     Data: [a, b, c ..., faceIndex]
+ * @param {std::vector<kdNonLeaf_cl>*} kdNonLeaves Output: Nodes of the kd-tree, that aren't leaves.
+ * @param {std::vector<kdLeaf_cl>*}    kdLeaves    Output: Leaf nodes of the kd-tree.
  */
 void PathTracer::kdNodesToVectors(
+	vector<cl_float> vertices, vector<cl_uint> faces,
 	vector<kdNode_t> kdNodes, vector<cl_float>* kdFaces,
-	vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves,
-	vector<cl_uint> faces, vector<cl_float> vertices
+	vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves
 ) {
 	cl_uint a, b, c;
 	cl_int pos;

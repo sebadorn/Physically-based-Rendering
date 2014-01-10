@@ -39,11 +39,10 @@ typedef struct {
 } kdLeaf __attribute__( ( aligned( 64 ) ) );
 
 typedef struct {
-	float4 Ka;
-	float4 Kd;
 	float4 Ks;
 	float d;
 	float Ni;
 	float Ns;
 	int illum;
-} material __attribute__( ( aligned( 64 ) ) );
+	int spdDiffuse;
+} material;
