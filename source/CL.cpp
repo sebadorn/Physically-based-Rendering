@@ -589,12 +589,14 @@ string CL::setValues( string clProgramString ) {
 	valueReplace.push_back( "BOUNCES" );
 	valueReplace.push_back( "IMG_HEIGHT" );
 	valueReplace.push_back( "IMG_WIDTH" );
+	valueReplace.push_back( "SPECTRAL_COLORSYSTEM" );
 	valueReplace.push_back( "SPECULAR_HIGHLIGHT" );
 
 	vector<cl_uint> configInt;
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_BOUNCES ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH ) );
+	configInt.push_back( Cfg::get().value<cl_int>( Cfg::SPECTRAL_COLORSYSTEM ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SPECULARHIGHLIGHT ) );
 
 	for( int i = 0; i < valueReplace.size(); i++ ) {
@@ -624,37 +626,6 @@ string CL::setValues( string clProgramString ) {
 
 		if( foundStrPos != string::npos ) {
 			snprintf( replacement, 16, "%f", configFloat[i] );
-			clProgramString.replace( foundStrPos, search.length(), replacement );
-		}
-	}
-
-
-	// String replacement
-
-	valueReplace.clear();
-	valueReplace.push_back( "SPECTRAL_COLORSYSTEM" );
-
-	vector<string> configStr;
-	string cs;
-
-	switch( Cfg::get().value<cl_int>( Cfg::SPECTRAL_COLORSYSTEM ) ) {
-		case 0: cs = "NTSC"; break;
-		case 1: cs = "EBU"; break;
-		case 2: cs = "SMPTE"; break;
-		case 3: cs = "HDTV"; break;
-		case 4: cs = "CIE"; break;
-		case 5: cs = "Rec709"; break;
-		default: cs = "CIE";
-	}
-
-	configStr.push_back( cs.append( "system" ) );
-
-	for( int i = 0; i < valueReplace.size(); i++ ) {
-		search = "#" + valueReplace[i] + "#";
-		foundStrPos = clProgramString.find( search );
-
-		if( foundStrPos != string::npos ) {
-			snprintf( replacement, 16, "%s", configStr[i].c_str() );
 			clProgramString.replace( foundStrPos, search.length(), replacement );
 		}
 	}

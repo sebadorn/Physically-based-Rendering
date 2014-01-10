@@ -1,4 +1,4 @@
-# Blender MTL File: 'cornell-squirrel-red.blend'
+# Blender MTL File: 'cornell-squirrel.blend'
 # Material Count: 2
 
 newmtl Material
@@ -10,7 +10,7 @@ Ni 1.000000
 d 1.000000
 illum 3
 
-newmtl Material.001
+newmtl Squirrel
 Ns 96.078431
 Ka 0.000000 0.000000 0.000000
 Kd 0.800000 0.000000 0.000000

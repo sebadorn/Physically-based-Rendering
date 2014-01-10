@@ -1,4 +1,4 @@
-# Blender MTL File: 'cornell-single-box-white.blend'
+# Blender MTL File: 'cornell-single-box.blend'
 # Material Count: 4
 
 newmtl Material
@@ -26,7 +26,8 @@ Kd 0.000000 0.080828 0.800000
 Ks 0.500000 0.500000 0.500000
 Ni 1.000000
 d 1.000000
-illum 2
+gloss 0.200000
+illum 3
 
 newmtl red
 Ns 0.000000

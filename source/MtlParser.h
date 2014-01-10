@@ -26,6 +26,9 @@ using std::vector;
  *         Glass has a value of around 1.5.
  * Ns    - Specular exponent between [0.0, 1000.0].
  *         A value of 0.0 will be interpreted as disabled specular highlights. (Implementation dependent.)
+ *
+ * Custom additions:
+ * gloss - Glossiness factor [0.0, 1.0].
  */
 struct material_t {
 	string mtlName;
@@ -35,6 +38,7 @@ struct material_t {
 	cl_float d;
 	cl_float Ni;
 	cl_float Ns;
+	cl_float gloss;
 	cl_int illum;
 };
 

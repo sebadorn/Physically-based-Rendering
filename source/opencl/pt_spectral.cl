@@ -55,13 +55,32 @@ typedef struct {
  */
 #define GAMMA_REC709 0.0f // Rec. 709
 
-                                   /* xRed     yRed     xGreen   yGreen   xBlue    yBlue    White point    Gamma */
-constant colorSystem NTSCsystem   = { 0.67f,   0.33f,   0.21f,   0.71f,   0.14f,   0.08f,   IlluminantC,   GAMMA_REC709 };
-constant colorSystem EBUsystem    = { 0.64f,   0.33f,   0.29f,   0.60f,   0.15f,   0.06f,   IlluminantD65, GAMMA_REC709 };
-constant colorSystem SMPTEsystem  = { 0.630f,  0.340f,  0.310f,  0.595f,  0.155f,  0.070f,  IlluminantD65, GAMMA_REC709 };
-constant colorSystem HDTVsystem   = { 0.670f,  0.330f,  0.210f,  0.710f,  0.150f,  0.060f,  IlluminantD65, GAMMA_REC709 };
-constant colorSystem CIEsystem    = { 0.7355f, 0.2645f, 0.2658f, 0.7243f, 0.1669f, 0.0085f, IlluminantE,   GAMMA_REC709 };
-constant colorSystem Rec709system = { 0.64f,   0.33f,   0.30f,   0.60f,   0.15f,   0.06f,   IlluminantD65, GAMMA_REC709 };
+	                         /* xRed     yRed     xGreen   yGreen   xBlue    yBlue    White point    Gamma */
+#if SPECTRAL_COLORSYSTEM == 0 // NTSC
+
+	constant colorSystem CS = { 0.67f,   0.33f,   0.21f,   0.71f,   0.14f,   0.08f,   IlluminantC,   GAMMA_REC709 };
+
+#elif SPECTRAL_COLORSYSTEM == 1 // EBU
+
+	constant colorSystem CS = { 0.64f,   0.33f,   0.29f,   0.60f,   0.15f,   0.06f,   IlluminantD65, GAMMA_REC709 };
+
+#elif SPECTRAL_COLORSYSTEM == 2 // SMPTE
+
+	constant colorSystem CS = { 0.630f,  0.340f,  0.310f,  0.595f,  0.155f,  0.070f,  IlluminantD65, GAMMA_REC709 };
+
+#elif SPECTRAL_COLORSYSTEM == 3 // HDTV
+
+	constant colorSystem CS = { 0.670f,  0.330f,  0.210f,  0.710f,  0.150f,  0.060f,  IlluminantD65, GAMMA_REC709 };
+
+#elif SPECTRAL_COLORSYSTEM == 4 // CIE
+
+	constant colorSystem CS = { 0.7355f, 0.2645f, 0.2658f, 0.7243f, 0.1669f, 0.0085f, IlluminantE,   GAMMA_REC709 };
+
+#elif SPECTRAL_COLORSYSTEM == 5 // Rec709
+
+	constant colorSystem CS = { 0.64f,   0.33f,   0.30f,   0.60f,   0.15f,   0.06f,   IlluminantD65, GAMMA_REC709 };
+
+#endif
 
 
 /* CIE colour matching functions xBar, yBar, and zBar for
@@ -361,7 +380,7 @@ float4 spectrumToRGB( float spd[40] ) {
 	float r, g, b;
 
 	spectrum_to_xyz( spd, &x, &y, &z );
-	xyz_to_rgb( SPECTRAL_COLORSYSTEM, x, y, z, &r, &g, &b );
+	xyz_to_rgb( CS, x, y, z, &r, &g, &b );
 
 	return fast_normalize( (float4)( r, g, b, 0.0f ) );
 }

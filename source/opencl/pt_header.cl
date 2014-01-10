@@ -43,6 +43,7 @@ typedef struct {
 	float d;
 	float Ni;
 	float Ns;
+	float gloss;
 	int illum;
 	int spdDiffuse;
 } material;

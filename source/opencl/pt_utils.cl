@@ -16,23 +16,27 @@ inline float random( const float4 scale, const float seed ) {
  * @param  {const float4} normal
  * @return {float4}
  */
-inline float4 cosineWeightedDirection( const float seed, const float4 normal ) {
+float4 cosineWeightedDirection( const float seed, const float4 normal ) {
 	const float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
 	const float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
 	const float r = native_sqrt( u );
 	const float angle = PI_X2 * v;
 
-	// compute basis from normal
-	const float4 tmp = ( fabs( normal.x ) < 0.5f )
-	                 ? (float4)( 1.0f, 0.0f, 0.0f, 0.0f )
-	                 : (float4)( 0.0f, 1.0f, 0.0f, 0.0f );
-	const float4 sdir = cross( normal, tmp );
+	const float4 sdir = ( fabs( normal.x ) < 0.5f )
+	                  ? (float4)( 0.0f, normal.z, -normal.y, 0.0f )
+	                  : (float4)( -normal.z, 0.0f, normal.x, 0.0f );
 	const float4 tdir = cross( normal, sdir );
 
 	return r * native_cos( angle ) * sdir + r * native_sin( angle ) * tdir + native_sqrt( 1.0f - u ) * normal;
 }
 
 
+/**
+ * Reflect a ray.
+ * @param  {float4} dir    Direction of ray.
+ * @param  {float4} normal Normal of surface.
+ * @return {float4}        Reflected ray.
+ */
 float4 reflect( float4 dir, float4 normal ) {
 	return dir - 2.0f * dot( normal, dir ) * normal;
 }
@@ -40,8 +44,8 @@ float4 reflect( float4 dir, float4 normal ) {
 
 /**
  * Get a vector in a random direction.
- * @param  {const float}  seed Seed for the random value.
- * @return {float4}            Random vector.
+ * @param  {const float} seed Seed for the random value.
+ * @return {float4}           Random vector.
  */
 inline float4 uniformlyRandomDirection( const float seed ) {
 	const float v = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );

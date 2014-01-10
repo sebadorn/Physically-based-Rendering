@@ -25,17 +25,17 @@
  * @param timeSinceStart
  */
 ray4 findPath(
-	ray4* ray, const global float4* scNormals,
-	const global uint* scFacesVN, const global float4* lights,
+	ray4* ray, const global float4* scVertices, const global uint4* scFaces,
+	const global float4* scNormals, const global uint* scFacesVN, const global float4* lights,
 	int startNode, const global kdNonLeaf* kdNonLeaves,
-	const global kdLeaf* kdLeaves, const global float* kdNodeFaces,
+	const global kdLeaf* kdLeaves, const global uint* kdFaces,
 	const float timeSinceStart, const int bounce,
 	const float entryDistance, const float exitDistance,
 	const global int* faceToMaterial, const global material* materials
 ) {
 	traverseKdTree(
-		ray, startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
-		bounce, entryDistance, exitDistance
+		ray, startNode, kdNonLeaves, kdLeaves, kdFaces,
+		scVertices, scFaces, bounce, entryDistance, exitDistance
 	);
 
 	ray4 newRay;
@@ -44,19 +44,19 @@ ray4 findPath(
 	newRay.faceIndex = -1;
 
 	if( ray->nodeIndex >= 0 ) {
-		const uint f = ray->faceIndex * 3;
-		ray->normal = scNormals[scFacesVN[f]];
+		const uint f = ray->faceIndex;
+		ray->normal = scNormals[scFacesVN[f * 3]];
 
 		newRay.origin = fma( ray->t, ray->dir, ray->origin );
 
-		material mtl = materials[faceToMaterial[ray->faceIndex]];
+		material mtl = materials[faceToMaterial[f]];
 
 		if( mtl.d < 1.0f ) {
 			newRay.dir = ray->dir;
 		}
 		else {
 			newRay.dir = ( mtl.illum == 3 )
-			           ? fast_normalize( reflect( ray->dir, ray->normal ) )
+			           ? fast_normalize( reflect( ray->dir, ray->normal ) + uniformlyRandomVector( timeSinceStart + ray->t ) * mtl.gloss )
 			           : fast_normalize( cosineWeightedDirection( timeSinceStart + ray->t, ray->normal ) );
 		}
 	}
@@ -65,6 +65,14 @@ ray4 findPath(
 }
 
 
+/**
+ *
+ * @param  {float4} light
+ * @param  {float4} hit
+ * @param  {ray4}   ray
+ * @param  {float}  Ns
+ * @return {float}
+ */
 float calcSpecularHighlight( float4 light, float4 hit, ray4 ray, float Ns ) {
 	float specularHighlight;
 
@@ -173,31 +181,33 @@ kernel void initRays(
  */
 kernel void pathTracing(
 	const uint2 offset, const float timeSinceStart, const global float4* lights,
+	const global float4* scVertices, const global uint4* scFaces,
 	const global float4* scNormals, const global uint* scFacesVN,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
-	const float8 kdRootBB, const global float* kdNodeFaces,
+	const global uint* kdFaces, const float8 kdRootBB,
 	global ray4* rays, const global int* faceToMaterial, const global material* materials
 ) {
 	const int2 pos = {
 		offset.x + get_global_id( 0 ),
 		offset.y + get_global_id( 1 )
 	};
-	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
+	const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
 
 	const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, 0.0f };
 	const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, 0.0f };
 
 	ray4 newRay;
-	ray4 ray = rays[workIndex * BOUNCES];
+	ray4 ray = rays[workIndex];
 	ray.t = -2.0f;
 	ray.nodeIndex = -1;
 	ray.faceIndex = -1;
+	ray.shadow = 1.0f;
 
 	float entryDistance = 0.0f;
 	float exitDistance = FLT_MAX;
 
 	if( !intersectBoundingBox( ray.origin, ray.dir, bbMinRoot, bbMaxRoot, &entryDistance, &exitDistance ) ) {
-		rays[workIndex * BOUNCES] = ray;
+		rays[workIndex] = ray;
 		return;
 	}
 
@@ -205,13 +215,13 @@ kernel void pathTracing(
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		newRay = findPath(
-			&ray, scNormals, scFacesVN, lights,
-			startNode, kdNonLeaves, kdLeaves, kdNodeFaces,
-			timeSinceStart + bounce, bounce, entryDistance, exitDistance,
+			&ray, scVertices, scFaces, scNormals, scFacesVN, lights,
+			startNode, kdNonLeaves, kdLeaves, kdFaces,
+			timeSinceStart + (float) bounce, bounce, entryDistance, exitDistance,
 			faceToMaterial, materials
 		);
 
-		rays[workIndex * BOUNCES + bounce] = ray;
+		rays[workIndex + bounce] = ray;
 
 		if( ray.nodeIndex < 0 ) {
 			break;
@@ -240,51 +250,47 @@ kernel void pathTracing(
  */
 kernel void shadowTest(
 	const uint2 offset, const float timeSinceStart, const global float4* lights,
+	const global float4* scVertices, const global uint4* scFaces,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
-	const float8 kdRootBB, const global float* kdNodeFaces,
+	const float8 kdRootBB, const global float* kdFaces,
 	global ray4* rays
 ) {
-	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
-	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
-
 	#ifdef SHADOWS
+
+		const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
+		const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
+
 		const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, kdRootBB.s3 };
 		const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, kdRootBB.s7 };
 
 		int exitRope;
 		uint startNode;
 		const float4 light = lights[0];
-		bool isInShadow;
-	#endif
 
-	float4 hit;
-	uint index = workIndex * BOUNCES;
-	ray4 ray;
+		float4 hit;
+		ray4 ray, shadowRay;
 
-	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
-		ray = rays[index + bounce];
+		for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
+			ray = rays[workIndex + bounce];
 
-		if( ray.nodeIndex < 0 ) {
-			break;
-		}
+			if( ray.nodeIndex < 0 ) {
+				break;
+			}
 
-		#ifdef SHADOWS
 			hit = fma( ray.t, ray.dir, ray.origin );
 
-			ray4 shadowRay;
 			shadowRay.nodeIndex = ray.nodeIndex;
 			shadowRay.origin = hit + ray.normal * EPSILON;
-			shadowRay.dir = light - hit + uniformlyRandomVector( timeSinceStart + fast_length( hit ) ) * 0.1f;
+			shadowRay.dir = light - hit + uniformlyRandomVector( timeSinceStart + ray.t ) * 0.1f;
 
-			isInShadow = shadowTestIntersection( &shadowRay, kdNonLeaves, kdLeaves, kdNodeFaces );
+			ray.shadow = !shadowTestIntersection(
+				&shadowRay, kdNonLeaves, kdLeaves, kdFaces, scVertices, scFaces
+			);
 
-			ray.shadow = !isInShadow;
-		#else
-			ray.shadow = 1.0f;
-		#endif
+			rays[workIndex + bounce] = ray;
+		}
 
-		rays[index + bounce] = ray;
-	}
+	#endif
 }
 
 
@@ -315,6 +321,7 @@ kernel void setColors(
 	float4 accumulatedColor = (float4)( 0.0f );
 	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
 
+	// The farther away a shadow is, the more diffuse it becomes (penumbrae)
 	const float4 light = lights[0];
 	const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
 
@@ -323,15 +330,13 @@ kernel void setColors(
 
 	ray4 ray;
 	material mtl;
-	float d = 1.0f;
-
+	float d = 1.0f; // transparency or "dissolve"
 
 	// Spectral power distribution of the light
 	float spdLight[40];
 	for( int i = 0; i < 40; i++ ) {
-		spdLight[i] = 0.5f;
+		spdLight[i] = 0.8f;
 	}
-
 
 	// specular highlight
 	float4 reflectedLight;
@@ -346,10 +351,7 @@ kernel void setColors(
 		}
 
 		hit = fma( ray.t, ray.dir, ray.origin );
-
 		material mtl = materials[faceToMaterial[ray.faceIndex]];
-
-		// The farther away a shadow is, the more diffuse it becomes (penumbrae)
 		toLight = newLight - hit;
 
 		// Lambert factor (dot product is a cosine)
@@ -359,7 +361,6 @@ kernel void setColors(
 		luminosity = native_recip( toLightLength * toLightLength );
 
 		specularHighlight = calcSpecularHighlight( light, hit, ray, mtl.Ns );
-
 
 		for( int i = 0; i < 40; i++ ) {
 			spdLight[i] *= specPowerDists[mtl.spdDiffuse * 40 + i];

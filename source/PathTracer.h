@@ -45,6 +45,7 @@ struct material_cl_t {
 	cl_float d;
 	cl_float Ni;
 	cl_float Ns;
+	cl_float gloss;
 	cl_int illum;
 	cl_int spdDiffuse;
 };
@@ -92,8 +93,8 @@ class PathTracer {
 		void initOpenCLBuffers_Rays();
 		void initOpenCLBuffers_Textures();
 		void kdNodesToVectors(
-			vector<cl_float> vertices, vector<cl_uint> faces,
-			vector<kdNode_t> kdNodes, vector<cl_float>* kdFaces,
+			vector<cl_float4> vertices4, vector<cl_uint4> faces4,
+			vector<kdNode_t> kdNodes, vector<cl_uint>* kdFaces,
 			vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves
 		);
 		void updateEyeBuffer();
@@ -114,12 +115,14 @@ class PathTracer {
 		cl_kernel mKernelSetColors;
 		cl_kernel mKernelShadowTest;
 
+		cl_mem mBufScVertices;
+		cl_mem mBufScFaces;
 		cl_mem mBufScNormals;
 		cl_mem mBufScFacesVN;
 
 		cl_mem mBufKdNonLeaves;
 		cl_mem mBufKdLeaves;
-		cl_mem mBufKdNodeFaces;
+		cl_mem mBufKdFaces;
 
 		cl_mem mBufMaterials;
 		cl_mem mBufFaceToMaterial;

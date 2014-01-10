@@ -19,6 +19,7 @@ material_t MtlParser::getEmptyMaterial() {
 	mtl.Ns = 100.0f;
 	mtl.Ni = 1.0f;
 	mtl.d = 1.0f;
+	mtl.gloss = 0.0f;
 	mtl.illum = 2;
 
 	return mtl;
@@ -145,6 +146,14 @@ void MtlParser::load( string file ) {
 				continue;
 			}
 			mtl.Ns = atof( parts[1].c_str() );
+		}
+		// Glossiness
+		else if( parts[0] == "gloss" ) {
+			if( parts.size() < 2 ) {
+				Logger::logWarning( "[MtlParser] Not enough paramters for <gloss>. Ignoring attribute." );
+				continue;
+			}
+			mtl.gloss = atof( parts[1].c_str() );
 		}
 	}
 

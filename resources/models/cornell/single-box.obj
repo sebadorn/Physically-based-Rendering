@@ -1,6 +1,6 @@
-# Blender v2.66 (sub 1) OBJ File: 'cornell-single-box-white.blend'
+# Blender v2.66 (sub 1) OBJ File: 'cornell-single-box.blend'
 # www.blender.org
-mtllib single-box-white.mtl
+mtllib single-box.mtl
 o Box_small
 v -0.300000 -0.015010 0.300000
 v -0.300000 -0.015010 -0.300000
