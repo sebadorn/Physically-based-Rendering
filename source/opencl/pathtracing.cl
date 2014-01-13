@@ -47,17 +47,19 @@ ray4 findPath(
 		const uint f = ray->faceIndex;
 		ray->normal = scNormals[scFacesVN[f * 3]];
 
-		newRay.origin = fma( ray->t, ray->dir, ray->origin );
+		if( bounce < BOUNCES - 1 ) {
+			newRay.origin = fma( ray->t, ray->dir, ray->origin );
 
-		material mtl = materials[faceToMaterial[f]];
+			material mtl = materials[faceToMaterial[f]];
 
-		if( mtl.d < 1.0f ) {
-			newRay.dir = ray->dir;
-		}
-		else {
-			newRay.dir = ( mtl.illum == 3 )
-			           ? fast_normalize( reflect( ray->dir, ray->normal ) + uniformlyRandomVector( timeSinceStart + ray->t ) * mtl.gloss )
-			           : fast_normalize( cosineWeightedDirection( timeSinceStart + ray->t, ray->normal ) );
+			if( mtl.d < 1.0f ) {
+				newRay.dir = ray->dir;
+			}
+			else {
+				newRay.dir = ( mtl.illum == 3 )
+				           ? fast_normalize( reflect( ray->dir, ray->normal ) + uniformlyRandomVector( timeSinceStart + ray->t ) * mtl.gloss )
+				           : fast_normalize( cosineWeightedDirection( timeSinceStart + ray->t, ray->normal ) );
+			}
 		}
 	}
 
@@ -360,21 +362,23 @@ kernel void setColors(
 		toLightLength = fast_length( toLight );
 		luminosity = native_recip( toLightLength * toLightLength );
 
-		specularHighlight = calcSpecularHighlight( light, hit, ray, mtl.Ns );
+		// specularHighlight = calcSpecularHighlight( light, hit, ray, mtl.Ns );
 
 		for( int i = 0; i < 40; i++ ) {
 			spdLight[i] *= specPowerDists[mtl.spdDiffuse * 40 + i];
 		}
 
-		colorMask *= spectrumToRGB( spdLight ) * d + accumulatedColor * ( 1.0f - d );
+		// colorMask *= spectrumToRGB( spdLight ) * d + accumulatedColor * ( 1.0f - d );
 
-		accumulatedColor += colorMask * luminosity * diffuse * ray.shadow;
-		accumulatedColor += ( mtl.Ns == 0.0f )
-		                 ? (float4)( 0.0f )
-		                 : colorMask * luminosity * specularHighlight * ray.shadow;
+		// accumulatedColor += colorMask * luminosity * diffuse * ray.shadow;
+		// accumulatedColor += ( mtl.Ns == 0.0f )
+		//                  ? (float4)( 0.0f )
+		//                  : colorMask * luminosity * specularHighlight * ray.shadow;
 
 		d = mtl.d;
 	}
+
+	accumulatedColor = spectrumToRGB( spdLight );
 
 
 	const float4 color = mix(

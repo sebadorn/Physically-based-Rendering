@@ -183,7 +183,7 @@ inline float checkFaceIntersection(
 	const float4 pVec = cross( dir, edge2 );
 	const float4 qVec = cross( tVec, edge1 );
 	const float det = dot( edge1, pVec );
-	const float invDet = native_recip( det ); // WARNING: native_
+	const float invDet = native_recip( det );
 	float t = dot( edge2, qVec ) * invDet;
 
 	#define MT_FINAL_T_TEST fmax( t - tFar, tNear - t ) > EPSILON || t < EPSILON

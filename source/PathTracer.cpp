@@ -255,12 +255,14 @@ void PathTracer::initOpenCLBuffers(
 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
 	ModelLoader* ml, vector<light_t> lights, vector<kdNode_t> kdNodes, kdNode_t* rootNode
 ) {
+	Logger::logInfo( "[PathTracer] Initializing OpenCL buffers ..." );
 	this->initOpenCLBuffers_KdTree( vertices, faces, kdNodes, rootNode );
 	this->initOpenCLBuffers_Materials( ml );
 	this->initOpenCLBuffers_Normals( normals, ml );
 	this->initOpenCLBuffers_Rays();
 	this->initOpenCLBuffers_Textures();
 	this->initOpenCLBuffers_Lights( lights );
+	Logger::logInfo( "[PathTracer] ... Done." );
 
 	this->initKernelArgs();
 }

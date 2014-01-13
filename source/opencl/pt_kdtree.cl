@@ -18,23 +18,15 @@ void checkFaces(
 	const float entryDistance, float* exitDistance, const float boxExitLimit
 ) {
 	float4 a, b, c;
-	float4 prefetch_a, prefetch_b, prefetch_c;
 	float r;
-	uint j = kdFaces[faceIndex];
+	uint j;
 
-	prefetch_a = scVertices[scFaces[j].x];
-	prefetch_b = scVertices[scFaces[j].y];
-	prefetch_c = scVertices[scFaces[j].z];
-
-	for( uint i = 1; i <= numFaces; i++ ) {
-		a = prefetch_a;
-		b = prefetch_b;
-		c = prefetch_c;
+	for( uint i = 0; i < numFaces; i++ ) {
 		j = kdFaces[faceIndex + i];
 
-		prefetch_a = scVertices[scFaces[j].x];
-		prefetch_b = scVertices[scFaces[j].y];
-		prefetch_c = scVertices[scFaces[j].z];
+		a = scVertices[scFaces[j].x];
+		b = scVertices[scFaces[j].y];
+		c = scVertices[scFaces[j].z];
 
 		r = checkFaceIntersection(
 			ray->origin, ray->dir, a, b, c,
@@ -47,7 +39,7 @@ void checkFaces(
 			if( ray->t > r || ray->nodeIndex < 0 ) {
 				ray->t = r;
 				ray->nodeIndex = nodeIndex;
-				ray->faceIndex = kdFaces[faceIndex + i - 1];
+				ray->faceIndex = j;
 			}
 		}
 	}
@@ -75,23 +67,15 @@ bool checkFacesForShadow(
 	const float entryDistance, float* exitDistance
 ) {
 	float4 a, b, c;
-	float4 prefetch_a, prefetch_b, prefetch_c;
 	float r;
-	uint j = kdFaces[faceIndex];
+	uint j;
 
-	prefetch_a = scVertices[scFaces[j].x];
-	prefetch_b = scVertices[scFaces[j].y];
-	prefetch_c = scVertices[scFaces[j].z];
-
-	for( uint i = 1; i <= numFaces; i++ ) {
-		a = prefetch_a;
-		b = prefetch_b;
-		c = prefetch_c;
+	for( uint i = 0; i < numFaces; i++ ) {
 		j = kdFaces[faceIndex + i];
 
-		prefetch_a = scVertices[scFaces[j].x];
-		prefetch_b = scVertices[scFaces[j].y];
-		prefetch_c = scVertices[scFaces[j].z];
+		a = scVertices[scFaces[j].x];
+		b = scVertices[scFaces[j].y];
+		c = scVertices[scFaces[j].z];
 
 		r = checkFaceIntersection(
 			ray->origin, ray->dir, a, b, c, entryDistance, *exitDistance

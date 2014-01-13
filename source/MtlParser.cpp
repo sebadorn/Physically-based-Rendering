@@ -45,6 +45,7 @@ void MtlParser::load( string file ) {
 	std::ifstream fileIn( file.c_str() );
 	material_t mtl;
 	int numMtlFound = 0;
+	bool isSetTransparency = false;
 
 	if( !fileIn ) {
 		char msg[256];
@@ -80,12 +81,21 @@ void MtlParser::load( string file ) {
 			mtl.mtlName = parts[1];
 		}
 		// Transparency (dissolve)
-		else if( parts[0] == "d" || parts[0] == "Tr" ) {
+		else if( parts[0] == "d" ) {
 			if( parts.size() < 2 ) {
 				Logger::logWarning( "[MtlParser] Not enough parameters for <d>. Ignoring attribute." );
 				continue;
 			}
 			mtl.d = atof( parts[1].c_str() );
+			isSetTransparency = true;
+		}
+		// Transparency (dissolve)
+		else if( parts[0] == "Tr" && !isSetTransparency ) {
+			if( parts.size() < 2 ) {
+				Logger::logWarning( "[MtlParser] Not enough parameters for <Tr>. Ignoring attribute." );
+				continue;
+			}
+			mtl.d = 1.0f - atof( parts[1].c_str() );
 		}
 		// Illumination model
 		else if( parts[0] == "illum" ) {
