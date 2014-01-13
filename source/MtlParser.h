@@ -29,6 +29,7 @@ using std::vector;
  *
  * Custom additions:
  * gloss - Glossiness factor [0.0, 1.0].
+ * light - Is this a light [0, 1].
  */
 struct material_t {
 	string mtlName;
@@ -39,7 +40,8 @@ struct material_t {
 	cl_float Ni;
 	cl_float Ns;
 	cl_float gloss;
-	cl_int illum;
+	cl_char illum;
+	cl_char light;
 };
 
 

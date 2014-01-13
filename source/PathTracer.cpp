@@ -19,7 +19,6 @@ PathTracer::PathTracer() {
 
 	mKernelRays = mCL->createKernel( "initRays" );
 	mKernelPathTracing = mCL->createKernel( "pathTracing" );
-	mKernelShadowTest = mCL->createKernel( "shadowTest" );
 	mKernelSetColors = mCL->createKernel( "setColors" );
 
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
@@ -72,18 +71,6 @@ void PathTracer::clSetColors( cl_float timeSinceStart ) {
 
 
 /**
- * OpenCL: Test if a hit surface point is in the shadow.
- * @param {cl_float} timeSinceStart Time since start of the program in seconds.
- */
-void PathTracer::clShadowTest( cl_float timeSinceStart ) {
-	mCL->setKernelArg( mKernelShadowTest, 1, sizeof( cl_float ), &timeSinceStart );
-
-	mCL->execute( mKernelShadowTest );
-	mCL->finish();
-}
-
-
-/**
  * Generate the path traced image, which is basically just a 2D texture.
  * @return {std::vector<cl_float>} Float vector representing a 2D image.
  */
@@ -95,7 +82,6 @@ vector<cl_float> PathTracer::generateImage() {
 
 	this->clInitRays( timeSinceStart );
 	this->clPathTracing( timeSinceStart );
-	this->clShadowTest( timeSinceStart );
 	this->clSetColors( timeSinceStart );
 
 	mCL->readImageOutput( mBufTextureOut, mWidth, mHeight, &mTextureOut[0] );
@@ -213,30 +199,11 @@ void PathTracer::initArgsKernelSetColors() {
 
 
 /**
- * Init the kernel arguments for the OpenCL kernel to do the shadow tests.
- */
-void PathTracer::initArgsKernelShadowTest() {
-	cl_uint i = 0;
-
-	++i; // 1: timeSinceStart
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufLights );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufScVertices );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufScFaces );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdNonLeaves );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdLeaves );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_float8 ), &mKdRootBB );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufKdFaces );
-	mCL->setKernelArg( mKernelShadowTest, ++i, sizeof( cl_mem ), &mBufRays );
-}
-
-
-/**
  * Set the OpenCL kernel arguments that either don't change or point to a CL buffer.
  */
 void PathTracer::initKernelArgs() {
 	this->initArgsKernelRays();
 	this->initArgsKernelPathTracing();
-	this->initArgsKernelShadowTest();
 	this->initArgsKernelSetColors();
 }
 
@@ -344,9 +311,9 @@ void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 	map<string, vector<cl_float> > spectra = ml->getSpectralPowerDistributions();
 
 	vector<cl_float> spd, spectraCL;
-	map<string, cl_uint> specID;
+	map<string, cl_ushort> specID;
 	map<string, vector<cl_float> >::iterator it;
-	int specCounter = 0;
+	ushort specCounter = 0;
 
 	for( it = spectra.begin(); it != spectra.end(); it++, specCounter++ ) {
 		specID[it->first] = specCounter;
@@ -369,6 +336,7 @@ void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 		mtl.Ns = materials[i].Ns;
 		mtl.gloss = materials[i].gloss;
 		mtl.illum = materials[i].illum;
+		mtl.light = materials[i].light;
 
 		string spdName = mtl2spd[materials[i].mtlName];
 		mtl.spdDiffuse = specID[spdName];

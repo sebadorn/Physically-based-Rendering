@@ -565,12 +565,10 @@ string CL::setValues( string clProgramString ) {
 	valueReplace.clear();
 	valueReplace.push_back( "ANTI_ALIASING" );
 	valueReplace.push_back( "BACKFACE_CULLING" );
-	valueReplace.push_back( "SHADOWS" );
 
 	vector<bool> configValue;
 	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_ANTIALIAS ) );
 	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_BACKFACECULLING ) );
-	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_SHADOWS ) );
 
 	for( int i = 0; i < valueReplace.size(); i++ ) {
 		search = "#" + valueReplace[i] + "#";

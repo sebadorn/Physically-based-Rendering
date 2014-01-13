@@ -1,8 +1,8 @@
 {
 	"materials": {
 		"Material": "white",
-		"Material.001": "blue",
-		"Material.002": "yellow"
+		"blue": "blue",
+		"yellow": "yellow"
 	},
 
 	"spectra": {

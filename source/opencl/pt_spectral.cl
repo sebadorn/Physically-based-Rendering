@@ -128,9 +128,9 @@ constant float cie_colour_match[80][3] = {
  * @param {float*} xc
  * @param {float*} yc
  */
-void upvp_to_xy( float up, float vp, float* xc, float* yc ) {
-	*xc = ( 9.0f * up ) / ( 6.0f * up - 16.0f * vp + 12.0f );
-	*yc = ( 4.0f * vp ) / ( 6.0f * up - 16.0f * vp + 12.0f );
+inline void upvp_to_xy( float up, float vp, float* xc, float* yc ) {
+	*xc = native_divide( 9.0f * up, 6.0f * up - 16.0f * vp + 12.0f );
+	*yc = native_divide( 4.0f * vp, 6.0f * up - 16.0f * vp + 12.0f );
 }
 
 
@@ -141,9 +141,9 @@ void upvp_to_xy( float up, float vp, float* xc, float* yc ) {
  * @param {float*} up
  * @param {float*} vp
  */
-void xy_to_upvp( float xc, float yc, float* up, float* vp ) {
-	*up = ( 4.0f * xc ) / ( -2.0f * xc + 12.0f * yc + 3.0f );
-	*vp = ( 9.0f * yc ) / ( -2.0f * xc + 12.0f * yc + 3.0f );
+inline void xy_to_upvp( float xc, float yc, float* up, float* vp ) {
+	*up = native_divide( 4.0f * xc, -2.0f * xc + 12.0f * yc + 3.0f );
+	*vp = native_divide( 9.0f * yc, -2.0f * xc + 12.0f * yc + 3.0f );
 }
 
 
@@ -153,8 +153,8 @@ void xy_to_upvp( float xc, float yc, float* up, float* vp ) {
  * trivially as 1-(x+y)), and a desired chromaticity (XC, YC,
  * ZC) in CIE space, determine the contribution of each
  * primary in a linear combination which sums to the desired
- * chromaticity.  If the  requested chromaticity falls outside
- * the Maxwell  triangle (colour gamut) formed by the three
+ * chromaticity. If the requested chromaticity falls outside
+ * the Maxwell triangle (colour gamut) formed by the three
  * primaries, one of the r, g, or b weights will be negative.
  *
  * Caller can use constrain_rgb() to desaturate an
@@ -170,7 +170,7 @@ void xy_to_upvp( float xc, float yc, float* up, float* vp ) {
  * @param {float*}            g
  * @param {float*}            b
  */
-void xyz_to_rgb( const colorSystem cs, float xc, float yc, float zc, float* r, float* g, float* b ) {
+void xyz_to_rgb( const colorSystem cs, float4 xyz, float4* rgb ) {
 	float xr, yr, zr, xg, yg, zg, xb, yb, zb;
 	float xw, yw, zw;
 	float rx, ry, rz, gx, gy, gz, bx, by, bz;
@@ -192,7 +192,7 @@ void xyz_to_rgb( const colorSystem cs, float xc, float yc, float zc, float* r, f
 	yw = cs.yWhite;
 	zw = 1.0f - ( xw + yw );
 
-	// TODO: Essential, these are matrix multiplications. I bet this can be optimized.
+	// TODO: Essentially, these are matrix multiplications. I bet this can be optimized.
 
 	// xyz -> rgb matrix, before scaling to white.
 
@@ -210,33 +210,36 @@ void xyz_to_rgb( const colorSystem cs, float xc, float yc, float zc, float* r, f
 
 
 	// White scaling factors.
-	// Dividing by yw scales the white luminance to unity, as conventional.
+	rw = rx * xw + ry * yw + rz * zw;
+	gw = gx * xw + gy * yw + gz * zw;
+	bw = bx * xw + by * yw + bz * zw;
 
-	rw = ( rx * xw + ry * yw + rz * zw ) / yw;
-	gw = ( gx * xw + gy * yw + gz * zw ) / yw;
-	bw = ( bx * xw + by * yw + bz * zw ) / yw;
+	// Dividing by yw scales the white luminance to unity, as conventional.
+	rw /= yw;
+	gw /= yw;
+	bw /= yw;
 
 
 	// xyz -> rgb matrix, correctly scaled to white.
 
-	rx = rx / rw;
-	ry = ry / rw;
-	rz = rz / rw;
+	rx = native_divide( rx, rw );
+	ry = native_divide( ry, rw );
+	rz = native_divide( rz, rw );
 
-	gx = gx / gw;
-	gy = gy / gw;
-	gz = gz / gw;
+	gx = native_divide( gx, gw );
+	gy = native_divide( gy, gw );
+	gz = native_divide( gz, gw );
 
-	bx = bx / bw;
-	by = by / bw;
-	bz = bz / bw;
+	bx = native_divide( bx, bw );
+	by = native_divide( by, bw );
+	bz = native_divide( bz, bw );
 
 
 	// rgb of the desired point.
 
-	*r = rx * xc + ry * yc + rz * zc;
-	*g = gx * xc + gy * yc + gz * zc;
-	*b = bx * xc + by * yc + bz * zc;
+	rgb->x = rx * xyz.x + ry * xyz.y + rz * xyz.z;
+	rgb->y = gx * xyz.x + gy * xyz.y + gz * xyz.z;
+	rgb->z = bx * xyz.x + by * xyz.y + bz * xyz.z;
 }
 
 
@@ -246,13 +249,11 @@ void xyz_to_rgb( const colorSystem cs, float xc, float yc, float zc, float* r, f
  * system. This amounts simply to testing whether all the
  * primary weights are non-negative.
  *
- * @param  {float} r
- * @param  {float} g
- * @param  {float} b
- * @return {bool}    True, if each rgb component is inside gamut, false otherwise.
+ * @param  {float4} rgb
+ * @return {bool}       True, if each rgb component is inside gamut, false otherwise.
  */
-bool inside_gamut( float r, float g, float b ) {
-	return ( r >= 0.0f && g >= 0.0f && b >= 0.0f );
+inline bool inside_gamut( float4 rgb ) {
+	return ( rgb.x >= 0.0f && rgb.y >= 0.0f && rgb.z >= 0.0f );
 }
 
 
@@ -264,20 +265,18 @@ bool inside_gamut( float r, float g, float b ) {
  * to make RGB all positive. The function returns 1 if the
  * components were modified, zero otherwise.
  *
- * @param  {float*} r
- * @param  {float*} g
- * @param  {float*} b
- * @return {bool}     True, if rgb has been modified, false otherwise.
+ * @param  {float4*} rgb
+ * @return {bool}        True, if rgb has been modified, false otherwise.
  */
-bool constrain_rgb( float* r, float* g, float* b ) {
-	// Amount of white needed is w = -min(0, *r, *g, *b)
-	float w = -fmin( fmin( 0.0f, *r ), fmin( *g, *b ) );
+bool constrain_rgb( float4* rgb ) {
+	// Amount of white needed is w = -min(0, r, g, b)
+	float w = -fmin( fmin( 0.0f, rgb->x ), fmin( rgb->y, rgb->z ) );
 
 	// Add just enough white to make r, g, b all positive.
 	if( w > 0.0f ) {
-		*r += w;
-		*g += w;
-		*b += w;
+		rgb->x += w;
+		rgb->y += w;
+		rgb->z += w;
 
 		return true;
 	}
@@ -306,7 +305,7 @@ void gamma_correct( const colorSystem cs, float* c ) {
 		float cc = 0.018f;
 
 		if( *c < cc ) {
-			*c *= ( 1.099f * pow( cc, 0.45f ) - 0.099f ) / cc;
+			*c *= native_divide( 1.099f * pow( cc, 0.45f ) - 0.099f, cc );
 		}
 		else {
 			*c = 1.099f * pow( *c, 0.45f ) - 0.099f;
@@ -326,10 +325,16 @@ void gamma_correct( const colorSystem cs, float* c ) {
  * @param {float*}            g
  * @param {float*}            b
  */
-void gamma_correct_rgb( const colorSystem cs, float* r, float* g, float* b ) {
-	gamma_correct( cs, r );
-	gamma_correct( cs, g );
-	gamma_correct( cs, b );
+void gamma_correct_rgb( const colorSystem cs, float4* rgb ) {
+	float r = rgb->x;
+	float g = rgb->y;
+	float b = rgb->z;
+	gamma_correct( cs, &r );
+	gamma_correct( cs, &g );
+	gamma_correct( cs, &b );
+	rgb->x = r;
+	rgb->y = g;
+	rgb->z = b;
 }
 
 
@@ -349,24 +354,24 @@ void gamma_correct_rgb( const colorSystem cs, float* r, float* g, float* b ) {
  * @param {float*} y
  * @param {float*} z
  */
-void spectrum_to_xyz( float spd[40], float* x, float* y, float* z ) {
+void spectrum_to_xyz( float spd[40], float4* xyz ) {
 	float me;
 	float X = 0.0f,
 	      Y = 0.0f,
 	      Z = 0.0f;
 	float lambda = 380.0f;
 
-	for( int i = 0; lambda < 779.0f; i += 2, lambda += 10.0f ) {
-		me = spd[i / 2];
+	for( int i = 0, j = 0; lambda < 780.0f; i += 2, j++, lambda += 10.0f ) {
+		me = spd[j];
 		X += me * cie_colour_match[i][0];
 		Y += me * cie_colour_match[i][1];
 		Z += me * cie_colour_match[i][2];
 	}
 
-	float XYZ = X + Y + Z;
-	*x = X / XYZ;
-	*y = Y / XYZ;
-	*z = 1.0f - (*x) - (*y);
+	float XYZrecip = native_recip( X + Y + Z );
+	xyz->x = X * XYZrecip;
+	xyz->y = Y * XYZrecip;
+	xyz->z = 1.0f - xyz->x - xyz->y;
 }
 
 
@@ -376,11 +381,19 @@ void spectrum_to_xyz( float spd[40], float* x, float* y, float* z ) {
  * @return {float4}     RGB.
  */
 float4 spectrumToRGB( float spd[40] ) {
-	float x, y, z;
-	float r, g, b;
+	float4 rgb = (float4)( 0.0f );
+	float4 xyz = (float4)( 0.0f );
 
-	spectrum_to_xyz( spd, &x, &y, &z );
-	xyz_to_rgb( CS, x, y, z, &r, &g, &b );
+	spectrum_to_xyz( spd, &xyz );
+	xyz_to_rgb( CS, xyz, &rgb );
 
-	return fast_normalize( (float4)( r, g, b, 0.0f ) );
+	if( !inside_gamut( rgb ) ) {
+		constrain_rgb( &rgb );
+	}
+
+	float m = fmax( rgb.x, fmax( rgb.y, rgb.z ) );
+	m = ( m > 0.0f ) ? m : 1.0f;
+	rgb /= m;
+
+	return rgb;
 }

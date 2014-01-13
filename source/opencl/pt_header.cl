@@ -1,7 +1,5 @@
 #ANTI_ALIASING#
 #BACKFACE_CULLING#
-#SHADOWS#
-
 #define BOUNCES #BOUNCES#
 #define EPSILON 0.00001f
 #define IMG_HEIGHT #IMG_HEIGHT#
@@ -44,6 +42,7 @@ typedef struct {
 	float Ni;
 	float Ns;
 	float gloss;
-	int illum;
-	int spdDiffuse;
+	ushort spdDiffuse;
+	char illum;
+	char light
 } material;

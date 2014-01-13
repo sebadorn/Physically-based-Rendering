@@ -46,8 +46,9 @@ struct material_cl_t {
 	cl_float Ni;
 	cl_float Ns;
 	cl_float gloss;
-	cl_int illum;
-	cl_int spdDiffuse;
+	cl_ushort spdDiffuse;
+	cl_char illum;
+	cl_char light;
 };
 
 
@@ -75,13 +76,11 @@ class PathTracer {
 		void clInitRays( cl_float timeSinceStart );
 		void clPathTracing( cl_float timeSinceStart );
 		void clSetColors( cl_float timeSinceStart );
-		void clShadowTest( cl_float timeSinceStart );
 		glm::vec3 getJitter();
 		cl_float getTimeSinceStart();
 		void initArgsKernelPathTracing();
 		void initArgsKernelRays();
 		void initArgsKernelSetColors();
-		void initArgsKernelShadowTest();
 		void initKernelArgs();
 		void initOpenCLBuffers_KdTree(
 			vector<cl_float> vertices, vector<cl_uint> faces,
@@ -113,7 +112,6 @@ class PathTracer {
 		cl_kernel mKernelPathTracing;
 		cl_kernel mKernelRays;
 		cl_kernel mKernelSetColors;
-		cl_kernel mKernelShadowTest;
 
 		cl_mem mBufScVertices;
 		cl_mem mBufScFaces;

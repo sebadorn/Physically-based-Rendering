@@ -238,65 +238,6 @@ kernel void pathTracing(
 
 
 /**
- * KERNEL.
- * Test hit surfaces for being in a shadow.
- * @param {const uint2} offset
- * @param {const float} timeSinceStart
- * @param {const global float4*} lights
- * @param {const global float4*} kdNodeSplits
- * @param {const global float4*} kdNodeBB
- * @param {const gloabl int*} kdNodeMeta
- * @param {const global float*} kdNodeFaces
- * @param {const global int*} kdNodeRopes
- * @param {global ray4*} rays
- */
-kernel void shadowTest(
-	const uint2 offset, const float timeSinceStart, const global float4* lights,
-	const global float4* scVertices, const global uint4* scFaces,
-	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
-	const float8 kdRootBB, const global float* kdFaces,
-	global ray4* rays
-) {
-	#ifdef SHADOWS
-
-		const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
-		const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
-
-		const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, kdRootBB.s3 };
-		const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, kdRootBB.s7 };
-
-		int exitRope;
-		uint startNode;
-		const float4 light = lights[0];
-
-		float4 hit;
-		ray4 ray, shadowRay;
-
-		for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
-			ray = rays[workIndex + bounce];
-
-			if( ray.nodeIndex < 0 ) {
-				break;
-			}
-
-			hit = fma( ray.t, ray.dir, ray.origin );
-
-			shadowRay.nodeIndex = ray.nodeIndex;
-			shadowRay.origin = hit + ray.normal * EPSILON;
-			shadowRay.dir = light - hit + uniformlyRandomVector( timeSinceStart + ray.t ) * 0.1f;
-
-			ray.shadow = !shadowTestIntersection(
-				&shadowRay, kdNonLeaves, kdLeaves, kdFaces, scVertices, scFaces
-			);
-
-			rays[workIndex + bounce] = ray;
-		}
-
-	#endif
-}
-
-
-/**
  *
  * @param offset
  * @param timeSinceStart
@@ -317,33 +258,35 @@ kernel void setColors(
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 
-	float4 hit, toLight;
-	float diffuse, luminosity, toLightLength;
+	// float4 hit, toLight;
+	// float diffuse, luminosity, toLightLength;
 
 	float4 accumulatedColor = (float4)( 0.0f );
-	float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
+	// float4 colorMask = (float4)( 1.0f, 1.0f, 1.0f, 0.0f );
 
 	// The farther away a shadow is, the more diffuse it becomes (penumbrae)
-	const float4 light = lights[0];
-	const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
+	// const float4 light = lights[0];
+	// const float4 newLight = light + uniformlyRandomVector( timeSinceStart ) * 0.1f;
 
 	const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
 	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
 
 	ray4 ray;
 	material mtl;
-	float d = 1.0f; // transparency or "dissolve"
+	// float d = 1.0f; // transparency or "dissolve"
 
 	// Spectral power distribution of the light
+	float spdFactors[40];
 	float spdLight[40];
 	for( int i = 0; i < 40; i++ ) {
-		spdLight[i] = 0.8f;
+		spdFactors[i] = 1.0f;
 	}
+	bool foundLight = false;
 
 	// specular highlight
-	float4 reflectedLight;
-	float4 H; // half-angle direction between L (vector to light) and V (viewpoint vector)
-	float specularHighlight;
+	// float4 reflectedLight;
+	// float4 H; // half-angle direction between L (vector to light) and V (viewpoint vector)
+	// float specularHighlight;
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		ray = rays[workIndex + bounce];
@@ -352,20 +295,29 @@ kernel void setColors(
 			break;
 		}
 
-		hit = fma( ray.t, ray.dir, ray.origin );
+		// hit = fma( ray.t, ray.dir, ray.origin );
 		material mtl = materials[faceToMaterial[ray.faceIndex]];
-		toLight = newLight - hit;
+		// toLight = newLight - hit;
 
 		// Lambert factor (dot product is a cosine)
 		// Source: http://learnopengles.com/android-lesson-two-ambient-and-diffuse-lighting/
-		diffuse = fmax( dot( ray.normal, fast_normalize( toLight ) ), 0.0f );
-		toLightLength = fast_length( toLight );
-		luminosity = native_recip( toLightLength * toLightLength );
+		// diffuse = fmax( dot( ray.normal, fast_normalize( toLight ) ), 0.0f );
+		// toLightLength = fast_length( toLight );
+		// luminosity = native_recip( toLightLength * toLightLength );
 
 		// specularHighlight = calcSpecularHighlight( light, hit, ray, mtl.Ns );
 
-		for( int i = 0; i < 40; i++ ) {
-			spdLight[i] *= specPowerDists[mtl.spdDiffuse * 40 + i];
+		if( mtl.light == 1 ) {
+			foundLight = true;
+			for( int i = 0; i < 40; i++ ) {
+				spdLight[i] = specPowerDists[mtl.spdDiffuse * 40 + i];
+			}
+			break;
+		}
+		else {
+			for( int i = 0; i < 40; i++ ) {
+				spdFactors[i] *= specPowerDists[mtl.spdDiffuse * 40 + i];
+			}
 		}
 
 		// colorMask *= spectrumToRGB( spdLight ) * d + accumulatedColor * ( 1.0f - d );
@@ -375,10 +327,15 @@ kernel void setColors(
 		//                  ? (float4)( 0.0f )
 		//                  : colorMask * luminosity * specularHighlight * ray.shadow;
 
-		d = mtl.d;
+		// d = mtl.d;
 	}
 
-	accumulatedColor = spectrumToRGB( spdLight );
+	if( foundLight ) {
+		for( int i = 0; i < 40; i++ ) {
+			spdLight[i] *= spdFactors[i];
+		}
+		accumulatedColor = spectrumToRGB( spdLight );
+	}
 
 
 	const float4 color = mix(
