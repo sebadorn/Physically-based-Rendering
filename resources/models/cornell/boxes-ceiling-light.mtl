@@ -1,5 +1,5 @@
 # Blender MTL File: 'cornell-boxes-ceiling-light.blend'
-# Material Count: 6
+# Material Count: 7
 
 newmtl Material
 Ns 96.078431
@@ -9,6 +9,16 @@ Ks 0.500000 0.500000 0.500000
 Ni 1.000000
 d 1.000000
 illum 2
+
+newmtl Wall_front
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ni 1.000000
+d 1.000000
+illum 3
+gloss 0.4
 
 newmtl blue
 Ns 96.078431
@@ -26,7 +36,7 @@ Kd 0.800000 0.800000 0.800000
 Ks 0.500000 0.500000 0.500000
 Ni 1.000000
 d 1.000000
-illum 2
+illum 3
 
 newmtl box_tall
 Ns 96.078431

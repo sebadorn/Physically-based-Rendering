@@ -37,11 +37,11 @@ typedef struct {
 } kdLeaf __attribute__( ( aligned( 64 ) ) );
 
 typedef struct {
-	float4 Ks;
 	float d;
 	float Ni;
 	float Ns;
 	float gloss;
+	float b;
 	ushort spdDiffuse;
 	char illum;
 	char light

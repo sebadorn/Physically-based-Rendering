@@ -392,8 +392,7 @@ float4 spectrumToRGB( float spd[40] ) {
 	}
 
 	float m = fmax( rgb.x, fmax( rgb.y, rgb.z ) );
-	m = ( m > 0.0f ) ? m : 1.0f;
-	rgb /= m;
+	rgb = ( m > 0.0f ) ? rgb / m : rgb;
 
 	return rgb;
 }

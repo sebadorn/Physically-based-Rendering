@@ -16,24 +16,16 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mDoRendering = false;
 	mFrameCount = 0;
 	mPreviousTime = 0;
-	mSelectedLight = -1;
 
 	mViewBoundingBox = false;
 	mViewKdTree = false;
 	mViewOverlay = false;
-	mViewSelectedLight = false;
 	mViewTracer = true;
 
 	mPathTracer = new PathTracer();
 	mCamera = new Camera( this );
 	mKdTree = NULL;
 	mTimer = new QTimer( this );
-
-	light_t defaultLight;
-	defaultLight.position[0] = Cfg::get().value<cl_float>( Cfg::LIGHT_POS_X );
-	defaultLight.position[1] = Cfg::get().value<cl_float>( Cfg::LIGHT_POS_Y );
-	defaultLight.position[2] = Cfg::get().value<cl_float>( Cfg::LIGHT_POS_Z );
-	mLights.push_back( defaultLight );
 
 	mPathTracer->setCamera( mCamera );
 	connect( mTimer, SIGNAL( timeout() ), this, SLOT( update() ) );
@@ -309,14 +301,13 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 	this->setShaderBuffersForOverlay( mVertices, mFaces );
 	this->setShaderBuffersForBoundingBox( mBoundingBox );
-	this->setShaderBuffersForSelectedLight();
 	this->setShaderBuffersForKdTree( verticesKdTree, indicesKdTree );
 	this->setShaderBuffersForTracer();
 	this->initShaders();
 
 	mPathTracer->initOpenCLBuffers(
 		mVertices, mFaces, mNormals, ml,
-		mLights, mKdTree->getNodes(), mKdTree->getRootNode()
+		mKdTree->getNodes(), mKdTree->getRootNode()
 	);
 
 	delete ml;
@@ -366,7 +357,7 @@ QSize GLWidget::minimumSizeHint() const {
 
 
 /**
- * Move the camera or if selected a light.
+ * Move the camera.
  * @param {const int} key Key code.
  */
 void GLWidget::moveCamera( const int key ) {
@@ -377,43 +368,33 @@ void GLWidget::moveCamera( const int key ) {
 	switch( key ) {
 
 		case Qt::Key_W:
-			if( mSelectedLight == -1 ) { mCamera->cameraMoveForward(); }
-			else { mLights[mSelectedLight].position[0] += 0.1f; }
+			mCamera->cameraMoveForward();
 			break;
 
 		case Qt::Key_S:
-			if( mSelectedLight == -1 ) { mCamera->cameraMoveBackward(); }
-			else { mLights[mSelectedLight].position[0] -= 0.1f; }
+			mCamera->cameraMoveBackward();
 			break;
 
 		case Qt::Key_A:
-			if( mSelectedLight == -1 ) { mCamera->cameraMoveLeft(); }
-			else { mLights[mSelectedLight].position[2] += 0.1f; }
+			mCamera->cameraMoveLeft();
 			break;
 
 		case Qt::Key_D:
-			if( mSelectedLight == -1 ) { mCamera->cameraMoveRight(); }
-			else { mLights[mSelectedLight].position[2] -= 0.1f; }
+			mCamera->cameraMoveRight();
 			break;
 
 		case Qt::Key_Q:
-			if( mSelectedLight == -1 ) { mCamera->cameraMoveUp(); }
-			else { mLights[mSelectedLight].position[1] += 0.1f; }
+			mCamera->cameraMoveUp();
 			break;
 
 		case Qt::Key_E:
-			if( mSelectedLight == -1 ) { mCamera->cameraMoveDown(); }
-			else { mLights[mSelectedLight].position[1] -= 0.1f; }
+			mCamera->cameraMoveDown();
 			break;
 
 		case Qt::Key_R:
 			mCamera->cameraReset();
 			break;
 
-	}
-
-	if( mSelectedLight > -1 ) {
-		mPathTracer->updateLights( mLights );
 	}
 }
 
@@ -427,26 +408,6 @@ void GLWidget::paintGL() {
 	}
 
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
-	// Light(s)
-
-	// char lightName1[20];
-	// char lightName2[20];
-
-	// for( uint i = 0; i < mLights.size(); i++ ) {
-	// 	snprintf( lightName1, 20, "light%uData1", i );
-	// 	snprintf( lightName2, 20, "light%uData2", i );
-
-	// 	float lightData1[16] = {
-	// 		mLights[i].position[0], mLights[i].position[1], mLights[i].position[2], mLights[i].position[3],
-	// 		mLights[i].diffuse[0], mLights[i].diffuse[1], mLights[i].diffuse[2], mLights[i].diffuse[3],
-	// 		mLights[i].specular[0], mLights[i].specular[1], mLights[i].specular[2], mLights[i].specular[3],
-	// 		mLights[i].constantAttenuation, mLights[i].linearAttenuation, mLights[i].quadraticAttenuation, mLights[i].spotCutoff
-	// 	};
-	// 	float lightData2[4] = {
-	// 		mLights[i].spotExponent, mLights[i].spotDirection[0], mLights[i].spotDirection[1], mLights[i].spotDirection[2]
-	// 	};
-	// }
 
 	if( mViewTracer ) {
 		mTextureOut = mPathTracer->generateImage();
@@ -497,31 +458,6 @@ void GLWidget::paintScene() {
 
 		glBindVertexArray( mVA[VA_OVERLAY] );
 		glDrawElements( GL_TRIANGLES, mFaces.size(), GL_UNSIGNED_INT, NULL );
-
-		glBindVertexArray( 0 );
-		glUseProgram( 0 );
-	}
-
-
-	// Show the selected light source by rendering a box around its core
-	if( mViewSelectedLight ) {
-		glUseProgram( mGLProgramSimple );
-		glUniformMatrix4fv(
-			glGetUniformLocation( mGLProgramSimple, "mvp" ),
-			1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
-		);
-		GLfloat color[4] = { 1.0f, 1.0f, 0.5f, 0.4f };
-		glUniform4fv( glGetUniformLocation( mGLProgramSimple, "fragColor" ), 1, color );
-
-		GLfloat lightPos[3] = {
-			mLights[mSelectedLight].position[0],
-			mLights[mSelectedLight].position[1],
-			mLights[mSelectedLight].position[2]
-		};
-		glUniform3fv( glGetUniformLocation( mGLProgramSimple, "translate" ), 1, lightPos );
-
-		glBindVertexArray( mVA[VA_LIGHT] );
-		glDrawElements( GL_LINES, 24, GL_UNSIGNED_INT, NULL );
 
 		glBindVertexArray( 0 );
 		glUseProgram( 0 );
@@ -588,26 +524,6 @@ void GLWidget::resizeGL( int width, int height ) {
 
 	mPathTracer->setWidthAndHeight( width, height );
 	this->calculateMatrices();
-}
-
-
-/**
- * Select the next light in the list.
- */
-void GLWidget::selectNextLight() {
-	if( mSelectedLight > -1 ) {
-		mSelectedLight = ( mSelectedLight + 1 ) % mLights.size();
-	}
-}
-
-
-/**
- * Select the previous light in the list.
- */
-void GLWidget::selectPreviousLight() {
-	if( mSelectedLight > -1 ) {
-		mSelectedLight = ( mSelectedLight == 0 ) ? mLights.size() - 1 : mSelectedLight - 1;
-	}
 }
 
 
@@ -721,56 +637,6 @@ void GLWidget::setShaderBuffersForKdTree( vector<GLfloat> vertices, vector<GLuin
 
 
 /**
- * Set the vertex array for the box around the selected light.
- */
-void GLWidget::setShaderBuffersForSelectedLight() {
-	GLfloat bbVertices[24] = {
-		// bottom
-		-0.15f, -0.15f, -0.15f,
-		 0.15f, -0.15f, -0.15f,
-		-0.15f, -0.15f,  0.15f,
-		 0.15f, -0.15f,  0.15f,
-		// top
-		-0.15f,  0.15f, -0.15f,
-		 0.15f,  0.15f, -0.15f,
-		-0.15f,  0.15f,  0.15f,
-		 0.15f,  0.15f,  0.15f
-	};
-	GLuint bbIndices[24] = {
-		// bottom
-		0, 1, 1, 3, 3, 2, 2, 0,
-		// left
-		0, 4, 2, 6,
-		// top
-		6, 4, 4, 5, 5, 7, 7, 6,
-		// right
-		1, 5, 3, 7
-	};
-
-	GLuint vaID;
-	glGenVertexArrays( 1, &vaID );
-	glBindVertexArray( vaID );
-
-	GLuint vertexBuffer;
-	glGenBuffers( 1, &vertexBuffer );
-	glBindBuffer( GL_ARRAY_BUFFER, vertexBuffer );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( bbVertices ), &bbVertices, GL_STATIC_DRAW );
-	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0 );
-	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
-
-	GLuint indexBuffer;
-	glGenBuffers( 1, &indexBuffer );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
-	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( bbIndices ), &bbIndices, GL_STATIC_DRAW );
-
-	glBindBuffer( GL_ARRAY_BUFFER, 0 );
-	glBindVertexArray( 0 );
-
-	mVA[VA_LIGHT] = vaID;
-}
-
-
-/**
  * Init vertex buffer for the rendering of the OpenCL generated texture.
  */
 void GLWidget::setShaderBuffersForTracer() {
@@ -851,23 +717,6 @@ void GLWidget::stopRendering() {
 		mDoRendering = false;
 		mTimer->stop();
 		( (Window*) parentWidget() )->updateStatus( "Stopped." );
-	}
-}
-
-
-/**
- * Switch between controlling the camera and the lights.
- */
-void GLWidget::toggleLightControl() {
-	if( mSelectedLight == -1 ) {
-		if( mLights.size() > 0 ) {
-			mSelectedLight = 0;
-			mViewSelectedLight = true;
-		}
-	}
-	else {
-		mSelectedLight = -1;
-		mViewSelectedLight = false;
 	}
 }
 

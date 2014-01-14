@@ -41,11 +41,11 @@ struct kdLeaf_cl {
 };
 
 struct material_cl_t {
-	cl_float4 Ks;
 	cl_float d;
 	cl_float Ni;
 	cl_float Ns;
 	cl_float gloss;
+	cl_float b;
 	cl_ushort spdDiffuse;
 	cl_char illum;
 	cl_char light;
@@ -64,13 +64,12 @@ class PathTracer {
 		CL* getCLObject();
 		void initOpenCLBuffers(
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-			ModelLoader* ml, vector<light_t> lights, vector<kdNode_t> kdNodes, kdNode_t* rootNode
+			ModelLoader* ml, vector<kdNode_t> kdNodes, kdNode_t* rootNode
 		);
 		void resetSampleCount();
 		void setCamera( Camera* camera );
 		void setFOV( cl_float fov );
 		void setWidthAndHeight( cl_uint width, cl_uint height );
-		void updateLights( vector<light_t> lights );
 
 	protected:
 		void clInitRays( cl_float timeSinceStart );
@@ -86,7 +85,6 @@ class PathTracer {
 			vector<cl_float> vertices, vector<cl_uint> faces,
 			vector<kdNode_t> kdNodes, kdNode_t* rootNode
 		);
-		void initOpenCLBuffers_Lights( vector<light_t> lights );
 		void initOpenCLBuffers_Materials( ModelLoader* ml );
 		void initOpenCLBuffers_Normals( vector<cl_float> normals, ModelLoader* ml );
 		void initOpenCLBuffers_Rays();
@@ -127,7 +125,6 @@ class PathTracer {
 		cl_mem mBufSPDs;
 
 		cl_mem mBufEye;
-		cl_mem mBufLights;
 		cl_mem mBufNormals;
 		cl_mem mBufRays;
 		cl_mem mBufTextureIn;

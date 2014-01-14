@@ -181,18 +181,6 @@ void Window::keyPressEvent( QKeyEvent* e ) {
 			mGLWidget->moveCamera( e->key() );
 			break;
 
-		case Qt::Key_L:
-			mGLWidget->toggleLightControl();
-			break;
-
-		case Qt::Key_Plus:
-			mGLWidget->selectNextLight();
-			break;
-
-		case Qt::Key_Minus:
-			mGLWidget->selectPreviousLight();
-			break;
-
 		case Qt::Key_F11:
 			this->toggleFullscreen();
 			break;

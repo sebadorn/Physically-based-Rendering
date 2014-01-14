@@ -26,7 +26,7 @@
  */
 ray4 findPath(
 	ray4* ray, const global float4* scVertices, const global uint4* scFaces,
-	const global float4* scNormals, const global uint* scFacesVN, const global float4* lights,
+	const global float4* scNormals, const global uint* scFacesVN,
 	int startNode, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global uint* kdFaces,
 	const float timeSinceStart, const int bounce,
@@ -173,7 +173,6 @@ kernel void initRays(
  * Search the kd-tree to find the closest intersection of the ray with a surface.
  * @param {const uint2}              offset
  * @param {const float}              timeSinceStart
- * @param {const global float4*}     lights
  * @param {global float4*}           origins
  * @param {global float4*}           dirs
  * @param {const global float4*}     scNormals
@@ -186,7 +185,7 @@ kernel void initRays(
  * @param {global float4*}           hitNormals
  */
 kernel void pathTracing(
-	const uint2 offset, const float timeSinceStart, const global float4* lights,
+	const uint2 offset, const float timeSinceStart,
 	const global float4* scVertices, const global uint4* scFaces,
 	const global float4* scNormals, const global uint* scFacesVN,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
@@ -221,7 +220,7 @@ kernel void pathTracing(
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		newRay = findPath(
-			&ray, scVertices, scFaces, scNormals, scFacesVN, lights,
+			&ray, scVertices, scFaces, scNormals, scFacesVN,
 			startNode, kdNonLeaves, kdLeaves, kdFaces,
 			timeSinceStart + (float) bounce, bounce, entryDistance, exitDistance,
 			faceToMaterial, materials
@@ -255,21 +254,18 @@ kernel void pathTracing(
  * @param textureOut
  */
 kernel void setColors(
-	const uint2 offset, const float timeSinceStart, float textureWeight,
-	const global ray4* rays, const global float4* lights,
-	const global int* faceToMaterial, const global material* materials, const global float* specPowerDists,
-	read_only image2d_t textureIn, write_only image2d_t textureOut
+	const uint2 offset, const float timeSinceStart, float imageWeight,
+	const global ray4* rays, const global int* faceToMaterial,
+	const global material* materials, const global float* specPowerDists,
+	read_only image2d_t imageIn, write_only image2d_t imageOut
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
+	const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
+	const float4 imagePixel = read_imagef( imageIn, sampler, pos );
 
 	float4 accumulatedColor = (float4)( 0.0f );
-
-	const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
-	const float4 texturePixel = read_imagef( textureIn, sampler, pos );
-
 	ray4 ray;
 	material mtl;
-	// float d = 1.0f; // transparency or "dissolve"
 
 	// Spectral power distribution of the light
 	float spdFactors[40];
@@ -279,11 +275,7 @@ kernel void setColors(
 	for( int i = 0; i < 40; i++ ) {
 		spdFactors[i] = 1.0f;
 	}
-
-	// specular highlight
-	// float4 reflectedLight;
-	// float4 H; // half-angle direction between L (vector to light) and V (viewpoint vector)
-	// float specularHighlight;
+	float brightness = 1.0f;
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		ray = rays[workIndex + bounce];
@@ -292,10 +284,8 @@ kernel void setColors(
 			break;
 		}
 
-		// hit = fma( ray.t, ray.dir, ray.origin );
 		material mtl = materials[faceToMaterial[ray.faceIndex]];
-
-		// specularHighlight = calcSpecularHighlight( light, hit, ray, mtl.Ns );
+		brightness *= mtl.b;
 
 		if( mtl.light == 1 ) {
 			foundLight = true;
@@ -309,24 +299,20 @@ kernel void setColors(
 				spdFactors[i] *= specPowerDists[mtl.spdDiffuse * 40 + i];
 			}
 		}
-
-		// accumulatedColor += ( mtl.Ns == 0.0f )
-		//                  ? (float4)( 0.0f )
-		//                  : colorMask * luminosity * specularHighlight * ray.shadow;
-
-		// d = mtl.d;
 	}
 
 	if( foundLight ) {
 		for( int i = 0; i < 40; i++ ) {
 			spdLight[i] *= spdFactors[i];
 		}
-		accumulatedColor = spectrumToRGB( spdLight );
+
+		accumulatedColor = brightness * spectrumToRGB( spdLight );
+		// float lum = 0.2126f * accumulatedColor.x + 0.7152f * accumulatedColor.y + 0.0722f * accumulatedColor.z;
 	}
 
 	const float4 color = mix(
 		clamp( accumulatedColor, 0.0f, 1.0f ),
-		texturePixel, textureWeight
+		imagePixel, imageWeight
 	);
-	write_imagef( textureOut, pos, color );
+	write_imagef( imageOut, pos, color );
 }

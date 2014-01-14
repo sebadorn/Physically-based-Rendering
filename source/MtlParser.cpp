@@ -20,6 +20,7 @@ material_t MtlParser::getEmptyMaterial() {
 	mtl.Ni = 1.0f;
 	mtl.d = 1.0f;
 	mtl.gloss = 0.0f;
+	mtl.b = 1.0f;
 	mtl.illum = 2;
 	mtl.light = 0;
 
@@ -165,6 +166,14 @@ void MtlParser::load( string file ) {
 				continue;
 			}
 			mtl.gloss = atof( parts[1].c_str() );
+		}
+		// Brightness
+		else if( parts[0] == "b" ) {
+			if( parts.size() < 2 ) {
+				Logger::logWarning( "[MtlParser] Not enough paramters for <b>. Ignoring attribute." );
+				continue;
+			}
+			mtl.b = atof( parts[1].c_str() );
 		}
 		// Light
 		else if( parts[0] == "light" ) {

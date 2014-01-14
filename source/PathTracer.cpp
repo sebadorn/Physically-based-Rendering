@@ -138,7 +138,6 @@ void PathTracer::initArgsKernelPathTracing() {
 	cl_uint i = 0;
 
 	++i; // 1: timeSinceStart
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufLights );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScVertices );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScFaces );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScNormals );
@@ -189,7 +188,6 @@ void PathTracer::initArgsKernelSetColors() {
 	++i; // 1: timeSinceStart
 	++i; // 2: textureWeight
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufRays );
-	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufLights );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufFaceToMaterial );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufMaterials );
 	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufSPDs );
@@ -214,13 +212,12 @@ void PathTracer::initKernelArgs() {
  * @param {std::vector<cl_uint>}  faces    Faces (triangles) of the model.
  * @param {std::vector<cl_float>} normals  Normals of the model.
  * @param {ModelLoader*}          ml       Model loader already holding the needed model data.
- * @param {std::vector<light_t>}  lights   Lights of the scene.
  * @param {std::vector<kdNode_t>} kdNodes  Nodes of the kd-tree.
  * @param {kdNode_t*}             rootNode Root node of the kd-tree.
  */
 void PathTracer::initOpenCLBuffers(
 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-	ModelLoader* ml, vector<light_t> lights, vector<kdNode_t> kdNodes, kdNode_t* rootNode
+	ModelLoader* ml, vector<kdNode_t> kdNodes, kdNode_t* rootNode
 ) {
 	Logger::logInfo( "[PathTracer] Initializing OpenCL buffers ..." );
 	this->initOpenCLBuffers_KdTree( vertices, faces, kdNodes, rootNode );
@@ -228,7 +225,6 @@ void PathTracer::initOpenCLBuffers(
 	this->initOpenCLBuffers_Normals( normals, ml );
 	this->initOpenCLBuffers_Rays();
 	this->initOpenCLBuffers_Textures();
-	this->initOpenCLBuffers_Lights( lights );
 	Logger::logInfo( "[PathTracer] ... Done." );
 
 	this->initKernelArgs();
@@ -291,16 +287,6 @@ void PathTracer::initOpenCLBuffers_KdTree(
 
 
 /**
- * Init OpenCL buffers for the lights.
- * @param {std::vector<light_t>} lights Lights of the scene.
- */
-void PathTracer::initOpenCLBuffers_Lights( vector<light_t> lights ) {
-	mBufLights = mCL->createEmptyBuffer( sizeof( cl_float4 ) * lights.size(), CL_MEM_READ_ONLY );
-	this->updateLights( lights );
-}
-
-
-/**
  * Init OpenCL buffers for the materials, including spectral power distributions.
  * @param {ModelLoader*} ml Model loader already holding the needed model data.
  */
@@ -330,11 +316,11 @@ void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 
 	for( int i = 0; i < materials.size(); i++ ) {
 		material_cl_t mtl;
-		mtl.Ks = materials[i].Ks;
 		mtl.d = materials[i].d;
 		mtl.Ni = materials[i].Ni;
 		mtl.Ns = materials[i].Ns;
 		mtl.gloss = materials[i].gloss;
+		mtl.b = materials[i].b;
 		mtl.illum = materials[i].illum;
 		mtl.light = materials[i].light;
 
@@ -583,23 +569,4 @@ void PathTracer::updateEyeBuffer() {
 	};
 
 	mCL->updateBuffer( mBufEye, sizeof( cl_float ) * 12, &eyeBuffer );
-}
-
-
-/**
- * Update the lights buffer.
- * @param {std::vector<light_t>} lights List of all lights.
- */
-void PathTracer::updateLights( vector<light_t> lights ) {
-	vector<cl_float4> clLights;
-	for( int i = 0; i < lights.size(); i++ ) {
-		cl_float4 l;
-		l.x = lights[i].position[0];
-		l.y = lights[i].position[1];
-		l.z = lights[i].position[2];
-		l.w = 0.0f;
-		clLights.push_back( l );
-	}
-	mCL->updateBuffer( mBufLights, sizeof( cl_float4 ) * clLights.size(), &clLights[0] );
-	mSampleCount = 0;
 }

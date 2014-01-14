@@ -20,19 +20,6 @@ using std::string;
 using std::vector;
 
 
-struct light_t {
-	float position[4];
-	float diffuse[4],
-	      specular[4];
-	float constantAttenuation,
-	      linearAttenuation,
-	      quadraticAttenuation;
-	float spotCutoff,
-	      spotExponent,
-	      spotDirection[3];
-};
-
-
 class ModelLoader {
 
 	public:
@@ -43,7 +30,6 @@ class ModelLoader {
 		vector<GLuint> getFacesV();
 		vector<GLuint> getFacesVN();
 		vector<GLuint> getFacesVT();
-		vector<light_t> getLights();
 		vector<material_t> getMaterials();
 		map<string, string> getMaterialToSPD();
 		vector<GLfloat> getNormals();
@@ -54,7 +40,6 @@ class ModelLoader {
 
 	protected:
 		vector<GLfloat> computeBoundingBox( vector<GLfloat> vertices );
-		void loadLights( string filepath, string filename );
 		GLuint loadTexture( string filepath );
 
 	private:
@@ -65,7 +50,6 @@ class ModelLoader {
 		map<GLuint, GLuint> mTextureIDs;
 
 		vector<GLfloat> mBoundingBox;
-		vector<light_t> mLights;
 
 };
 
