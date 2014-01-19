@@ -220,6 +220,7 @@ void PathTracer::initOpenCLBuffers(
 	ModelLoader* ml, vector<kdNode_t> kdNodes, kdNode_t* rootNode
 ) {
 	Logger::logInfo( "[PathTracer] Initializing OpenCL buffers ..." );
+	mCL->freeBuffers();
 	this->initOpenCLBuffers_KdTree( vertices, faces, kdNodes, rootNode );
 	this->initOpenCLBuffers_Materials( ml );
 	this->initOpenCLBuffers_Normals( normals, ml );
@@ -320,7 +321,6 @@ void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 		mtl.Ni = materials[i].Ni;
 		mtl.Ns = materials[i].Ns;
 		mtl.gloss = materials[i].gloss;
-		mtl.b = materials[i].b;
 		mtl.illum = materials[i].illum;
 		mtl.light = materials[i].light;
 

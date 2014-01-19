@@ -41,7 +41,6 @@ typedef struct {
 	float Ni;
 	float Ns;
 	float gloss;
-	float b;
 	ushort spdDiffuse;
 	char illum;
 	char light

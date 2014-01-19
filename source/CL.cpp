@@ -31,10 +31,7 @@ CL::CL() {
 CL::~CL() {
 	cl_int err;
 
-	for( uint i = 0; i < mMemObjects.size(); i++ ) {
-		err = clReleaseMemObject( mMemObjects[i] );
-		this->checkError( err, "clReleaseMemObject" );
-	}
+	this->freeBuffers();
 
 	for( uint i = 0; i < mKernels.size(); i++ ) {
 		err = clReleaseKernel( mKernels[i] );
@@ -332,6 +329,21 @@ void CL::finish() {
 	clFlush( mCommandQueue );
 	clFinish( mCommandQueue );
 	mEvents.clear();
+}
+
+
+/**
+ * Free memory objects.
+ */
+void CL::freeBuffers() {
+	cl_int err;
+
+	for( uint i = 0; i < mMemObjects.size(); i++ ) {
+		err = clReleaseMemObject( mMemObjects[i] );
+		this->checkError( err, "clReleaseMemObject" );
+	}
+
+	mMemObjects.clear();
 }
 
 

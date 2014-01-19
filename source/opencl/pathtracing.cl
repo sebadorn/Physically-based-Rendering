@@ -275,7 +275,6 @@ kernel void setColors(
 	for( int i = 0; i < 40; i++ ) {
 		spdFactors[i] = 1.0f;
 	}
-	float brightness = 1.0f;
 
 	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
 		ray = rays[workIndex + bounce];
@@ -285,7 +284,6 @@ kernel void setColors(
 		}
 
 		material mtl = materials[faceToMaterial[ray.faceIndex]];
-		brightness *= mtl.b;
 
 		if( mtl.light == 1 ) {
 			foundLight = true;
@@ -306,7 +304,7 @@ kernel void setColors(
 			spdLight[i] *= spdFactors[i];
 		}
 
-		accumulatedColor = brightness * spectrumToRGB( spdLight );
+		accumulatedColor = spectrumToRGB( spdLight );
 		// float lum = 0.2126f * accumulatedColor.x + 0.7152f * accumulatedColor.y + 0.0722f * accumulatedColor.z;
 	}
 

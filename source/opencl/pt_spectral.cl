@@ -122,28 +122,44 @@ constant float cie_colour_match[80][3] = {
 
 
 /**
- * Given 1976 coordinates u', v', determine 1931 chromaticities x, y.
- * @param {float}  up
- * @param {float}  vp
- * @param {float*} xc
- * @param {float*} yc
+ * If the requested RGB shade contains a negative weight for
+ * one of the primaries, it lies outside the colour gamut
+ * accessible from the given triple of primaries. Desaturate
+ * it by adding white, equal quantities of R, G, and B, enough
+ * to make RGB all positive. The function returns 1 if the
+ * components were modified, zero otherwise.
+ *
+ * @param  {float4*} rgb
+ * @return {bool}        True, if rgb has been modified, false otherwise.
  */
-inline void upvp_to_xy( float up, float vp, float* xc, float* yc ) {
-	*xc = native_divide( 9.0f * up, 6.0f * up - 16.0f * vp + 12.0f );
-	*yc = native_divide( 4.0f * vp, 6.0f * up - 16.0f * vp + 12.0f );
+bool constrain_rgb( float4* rgb ) {
+	// Amount of white needed is w = -min(0, r, g, b)
+	float w = -fmin( fmin( 0.0f, rgb->x ), fmin( rgb->y, rgb->z ) );
+
+	// Add just enough white to make r, g, b all positive.
+	if( w > 0.0f ) {
+		rgb->x += w;
+		rgb->y += w;
+		rgb->z += w;
+
+		return true;
+	}
+
+	return false;
 }
 
 
 /**
- * Given 1931 chromaticities x, y, determine 1976 coordinates u', v'.
- * @param {float}  xc
- * @param {float}  yc
- * @param {float*} up
- * @param {float*} vp
+ * Scale the RGB values so the greatest value is 1.0,
+ * unless all values are 0.0.
+ * @param {float4*} rgb RGB.
  */
-inline void xy_to_upvp( float xc, float yc, float* up, float* vp ) {
-	*up = native_divide( 4.0f * xc, -2.0f * xc + 12.0f * yc + 3.0f );
-	*vp = native_divide( 9.0f * yc, -2.0f * xc + 12.0f * yc + 3.0f );
+void scaleRGB( float4* rgb ) {
+	float greatest = fmax( rgb->x, fmax( rgb->y, rgb->z ) );
+
+	if( greatest > 0.0f ) {
+		*rgb /= greatest;
+	}
 }
 
 
@@ -171,75 +187,142 @@ inline void xy_to_upvp( float xc, float yc, float* up, float* vp ) {
  * @param {float*}            b
  */
 void xyz_to_rgb( const colorSystem cs, float4 xyz, float4* rgb ) {
-	float xr, yr, zr, xg, yg, zg, xb, yb, zb;
-	float xw, yw, zw;
-	float rx, ry, rz, gx, gy, gz, bx, by, bz;
-	float rw, gw, bw;
+	float xr = cs.xRed;
+	float yr = cs.yRed;
+	float zr = 1.0f - ( xr + yr );
 
-	xr = cs.xRed;
-	yr = cs.yRed;
-	zr = 1.0f - ( xr + yr );
+	float xg = cs.xGreen;
+	float yg = cs.yGreen;
+	float zg = 1.0f - ( xg + yg );
 
-	xg = cs.xGreen;
-	yg = cs.yGreen;
-	zg = 1.0f - ( xg + yg );
+	float xb = cs.xBlue;
+	float yb = cs.yBlue;
+	float zb = 1.0f - ( xb + yb );
 
-	xb = cs.xBlue;
-	yb = cs.yBlue;
-	zb = 1.0f - ( xb + yb );
-
-	xw = cs.xWhite;
-	yw = cs.yWhite;
-	zw = 1.0f - ( xw + yw );
-
-	// TODO: Essentially, these are matrix multiplications. I bet this can be optimized.
-
-	// xyz -> rgb matrix, before scaling to white.
-
-	rx = yg * zb - yb * zg;
-	ry = xb * zg - xg * zb;
-	rz = xg * yb - xb * yg;
-
-	gx = yb * zr - yr * zb;
-	gy = xr * zb - xb * zr;
-	gz = xb * yr - xr * yb;
-
-	bx = yr * zg - yg * zr;
-	by = xg * zr - xr * zg;
-	bz = xr * yg - xg * yr;
+	float xw = cs.xWhite;
+	float yw = cs.yWhite;
+	float zw = 1.0f - xw - yw;
 
 
-	// White scaling factors.
-	rw = rx * xw + ry * yw + rz * zw;
-	gw = gx * xw + gy * yw + gz * zw;
-	bw = bx * xw + by * yw + bz * zw;
+	// http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_RGB.html
 
-	// Dividing by yw scales the white luminance to unity, as conventional.
-	rw /= yw;
-	gw /= yw;
-	bw /= yw;
+	float Xr = xr / yr;
+	float Xg = xg / yg;
+	float Xb = xb / yb;
 
-
-	// xyz -> rgb matrix, correctly scaled to white.
-
-	rx = native_divide( rx, rw );
-	ry = native_divide( ry, rw );
-	rz = native_divide( rz, rw );
-
-	gx = native_divide( gx, gw );
-	gy = native_divide( gy, gw );
-	gz = native_divide( gz, gw );
-
-	bx = native_divide( bx, bw );
-	by = native_divide( by, bw );
-	bz = native_divide( bz, bw );
+	float Zr = zr / yr;
+	float Zg = zg / yg;
+	float Zb = zb / yb;
 
 
-	// rgb of the desired point.
+	float detN1 = Xr * ( Zb - Zg );
+	float detN2 = Xg * ( Zb - Zr );
+	float detN3 = Xb * ( Zg - Zr );
+	float detNrecip = 1.0f / ( detN1 - detN2 + detN3 );
 
-	rgb->x = rx * xyz.x + ry * xyz.y + rz * xyz.z;
-	rgb->y = gx * xyz.x + gy * xyz.y + gz * xyz.z;
-	rgb->z = bx * xyz.x + by * xyz.y + bz * xyz.z;
+	float n00 = detNrecip * ( Zb - Zg );
+	float n01 = detNrecip * ( Xb * Zg - Xg * Zb );
+	float n02 = detNrecip * ( Xg - Xb );
+
+	float n10 = detNrecip * ( Zr - Zb );
+	float n11 = detNrecip * ( Xr * Zb - Xb * Zr );
+	float n12 = detNrecip * ( Xb - Xr );
+
+	float n20 = detNrecip * ( Zg - Zr );
+	float n21 = detNrecip * ( Xg * Zr - Xr * Zg );
+	float n22 = detNrecip * ( Xr - Xg );
+
+
+	float sr = n00 * xw + n01 * yw + n02 * zw;
+	float sg = n10 * xw + n11 * yw + n12 * zw;
+	float sb = n20 * xw + n21 * yw + n22 * zw;
+
+
+	float m00 = sr * Xr;
+	float m01 = sg * Xg;
+	float m02 = sb * Xb;
+
+	float m10 = sr;
+	float m11 = sg;
+	float m12 = sb;
+
+	float m20 = sr * Zr;
+	float m21 = sg * Zg;
+	float m22 = sb * Zb;
+
+
+	float sMul = sr * sg * sb;
+	float detM1 = sMul * Xr * ( Zb - Zg );
+	float detM2 = sMul * Xg * ( Zb - Zr );
+	float detM3 = sMul * Xb * ( Zg - Zr );
+	float detMrecip = 1.0f / ( detM1 - detM2 + detM3 );
+
+	float m00inv = detMrecip * sg * sb * ( Zb - Zg );
+	float m01inv = detMrecip * sg * sb * ( Xb * Zg - Xg * Zb );
+	float m02inv = detMrecip * sg * sb * ( Xg - Xb );
+
+	float m10inv = detMrecip * sb * sr * ( Zr - Zb );
+	float m11inv = detMrecip * sb * sr * ( Xr * Zb - Xb * Zr );
+	float m12inv = detMrecip * sb * sr * ( Xb - Xr );
+
+	float m20inv = detMrecip * sg * sr * ( Zg - Zr );
+	float m21inv = detMrecip * sg * sr * ( Xg * Zr - Xr * Zg );
+	float m22inv = detMrecip * sg * sr * ( Xr - Xg );
+
+
+	rgb->x = m00inv * xyz.x + m01inv * xyz.y + m02inv * xyz.z;
+	rgb->y = m10inv * xyz.x + m11inv * xyz.y + m12inv * xyz.z;
+	rgb->z = m20inv * xyz.x + m21inv * xyz.y + m22inv * xyz.z;
+
+
+	// // xyz -> rgb matrix, before scaling to white.
+
+	// float rx = yg * zb - yb * zg;
+	// float ry = xb * zg - xg * zb;
+	// float rz = xg * yb - xb * yg;
+
+	// float gx = yb * zr - yr * zb;
+	// float gy = xr * zb - xb * zr;
+	// float gz = xb * yr - xr * yb;
+
+	// float bx = yr * zg - yg * zr;
+	// float by = xg * zr - xr * zg;
+	// float bz = xr * yg - xg * yr;
+
+
+	// // White scaling factors.
+
+	// float zWhite = 1.0f - ( cs.xWhite + cs.yWhite );
+
+	// float rw = rx * cs.xWhite + ry * cs.yWhite + rz * zWhite;
+	// float gw = gx * cs.xWhite + gy * cs.yWhite + gz * zWhite;
+	// float bw = bx * cs.xWhite + by * cs.yWhite + bz * zWhite;
+
+	// // Dividing by cs.yWhite scales the white luminance to unity.
+	// rw /= cs.yWhite;
+	// gw /= cs.yWhite;
+	// bw /= cs.yWhite;
+
+
+	// // xyz -> rgb matrix, correctly scaled to white.
+
+	// rx /= rw;
+	// ry /= rw;
+	// rz /= rw;
+
+	// gx /= gw;
+	// gy /= gw;
+	// gz /= gw;
+
+	// bx /= bw;
+	// by /= bw;
+	// bz /= bw;
+
+
+	// // rgb of the desired point.
+	// rgb->x = rx * xyz.x + ry * xyz.y + rz * xyz.z;
+	// rgb->y = gx * xyz.x + gy * xyz.y + gz * xyz.z;
+	// rgb->z = bx * xyz.x + by * xyz.y + bz * xyz.z;
 }
 
 
@@ -254,34 +337,6 @@ void xyz_to_rgb( const colorSystem cs, float4 xyz, float4* rgb ) {
  */
 inline bool inside_gamut( float4 rgb ) {
 	return ( rgb.x >= 0.0f && rgb.y >= 0.0f && rgb.z >= 0.0f );
-}
-
-
-/**
- * If the requested RGB shade contains a negative weight for
- * one of the primaries, it lies outside the colour gamut
- * accessible from the given triple of primaries. Desaturate
- * it by adding white, equal quantities of R, G, and B, enough
- * to make RGB all positive. The function returns 1 if the
- * components were modified, zero otherwise.
- *
- * @param  {float4*} rgb
- * @return {bool}        True, if rgb has been modified, false otherwise.
- */
-bool constrain_rgb( float4* rgb ) {
-	// Amount of white needed is w = -min(0, r, g, b)
-	float w = -fmin( fmin( 0.0f, rgb->x ), fmin( rgb->y, rgb->z ) );
-
-	// Add just enough white to make r, g, b all positive.
-	if( w > 0.0f ) {
-		rgb->x += w;
-		rgb->y += w;
-		rgb->z += w;
-
-		return true;
-	}
-
-	return false;
 }
 
 
@@ -368,10 +423,14 @@ void spectrum_to_xyz( float spd[40], float4* xyz ) {
 		Z += me * cie_colour_match[i][2];
 	}
 
-	float XYZrecip = native_recip( X + Y + Z );
-	xyz->x = X * XYZrecip;
-	xyz->y = Y * XYZrecip;
-	xyz->z = 1.0f - xyz->x - xyz->y;
+	xyz->x = X;
+	xyz->y = Y;
+	xyz->z = Z;
+
+	// float XYZrecip = native_recip( X + Y + Z );
+	// xyz->x = X * XYZrecip;
+	// xyz->y = Y * XYZrecip;
+	// xyz->z = 1.0f - ( xyz->x + xyz->y );
 }
 
 
@@ -386,13 +445,20 @@ float4 spectrumToRGB( float spd[40] ) {
 
 	spectrum_to_xyz( spd, &xyz );
 	xyz_to_rgb( CS, xyz, &rgb );
+	// constrain_rgb( &rgb );
+	// gamma_correct_rgb( CS, &rgb );
 
-	if( !inside_gamut( rgb ) ) {
-		constrain_rgb( &rgb );
-	}
 
-	float m = fmax( rgb.x, fmax( rgb.y, rgb.z ) );
-	rgb = ( m > 0.0f ) ? rgb / m : rgb;
+	// // L* companding
+	// rgb.x = ( rgb.x <= 216.0f / 24389.0f )
+	//       ? rgb.x * 24389.0f / 2700.0f
+	//       : 1.16f * pow( rgb.x, 1.0f / 3.0f ) - 0.16f;
+	// rgb.y = ( rgb.y <= 216.0f / 24389.0f )
+	//       ? rgb.y * 24389.0f / 2700.0f
+	//       : 1.16f * pow( rgb.y, 1.0f / 3.0f ) - 0.16f;
+	// rgb.z = ( rgb.z <= 216.0f / 24389.0f )
+	//       ? rgb.z * 24389.0f / 2700.0f
+	//       : 1.16f * pow( rgb.z, 1.0f / 3.0f ) - 0.16f;
 
 	return rgb;
 }
