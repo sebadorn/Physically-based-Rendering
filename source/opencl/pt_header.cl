@@ -10,8 +10,6 @@
 #define WORKGROUPSIZE #WORKGROUPSIZE#
 #define WORKGROUPSIZE_HALF #WORKGROUPSIZE_HALF#
 
-#define BIT_ISSET( var, pos ) ( (var) & ( 1 << (pos) ) )
-
 constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 constant int MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
 
