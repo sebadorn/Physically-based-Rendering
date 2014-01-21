@@ -19,7 +19,6 @@ PathTracer::PathTracer() {
 
 	mKernelRays = mCL->createKernel( "initRays" );
 	mKernelPathTracing = mCL->createKernel( "pathTracing" );
-	mKernelSetColors = mCL->createKernel( "setColors" );
 
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
 	mSampleCount = 0;
@@ -52,20 +51,12 @@ void PathTracer::clInitRays( cl_float timeSinceStart ) {
  * @param {cl_float} timeSinceStart Time since start of the program in seconds.
  */
 void PathTracer::clPathTracing( cl_float timeSinceStart ) {
+	cl_float pixelWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
+
 	mCL->setKernelArg( mKernelPathTracing, 1, sizeof( cl_float ), &timeSinceStart );
+	mCL->setKernelArg( mKernelPathTracing, 2, sizeof( cl_float ), &pixelWeight );
 
 	mCL->execute( mKernelPathTracing );
-	mCL->finish();
-}
-
-
-void PathTracer::clSetColors( cl_float timeSinceStart ) {
-	cl_float textureWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
-
-	mCL->setKernelArg( mKernelSetColors, 1, sizeof( cl_float ), &timeSinceStart );
-	mCL->setKernelArg( mKernelSetColors, 2, sizeof( cl_float ), &textureWeight );
-
-	mCL->execute( mKernelSetColors );
 	mCL->finish();
 }
 
@@ -82,7 +73,6 @@ vector<cl_float> PathTracer::generateImage() {
 
 	this->clInitRays( timeSinceStart );
 	this->clPathTracing( timeSinceStart );
-	this->clSetColors( timeSinceStart );
 
 	mCL->readImageOutput( mBufTextureOut, mWidth, mHeight, &mTextureOut[0] );
 	mSampleCount++;
@@ -138,6 +128,7 @@ void PathTracer::initArgsKernelPathTracing() {
 	cl_uint i = 0;
 
 	++i; // 1: timeSinceStart
+	++i; // 2: pixelWeight
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScVertices );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScFaces );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufScNormals );
@@ -149,6 +140,9 @@ void PathTracer::initArgsKernelPathTracing() {
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufRays );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufFaceToMaterial );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufMaterials );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufSPDs );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufTextureIn );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufTextureOut );
 }
 
 
@@ -182,27 +176,12 @@ void PathTracer::initArgsKernelRays() {
 }
 
 
-void PathTracer::initArgsKernelSetColors() {
-	cl_uint i = 0;
-
-	++i; // 1: timeSinceStart
-	++i; // 2: textureWeight
-	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufRays );
-	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufFaceToMaterial );
-	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufMaterials );
-	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufSPDs );
-	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufTextureIn );
-	mCL->setKernelArg( mKernelSetColors, ++i, sizeof( cl_mem ), &mBufTextureOut );
-}
-
-
 /**
  * Set the OpenCL kernel arguments that either don't change or point to a CL buffer.
  */
 void PathTracer::initKernelArgs() {
 	this->initArgsKernelRays();
 	this->initArgsKernelPathTracing();
-	this->initArgsKernelSetColors();
 }
 
 
@@ -367,8 +346,7 @@ void PathTracer::initOpenCLBuffers_Normals( vector<cl_float> normals, ModelLoade
 void PathTracer::initOpenCLBuffers_Rays() {
 	cl_uint pixels = mWidth * mHeight;
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
-	mBufNormals = mCL->createEmptyBuffer( sizeof( cl_float4 ) * pixels, CL_MEM_READ_WRITE );
-	mBufRays = mCL->createEmptyBuffer( sizeof( ray4 ) * pixels * mBounces, CL_MEM_READ_WRITE );
+	mBufRays = mCL->createEmptyBuffer( sizeof( ray4 ) * pixels, CL_MEM_READ_WRITE );
 }
 
 

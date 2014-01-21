@@ -18,7 +18,6 @@ typedef struct {
 	float4 dir;
 	float4 normal;
 	float t;
-	float shadow;
 	int nodeIndex;
 	int faceIndex;
 } ray4 __attribute__( ( aligned( 64 ) ) );

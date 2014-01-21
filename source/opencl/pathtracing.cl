@@ -9,110 +9,49 @@
 
 
 /**
- *
- * @param origin
- * @param dir
- * @param normal
- * @param scVertices
- * @param scFaces
- * @param scNormals
- * @param scFacesVN
- * @param lights
- * @param kdNodeData1
- * @param kdNodeMeta
- * @param kdNodeFaces
- * @param kdNodeRopes
- * @param timeSinceStart
+ * 
+ * @param mtl            
+ * @param specPowerDists 
+ * @param spdLight       
+ * @param spdFactors     
  */
-ray4 findPath(
-	ray4* ray, const global float4* scVertices, const global uint4* scFaces,
-	const global float4* scNormals, const global uint* scFacesVN,
-	int startNode, const global kdNonLeaf* kdNonLeaves,
-	const global kdLeaf* kdLeaves, const global uint* kdFaces,
-	const float timeSinceStart, const int bounce,
-	const float entryDistance, const float exitDistance,
-	const global int* faceToMaterial, const global material* materials
+inline void updateSPDs(
+	material mtl, const global float* specPowerDists,
+	float* spdLight, float* spdFactors
 ) {
-	traverseKdTree(
-		ray, startNode, kdNonLeaves, kdLeaves, kdFaces,
-		scVertices, scFaces, bounce, entryDistance, exitDistance
-	);
-
-	ray4 newRay;
-	newRay.t = -2.0f;
-	newRay.nodeIndex = -1;
-	newRay.faceIndex = -1;
-
-	if( ray->nodeIndex >= 0 ) {
-		const uint f = ray->faceIndex;
-		ray->normal = scNormals[scFacesVN[f * 3]];
-
-		if( bounce < BOUNCES - 1 ) {
-			newRay.origin = fma( ray->t, ray->dir, ray->origin );
-
-			material mtl = materials[faceToMaterial[f]];
-
-			if( mtl.d < 1.0f ) {
-				newRay.dir = ray->dir;
-			}
-			else {
-				newRay.dir = ( mtl.illum == 3 )
-				           ? fast_normalize( reflect( ray->dir, ray->normal ) + uniformlyRandomVector( timeSinceStart + ray->t ) * mtl.gloss )
-				           : fast_normalize( cosineWeightedDirection( timeSinceStart + ray->t, ray->normal ) );
-			}
-
-			if( mtl.light == 1 ) {
-				newRay.nodeIndex = -2;
-			}
+	if( mtl.light == 1 ) {
+		for( int i = 0; i < 40; i++ ) {
+			spdLight[i] = specPowerDists[mtl.spdDiffuse * 40 + i];
 		}
 	}
-
-	return newRay;
+	else {
+		for( int i = 0; i < 40; i++ ) {
+			spdFactors[i] *= specPowerDists[mtl.spdDiffuse * 40 + i];
+		}
+	}
 }
 
 
 /**
- *
- * @param  {float4} light
- * @param  {float4} hit
- * @param  {ray4}   ray
- * @param  {float}  Ns
- * @return {float}
+ * 
+ * @param pos         
+ * @param imageIn     
+ * @param imageOut    
+ * @param pixelWeight 
+ * @param spdLight    
  */
-float calcSpecularHighlight( float4 light, float4 hit, ray4 ray, float Ns ) {
-	float specularHighlight;
+void setColors(
+	const int2 pos, read_only image2d_t imageIn, write_only image2d_t imageOut,
+	const float pixelWeight, float spdLight[40]
+) {
+	const float4 imagePixel = read_imagef( imageIn, sampler, pos );
+	const float4 accumulatedColor = spectrumToRGB( spdLight );
+	const float4 color = mix(
+		clamp( accumulatedColor, 0.0f, 1.0f ),
+		imagePixel, pixelWeight
+	);
 
-	#if SPECULAR_HIGHLIGHT == 0
-
-		// Disabled
-		specularHighlight = 0.0f;
-
-	#elif SPECULAR_HIGHLIGHT == 1
-
-		// Phong
-		float4 reflectedLight = fast_normalize( reflect( light - hit, ray.normal ) );
-		specularHighlight = fmax( 0.0f, dot( reflectedLight, fast_normalize( hit - ray.origin ) ) );
-		specularHighlight = pow( specularHighlight, Ns );
-
-	#elif SPECULAR_HIGHLIGHT == 2
-
-		// Blinn-Phong
-		float4 H = fast_normalize( ( light - hit ) + ( ray.origin - hit ) );
-		specularHighlight = fmax( 0.0f, dot( ray.normal, H ) );
-		specularHighlight = pow( specularHighlight, Ns );
-
-	#elif SPECULAR_HIGHLIGHT == 3
-
-		// Gauss
-		float4 H = fast_normalize( ( light - hit ) + ( ray.origin - hit ) );
-		float angle = acos( clamp( dot( ray.normal, H ), 0.0f, 1.0f ) );
-		float exponent = angle * Ns;
-		exponent = -( exponent * exponent );
-		specularHighlight = exp( exponent );
-
-	#endif
-
-	return specularHighlight;
+	write_imagef( imageOut, pos, color );
 }
 
 
@@ -164,7 +103,7 @@ kernel void initRays(
 	ray.origin = eye;
 	ray.dir = fast_normalize( initialRay );
 
-	rays[workIndex * BOUNCES] = ray;
+	rays[workIndex] = ray;
 }
 
 
@@ -185,18 +124,20 @@ kernel void initRays(
  * @param {global float4*}           hitNormals
  */
 kernel void pathTracing(
-	const uint2 offset, const float timeSinceStart,
+	const uint2 offset, const float timeSinceStart, const float pixelWeight,
 	const global float4* scVertices, const global uint4* scFaces,
 	const global float4* scNormals, const global uint* scFacesVN,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
 	const global uint* kdFaces, const float8 kdRootBB,
-	global ray4* rays, const global int* faceToMaterial, const global material* materials
+	global ray4* rays, const global int* faceToMaterial, const global material* materials,
+	const global float* specPowerDists,
+	read_only image2d_t imageIn, write_only image2d_t imageOut
 ) {
 	const int2 pos = {
 		offset.x + get_global_id( 0 ),
 		offset.y + get_global_id( 1 )
 	};
-	const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
+	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
 	const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, 0.0f };
 	const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, 0.0f };
@@ -206,111 +147,77 @@ kernel void pathTracing(
 	ray.t = -2.0f;
 	ray.nodeIndex = -1;
 	ray.faceIndex = -1;
-	ray.shadow = 1.0f;
 
 	float entryDistance = 0.0f;
 	float exitDistance = FLT_MAX;
 
-	if( !intersectBoundingBox( ray.origin, ray.dir, bbMinRoot, bbMaxRoot, &entryDistance, &exitDistance ) ) {
-		rays[workIndex] = ray;
-		return;
-	}
-
-	int startNode = goToLeafNode( 0, kdNonLeaves, fma( entryDistance, ray.dir, ray.origin ) );
-
-	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
-		newRay = findPath(
-			&ray, scVertices, scFaces, scNormals, scFacesVN,
-			startNode, kdNonLeaves, kdLeaves, kdFaces,
-			timeSinceStart + (float) bounce, bounce, entryDistance, exitDistance,
-			faceToMaterial, materials
-		);
-
-		rays[workIndex + bounce] = ray;
-
-		if( ray.nodeIndex < 0 || newRay.nodeIndex == -2 ) {
-			break;
-		}
-
-		startNode = ray.nodeIndex;
-		ray = newRay;
-		entryDistance = 0.0f;
-		exitDistance = FLT_MAX;
-	}
-}
-
-
-/**
- *
- * @param offset
- * @param timeSinceStart
- * @param textureWeight
- * @param hits
- * @param normals
- * @param lights
- * @param materialToFace
- * @param diffuseColors
- * @param textureIn
- * @param textureOut
- */
-kernel void setColors(
-	const uint2 offset, const float timeSinceStart, float imageWeight,
-	const global ray4* rays, const global int* faceToMaterial,
-	const global material* materials, const global float* specPowerDists,
-	read_only image2d_t imageIn, write_only image2d_t imageOut
-) {
-	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
-	const uint workIndex = ( pos.x + pos.y * IMG_WIDTH ) * BOUNCES;
-	const float4 imagePixel = read_imagef( imageIn, sampler, pos );
-
-	float4 accumulatedColor = (float4)( 0.0f );
-	ray4 ray;
-	material mtl;
-
-	// Spectral power distribution of the light
 	float spdFactors[40];
 	float spdLight[40];
-	bool foundLight = false;
 
 	for( int i = 0; i < 40; i++ ) {
+		spdLight[i] = 0.0f;
 		spdFactors[i] = 1.0f;
 	}
 
-	for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
-		ray = rays[workIndex + bounce];
 
-		if( ray.nodeIndex < 0 ) {
-			break;
-		}
+	if( intersectBoundingBox( ray.origin, ray.dir, bbMinRoot, bbMaxRoot, &entryDistance, &exitDistance ) ) {
+		int startNode = goToLeafNode( 0, kdNonLeaves, fma( entryDistance, ray.dir, ray.origin ) );
 
-		material mtl = materials[faceToMaterial[ray.faceIndex]];
+		for( int bounce = 0; bounce < BOUNCES; bounce++ ) {
+			traverseKdTree(
+				&ray, startNode, kdNonLeaves, kdLeaves, kdFaces,
+				scVertices, scFaces, bounce, entryDistance, exitDistance
+			);
 
-		if( mtl.light == 1 ) {
-			foundLight = true;
-			for( int i = 0; i < 40; i++ ) {
-				spdLight[i] = specPowerDists[mtl.spdDiffuse * 40 + i];
+			if( ray.nodeIndex < 0 ) {
+				break;
 			}
-			break;
-		}
-		else {
-			for( int i = 0; i < 40; i++ ) {
-				spdFactors[i] *= specPowerDists[mtl.spdDiffuse * 40 + i];
+
+
+			newRay.t = -2.0f;
+			newRay.nodeIndex = -1;
+			newRay.faceIndex = -1;
+
+			const uint f = ray.faceIndex;
+			material mtl = materials[faceToMaterial[f]];
+
+			if( bounce < BOUNCES - 1 ) {
+				ray.normal = scNormals[scFacesVN[f * 3]];
+				newRay.origin = fma( ray.t, ray.dir, ray.origin );
+
+				if( mtl.d < 1.0f ) {
+					newRay.dir = ray.dir;
+				}
+				else {
+					newRay.dir = ( mtl.illum == 3 )
+					           ? fast_normalize(
+					           	 	reflect( ray.dir, ray.normal ) +
+					           	 	uniformlyRandomVector( timeSinceStart + ray.t ) * mtl.gloss
+					           	 )
+					           : fast_normalize(
+					           	 	cosineWeightedDirection( timeSinceStart + ray.t, ray.normal )
+					           	 );
+				}
 			}
+
+
+			updateSPDs( mtl, specPowerDists, spdLight, spdFactors );
+
+			if( mtl.light == 1 ) {
+				break;
+			}
+
+
+			startNode = ray.nodeIndex;
+			ray = newRay;
+			entryDistance = 0.0f;
+			exitDistance = FLT_MAX;
 		}
 	}
 
-	if( foundLight ) {
-		for( int i = 0; i < 40; i++ ) {
-			spdLight[i] *= spdFactors[i];
-		}
-
-		accumulatedColor = spectrumToRGB( spdLight );
-		// float lum = 0.2126f * accumulatedColor.x + 0.7152f * accumulatedColor.y + 0.0722f * accumulatedColor.z;
+	for( int i = 0; i < 40; i++ ) {
+		spdLight[i] *= spdFactors[i];
 	}
 
-	const float4 color = mix(
-		clamp( accumulatedColor, 0.0f, 1.0f ),
-		imagePixel, imageWeight
-	);
-	write_imagef( imageOut, pos, color );
+	setColors( pos, imageIn, imageOut, pixelWeight, spdLight );
 }

@@ -24,7 +24,6 @@ struct ray4 {
 	cl_float4 dir;
 	cl_float4 normal;
 	cl_float t;
-	cl_float shadow;
 	cl_int nodeIndex;
 	cl_int faceIndex;
 };
@@ -78,7 +77,6 @@ class PathTracer {
 		cl_float getTimeSinceStart();
 		void initArgsKernelPathTracing();
 		void initArgsKernelRays();
-		void initArgsKernelSetColors();
 		void initKernelArgs();
 		void initOpenCLBuffers_KdTree(
 			vector<cl_float> vertices, vector<cl_uint> faces,
@@ -108,7 +106,6 @@ class PathTracer {
 
 		cl_kernel mKernelPathTracing;
 		cl_kernel mKernelRays;
-		cl_kernel mKernelSetColors;
 
 		cl_mem mBufScVertices;
 		cl_mem mBufScFaces;
@@ -124,7 +121,6 @@ class PathTracer {
 		cl_mem mBufSPDs;
 
 		cl_mem mBufEye;
-		cl_mem mBufNormals;
 		cl_mem mBufRays;
 		cl_mem mBufTextureIn;
 		cl_mem mBufTextureOut;
