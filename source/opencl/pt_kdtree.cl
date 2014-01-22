@@ -97,7 +97,6 @@ int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const floa
  * @param {const global float*} kdNodeFaces
  * @param {const global int*}   kdNodeRopes
  * @param {hit_t*}              result
- * @param {const int}           bounce
  * @param {const int}           kdRoot
  * @param {const float}         entryDistance
  * @param {const float}         exitDistance
@@ -106,7 +105,7 @@ void traverseKdTree(
 	ray4* ray, int nodeIndex, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global uint* kdFaces,
 	const global float4* scVertices, const global uint4* scFaces,
-	const int bounce, float entryDistance, float exitDistance
+	float entryDistance, float exitDistance
 ) {
 	kdLeaf currentNode;
 	int8 ropes;

@@ -503,7 +503,7 @@ void gamma_correct_rgb( const colorSystem cs, float4* rgb ) {
  * @param {float*} y
  * @param {float*} z
  */
-void spectrum_to_xyz( float spd[40], float4* xyz ) {
+float spectrum_to_xyz( float spd[40], float4* xyz ) {
 	float me;
 	float X = 0.0f,
 	      Y = 0.0f,
@@ -522,26 +522,15 @@ void spectrum_to_xyz( float spd[40], float4* xyz ) {
 		maxPossible.z += cie_colour_match[i][2];
 	}
 
-	maxPossible.w = fmax( 1.0f, fmax( maxPossible.x, fmax( maxPossible.y, maxPossible.z ) ) );
+	float XYZmax = maxPossible.x + maxPossible.y + maxPossible.z;
+	float XYZsum = X + Y + Z;
+	float intensity = 1.0f - ( XYZmax - XYZsum ) / XYZmax;
 
-	// // RGB 128 128 128
-	// X = 0.7002f;
-	// Y = 0.7336f;
-	// Z = 0.8022f;
+	xyz->x = X / XYZsum;
+	xyz->y = Y / XYZsum;
+	xyz->z = Z / XYZsum;
 
-	// // RGB 0 255 0
-	// X = 0.3576f;
-	// Y = 0.7152f;
-	// Z = 0.1192f;
-
-	xyz->x = X / maxPossible.y;
-	xyz->y = Y / maxPossible.y;
-	xyz->z = Z / maxPossible.y;
-
-	// float XYZrecip = native_recip( X + Y + Z );
-	// xyz->x = X * XYZrecip;
-	// xyz->y = Y * XYZrecip;
-	// xyz->z = Z * XYZrecip;
+	return intensity;
 }
 
 
@@ -554,22 +543,11 @@ float4 spectrumToRGB( float spd[40] ) {
 	float4 rgb = (float4)( 0.0f );
 	float4 xyz = (float4)( 0.0f );
 
-	spectrum_to_xyz( spd, &xyz );
+	float intensity = spectrum_to_xyz( spd, &xyz );
 	xyz_to_rgb( CS, xyz, &rgb );
+	rgb *= intensity;
 	constrain_rgb( &rgb );
 	// gamma_correct_rgb( CS, &rgb );
-
-
-	// // L* companding
-	// rgb.x = ( rgb.x <= 216.0f / 24389.0f )
-	//       ? rgb.x * 24389.0f / 2700.0f
-	//       : 1.16f * pow( rgb.x, 1.0f / 3.0f ) - 0.16f;
-	// rgb.y = ( rgb.y <= 216.0f / 24389.0f )
-	//       ? rgb.y * 24389.0f / 2700.0f
-	//       : 1.16f * pow( rgb.y, 1.0f / 3.0f ) - 0.16f;
-	// rgb.z = ( rgb.z <= 216.0f / 24389.0f )
-	//       ? rgb.z * 24389.0f / 2700.0f
-	//       : 1.16f * pow( rgb.z, 1.0f / 3.0f ) - 0.16f;
 
 	return rgb;
 }
