@@ -4,29 +4,6 @@
 #FILE:pt_kdtree.cl:FILE#
 
 
-/**
- *
- * @param mtl
- * @param specPowerDists
- * @param spdLight
- * @param spdFactors
- */
-inline void updateSPDs(
-	material mtl, const global float* specPowerDists,
-	float* spdLight, float* spdFactors
-) {
-	if( mtl.light == 1 ) {
-		for( int i = 0; i < 40; i++ ) {
-			spdLight[i] = specPowerDists[mtl.spdDiffuse * 40 + i];
-		}
-	}
-	else {
-		for( int i = 0; i < 40; i++ ) {
-			spdFactors[i] *= specPowerDists[mtl.spdDiffuse * 40 + i];
-		}
-	}
-}
-
 
 /**
  *
@@ -147,19 +124,11 @@ kernel void pathTracing(
 	float entryDistance = 0.0f;
 	float exitDistance = FLT_MAX;
 
-	float spdFactors[40];
-	float spdLight[40];
-	float localSpd[40];
-
-	for( int i = 0; i < 40; i++ ) {
-		spdLight[i] = 0.0f;
-	}
-
 	uint bounce, f;
 	material mtl, mtlLight;
 	float tFar = exitDistance;
 
-	int2 path[BOUNCES];
+	float4 path[BOUNCES];
 	int pathIndex = 0;
 
 
@@ -179,20 +148,43 @@ kernel void pathTracing(
 			}
 
 
-			// Update the spectral power distributions
-
 			f = ray.faceIndex;
+			ray.normal = scNormals[scFacesVN[f * 3]];
 			mtl = materials[faceToMaterial[f]];
 
+
+			// New direction of the ray (bouncing of the hit surface)
+
+			newRay.t = -2.0f;
+			newRay.nodeIndex = -1;
+			newRay.faceIndex = -1;
+
+			if( bounce < BOUNCES - 1 ) {
+				newRay.origin = fma( ray.t, ray.dir, ray.origin );
+
+				if( mtl.d < 1.0f ) {
+					newRay.dir = ray.dir;
+				}
+				else {
+					newRay.dir = ( mtl.illum == 3 )
+					           ? fast_normalize(
+					             	reflect( ray.dir, ray.normal ) +
+					             	uniformlyRandomVector( timeSinceStart + ray.t ) * mtl.gloss
+					             )
+					           : fast_normalize(
+					             	cosineWeightedDirection( timeSinceStart + ray.t, ray.normal )
+					             );
+				}
+			}
+
+
 			// Implicit connection to a light found
+
 			if( mtl.light == 1 ) {
 				path[pathIndex].x = -1;
 				path[pathIndex].y = mtl.spdDiffuse;
+				path[pathIndex].z = 1.0f;
 				pathIndex++;
-
-				// for( int i = 0; i < 40; i++ ) {
-				// 	spdLight[i] = specPowerDists[mtl.spdDiffuse * 40 + i];
-				// }
 
 				break;
 			}
@@ -200,7 +192,10 @@ kernel void pathTracing(
 
 			// Try to form explicit connection to a light source
 
-			float4 lightTarget = (float4)( 0.0f, 0.2f, 0.0f, 0.0f );
+			const float rnd = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), timeSinceStart + ray.t + ray.origin.x );
+			const float rnd2 = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), timeSinceStart + ray.t + ray.origin.y );
+			// float4 lightTarget = (float4)( -0.1f + rnd * 0.2f, rnd * 0.4f, -0.1f + rnd2 * 0.2f, 0.0f );
+			float4 lightTarget = (float4)( -0.5f + rnd * 1.0f, 1.995f, -0.3f + rnd2 * 0.6f, 0.0f );
 
 			explicitRay.nodeIndex = -1;
 			explicitRay.faceIndex = -1;
@@ -213,48 +208,45 @@ kernel void pathTracing(
 				scVertices, scFaces, 0.0f, FLT_MAX
 			);
 
+			path[pathIndex].x = mtl.spdDiffuse;
+			path[pathIndex].y = -1;
+			path[pathIndex].z = 0.0f;
+			path[pathIndex].w = 0.0f;
+
+			float roughness = 1.0f;
+			float reflection = 0.5f;
+			float isotropy = 0.5f;
+
 			if( explicitRay.nodeIndex >= 0 ) {
 				material mtlExplicit = materials[faceToMaterial[explicitRay.faceIndex]];
+				path[pathIndex].y = ( mtlExplicit.light == 1 )
+				                  ? mtlExplicit.spdDiffuse
+				                  : -1;
 
-				if( mtlExplicit.light == 1 ) {
-					path[pathIndex].x = mtl.spdDiffuse;
-					path[pathIndex].y = mtlExplicit.spdDiffuse;
-					pathIndex++;
-				}
+				float4 V_out = -ray.dir;
+				float4 V_in = explicitRay.dir;
+				float4 H = bisectorVector( V_out, V_in );
+				float4 N = ray.normal;
+				float t = dot( H, N );
+				float u = dot( H, V_out );
+				float v = dot( V_out, N );
+				float vIn = dot( V_in, N );
+				float l = R( t, v, vIn, 0.0f, u, roughness, reflection, isotropy );
+				l *= dot( N, V_in );
 
-				// if( mtlExplicit.light == 1 ) {
-				// 	for( int i = 0; i < 40; i++ ) {
-				// 		spdLight[i] += specPowerDists[mtlExplicit.spdDiffuse * 40 + i] *
-				// 		               specPowerDists[mtl.spdDiffuse * 40 + i];
-				// 	}
-				// }
+				path[pathIndex].z = l;
+
+				V_in = newRay.dir;
+				H = bisectorVector( V_out, V_in );
+				t = dot( H, N );
+				u = dot( H, V_out );
+				vIn = dot( V_in, N );
+				float l2 = R( t, v, vIn, 0.0f, u, roughness, reflection, isotropy );
+				l2 *= dot( N, newRay.dir );
+				path[pathIndex].w = ( bounce == BOUNCES - 1 ) ? l : l2;
 			}
 
-
-			// New direction of the ray (bouncing of the hit surface)
-
-			newRay.t = -2.0f;
-			newRay.nodeIndex = -1;
-			newRay.faceIndex = -1;
-
-			if( bounce < BOUNCES - 1 ) {
-				ray.normal = scNormals[scFacesVN[f * 3]];
-				newRay.origin = fma( ray.t, ray.dir, ray.origin );
-
-				if( mtl.d < 1.0f ) {
-					newRay.dir = ray.dir;
-				}
-				else {
-					newRay.dir = ( mtl.illum == 3 )
-					           ? fast_normalize(
-					           	 	reflect( ray.dir, ray.normal ) +
-					           	 	uniformlyRandomVector( timeSinceStart + ray.t ) * mtl.gloss
-					           	 )
-					           : fast_normalize(
-					           	 	cosineWeightedDirection( timeSinceStart + ray.t, ray.normal )
-					           	 );
-				}
-			}
+			pathIndex++;
 
 
 			startNode = ray.nodeIndex;
@@ -265,30 +257,50 @@ kernel void pathTracing(
 	}
 
 
-	float spdPrev[40];
+	float spdLight[40];
+
+	for( int i = 0; i < 40; i++ ) {
+		spdLight[i] = 0.0f;
+	}
 
 	for( int i = pathIndex - 1; i >= 0; i-- ) {
-		int2 p = path[i];
+		float l = path[i].z;
+		float l2 = path[i].w;
+		int4 p = (int4)( path[i].x, path[i].y, 0, 0 );
 
+		// Start of path
 		if( i == pathIndex - 1 ) {
-			if( p.x >= 0 ) {
-				for( int i = 0; i < 40; i++ ) {
-					spdLight[i] = specPowerDists[p.x * 40 + i] * specPowerDists[p.y * 40 + i];
-					spdPrev[i] = spdLight[i];
+
+			// Explicit path without directly hitting a light source
+			if( p.x >= 0 && p.y >= 0 ) {
+				for( int j = 0; j < 40; j++ ) {
+					spdLight[j] = specPowerDists[p.x * 40 + j] * specPowerDists[p.y * 40 + j] * l;
 				}
 			}
-			else {
-				for( int i = 0; i < 40; i++ ) {
-					spdLight[i] = specPowerDists[p.y * 40 + i];
-					spdPrev[i] = spdLight[i];
+			// Implicit path starting at a light source
+			else if( p.y >= 0 ) {
+				for( int j = 0; j < 40; j++ ) {
+					spdLight[j] = specPowerDists[p.y * 40 + j];
 				}
 			}
+
 		}
+		// The rest of the path to the eye
 		else {
-			for( int i = 0; i < 40; i++ ) {
-				spdLight[i] = specPowerDists[p.x * 40 + i] * fmax( spdPrev[i], specPowerDists[p.y * 40 + i] );
-				spdPrev[i] = spdLight[i];
+
+			// Point has connection to a light source
+			if( p.y >= 0 ) {
+				for( int j = 0; j < 40; j++ ) {
+					spdLight[j] = specPowerDists[p.x * 40 + j] * fmax( spdLight[j] * l2, specPowerDists[p.y * 40 + j] * l );
+				}
 			}
+			// Point is in the shadow
+			else {
+				for( int j = 0; j < 40; j++ ) {
+					spdLight[j] = specPowerDists[p.x * 40 + j] * spdLight[j] * l2;
+				}
+			}
+
 		}
 	}
 
