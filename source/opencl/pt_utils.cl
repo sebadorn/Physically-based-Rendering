@@ -300,14 +300,9 @@ float S( float u, float c ) {
  * @param  c
  * @return
  */
-float R( float t, float v, float vIn, float w, float u, float r, float c, float p ) {
-	return S( u, c ) * D( t, v, vIn, w, r, p );
-}
-
-
-float4 bisectorVector( float4 a, float4 b ) {
-	return fast_normalize( a ) + fast_normalize( b );
-}
+// float R( float t, float v, float vIn, float w, float u, float r, float c, float p ) {
+// 	return S( u, c ) * D( t, v, vIn, w, r, p );
+// }
 
 
 float4 projection( float4 h, float4 n ) {

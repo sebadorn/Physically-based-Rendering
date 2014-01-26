@@ -42,3 +42,13 @@ typedef struct {
 	char illum;
 	char light
 } material;
+
+typedef struct {
+	int spdMaterial;
+	int spdLight;
+	float t;
+	float u;
+	float v;
+	float vIn;
+	float lambert;
+} pathPoint;
