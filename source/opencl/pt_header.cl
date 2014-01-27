@@ -38,7 +38,7 @@ typedef struct {
 	float Ni;
 	float Ns;
 	float gloss;
-	ushort spdDiffuse;
+	ushort spd;
 	char illum;
 	char light
 } material;
@@ -46,9 +46,10 @@ typedef struct {
 typedef struct {
 	int spdMaterial;
 	int spdLight;
-	float t;
 	float u;
-	float v;
-	float vIn;
+	float D;
 	float lambert;
+	float u_light;
+	float D_light;
+	float lambert_light;
 } pathPoint;

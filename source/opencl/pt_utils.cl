@@ -240,16 +240,16 @@ float G( float v, float r ) {
 /**
  *
  * @param  t
- * @param  v
+ * @param  vOut
  * @param  vIn
  * @param  w
  * @param  r   Roughness factor (0: perfect specular, 1: perfect diffuse)
  * @param  p   Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
  * @return
  */
-float B( float t, float v, float vIn, float w, float r, float p ) {
-	float gp = G( v, r ) * G( vIn, r );
-	float d = 4.0f * M_PI * v * vIn;
+float B( float t, float vOut, float vIn, float w, float r, float p ) {
+	float gp = G( vOut, r ) * G( vIn, r );
+	float d = 4.0f * M_PI * vOut * vIn;
 	float part1 = gp * Z( t, r ) * A( w, p ) / d;
 	float part2 = ( 1.0f - gp ) / d;
 
@@ -267,13 +267,13 @@ float B( float t, float v, float vIn, float w, float r, float p ) {
  * @param  p
  * @return
  */
-float D( float t, float v, float vIn, float w, float r, float p ) {
+float D( float t, float vOut, float vIn, float w, float r, float p ) {
 	float b = 4.0f * r * ( 1.0f - r );
 	float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
 	float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
 
-	return a / M_PI + b / ( 4.0f * M_PI * v * vIn ) * B( t, v, vIn, w, r, p ) + c / vIn;
-	// TODO: ( c / vIn ) not correct, but at least doesn't matter for roughness >= 0.5f.
+	return a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn;
+	// TODO: ( c / vIn ) probably not correct, but at least doesn't matter for roughness >= 0.5f.
 }
 
 
@@ -286,23 +286,6 @@ float D( float t, float v, float vIn, float w, float r, float p ) {
 float S( float u, float c ) {
 	return c + ( 1.0f - c ) * pown( 1.0f - u, 5 );
 }
-
-
-/**
- * Bidirectional reflectance distribution function (BRDF).
- * @param  t
- * @param  v
- * @param  vIn
- * @param  w
- * @param  u
- * @param  r
- * @param  p
- * @param  c
- * @return
- */
-// float R( float t, float v, float vIn, float w, float u, float r, float c, float p ) {
-// 	return S( u, c ) * D( t, v, vIn, w, r, p );
-// }
 
 
 float4 projection( float4 h, float4 n ) {

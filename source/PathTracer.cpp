@@ -304,7 +304,7 @@ void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 		mtl.light = materials[i].light;
 
 		string spdName = mtl2spd[materials[i].mtlName];
-		mtl.spdDiffuse = specID[spdName];
+		mtl.spd = specID[spdName];
 
 		materialsCL.push_back( mtl );
 	}

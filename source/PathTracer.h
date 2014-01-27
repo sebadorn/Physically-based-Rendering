@@ -44,7 +44,7 @@ struct material_cl_t {
 	cl_float Ni;
 	cl_float Ns;
 	cl_float gloss;
-	cl_ushort spdDiffuse;
+	cl_ushort spd;
 	cl_char illum;
 	cl_char light;
 };

@@ -546,8 +546,8 @@ float4 spectrumToRGB( float spd[40] ) {
 	float intensity = spectrum_to_xyz( spd, &xyz );
 	xyz_to_rgb( CS, xyz, &rgb );
 	rgb *= intensity;
+	gamma_correct_rgb( CS, &rgb );
 	constrain_rgb( &rgb );
-	// gamma_correct_rgb( CS, &rgb );
 
 	return rgb;
 }
