@@ -224,7 +224,7 @@ kernel void pathTracing(
 				float4 V_in = newRay.dir;
 				float4 V_out = -ray.dir;
 				float4 H = ( V_out + V_in );
-				float t = dot( H, ray.normal );
+				float t = fmax( dot( H, ray.normal ), 0.0f );
 				float v = dot( V_out, ray.normal );
 				float vIn = dot( V_in, ray.normal );
 
@@ -243,7 +243,7 @@ kernel void pathTracing(
 					float4 V_in = explicitRay.dir;
 					float4 V_out = -ray.dir;
 					float4 H = ( V_out + V_in );
-					float t = dot( H, ray.normal );
+					float t = fmax( dot( H, ray.normal ), 0.0f );
 					float v = dot( V_out, ray.normal );
 					float vIn = dot( V_in, ray.normal );
 

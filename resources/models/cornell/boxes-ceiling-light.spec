@@ -5,7 +5,7 @@
 		"box_small": "pure_white",
 		"box_tall": "pure_white",
 		"ceiling_light": "light",
-		"blue": "blue",
+		"blue": "pure_white",
 		"red": "red"
 	},
 

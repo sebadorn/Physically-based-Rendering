@@ -38,7 +38,10 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 GLWidget::~GLWidget() {
 	this->stopRendering();
 	this->deleteOldModel();
+
 	glDeleteTextures( 1, &mTargetTexture );
+	glDeleteProgram( mGLProgramTracer );
+	glDeleteProgram( mGLProgramSimple );
 
 	delete mCamera;
 	delete mPathTracer;
