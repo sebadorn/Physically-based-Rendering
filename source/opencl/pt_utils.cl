@@ -273,7 +273,7 @@ float D( float t, float vOut, float vIn, float w, float r, float p ) {
 	float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
 
 	return a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn;
-	// TODO: ( c / vIn ) probably not correct, but at least doesn't matter for roughness >= 0.5f.
+	// TODO: ( c / vIn ) probably not correct
 }
 
 
@@ -289,10 +289,5 @@ float S( float u, float c ) {
 
 
 float4 projection( float4 h, float4 n ) {
-	return dot( h, n ) / pown( fast_length( n ), 2 ) * n; // TODO: n is already unit vector
+	return dot( h, n ) / pown( fast_length( n ), 2 ) * n;
 }
-
-
-// float4 surfaceTangent( float4 n ) {
-// 	return 
-// }
