@@ -5,12 +5,14 @@
 #include <boost/algorithm/string.hpp>
 #include <fstream>
 #include <GL/gl.h>
+#include <map>
 #include <string>
 #include <vector>
 
 #include "Logger.h"
 #include "MtlParser.h"
 
+using std::map;
 using std::string;
 using std::vector;
 
@@ -42,6 +44,9 @@ class ObjParser {
 
 	private:
 		MtlParser* mMtlParser;
+
+		map<string, vector<GLfloat> > mObjects;
+		map<string, GLint> mObjectToMaterial;
 
 		vector<GLint> mFacesMtl;
 		vector<GLuint> mFacesV;

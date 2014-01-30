@@ -271,7 +271,7 @@ float D( float t, float vOut, float vIn, float w, float r, float p ) {
 	float b = 4.0f * r * ( 1.0f - r );
 	float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
 	float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
-
+return 1.0f; // TODO
 	return a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn;
 	// TODO: ( c / vIn ) probably not correct
 }

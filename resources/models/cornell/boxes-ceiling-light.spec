@@ -1,12 +1,12 @@
 {
 	"materials": {
-		"Material": "pure_white",
+		"Material": "blue",
 		"Wall_front": "pure_white",
-		"box_small": "pure_white",
+		"box_small": "red",
 		"box_tall": "pure_white",
-		"ceiling_light": "light",
+		"ceiling_light": "pure_white",
 		"blue": "pure_white",
-		"red": "red"
+		"red": "pure_white"
 	},
 
 	"spectra": {

@@ -1,5 +1,6 @@
 #include "ObjParser.h"
 
+using std::map;
 using std::string;
 using std::vector;
 
@@ -106,6 +107,9 @@ void ObjParser::load( string filepath, string filename ) {
 	mTextures.clear();
 	mVertices.clear();
 
+	string objectName = "";
+	vector<GLfloat> objectVertices;
+
 	std::ifstream fileIn( filepath.append( filename ).c_str() );
 
 	this->loadMtl( filepath );
@@ -127,11 +131,25 @@ void ObjParser::load( string filepath, string filename ) {
 			continue;
 		}
 
+		// Object (vertices that belong together as one object)
+		if( line[0] == 'o' && line[1] == ' ' ) {
+			if( objectName.size() > 0 ) {
+				mObjects[objectName] = objectVertices;
+				mObjectToMaterial[objectName] = currentMtl;
+			}
+
+			vector<string> parts;
+			boost::split( parts, line, boost::is_any_of( " " ) );
+			objectName = parts[1];
+			objectVertices.clear();
+		}
+
 		// Vertex data of some form
 		if( line[0] == 'v' ) {
 			// vertex
 			if( line[1] == ' ' ) {
 				this->parseVertex( line, &mVertices );
+				this->parseVertex( line, &objectVertices );
 			}
 			// vertex normal
 			else if( line[1] == 'n' && line[2] == ' ' ) {
@@ -156,6 +174,15 @@ void ObjParser::load( string filepath, string filename ) {
 			vector<string>::iterator it = std::find( materialNames.begin(), materialNames.end(), parts[1] );
 			currentMtl = ( it != materialNames.end() ) ? it - materialNames.begin() : -1;
 		}
+	}
+
+	map<string, vector<GLfloat> >::iterator it = mObjects.begin();
+	while( it != mObjects.end() ) {
+		printf(
+			"Object: %s | Material: %d -> %s\n",
+			it->first.c_str(), mObjectToMaterial[it->first], materialNames[mObjectToMaterial[it->first]].c_str()
+		);
+		it++;
 	}
 
 	fileIn.close();
