@@ -134,177 +134,250 @@ kernel void pathTracing(
 	float4 H, T;
 	float t, v, vIn, w;
 	float isotropy = 1.0f, roughness;
+	float rndNum1, rndNum2;
+
+	material mtlFirst;
 
 	if( intersectBoundingBox( ray.origin, ray.dir, bbMinRoot, bbMaxRoot, &entryDistance, &tFar ) ) {
 		int startNode = goToLeafNode( 0, kdNonLeaves, fma( entryDistance, ray.dir, ray.origin ) );
 
-		for( bounce = 0; bounce < BOUNCES; bounce++ ) {
-			// Find hit surface
 
-			traverseKdTree(
-				&ray, startNode, kdNonLeaves, kdLeaves, kdFaces,
-				scVertices, scFaces, entryDistance, exitDistance
-			);
+		traverseKdTree(
+			&ray, startNode, kdNonLeaves, kdLeaves, kdFaces,
+			scVertices, scFaces, entryDistance, exitDistance
+		);
 
-			if( ray.nodeIndex < 0 ) {
-				break;
-			}
-
+		if( ray.nodeIndex >= 0 ) {
 			f = ray.faceIndex;
 			ray.normal = scNormals[scFacesVN[f * 3]];
-			mtl = materials[faceToMaterial[f]];
-			roughness = 1.0f - mtl.gloss;
-			path[pathIndex] = getDefaultPathPoint();
-
-			// Surface tangent orientated along scratches of the material
+			mtlFirst = materials[faceToMaterial[f]];
+			roughness = 1.0f - mtlFirst.gloss;
 			T = getT( ray.normal );
 
+			if( mtlFirst.light != 1 ) {
+				for( bounce = 0; bounce < 3; bounce++ ) {
+					newRay.t = -2.0f;
+					newRay.nodeIndex = -1;
+					newRay.faceIndex = -1;
+					newRay.origin = fma( ray.t, ray.dir, ray.origin );
+					newRay.dir = fast_normalize( cosineWeightedDirection( timeSinceStart + bounce + ray.t, ray.normal ) );
 
-			// New direction of the ray (bouncing of the hit surface)
+					traverseKdTree(
+						&newRay, ray.nodeIndex, kdNonLeaves, kdLeaves, kdFaces,
+						scVertices, scFaces, 0.0f, FLT_MAX
+					);
 
-			newRay.t = -2.0f;
-			newRay.nodeIndex = -1;
-			newRay.faceIndex = -1;
+					path[pathIndex] = getDefaultPathPoint();
+					f = newRay.faceIndex;
+					mtl = materials[faceToMaterial[f]];
 
-			if( bounce < BOUNCES - 1 ) {
-				newRay.origin = fma( ray.t, ray.dir, ray.origin );
-
-				if( mtl.d < 1.0f ) {
-					newRay.dir = ray.dir;
-				}
-				else {
-					newRay.dir = ( mtl.illum == 3 )
-					           ? fast_normalize(
-					             	reflect( ray.dir, ray.normal ) +
-					             	uniformlyRandomVector( timeSinceStart + bounce + ray.t ) * mtl.gloss
-					             )
-					           : fast_normalize(
-					             	cosineWeightedDirection( timeSinceStart + bounce + ray.t, ray.normal )
-					             );
-				}
-			}
-
-
-			// Implicit connection to a light found
-
-			if( mtl.light == 1 ) {
-				path[pathIndex].spdLight = mtl.spd;
-				pathIndex++;
-
-				break;
-			}
-
-
-			// Try to form explicit connection to a light source
-
-			const float rndNum1 = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), timeSinceStart * ray.t + bounce );
-			const float rndNum2 = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), rndNum1 );
-
-			// float4 lightTarget = (float4)( -0.1f + rndNum1 * 0.2f, 0.2f + rndNum1 * 0.2f, -0.1f + rndNum2 * 0.2f, 0.0f );
-			float4 lightTarget = (float4)( -0.5f + rndNum1 * 0.99f, 1.99f, -0.3f + rndNum2 * 0.59f, 0.0f );
-
-			explicitRay.nodeIndex = -1;
-			explicitRay.faceIndex = -1;
-			explicitRay.t = -2.0f;
-			explicitRay.origin = fma( ray.t, ray.dir, ray.origin );
-			explicitRay.dir = fast_normalize( lightTarget - explicitRay.origin );
-
-			// if( bounce == BOUNCES - 1 ) {
-				traverseKdTree(
-					&explicitRay, ray.nodeIndex, kdNonLeaves, kdLeaves, kdFaces,
-					scVertices, scFaces, 0.0f, FLT_MAX
-				);
-			// }
-
-			path[pathIndex].spdMaterial = mtl.spd;
-
-			if( bounce < BOUNCES - 1 ) {
-				getValuesBRDF( newRay.dir, -ray.dir, ray.normal, T, &H, &t, &v, &vIn, &w );
-
-				path[pathIndex].D = D( t, v, vIn, w, roughness, isotropy );
-				path[pathIndex].u = dot( H, -ray.dir );
-				path[pathIndex].lambert = fmax( dot( ray.normal, newRay.dir ), 0.0f );
-			}
-
-
-			if( explicitRay.nodeIndex >= 0 ) {
-				material mtlExplicit = materials[faceToMaterial[explicitRay.faceIndex]];
-
-				if( mtlExplicit.light == 1 ) {
-					path[pathIndex].spdLight = mtlExplicit.spd;
-					getValuesBRDF( explicitRay.dir, -ray.dir, ray.normal, T, &H, &t, &v, &vIn, &w );
-
-					path[pathIndex].D_light = D( t, v, vIn, w, roughness, isotropy );
-					path[pathIndex].u_light = dot( H, -ray.dir );
-					path[pathIndex].lambert_light = fmax( dot( ray.normal, explicitRay.dir ), 0.0f );
+					if( mtl.light == 1 ) {
+						getValuesBRDF( newRay.dir, -ray.dir, ray.normal, T, &H, &t, &v, &vIn, &w );
+						path[pathIndex].D = D( t, v, vIn, w, roughness, isotropy );
+						path[pathIndex].u = cosineLaw( H, -ray.dir );
+						path[pathIndex].cosLaw = cosineLaw( ray.normal, newRay.dir );
+						path[pathIndex].spdLight = mtl.spd;
+						pathIndex++;
+					}
 				}
 			}
-
-
-			pathIndex++;
-			startNode = ray.nodeIndex;
-			ray = newRay;
-			entryDistance = 0.0f;
-			exitDistance = FLT_MAX;
 		}
 	}
 
-
-	float spdLight[40];
-	float l1, l2, s, s1, s2;
+	float spdFirst[40], spdLight[40];
 
 	for( int i = 0; i < 40; i++ ) {
-		spdLight[i] = 0.0f;
+		spdLight[i] = ( mtlFirst.light == 1 ) ? specPowerDists[mtlFirst.spd * 40 + i] : 0.0f;
+		spdFirst[i] = specPowerDists[mtlFirst.spd * 40 + i];
 	}
 
 	for( int i = pathIndex - 1; i >= 0; i-- ) {
 		pathPoint p = path[i];
 
-		// Start of path
-		if( i == pathIndex - 1 ) {
-
-			// Implicit path starting at a light source
-			if( p.spdMaterial == -1 ) {
-				for( int j = 0; j < 40; j++ ) {
-					spdLight[j] = specPowerDists[p.spdLight * 40 + j];
-				}
+		if( p.spdMaterial == -1 ) { // light hit
+			for( int j = 0; j < 40; j++ ) {
+				spdLight[j] += spdFirst[j] * specPowerDists[p.spdLight * 40 + j] * p.cosLaw;
 			}
-
-			// Explicit path without directly hitting a light source
-			else {
-				l1 = p.D_light * p.lambert_light;
-
-				for( int j = 0; j < 40; j++ ) {
-					s = S( p.u_light, specPowerDists[p.spdMaterial * 40 + j] );
-					spdLight[j] = specPowerDists[p.spdLight * 40 + j] * s * l1;
-				}
-			}
-
-		}
-		// The rest of the path to the eye
-		else {
-			l1 = p.D * p.lambert;
-			l2 = p.D_light * p.lambert_light;
-
-			// Point has connection to a light source
-			if( p.spdLight >= 0 ) {
-				for( int j = 0; j < 40; j++ ) {
-					s1 = S( p.u, specPowerDists[p.spdMaterial * 40 + j] ) * l1;
-					s2 = S( p.u_light, specPowerDists[p.spdMaterial * 40 + j] ) * l2;
-					spdLight[j] = fmax( spdLight[j] * s1, specPowerDists[p.spdLight * 40 + j] * s2 );
-				}
-			}
-
-			// Point is in the shadow
-			else {
-				for( int j = 0; j < 40; j++ ) {
-					s = S( p.u, specPowerDists[p.spdMaterial * 40 + j] );
-					spdLight[j] = spdLight[j] * s * l1;
-				}
-			}
-
 		}
 	}
+
+	pathIndex = ( mtlFirst.light == 1 ) ? 1.0f : pathIndex;
+
+	for( int i = 0; i < 40; i++ ) {
+		spdLight[i] /= pathIndex;
+	}
+
+
+	// 	for( bounce = 0; bounce < BOUNCES; bounce++ ) {
+	// 		// Find hit surface
+
+	// 		traverseKdTree(
+	// 			&ray, startNode, kdNonLeaves, kdLeaves, kdFaces,
+	// 			scVertices, scFaces, entryDistance, exitDistance
+	// 		);
+
+	// 		if( ray.nodeIndex < 0 ) {
+	// 			break;
+	// 		}
+
+	// 		f = ray.faceIndex;
+	// 		ray.normal = scNormals[scFacesVN[f * 3]];
+	// 		mtl = materials[faceToMaterial[f]];
+	// 		roughness = 1.0f - mtl.gloss;
+	// 		path[pathIndex] = getDefaultPathPoint();
+
+	// 		// Surface tangent orientated along scratches of the material
+	// 		T = getT( ray.normal );
+
+
+	// 		// New direction of the ray (bouncing of the hit surface)
+
+	// 		newRay.t = -2.0f;
+	// 		newRay.nodeIndex = -1;
+	// 		newRay.faceIndex = -1;
+
+	// 		if( bounce < BOUNCES - 1 ) {
+	// 			newRay.origin = fma( ray.t, ray.dir, ray.origin );
+
+	// 			if( mtl.d < 1.0f ) {
+	// 				newRay.dir = ray.dir;
+	// 			}
+	// 			else {
+	// 				newRay.dir = ( mtl.illum == 3 )
+	// 				           ? fast_normalize(
+	// 				             	reflect( ray.dir, ray.normal ) +
+	// 				             	uniformlyRandomVector( timeSinceStart + bounce + ray.t ) * mtl.gloss
+	// 				             )
+	// 				           : fast_normalize(
+	// 				             	cosineWeightedDirection( timeSinceStart + bounce + ray.t, ray.normal )
+	// 				             );
+	// 			}
+	// 		}
+
+
+	// 		// Implicit connection to a light found
+
+	// 		if( mtl.light == 1 ) {
+	// 			path[pathIndex].spdLight = mtl.spd;
+	// 			pathIndex++;
+
+	// 			break;
+	// 		}
+
+
+	// 		// Try to form explicit connection to a light source
+
+	// 		rndNum1 = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), timeSinceStart * ray.t + bounce );
+	// 		rndNum2 = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), rndNum1 );
+
+	// 		// float4 lightTarget = (float4)( -0.1f + rndNum1 * 0.2f, 0.2f + rndNum1 * 0.2f, -0.1f + rndNum2 * 0.2f, 0.0f );
+	// 		float4 lightTarget = (float4)( -0.5f + rndNum1 * 0.99f, 1.995f, -0.3f + rndNum2 * 0.59f, 0.0f );
+
+	// 		getRayToLight( &explicitRay, ray, lightTarget );
+
+	// 		// if( bounce == BOUNCES - 1 ) {
+	// 		// 	traverseKdTree(
+	// 		// 		&explicitRay, ray.nodeIndex, kdNonLeaves, kdLeaves, kdFaces,
+	// 		// 		scVertices, scFaces, 0.0f, FLT_MAX
+	// 		// 	);
+	// 		// }
+
+	// 		path[pathIndex].spdMaterial = mtl.spd;
+
+	// 		if( bounce < BOUNCES - 1 ) {
+	// 			getValuesBRDF( newRay.dir, -ray.dir, ray.normal, T, &H, &t, &v, &vIn, &w );
+	// 			path[pathIndex].D = D( t, v, vIn, w, roughness, isotropy );
+	// 			path[pathIndex].u = cosineLaw( H, -ray.dir );
+	// 			path[pathIndex].cosLaw = cosineLaw( ray.normal, newRay.dir );
+	// 		}
+
+
+	// 		if( explicitRay.nodeIndex >= 0 ) {
+	// 			material mtlExplicit = materials[faceToMaterial[explicitRay.faceIndex]];
+
+	// 			if( mtlExplicit.light == 1 ) {
+	// 				getValuesBRDF( explicitRay.dir, -ray.dir, ray.normal, T, &H, &t, &v, &vIn, &w );
+	// 				path[pathIndex].D_light = D( t, v, vIn, w, roughness, isotropy );
+	// 				path[pathIndex].u_light = cosineLaw( H, -ray.dir );
+	// 				path[pathIndex].cosLaw_light = cosineLaw( ray.normal, explicitRay.dir );
+	// 				path[pathIndex].spdLight = mtlExplicit.spd;
+	// 			}
+	// 		}
+
+
+	// 		pathIndex++;
+	// 		startNode = ray.nodeIndex;
+	// 		ray = newRay;
+	// 		entryDistance = 0.0f;
+	// 		exitDistance = FLT_MAX;
+	// 	}
+	// }
+
+
+	// float spdLight[40];
+	// float l1, l2, s1, s2;
+	// float valSpdLight, valSpdMtl;
+
+	// for( int i = 0; i < 40; i++ ) {
+	// 	spdLight[i] = 0.0f;
+	// }
+
+	// for( int i = pathIndex - 1; i >= 0; i-- ) {
+	// 	pathPoint p = path[i];
+
+	// 	// Start of path
+	// 	if( i == pathIndex - 1 ) {
+
+	// 		// Implicit path starting at a light source
+	// 		if( p.spdMaterial == -1 ) {
+	// 			for( int j = 0; j < 40; j++ ) {
+	// 				spdLight[j] = specPowerDists[p.spdLight * 40 + j];
+	// 			}
+	// 		}
+
+	// 		// // Explicit path without directly hitting a light source
+	// 		// else if( p.spdLight > -1 ) {
+	// 		// 	l1 = p.D_light * p.cosLaw_light;
+
+	// 		// 	for( int j = 0; j < 40; j++ ) {
+	// 		// 		valSpdMtl = specPowerDists[p.spdMaterial * 40 + j];
+	// 		// 		valSpdLight = specPowerDists[p.spdLight * 40 + j];
+
+	// 		// 		s1 = S( p.u_light, valSpdMtl );
+	// 		// 		spdLight[j] = valSpdLight * s1 * l1;
+	// 		// 	}
+	// 		// }
+
+	// 	}
+	// 	// The rest of the path to the eye
+	// 	else {
+	// 		// l1 = p.D * p.cosLaw;
+	// 		// l2 = p.D_light * p.cosLaw_light;
+
+	// 		// // Point has connection to a light source
+	// 		// if( p.spdLight >= 0 ) {
+	// 		// 	for( int j = 0; j < 40; j++ ) {
+	// 		// 		valSpdMtl = specPowerDists[p.spdMaterial * 40 + j];
+	// 		// 		valSpdLight = specPowerDists[p.spdLight * 40 + j];
+
+	// 		// 		s1 = S( p.u, valSpdMtl );
+	// 		// 		s2 = S( p.u_light, valSpdMtl );
+
+	// 		// 		spdLight[j] = fmax( spdLight[j] * s1 * l1, valSpdLight * s2 * l2 );
+	// 		// 	}
+	// 		// }
+
+	// 		// // Point is in the shadow
+	// 		// else {
+	// 			for( int j = 0; j < 40; j++ ) {
+	// 				valSpdMtl = specPowerDists[p.spdMaterial * 40 + j];
+
+	// 				spdLight[j] *= S( p.u, valSpdMtl ) * p.D * p.cosLaw;
+	// 			}
+	// 		// }
+
+	// 	}
+	// }
 
 
 	setColors( pos, imageIn, imageOut, pixelWeight, spdLight );

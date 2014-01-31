@@ -272,7 +272,7 @@ inline float D( float t, float vOut, float vIn, float w, float r, float p ) {
 	float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
 	float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
 return 1.0f;
-	return a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn;
+	return ( a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn );
 	// TODO: ( c / vIn ) probably not correct
 }
 
@@ -328,10 +328,30 @@ inline pathPoint getDefaultPathPoint() {
 	p.spdLight = -1;
 	p.D = 0.0f;
 	p.u = 1.0f;
-	p.lambert = 0.0f;
+	p.cosLaw = 0.0f;
 	p.D_light = 0.0f;
 	p.u_light = 1.0f;
-	p.lambert_light = 0.0f;
+	p.cosLaw_light = 0.0f;
 
 	return p;
+}
+
+
+/**
+ * Apply the cosine law for light sources.
+ * @param  {float4} n Normal of the surface the light hits.
+ * @param  {float4} l Normalized direction to the light source.
+ * @return {float}
+ */
+inline float cosineLaw( float4 n, float4 l ) {
+	return fmax( dot( n, l ), 0.0f );
+}
+
+
+inline void getRayToLight( ray4* explicitRay, ray4 ray, float4 lightTarget ) {
+	explicitRay->nodeIndex = -1;
+	explicitRay->faceIndex = -1;
+	explicitRay->t = -2.0f;
+	explicitRay->origin = fma( ray.t, ray.dir, ray.origin );
+	explicitRay->dir = fast_normalize( lightTarget - explicitRay->origin );
 }

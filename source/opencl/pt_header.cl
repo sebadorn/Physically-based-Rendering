@@ -48,8 +48,8 @@ typedef struct {
 	int spdLight;
 	float u;
 	float D;
-	float lambert;
+	float cosLaw;
 	float u_light;
 	float D_light;
-	float lambert_light;
+	float cosLaw_light;
 } pathPoint;
