@@ -210,7 +210,7 @@ inline float checkFaceIntersection(
  * @param  r Roughness factor (0: perfect specular, 1: perfect diffuse).
  * @return
  */
-float Z( float t, float r ) {
+inline float Z( float t, float r ) {
 	return r / pown( 1.0f + r * t * t - t * t, 2 );
 }
 
@@ -221,7 +221,7 @@ float Z( float t, float r ) {
  * @param  p Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
  * @return
  */
-float A( float w, float p ) {
+inline float A( float w, float p ) {
 	return sqrt( p / ( p * p - p * p * w * w + w * w ) );
 }
 
@@ -232,7 +232,7 @@ float A( float w, float p ) {
  * @param  r Roughness factor (0: perfect specular, 1: perfect diffuse)
  * @return
  */
-float G( float v, float r ) {
+inline float G( float v, float r ) {
 	return v / ( r - r * v + v );
 }
 
@@ -247,7 +247,7 @@ float G( float v, float r ) {
  * @param  p   Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
  * @return
  */
-float B( float t, float vOut, float vIn, float w, float r, float p ) {
+inline float B( float t, float vOut, float vIn, float w, float r, float p ) {
 	float gp = G( vOut, r ) * G( vIn, r );
 	float d = 4.0f * M_PI * vOut * vIn;
 	float part1 = gp * Z( t, r ) * A( w, p ) / d;
@@ -267,11 +267,11 @@ float B( float t, float vOut, float vIn, float w, float r, float p ) {
  * @param  p
  * @return
  */
-float D( float t, float vOut, float vIn, float w, float r, float p ) {
+inline float D( float t, float vOut, float vIn, float w, float r, float p ) {
 	float b = 4.0f * r * ( 1.0f - r );
 	float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
 	float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
-return 1.0f; // TODO
+return 1.0f;
 	return a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn;
 	// TODO: ( c / vIn ) probably not correct
 }
@@ -283,11 +283,55 @@ return 1.0f; // TODO
  * @param  c Reflection factor.
  * @return
  */
-float S( float u, float c ) {
+inline float S( float u, float c ) {
 	return c + ( 1.0f - c ) * pown( 1.0f - u, 5 );
 }
 
 
-float4 projection( float4 h, float4 n ) {
+inline float4 projection( float4 h, float4 n ) {
 	return dot( h, n ) / pown( fast_length( n ), 2 ) * n;
+}
+
+
+inline void getValuesBRDF(
+	float4 V_in, float4 V_out, float4 N, float4 T,
+	float4* H, float* t, float* v, float* vIn, float* w
+) {
+	*H = fast_normalize( V_out + V_in );
+	*t = fmax( dot( *H, N ), 0.0f );
+	*v = fmax( dot( V_out, N ), 0.0f );
+	*vIn = fmax( dot( V_in, N ), 0.0f );
+	*w = dot( T, projection( *H, N ) );
+}
+
+
+inline float4 getT( float4 N ) {
+	float4 T = (float4)( 0.0f );
+
+	T.x = ( N.x == 0.0f ) ? 1.0f : 0.0f;
+	T.y = ( N.y == 0.0f ) ? 1.0f : 0.0f;
+	T.z = ( N.z == 0.0f ) ? 1.0f : 0.0f;
+
+	if( T.x == 0.0f && T.y == 0.0f ) {
+		T.x = -N.y;
+		T.y = N.x;
+		T = fast_normalize( T );
+	}
+
+	return T;
+}
+
+
+inline pathPoint getDefaultPathPoint() {
+	pathPoint p;
+	p.spdMaterial = -1;
+	p.spdLight = -1;
+	p.D = 0.0f;
+	p.u = 1.0f;
+	p.lambert = 0.0f;
+	p.D_light = 0.0f;
+	p.u_light = 1.0f;
+	p.lambert_light = 0.0f;
+
+	return p;
 }

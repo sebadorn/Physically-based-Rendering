@@ -143,13 +143,11 @@ void ObjParser::load( string filepath, string filename ) {
 			objectName = parts[1];
 			objectVertices.clear();
 		}
-
 		// Vertex data of some form
-		if( line[0] == 'v' ) {
+		else if( line[0] == 'v' ) {
 			// vertex
 			if( line[1] == ' ' ) {
 				this->parseVertex( line, &mVertices );
-				this->parseVertex( line, &objectVertices );
 			}
 			// vertex normal
 			else if( line[1] == 'n' && line[2] == ' ' ) {
@@ -163,8 +161,13 @@ void ObjParser::load( string filepath, string filename ) {
 		// Faces
 		else if( line[0] == 'f' ) {
 			if( line[1] == ' ' ) {
+				GLuint facesV_before = mFacesV.size();
 				this->parseFace( line, &mFacesV, &mFacesVN, &mFacesVT );
 				mFacesMtl.push_back( currentMtl );
+
+				for( int i = facesV_before - 1; i < mFacesV.size(); i++ ) {
+					objectVertices.push_back( mVertices[mFacesV[i]] );
+				}
 			}
 		}
 		// Use material
@@ -176,14 +179,16 @@ void ObjParser::load( string filepath, string filename ) {
 		}
 	}
 
-	map<string, vector<GLfloat> >::iterator it = mObjects.begin();
-	while( it != mObjects.end() ) {
-		printf(
-			"Object: %s | Material: %d -> %s\n",
-			it->first.c_str(), mObjectToMaterial[it->first], materialNames[mObjectToMaterial[it->first]].c_str()
-		);
-		it++;
-	}
+	// map<string, vector<GLfloat> >::iterator it = mObjects.begin();
+	// while( it != mObjects.end() ) {
+	// 	printf(
+	// 		"Object: %s | Material: %d -> %s\n",
+	// 		it->first.c_str(), mObjectToMaterial[it->first], materialNames[mObjectToMaterial[it->first]].c_str()
+	// 	);
+	// 	it++;
+	// }
+
+
 
 	fileIn.close();
 }

@@ -97,7 +97,7 @@ kernel void initRays(
  * @param {global float4*}           hitNormals
  */
 kernel void pathTracing(
-	const uint2 offset, const float timeSinceStart, const float pixelWeight,
+	const uint2 offset, const float timeSinceStart, float pixelWeight,
 	const global float4* scVertices, const global uint4* scFaces,
 	const global float4* scNormals, const global uint* scFacesVN,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
@@ -131,6 +131,9 @@ kernel void pathTracing(
 	pathPoint path[BOUNCES];
 	int pathIndex = 0;
 
+	float4 H, T;
+	float t, v, vIn, w;
+	float isotropy = 1.0f, roughness;
 
 	if( intersectBoundingBox( ray.origin, ray.dir, bbMinRoot, bbMaxRoot, &entryDistance, &tFar ) ) {
 		int startNode = goToLeafNode( 0, kdNonLeaves, fma( entryDistance, ray.dir, ray.origin ) );
@@ -150,25 +153,11 @@ kernel void pathTracing(
 			f = ray.faceIndex;
 			ray.normal = scNormals[scFacesVN[f * 3]];
 			mtl = materials[faceToMaterial[f]];
-			float roughness = 1.0f - mtl.gloss;
-			float isotropy = 1.0f;
+			roughness = 1.0f - mtl.gloss;
+			path[pathIndex] = getDefaultPathPoint();
 
 			// Surface tangent orientated along scratches of the material
-			float4 T = (float4)( 0.0f );
-			if( ray.normal.x == 0.0f ) {
-				T.x = 1.0f;
-			}
-			else if( ray.normal.y == 0.0f ) {
-				T.y = 1.0f;
-			}
-			else if( ray.normal.z == 0.0f ) {
-				T.z = 1.0f;
-			}
-			else {
-				T.x = -ray.normal.y;
-				T.y = ray.normal.x;
-				T = fast_normalize( T );
-			}
+			T = getT( ray.normal );
 
 
 			// New direction of the ray (bouncing of the hit surface)
@@ -199,7 +188,6 @@ kernel void pathTracing(
 			// Implicit connection to a light found
 
 			if( mtl.light == 1 ) {
-				path[pathIndex].spdMaterial = -1;
 				path[pathIndex].spdLight = mtl.spd;
 				pathIndex++;
 
@@ -209,11 +197,11 @@ kernel void pathTracing(
 
 			// Try to form explicit connection to a light source
 
-			const float rnd = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), timeSinceStart + bounce - ray.t );
-			const float rnd2 = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), rnd );
+			const float rndNum1 = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), timeSinceStart * ray.t + bounce );
+			const float rndNum2 = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), rndNum1 );
 
-			// float4 lightTarget = (float4)( -0.1f + rnd * 0.2f, 0.2f + rnd * 0.2f, -0.1f + rnd2 * 0.2f, 0.0f );
-			float4 lightTarget = (float4)( -0.5f + rnd * 0.99f, 1.98f + rnd * 0.01, -0.3f + rnd2 * 0.59f, 0.0f );
+			// float4 lightTarget = (float4)( -0.1f + rndNum1 * 0.2f, 0.2f + rndNum1 * 0.2f, -0.1f + rndNum2 * 0.2f, 0.0f );
+			float4 lightTarget = (float4)( -0.5f + rndNum1 * 0.99f, 1.99f, -0.3f + rndNum2 * 0.59f, 0.0f );
 
 			explicitRay.nodeIndex = -1;
 			explicitRay.faceIndex = -1;
@@ -228,29 +216,14 @@ kernel void pathTracing(
 				);
 			// }
 
-
 			path[pathIndex].spdMaterial = mtl.spd;
-			path[pathIndex].spdLight = -1;
-			path[pathIndex].D = 0.0f;
-			path[pathIndex].u = 1.0f;
-			path[pathIndex].lambert = 0.0f;
-			path[pathIndex].D_light = 0.0f;
-			path[pathIndex].u_light = 1.0f;
-			path[pathIndex].lambert_light = 0.0f;
 
 			if( bounce < BOUNCES - 1 ) {
-				float4 V_in = newRay.dir;
-				float4 V_out = -ray.dir;
-				float4 H = fast_normalize( V_out + V_in );
-
-				float t = fmax( dot( H, ray.normal ), 0.0f );
-				float v = fmax( dot( V_out, ray.normal ), 0.0f );
-				float vIn = fmax( dot( V_in, ray.normal ), 0.0f );
-				float w = dot( T, projection( H, ray.normal ) );
+				getValuesBRDF( newRay.dir, -ray.dir, ray.normal, T, &H, &t, &v, &vIn, &w );
 
 				path[pathIndex].D = D( t, v, vIn, w, roughness, isotropy );
-				path[pathIndex].u = dot( H, V_out );
-				path[pathIndex].lambert = fmax( dot( ray.normal, V_in ), 0.0f );
+				path[pathIndex].u = dot( H, -ray.dir );
+				path[pathIndex].lambert = fmax( dot( ray.normal, newRay.dir ), 0.0f );
 			}
 
 
@@ -259,25 +232,16 @@ kernel void pathTracing(
 
 				if( mtlExplicit.light == 1 ) {
 					path[pathIndex].spdLight = mtlExplicit.spd;
-
-					float4 V_in = explicitRay.dir;
-					float4 V_out = -ray.dir;
-					float4 H = fast_normalize( V_out + V_in );
-
-					float t = fmax( dot( H, ray.normal ), 0.0f );
-					float v = fmax( dot( V_out, ray.normal ), 0.0f );
-					float vIn = fmax( dot( V_in, ray.normal ), 0.0f );
-					float w = dot( T, projection( H, ray.normal ) );
+					getValuesBRDF( explicitRay.dir, -ray.dir, ray.normal, T, &H, &t, &v, &vIn, &w );
 
 					path[pathIndex].D_light = D( t, v, vIn, w, roughness, isotropy );
-					path[pathIndex].u_light = dot( H, V_out );
-					path[pathIndex].lambert_light = fmax( dot( ray.normal, V_in ), 0.0f );
+					path[pathIndex].u_light = dot( H, -ray.dir );
+					path[pathIndex].lambert_light = fmax( dot( ray.normal, explicitRay.dir ), 0.0f );
 				}
 			}
 
+
 			pathIndex++;
-
-
 			startNode = ray.nodeIndex;
 			ray = newRay;
 			entryDistance = 0.0f;
@@ -287,7 +251,7 @@ kernel void pathTracing(
 
 
 	float spdLight[40];
-	float l, s, s1, s2;
+	float l1, l2, s, s1, s2;
 
 	for( int i = 0; i < 40; i++ ) {
 		spdLight[i] = 0.0f;
@@ -308,24 +272,25 @@ kernel void pathTracing(
 
 			// Explicit path without directly hitting a light source
 			else {
-				l = p.D_light * p.lambert_light;
+				l1 = p.D_light * p.lambert_light;
 
 				for( int j = 0; j < 40; j++ ) {
 					s = S( p.u_light, specPowerDists[p.spdMaterial * 40 + j] );
-					spdLight[j] = specPowerDists[p.spdLight * 40 + j] * s * l;
+					spdLight[j] = specPowerDists[p.spdLight * 40 + j] * s * l1;
 				}
 			}
 
 		}
 		// The rest of the path to the eye
 		else {
-			l = p.D * p.lambert;
+			l1 = p.D * p.lambert;
+			l2 = p.D_light * p.lambert_light;
 
 			// Point has connection to a light source
 			if( p.spdLight >= 0 ) {
 				for( int j = 0; j < 40; j++ ) {
-					s1 = S( p.u, specPowerDists[p.spdMaterial * 40 + j] ) * l;
-					s2 = S( p.u_light, specPowerDists[p.spdMaterial * 40 + j] ) * p.D_light * p.lambert_light;
+					s1 = S( p.u, specPowerDists[p.spdMaterial * 40 + j] ) * l1;
+					s2 = S( p.u_light, specPowerDists[p.spdMaterial * 40 + j] ) * l2;
 					spdLight[j] = fmax( spdLight[j] * s1, specPowerDists[p.spdLight * 40 + j] * s2 );
 				}
 			}
@@ -334,12 +299,13 @@ kernel void pathTracing(
 			else {
 				for( int j = 0; j < 40; j++ ) {
 					s = S( p.u, specPowerDists[p.spdMaterial * 40 + j] );
-					spdLight[j] = spdLight[j] * s * l;
+					spdLight[j] = spdLight[j] * s * l1;
 				}
 			}
 
 		}
 	}
+
 
 	setColors( pos, imageIn, imageOut, pixelWeight, spdLight );
 }
