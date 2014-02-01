@@ -62,7 +62,7 @@
 		// (Disabling doesn't show any performance improvements.)
 		"check_errors": true,
 		// Path to the main CL source file.
-		"program": "source/opencl/pathtracing.cl",
+		"program": "source/opencl/pathtracing_singlepath.cl",
 		// Squares only, so this setting is for width and height together.
 		// Value has to be 2^n for optimization reasons.
 		"workgroupsize": 256
@@ -77,9 +77,9 @@
 		"backface_culling": true,
 		// Number of times a light ray bounces.
 		// More bounces = less FPS.
-		"bounces": 1,
+		"bounces": 2,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
-		"interval": 100.0,
+		"interval": 50.0,
 		// The model to use for specular highlights.
 		// 0: disabled
 		// 1: Phong

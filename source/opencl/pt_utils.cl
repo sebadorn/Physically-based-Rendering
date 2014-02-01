@@ -271,7 +271,7 @@ inline float D( float t, float vOut, float vIn, float w, float r, float p ) {
 	float b = 4.0f * r * ( 1.0f - r );
 	float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
 	float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
-return 1.0f;
+return 1.0f; // TODO
 	return ( a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn );
 	// TODO: ( c / vIn ) probably not correct
 }
@@ -284,6 +284,7 @@ return 1.0f;
  * @return
  */
 inline float S( float u, float c ) {
+return c; // TODO
 	return c + ( 1.0f - c ) * pown( 1.0f - u, 5 );
 }
 
@@ -354,4 +355,31 @@ inline void getRayToLight( ray4* explicitRay, ray4 ray, float4 lightTarget ) {
 	explicitRay->t = -2.0f;
 	explicitRay->origin = fma( ray.t, ray.dir, ray.origin );
 	explicitRay->dir = fast_normalize( lightTarget - explicitRay->origin );
+}
+
+
+ray4 getNewRay( ray4 prevRay, material mtl, float seed ) {
+	ray4 newRay;
+	newRay.t = -2.0f;
+	newRay.nodeIndex = -1;
+	newRay.faceIndex = -1;
+	newRay.origin = fma( prevRay.t, prevRay.dir, prevRay.origin );
+	// newRay.origin += prevRay.normal * EPSILON;
+
+	if( mtl.d < 1.0f ) {
+		newRay.dir = prevRay.dir;
+	}
+	else {
+		if( mtl.illum == 3 ) {
+			newRay.dir = reflect( prevRay.dir, prevRay.normal ) +
+			             uniformlyRandomVector( seed ) * mtl.gloss;
+		}
+		else {
+			newRay.dir = cosineWeightedDirection( seed, prevRay.normal );
+		}
+
+		newRay.dir = fast_normalize( newRay.dir );
+	}
+
+	return newRay;
 }
