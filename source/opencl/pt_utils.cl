@@ -1,12 +1,18 @@
-/**
+/*
  * Get a random value.
  * @param  {const float4} scale
  * @param  {const float}  seed  Seed for the random number.
  * @return {float}              A random number.
  */
-inline float random( const float4 scale, const float seed ) {
+// inline float random( const float4 scale, const float seed ) {
+// 	float i;
+// 	return fract( native_sin( seed ) * 43758.5453f, &i );
+// }
+
+
+float rand( const float seed ) {
 	float i;
-	return fract( native_sin( dot( seed, scale ) ) * 43758.5453f + seed, &i );
+	return fract( native_sin( seed ) * 43758.5453123f, &i );
 }
 
 
@@ -17,8 +23,10 @@ inline float random( const float4 scale, const float seed ) {
  * @return {float4}
  */
 float4 cosineWeightedDirection( const float seed, const float4 normal ) {
-	const float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
-	const float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
+	// const float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
+	const float u = rand( seed );
+	// const float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed + 1.0f );
+	const float v = rand( seed + 1.0f );
 	const float r = native_sqrt( u );
 	const float angle = PI_X2 * v;
 
@@ -48,8 +56,10 @@ float4 reflect( float4 dir, float4 normal ) {
  * @return {float4}           Random vector.
  */
 inline float4 uniformlyRandomDirection( const float seed ) {
-	const float v = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
-	const float u = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
+	// const float v = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
+	const float v = rand( seed );
+	// const float u = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
+	const float u = rand( seed + 1.0f );
 	const float z = 1.0f - 2.0f * u;
 	const float r = native_sqrt( 1.0f - z * z );
 	const float angle = PI_X2 * v;
@@ -64,9 +74,18 @@ inline float4 uniformlyRandomDirection( const float seed ) {
  * @return {float4}            Random vector.
  */
 inline float4 uniformlyRandomVector( const float seed ) {
-	const float rnd = random( (float4)( 36.7539f, 50.3658f, 306.2759f, 0.0f ), seed );
+	// const float rnd = random( (float4)( 36.7539f, 50.3658f, 306.2759f, 0.0f ), seed );
+	const float rnd = rand( seed );
 
 	return uniformlyRandomDirection( seed ) * native_sqrt( rnd );
+}
+
+
+float4 jitter( float4 d, float phi, float sina, float cosa ) {
+	float4 w = fast_normalize( d );
+	float4 u = fast_normalize( cross( w, w ) );
+	float4 v = cross( w, u );
+	return ( u * cos( phi ) + v * sin( phi ) ) * sina + w * cosa;
 }
 
 
@@ -271,7 +290,7 @@ inline float D( float t, float vOut, float vIn, float w, float r, float p ) {
 	float b = 4.0f * r * ( 1.0f - r );
 	float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
 	float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
-return 1.0f; // TODO
+
 	return ( a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn );
 	// TODO: ( c / vIn ) probably not correct
 }
@@ -284,7 +303,6 @@ return 1.0f; // TODO
  * @return
  */
 inline float S( float u, float c ) {
-return c; // TODO
 	return c + ( 1.0f - c ) * pown( 1.0f - u, 5 );
 }
 

@@ -180,7 +180,8 @@ kernel void pathTracing(
 
 			// float4 lightTarget = (float4)( -1.0f, 0.0f + rndNum1 * 2.0f, -1.0f + rndNum2 * 1.0f, 0.0f );
 			// float4 lightTarget = (float4)( -0.1f + rndNum1 * 0.2f, 0.2f + rndNum1 * 0.2f, -0.1f + rndNum2 * 0.2f, 0.0f );
-			float4 lightTarget = (float4)( -0.5f + rndNum1 * 0.99f, 1.95f, -0.3f + rndNum2 * 0.59f, 0.0f );
+			// float4 lightTarget = (float4)( -0.5f + rndNum1 * 0.99f, 1.95f, -0.3f + rndNum2 * 0.59f, 0.0f );
+			float4 lightTarget = (float4)( -0.1f + rndNum1 * 0.2f, 1.65f + rndNum2 * 0.3f, -0.1f + rndNum3 * 0.2f, 0.0f );
 
 			getRayToLight( &explicitRay, ray, lightTarget );
 
