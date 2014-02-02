@@ -79,7 +79,7 @@
 		// More bounces = less FPS.
 		"bounces": 3,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
-		"interval": 50.0,
+		"interval": 100.0,
 		// The model to use for specular highlights.
 		// 0: disabled
 		// 1: Phong

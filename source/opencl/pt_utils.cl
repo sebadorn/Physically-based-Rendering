@@ -4,10 +4,10 @@
  * @param  {const float}  seed  Seed for the random number.
  * @return {float}              A random number.
  */
-// inline float random( const float4 scale, const float seed ) {
-// 	float i;
-// 	return fract( native_sin( seed ) * 43758.5453f, &i );
-// }
+inline float random( const float4 scale, const float seed ) {
+	float i;
+	return fract( native_sin( seed ) * 43758.5453f, &i );
+}
 
 
 float rand( const float seed ) {
@@ -83,9 +83,9 @@ inline float4 uniformlyRandomVector( const float seed ) {
 
 float4 jitter( float4 d, float phi, float sina, float cosa ) {
 	float4 w = fast_normalize( d );
-	float4 u = fast_normalize( cross( w, w ) );
+	float4 u = fast_normalize( cross( (float4)( w.y, w.z, w.x, 0.0f ), w ) );
 	float4 v = cross( w, u );
-	return ( u * cos( phi ) + v * sin( phi ) ) * sina + w * cosa;
+	return ( ( u * cos( phi ) + v * sin( phi ) ) * sina + w * cosa );
 }
 
 

@@ -177,10 +177,22 @@ kernel void pathTracing(
 					seed = timeSinceStart + sample + bounce + ray.t;
 					newRay = getNewRay( ray, mtl, seed );
 
+					// newRay.dir = jitter(
+					// 	ray.normal,
+					// 	2.0f * M_PI * rand( seed + 1.0f ),
+					// 	sqrt( rand( seed + 2.0f ) ),
+					// 	sqrt( 1.0f - rand( seed + 2.0f ) )
+					// );
+
 					// Influence path towards light source
 					// if( bounce == BOUNCES - 2 ) {
-						float4 lightTarget = (float4)( -0.5f + rand( seed + 1.0f ) * 0.99f, 1.95f, -0.3f + rand( seed + 2.0f ) * 0.59f, 0.0f ) - newRay.origin;
-						newRay.dir = fast_normalize( newRay.dir + lightTarget * rand( seed + 4.0f ) * 10.0f );
+						// float4 lightTarget = (float4)( 0.0f, 1.995f, 0.0f, 0.0f ) - newRay.origin;
+						// float cos_a_max = sqrt( 1.0f - clamp( 0.6f / dot( lightTarget, lightTarget ), 0.0f, 1.0f ) );
+						// float cosa = mix( cos_a_max, 1.0f, rand( seed ) );
+						// newRay.dir = jitter( lightTarget, 2.0f * M_PI * rand( seed + 1.0f ), sqrt( 1.0f - cosa * cosa ), cosa );
+
+						// float4 lightTarget = (float4)( -0.5f + rand( seed + 1.0f ) * 0.99f, 1.95f, -0.3f + rand( seed + 2.0f ) * 0.59f, 0.0f ) - newRay.origin;
+						// newRay.dir = fast_normalize( newRay.dir + lightTarget * rand( seed + 4.0f ) * 10.0f );
 					// }
 				}
 
