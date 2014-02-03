@@ -81,7 +81,7 @@
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 100.0,
 		// Samples of paths per frame
-		"samples": 1
+		"samples": 3
 	},
 
 	"shader": {

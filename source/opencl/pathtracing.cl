@@ -188,21 +188,18 @@ kernel void pathTracing(
 			newRay = getNewRay( ray, mtl, &seed );
 
 			// Influence path towards light source
-			if( bounce == BOUNCES - 2 ) {
-				// float4 lightTarget = (float4)( -1.0f + rand( &seed ) * 2.0f, 1.995f, 0.0f, 0.0f ) - newRay.origin;
-				// float cos_a_max = sqrt( 1.0f - clamp( 0.6f / dot( lightTarget, lightTarget ), 0.0f, 1.0f ) );
-				// float cosa = mix( cos_a_max, 1.0f, rand( &seed ) );
-				// newRay.dir = jitter( lightTarget, 2.0f * M_PI * rand( &seed ), sqrt( 1.0f - cosa * cosa ), cosa );
+			// if( rand( &seed ) < 0.5f ) {
+			// 	float4 lightTarget = (float4)( -1.0f + rand( &seed ) * 2.0f, 2.0f, -1.0f + rand( &seed ) * 2.0f, 0.0f ) - newRay.origin;
+			// 	float cos_a_max = sqrt( 1.0f - clamp( 4.0f / dot( lightTarget, lightTarget ), 0.0f, 1.0f ) );
+			// 	float cosa = mix( cos_a_max, 1.0f, rand( &seed ) );
+			// 	newRay.dir = jitter( lightTarget, 2.0f * M_PI * rand( &seed ), sqrt( 1.0f - cosa * cosa ), cosa );
+			// }
 
-				// float4 lightTarget = (float4)( -0.5f + rand( &seed ) * 0.99f, 1.95f, -0.3f + rand( &seed ) * 0.59f, 0.0f ) - newRay.origin;
-				// newRay.dir = fast_normalize( newRay.dir + lightTarget * rand( &seed ) * 10.0f );
-			}
-
-			cosLaw = cosineLaw( ray.normal, newRay.dir );
+			// cosLaw = cosineLaw( ray.normal, newRay.dir );
 			index = mtl.spd * 40;
 
 			for( int i = 0; i < 40; i++ ) {
-				spd[i] *= specPowerDists[index + i] * cosLaw;
+				spd[i] *= specPowerDists[index + i];// * cosLaw; // ?
 			}
 
 			entryDistance = 0.0f;
@@ -213,7 +210,7 @@ kernel void pathTracing(
 
 		if( light >= 0 ) {
 			for( int i = 0; i < 40; i++ ) {
-				spdTotal[i] += spd[i] * specPowerDists[light + i];
+				spdTotal[i] += spd[i] * 6.0f * specPowerDists[light + i];
 			}
 		}
 
