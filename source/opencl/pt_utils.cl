@@ -1,18 +1,8 @@
-/*
- * Get a random value.
- * @param  {const float4} scale
- * @param  {const float}  seed  Seed for the random number.
- * @return {float}              A random number.
- */
-inline float random( const float4 scale, const float seed ) {
+float rand( float* seed ) {
 	float i;
-	return fract( native_sin( seed ) * 43758.5453f, &i );
-}
+	*seed += 1.0f;
 
-
-float rand( const float seed ) {
-	float i;
-	return fract( native_sin( seed ) * 43758.5453123f, &i );
+	return fract( native_sin( *seed ) * 43758.5453123f, &i );
 }
 
 
@@ -22,11 +12,9 @@ float rand( const float seed ) {
  * @param  {const float4} normal
  * @return {float4}
  */
-float4 cosineWeightedDirection( const float seed, const float4 normal ) {
-	// const float u = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
+float4 cosineWeightedDirection( float* seed, const float4 normal ) {
 	const float u = rand( seed );
-	// const float v = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed + 1.0f );
-	const float v = rand( seed + 1.0f );
+	const float v = rand( seed );
 	const float r = native_sqrt( u );
 	const float angle = PI_X2 * v;
 
@@ -36,6 +24,22 @@ float4 cosineWeightedDirection( const float seed, const float4 normal ) {
 	const float4 tdir = cross( normal, sdir );
 
 	return r * native_cos( angle ) * sdir + r * native_sin( angle ) * tdir + native_sqrt( 1.0f - u ) * normal;
+}
+
+
+/**
+ * New direction for (perfectly) diffuse surfaces.
+ * @param  d    Normal (unit vector).
+ * @param  phi
+ * @param  sina
+ * @param  cosa
+ * @return
+ */
+float4 jitter( float4 d, float phi, float sina, float cosa ) {
+	float4 u = fast_normalize( cross( (float4)( d.y, d.z, d.x, 0.0f ), d ) );
+	float4 v = cross( d, u );
+
+	return ( u * native_cos( phi ) + v * native_sin( phi ) ) * sina + d * cosa;
 }
 
 
@@ -55,11 +59,9 @@ float4 reflect( float4 dir, float4 normal ) {
  * @param  {const float} seed Seed for the random value.
  * @return {float4}           Random vector.
  */
-inline float4 uniformlyRandomDirection( const float seed ) {
-	// const float v = random( (float4)( 12.9898f, 78.233f, 151.7182f, 0.0f ), seed );
+inline float4 uniformlyRandomDirection( float* seed ) {
 	const float v = rand( seed );
-	// const float u = random( (float4)( 63.7264f, 10.873f, 623.6736f, 0.0f ), seed );
-	const float u = rand( seed + 1.0f );
+	const float u = rand( seed );
 	const float z = 1.0f - 2.0f * u;
 	const float r = native_sqrt( 1.0f - z * z );
 	const float angle = PI_X2 * v;
@@ -73,19 +75,8 @@ inline float4 uniformlyRandomDirection( const float seed ) {
  * @param  {const float}  seed Seed for the random value.
  * @return {float4}            Random vector.
  */
-inline float4 uniformlyRandomVector( const float seed ) {
-	// const float rnd = random( (float4)( 36.7539f, 50.3658f, 306.2759f, 0.0f ), seed );
-	const float rnd = rand( seed );
-
-	return uniformlyRandomDirection( seed ) * native_sqrt( rnd );
-}
-
-
-float4 jitter( float4 d, float phi, float sina, float cosa ) {
-	float4 w = fast_normalize( d );
-	float4 u = fast_normalize( cross( (float4)( w.y, w.z, w.x, 0.0f ), w ) );
-	float4 v = cross( w, u );
-	return ( ( u * cos( phi ) + v * sin( phi ) ) * sina + w * cosa );
+inline float4 uniformlyRandomVector( float* seed ) {
+	return uniformlyRandomDirection( seed ) * native_sqrt( rand( seed ) );
 }
 
 
@@ -376,28 +367,47 @@ inline void getRayToLight( ray4* explicitRay, ray4 ray, float4 lightTarget ) {
 }
 
 
-ray4 getNewRay( ray4 prevRay, material mtl, float seed ) {
+ray4 getNewRay( ray4 prevRay, material mtl, float* seed ) {
 	ray4 newRay;
 	newRay.t = -2.0f;
 	newRay.nodeIndex = -1;
 	newRay.faceIndex = -1;
 	newRay.origin = fma( prevRay.t, prevRay.dir, prevRay.origin );
-	// newRay.origin += prevRay.normal * EPSILON;
 
 	if( mtl.d < 1.0f ) {
 		newRay.dir = prevRay.dir;
 	}
 	else {
 		if( mtl.illum == 3 ) {
-			newRay.dir = reflect( prevRay.dir, prevRay.normal ) +
-			             uniformlyRandomVector( seed ) * mtl.gloss;
+			newRay.dir = reflect( prevRay.dir, prevRay.normal );
+			newRay.dir += ( mtl.gloss > 0.0f )
+			            ? uniformlyRandomVector( seed ) * mtl.gloss
+			            : (float4)( 0.0f );
 		}
 		else {
-			newRay.dir = cosineWeightedDirection( seed, prevRay.normal );
+			// newRay.dir = cosineWeightedDirection( seed, prevRay.normal );
+			float rnd1 = rand( seed );
+			float rnd2 = rand( seed );
+			newRay.dir = jitter(
+				prevRay.normal, 2.0f * M_PI * rnd1,
+				sqrt( rnd2 ), sqrt( 1.0f - rnd2 )
+			);
 		}
 
 		newRay.dir = fast_normalize( newRay.dir );
 	}
 
 	return newRay;
+}
+
+
+/**
+ * Initialize a float array with a default value.
+ * @param {float*} arr  The array to initialize.
+ * @param {float}  val  The default value to set.
+ */
+inline void setArray40( float* arr, float val ) {
+	for( int i = 0; i < 40; i++ ) {
+		arr[i] = val;
+	}
 }

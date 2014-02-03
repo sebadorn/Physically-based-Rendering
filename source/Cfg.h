@@ -34,7 +34,7 @@ class Cfg {
 		static const char* RENDER_BACKFACECULLING;
 		static const char* RENDER_BOUNCES;
 		static const char* RENDER_INTERVAL;
-		static const char* RENDER_SPECULARHIGHLIGHT;
+		static const char* RENDER_SAMPLES;
 		static const char* OPENCL_BUILDOPTIONS;
 		static const char* OPENCL_CHECKERRORS;
 		static const char* OPENCL_PROGRAM;

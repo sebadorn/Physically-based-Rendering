@@ -18,7 +18,7 @@ void checkFaces(
 	const float entryDistance, float* exitDistance, const float boxExitLimit
 ) {
 	float4 a, b, c;
-	float r;
+	float r = -2.0f;
 	uint j;
 
 	for( uint i = 0; i < numFaces; i++ ) {
@@ -109,8 +109,8 @@ void traverseKdTree(
 ) {
 	kdLeaf currentNode;
 	int8 ropes;
-	int exitRope = 0;
-	float boxExitLimit = FLT_MAX;
+	int exitRope;
+	float boxExitLimit;
 
 	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
 		currentNode = kdLeaves[nodeIndex];

@@ -593,21 +593,21 @@ string CL::setValues( string clProgramString ) {
 	}
 
 
-	// Unsigned integer replacement
+	// Integer replacement
 
 	valueReplace.clear();
 	valueReplace.push_back( "BOUNCES" );
 	valueReplace.push_back( "IMG_HEIGHT" );
 	valueReplace.push_back( "IMG_WIDTH" );
+	valueReplace.push_back( "SAMPLES" );
 	valueReplace.push_back( "SPECTRAL_COLORSYSTEM" );
-	valueReplace.push_back( "SPECULAR_HIGHLIGHT" );
 
 	vector<cl_uint> configInt;
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_BOUNCES ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH ) );
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SAMPLES ) );
 	configInt.push_back( Cfg::get().value<cl_int>( Cfg::SPECTRAL_COLORSYSTEM ) );
-	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SPECULARHIGHLIGHT ) );
 
 	for( int i = 0; i < valueReplace.size(); i++ ) {
 		search = "#" + valueReplace[i] + "#";
