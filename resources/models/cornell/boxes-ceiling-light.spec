@@ -2,16 +2,16 @@
 	"materials": {
 		"Material": "pure_white",
 		"Wall_front": "pure_white",
-		"Wall_ceiling": "d65",
+		"Wall_ceiling": "CIE_D65",
 		"box_small": "pure_white",
 		"box_tall": "pure_white",
-		"ceiling_light": "d65",
+		"ceiling_light": "CIE_D65",
 		"blue": "blue",
 		"red": "red"
 	},
 
 	"spectra": {
-		"d65": {
+		"CIE_D65": {
 			"380": 0.444027773062, "385": 0.463859369164,
 			"390": 0.583145180457, "395": 0.70243184056,
 			"400": 0.739486639731, "405": 0.776542287713,
