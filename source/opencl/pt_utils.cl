@@ -39,7 +39,9 @@ float4 jitter( float4 d, float phi, float sina, float cosa ) {
 	float4 u = fast_normalize( cross( (float4)( d.y, d.z, d.x, 0.0f ), d ) );
 	float4 v = cross( d, u );
 
-	return ( u * native_cos( phi ) + v * native_sin( phi ) ) * sina + d * cosa;
+	return fast_normalize(
+		( u * native_cos( phi ) + v * native_sin( phi ) ) * sina + d * cosa
+	);
 }
 
 
@@ -374,27 +376,48 @@ ray4 getNewRay( ray4 prevRay, material mtl, float* seed ) {
 	newRay.faceIndex = -1;
 	newRay.origin = fma( prevRay.t, prevRay.dir, prevRay.origin );
 
-	if( mtl.d < 1.0f ) {
-		newRay.dir = prevRay.dir;
-	}
-	else {
-		if( mtl.illum == 3 ) {
-			newRay.dir = reflect( prevRay.dir, prevRay.normal );
-			newRay.dir += ( mtl.gloss > 0.0f )
-			            ? uniformlyRandomVector( seed ) * mtl.gloss
-			            : (float4)( 0.0f );
-		}
-		else {
-			// newRay.dir = cosineWeightedDirection( seed, prevRay.normal );
-			float rnd1 = rand( seed );
-			float rnd2 = rand( seed );
-			newRay.dir = jitter(
-				prevRay.normal, 2.0f * M_PI * rnd1,
-				sqrt( rnd2 ), sqrt( 1.0f - rnd2 )
-			);
-		}
+	// Transparency and refraction
+	if( mtl.d < 1.0f && mtl.d <= rand( seed ) ) {
+		float a = dot( prevRay.normal, prevRay.dir );
+		float ddn = fabs(a);
+		float nc = 1.0f;
+		float nt = mtl.Ni;
+		float nnt = mix( nc/nt, nt/nc, (float) a > 0.0f );
+		float cos2t = 1.0f - nnt * nnt * ( 1.0f - ddn * ddn );
 
+		newRay.dir = reflect( prevRay.dir, prevRay.normal );
+
+		if( cos2t > 0.0f ) {
+			float4 tdir = fast_normalize( newRay.dir * nnt + sign( a ) * prevRay.normal * ( ddn * nnt + sqrt( cos2t ) ) );
+			float R0 = ( nt - nc ) * ( nt - nc ) / ( ( nt + nc ) * ( nt + nc ) );
+			float c = 1.0f - mix( ddn, dot( tdir, prevRay.normal ), (float) a > 0.0f );
+			float Re = R0 + ( 1.0f - R0 ) * pown( c, 5 );
+			float P = 0.25f + 0.5f * Re;
+			float RP = Re / P;
+			float TP = ( 1.0f - Re ) / ( 1.0f - P );
+
+			if( rand( seed ) >= P ) {
+				newRay.dir = tdir;
+			}
+		}
+	}
+	// Specular
+	else if( mtl.illum == 3 ) {
+		newRay.dir = reflect( prevRay.dir, prevRay.normal );
+		newRay.dir += ( mtl.gloss > 0.0f )
+		            ? uniformlyRandomVector( seed ) * mtl.gloss
+		            : (float4)( 0.0f );
 		newRay.dir = fast_normalize( newRay.dir );
+	}
+	// Diffuse
+	else {
+		// newRay.dir = cosineWeightedDirection( seed, prevRay.normal );
+		float rnd1 = rand( seed );
+		float rnd2 = rand( seed );
+		newRay.dir = jitter(
+			prevRay.normal, 2.0f * M_PI * rnd1,
+			sqrt( rnd2 ), sqrt( 1.0f - rnd2 )
+		);
 	}
 
 	return newRay;

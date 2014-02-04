@@ -109,11 +109,11 @@ kernel void pathTracing(
 	const global float* specPowerDists,
 	read_only image2d_t imageIn, write_only image2d_t imageOut
 ) {
-	// local float specPowerDists[200];
+	// local float4 scVertices[36];
 
 	// if( get_local_id( 0 ) == 1 ) {
-	// 	for( int i = 0; i < 200; i++ ) {
-	// 		specPowerDists[i] = globalSpecPowerDists[i];
+	// 	for( int i = 0; i < 36; i++ ) {
+	// 		scVertices[i] = gscVertices[i];
 	// 	}
 	// }
 	// barrier( CLK_LOCAL_MEM_FENCE );
@@ -144,7 +144,7 @@ kernel void pathTracing(
 
 
 	float4 H, T;
-	float cosLaw, roughness, t, v, vIn, w;
+	float cosLaw, maxValSpd, roughness, t, v, vIn, w;
 	float isotropy = 1.0f;
 
 	int firstStartNode = goToLeafNode( 0, kdNonLeaves, fma( firstEntryDistance, firstRay.dir, firstRay.origin ) );
@@ -159,6 +159,7 @@ kernel void pathTracing(
 		startNode = firstStartNode;
 		entryDistance = firstEntryDistance;
 		ray = firstRay;
+		maxValSpd = 0.0f;
 
 		for( uint bounce = 0; bounce < BOUNCES; bounce++ ) {
 			traverseKdTree(
@@ -187,7 +188,7 @@ kernel void pathTracing(
 			seed += ray.t;
 			newRay = getNewRay( ray, mtl, &seed );
 
-			// Influence path towards light source
+			// // Influence path towards light source
 			// if( rand( &seed ) < 0.5f ) {
 			// 	float4 lightTarget = (float4)( -1.0f + rand( &seed ) * 2.0f, 2.0f, -1.0f + rand( &seed ) * 2.0f, 0.0f ) - newRay.origin;
 			// 	float cos_a_max = sqrt( 1.0f - clamp( 4.0f / dot( lightTarget, lightTarget ), 0.0f, 1.0f ) );
@@ -195,11 +196,16 @@ kernel void pathTracing(
 			// 	newRay.dir = jitter( lightTarget, 2.0f * M_PI * rand( &seed ), sqrt( 1.0f - cosa * cosa ), cosa );
 			// }
 
-			// cosLaw = cosineLaw( ray.normal, newRay.dir );
 			index = mtl.spd * 40;
 
 			for( int i = 0; i < 40; i++ ) {
-				spd[i] *= specPowerDists[index + i];// * cosLaw; // ?
+				spd[i] *= specPowerDists[index + i];
+				maxValSpd = fmax( spd[i], maxValSpd );
+			}
+
+			// Russian roulette termination
+			if( bounce > 2 && maxValSpd < rand( &seed ) ) {
+				break;
 			}
 
 			entryDistance = 0.0f;
@@ -210,7 +216,7 @@ kernel void pathTracing(
 
 		if( light >= 0 ) {
 			for( int i = 0; i < 40; i++ ) {
-				spdTotal[i] += spd[i] * 6.0f * specPowerDists[light + i];
+				spdTotal[i] += spd[i] * specPowerDists[light + i];
 			}
 		}
 

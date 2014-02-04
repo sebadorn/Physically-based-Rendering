@@ -9,7 +9,6 @@
  * @param {const global int*}     kdNodeFaces
  * @param {const float}           entryDistance
  * @param {float*}                exitDistance
- * @param {hit_t*}                result
  */
 void checkFaces(
 	ray4* ray, const int nodeIndex, const int faceIndex,

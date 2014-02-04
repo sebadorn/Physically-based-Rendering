@@ -271,7 +271,7 @@ kdNode_t* KdTree::makeTree(
 	kdNode_t* median = this->findMedian( vertsForNodes, axis, splitsByAxis[axis] );
 
 	if( median == NULL ) {
-		Logger::logDebug( "[KdTree] No more unused coordinates for this axis. Making this node a leaf." );
+		Logger::logDebugVerbose( "[KdTree] No more unused coordinates for this axis. Making this node a leaf." );
 		return this->createLeafNode( bbMin, bbMax, vertices, faces );
 	}
 
@@ -305,7 +305,7 @@ kdNode_t* KdTree::makeTree(
 			bbMaxRight[2] - bbMinRight[2] < 0.00001f
 		)
 	) {
-		Logger::logDebug( "[KdTree] Bounding box of child node would be too small. Making this node a leaf." );
+		Logger::logDebugVerbose( "[KdTree] Bounding box of child node would be too small. Making this node a leaf." );
 		return this->createLeafNode( bbMin, bbMax, vertices, faces );
 	}
 
@@ -322,7 +322,7 @@ kdNode_t* KdTree::makeTree(
 
 	// Keep limit for minimum faces per node
 	if( depth > 1 && mMinFaces > glm::min( leftFaces.size(), rightFaces.size() ) / 3 ) {
-		Logger::logDebug( "[KdTree] Left and/or right child node would have less faces than set as minimum. Making this node a leaf." );
+		Logger::logDebugVerbose( "[KdTree] Left and/or right child node would have less faces than set as minimum. Making this node a leaf." );
 		return this->createLeafNode( bbMin, bbMax, vertices, faces );
 	}
 

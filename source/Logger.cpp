@@ -28,6 +28,27 @@ void Logger::logDebug( string msg, const char* prefix ) {
 
 
 /**
+ * Log messages of level "debug and extra verbose".
+ * @param {const char*} msg    Message to log.
+ * @param {const char*} prefix Prefix for the line.
+ */
+void Logger::logDebugVerbose( const char* msg, const char* prefix ) {
+	if( Cfg::get().value<int>( Cfg::LOGGING ) < 4 ) { return; }
+	cout << "\033[36m" << prefix << msg << "\033[0m" << endl;
+}
+
+
+/**
+ * Log messages of level "debug and extra verbose".
+ * @param {std::string} msg    Message to log.
+ * @param {const char*} prefix Prefix for the line.
+ */
+void Logger::logDebugVerbose( string msg, const char* prefix ) {
+	Logger::logDebug( msg.c_str(), prefix );
+}
+
+
+/**
  * Log messages of level "error".
  * @param {const char*} msg    Message to log.
  * @param {const char*} prefix Prefix for the line.

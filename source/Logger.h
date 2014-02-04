@@ -14,6 +14,8 @@ class Logger {
 	public:
 		static void logDebug( const char* msg, const char* prefix = "* " );
 		static void logDebug( string msg, const char* prefix = "* " );
+		static void logDebugVerbose( const char* msg, const char* prefix = "* " );
+		static void logDebugVerbose( string msg, const char* prefix = "* " );
 		static void logError( const char* msg, const char* prefix = "* " );
 		static void logError( string msg, const char* prefix = "* " );
 		static void logInfo( const char* msg, const char* prefix = "* " );

@@ -50,6 +50,7 @@
 	// 1 - errors and warnings
 	// 2 - also info
 	// 3 - also debug
+	// 4 - extra verbose (additional debug messages)
 	"logging": 3,
 
 	"opencl": {
@@ -77,11 +78,11 @@
 		"backface_culling": true,
 		// Number of times a light ray bounces.
 		// More bounces = less FPS.
-		"bounces": 3,
+		"bounces": 6,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 100.0,
 		// Samples of paths per frame
-		"samples": 3
+		"samples": 1
 	},
 
 	"shader": {
@@ -100,9 +101,9 @@
 	},
 
 	"window": {
-		"height": 512,
+		"height": 600,
 		"title": "Physically-based Renderer",
-		"width": 512
+		"width": 800
 	}
 
 }

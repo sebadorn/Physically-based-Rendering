@@ -20,18 +20,18 @@ typedef struct {
 	float t;
 	int nodeIndex;
 	int faceIndex;
-} ray4 __attribute__( ( aligned( 64 ) ) );
+} ray4;
 
 typedef struct {
 	float4 split;  // [x, y, z, axis]
 	int4 children; // [left, right, isLeftLeaf, isRightLeaf]
-} kdNonLeaf __attribute__( ( aligned( 32 ) ) );
+} kdNonLeaf;
 
 typedef struct {
 	int8 ropes; // [left, right, back, front, bottom, top, facesIndex, numFaces]
 	float4 bbMin;
 	float4 bbMax;
-} kdLeaf __attribute__( ( aligned( 64 ) ) );
+} kdLeaf;
 
 typedef struct {
 	float d;
