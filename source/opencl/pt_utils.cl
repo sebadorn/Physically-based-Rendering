@@ -216,137 +216,120 @@ inline float checkFaceIntersection(
 }
 
 
-/**
- *
- * @param  t
- * @param  r Roughness factor (0: perfect specular, 1: perfect diffuse).
- * @return
- */
-inline float Z( float t, float r ) {
-	return r / pown( 1.0f + r * t * t - t * t, 2 );
-}
+// /**
+//  *
+//  * @param  t
+//  * @param  r Roughness factor (0: perfect specular, 1: perfect diffuse).
+//  * @return
+//  */
+// inline float Z( float t, float r ) {
+// 	return r / pown( 1.0f + r * t * t - t * t, 2 );
+// }
 
 
-/**
- *
- * @param  w
- * @param  p Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
- * @return
- */
-inline float A( float w, float p ) {
-	return sqrt( p / ( p * p - p * p * w * w + w * w ) );
-}
+// /**
+//  *
+//  * @param  w
+//  * @param  p Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
+//  * @return
+//  */
+// inline float A( float w, float p ) {
+// 	return sqrt( p / ( p * p - p * p * w * w + w * w ) );
+// }
 
 
-/**
- *
- * @param  v
- * @param  r Roughness factor (0: perfect specular, 1: perfect diffuse)
- * @return
- */
-inline float G( float v, float r ) {
-	return v / ( r - r * v + v );
-}
+// /**
+//  *
+//  * @param  v
+//  * @param  r Roughness factor (0: perfect specular, 1: perfect diffuse)
+//  * @return
+//  */
+// inline float G( float v, float r ) {
+// 	return v / ( r - r * v + v );
+// }
 
 
-/**
- *
- * @param  t
- * @param  vOut
- * @param  vIn
- * @param  w
- * @param  r   Roughness factor (0: perfect specular, 1: perfect diffuse)
- * @param  p   Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
- * @return
- */
-inline float B( float t, float vOut, float vIn, float w, float r, float p ) {
-	float gp = G( vOut, r ) * G( vIn, r );
-	float d = 4.0f * M_PI * vOut * vIn;
-	float part1 = gp * Z( t, r ) * A( w, p ) / d;
-	float part2 = ( 1.0f - gp ) / d;
+// /**
+//  *
+//  * @param  t
+//  * @param  vOut
+//  * @param  vIn
+//  * @param  w
+//  * @param  r   Roughness factor (0: perfect specular, 1: perfect diffuse)
+//  * @param  p   Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
+//  * @return
+//  */
+// inline float B( float t, float vOut, float vIn, float w, float r, float p ) {
+// 	float gp = G( vOut, r ) * G( vIn, r );
+// 	float d = 4.0f * M_PI * vOut * vIn;
+// 	float part1 = gp * Z( t, r ) * A( w, p ) / d;
+// 	float part2 = ( 1.0f - gp ) / d;
 
-	return part1 + part2;
-}
-
-
-/**
- * Directional factor.
- * @param  t
- * @param  v
- * @param  vIn
- * @param  w
- * @param  r
- * @param  p
- * @return
- */
-inline float D( float t, float vOut, float vIn, float w, float r, float p ) {
-	float b = 4.0f * r * ( 1.0f - r );
-	float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
-	float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
-
-	return ( a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn );
-	// TODO: ( c / vIn ) probably not correct
-}
+// 	return part1 + part2;
+// }
 
 
-/**
- * Spectral factor.
- * @param  u
- * @param  c Reflection factor.
- * @return
- */
-inline float S( float u, float c ) {
-	return c + ( 1.0f - c ) * pown( 1.0f - u, 5 );
-}
+// /**
+//  * Directional factor.
+//  * @param  t
+//  * @param  v
+//  * @param  vIn
+//  * @param  w
+//  * @param  r
+//  * @param  p
+//  * @return
+//  */
+// inline float D( float t, float vOut, float vIn, float w, float r, float p ) {
+// 	float b = 4.0f * r * ( 1.0f - r );
+// 	float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
+// 	float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
+
+// 	return ( a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn );
+// 	// TODO: ( c / vIn ) probably not correct
+// }
 
 
-inline float4 projection( float4 h, float4 n ) {
-	return dot( h, n ) / pown( fast_length( n ), 2 ) * n;
-}
+// /**
+//  * Spectral factor.
+//  * @param  u
+//  * @param  c Reflection factor.
+//  * @return
+//  */
+// inline float S( float u, float c ) {
+// 	return c + ( 1.0f - c ) * pown( 1.0f - u, 5 );
+// }
 
 
-inline void getValuesBRDF(
-	float4 V_in, float4 V_out, float4 N, float4 T,
-	float4* H, float* t, float* v, float* vIn, float* w
-) {
-	*H = fast_normalize( V_out + V_in );
-	*t = fmax( dot( *H, N ), 0.0f );
-	*v = fmax( dot( V_out, N ), 0.0f );
-	*vIn = fmax( dot( V_in, N ), 0.0f );
-	*w = dot( T, projection( *H, N ) );
-}
+// inline float4 projection( float4 h, float4 n ) {
+// 	return dot( h, n ) / pown( fast_length( n ), 2 ) * n;
+// }
 
 
-inline float4 getT( float4 N ) {
-	float4 T = (float4)( 0.0f );
-
-	T.x = ( N.x == 0.0f ) ? 1.0f : 0.0f;
-	T.y = ( N.y == 0.0f ) ? 1.0f : 0.0f;
-	T.z = ( N.z == 0.0f ) ? 1.0f : 0.0f;
-
-	if( T.x == 0.0f && T.y == 0.0f ) {
-		T.x = -N.y;
-		T.y = N.x;
-		T = fast_normalize( T );
-	}
-
-	return T;
-}
+// inline void getValuesBRDF(
+// 	float4 V_in, float4 V_out, float4 N, float4 T,
+// 	float4* H, float* t, float* v, float* vIn, float* w
+// ) {
+// 	*H = fast_normalize( V_out + V_in );
+// 	*t = fmax( dot( *H, N ), 0.0f );
+// 	*v = fmax( dot( V_out, N ), 0.0f );
+// 	*vIn = fmax( dot( V_in, N ), 0.0f );
+// 	*w = dot( T, projection( *H, N ) );
+// }
 
 
-inline pathPoint getDefaultPathPoint() {
-	pathPoint p;
-	p.spdMaterial = -1;
-	p.spdLight = -1;
-	p.D = 0.0f;
-	p.u = 1.0f;
-	p.cosLaw = 0.0f;
-	p.D_light = 0.0f;
-	p.u_light = 1.0f;
-	p.cosLaw_light = 0.0f;
+// inline pathPoint getDefaultPathPoint() {
+// 	pathPoint p;
+// 	p.spdMaterial = -1;
+// 	p.spdLight = -1;
+// 	p.D = 0.0f;
+// 	p.u = 1.0f;
+// 	p.cosLaw = 0.0f;
+// 	p.D_light = 0.0f;
+// 	p.u_light = 1.0f;
+// 	p.cosLaw_light = 0.0f;
 
-	return p;
-}
+// 	return p;
+// }
 
 
 /**
@@ -378,18 +361,16 @@ ray4 getNewRay( ray4 prevRay, material mtl, float* seed ) {
 
 	// Transparency and refraction
 	if( mtl.d < 1.0f && mtl.d <= rand( seed ) ) {
-		float a = dot( prevRay.normal, prevRay.dir );
-		float ddn = fabs(a);
-		float nc = 1.0f;
-		float nt = mtl.Ni;
-		float nnt = mix( nc/nt, nt/nc, (float) a > 0.0f );
-		float cos2t = 1.0f - nnt * nnt * ( 1.0f - ddn * ddn );
-
 		newRay.dir = reflect( prevRay.dir, prevRay.normal );
+
+		float a = dot( prevRay.normal, prevRay.dir );
+		float ddn = fabs( a );
+		float nnt = ( a > 0.0f ) ? mtl.Ni / NI_AIR : NI_AIR / mtl.Ni;
+		float cos2t = 1.0f - nnt * nnt * ( 1.0f - ddn * ddn );
 
 		if( cos2t > 0.0f ) {
 			float4 tdir = fast_normalize( newRay.dir * nnt + sign( a ) * prevRay.normal * ( ddn * nnt + sqrt( cos2t ) ) );
-			float R0 = ( nt - nc ) * ( nt - nc ) / ( ( nt + nc ) * ( nt + nc ) );
+			float R0 = ( mtl.Ni - NI_AIR ) * ( mtl.Ni - NI_AIR ) / ( ( mtl.Ni + NI_AIR ) * ( mtl.Ni + NI_AIR ) );
 			float c = 1.0f - mix( ddn, dot( tdir, prevRay.normal ), (float) a > 0.0f );
 			float Re = R0 + ( 1.0f - R0 ) * pown( c, 5 );
 			float P = 0.25f + 0.5f * Re;
@@ -429,8 +410,8 @@ ray4 getNewRay( ray4 prevRay, material mtl, float* seed ) {
  * @param {float*} arr  The array to initialize.
  * @param {float}  val  The default value to set.
  */
-inline void setArray40( float* arr, float val ) {
-	for( int i = 0; i < 40; i++ ) {
+inline void setArray( float* arr, float val ) {
+	for( int i = 0; i < SPEC; i++ ) {
 		arr[i] = val;
 	}
 }

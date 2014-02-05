@@ -87,18 +87,6 @@ int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const floa
 /**
  * Find the closest hit of the ray with a surface.
  * Uses stackless kd-tree traversal.
- * @param {const float4*}       origin
- * @param {const float4*}       dir
- * @param {int}                 nodeIndex
- * @param {const global float*} kdNodeSplits
- * @param {const global float*} kdNodeBB
- * @param {const global int*}   kdNodeMeta
- * @param {const global float*} kdNodeFaces
- * @param {const global int*}   kdNodeRopes
- * @param {hit_t*}              result
- * @param {const int}           kdRoot
- * @param {const float}         entryDistance
- * @param {const float}         exitDistance
  */
 void traverseKdTree(
 	ray4* ray, int nodeIndex, const global kdNonLeaf* kdNonLeaves,

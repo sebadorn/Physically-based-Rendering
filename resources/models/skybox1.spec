@@ -4,7 +4,7 @@
 		"Stone2": "stone",
 		"Stone3": "stone",
 		"Sun": "CIE_D65",
-		"Sky": "CIE_A",
+		"Sky": "CIE_D65",
 		"Earth": "brown"
 	},
 

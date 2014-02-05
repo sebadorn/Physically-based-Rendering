@@ -134,8 +134,8 @@ kernel void pathTracing(
 	float firstEntryDistance, entryDistance;
 	float tFar = FLT_MAX;
 
-	float spd[40], spdTotal[40];
-	setArray40( spdTotal, 0.0f );
+	float spd[SPEC], spdTotal[SPEC];
+	setArray( spdTotal, 0.0f );
 
 	if( !intersectBoundingBox( firstRay.origin, firstRay.dir, bbMinRoot, bbMaxRoot, &firstEntryDistance, &tFar ) ) {
 		setColors( pos, imageIn, imageOut, pixelWeight, spdTotal );
@@ -154,7 +154,7 @@ kernel void pathTracing(
 
 
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
-		setArray40( spd, 1.0f );
+		setArray( spd, 1.0f );
 		light = -1;
 		startNode = firstStartNode;
 		entryDistance = firstEntryDistance;
@@ -171,12 +171,22 @@ kernel void pathTracing(
 				break;
 			}
 
-			ray.normal = scNormals[scFacesVN[ray.faceIndex * 3]];
+			float4 x = fma( ray.t, ray.dir, ray.origin );
+			float4 vn0 = scNormals[scFacesVN[ray.faceIndex * 3]];
+			float4 vn1 = scNormals[scFacesVN[ray.faceIndex * 3 + 1]];
+			float4 vn2 = scNormals[scFacesVN[ray.faceIndex * 3 + 2]];
+			float l0 = fast_length( vn0 - x );
+			float l1 = fast_length( vn1 - x );
+			float l2 = fast_length( vn2 - x );
+			float lm = l0 + l1 + l2;
+			l0 /= lm; l1 /= lm; l2 /= lm;
+			ray.normal = fast_normalize( vn0 / l0 + vn1 / l1 + vn2 / l2 );
+
 			mtl = materials[faceToMaterial[ray.faceIndex]];
 
 			// Implicit connection to a light found
 			if( mtl.light == 1 ) {
-				light = mtl.spd * 40;
+				light = mtl.spd * SPEC;
 				break;
 			}
 
@@ -188,19 +198,14 @@ kernel void pathTracing(
 			seed += ray.t;
 			newRay = getNewRay( ray, mtl, &seed );
 
-			// // Influence path towards light source
-			// if( rand( &seed ) < 0.5f ) {
-			// 	float4 lightTarget = (float4)( -1.0f + rand( &seed ) * 2.0f, 2.0f, -1.0f + rand( &seed ) * 2.0f, 0.0f ) - newRay.origin;
-			// 	float cos_a_max = sqrt( 1.0f - clamp( 4.0f / dot( lightTarget, lightTarget ), 0.0f, 1.0f ) );
-			// 	float cosa = mix( cos_a_max, 1.0f, rand( &seed ) );
-			// 	newRay.dir = jitter( lightTarget, 2.0f * M_PI * rand( &seed ), sqrt( 1.0f - cosa * cosa ), cosa );
-			// }
+			index = mtl.spd * SPEC;
+			cosLaw = cosineLaw( ray.normal, newRay.dir );
 
-			index = mtl.spd * 40;
-
-			for( int i = 0; i < 40; i++ ) {
-				spd[i] *= specPowerDists[index + i];
-				maxValSpd = fmax( spd[i], maxValSpd );
+			if( mtl.d == 1.0f || mtl.d > rand( &seed ) ) {
+				for( int i = 0; i < SPEC; i++ ) {
+					spd[i] *= specPowerDists[index + i] * cosLaw;
+					maxValSpd = fmax( spd[i], maxValSpd );
+				}
 			}
 
 			// Russian roulette termination
@@ -215,14 +220,14 @@ kernel void pathTracing(
 		} // end bounces
 
 		if( light >= 0 ) {
-			for( int i = 0; i < 40; i++ ) {
+			for( int i = 0; i < SPEC; i++ ) {
 				spdTotal[i] += spd[i] * specPowerDists[light + i];
 			}
 		}
 
 	} // end samples
 
-	for( int i = 0; i < 40; i++ ) {
+	for( int i = 0; i < SPEC; i++ ) {
 		spdTotal[i] = native_divide( spdTotal[i], (float) SAMPLES );
 	}
 

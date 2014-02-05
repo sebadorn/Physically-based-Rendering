@@ -107,18 +107,16 @@ void ObjParser::load( string filepath, string filename ) {
 	mTextures.clear();
 	mVertices.clear();
 
-	string objectName = "";
-	vector<GLfloat> objectVertices;
-
 	std::ifstream fileIn( filepath.append( filename ).c_str() );
 
 	this->loadMtl( filepath );
 	vector<material_t> materials = mMtlParser->getMaterials();
 	vector<string> materialNames;
+	GLint currentMtl = -1;
+
 	for( int i = 0; i < materials.size(); i++ ) {
 		materialNames.push_back( materials[i].mtlName );
 	}
-	GLint currentMtl = -1;
 
 	while( fileIn.good() ) {
 		string line;
@@ -131,20 +129,8 @@ void ObjParser::load( string filepath, string filename ) {
 			continue;
 		}
 
-		// Object (vertices that belong together as one object)
-		if( line[0] == 'o' && line[1] == ' ' ) {
-			if( objectName.size() > 0 ) {
-				mObjects[objectName] = objectVertices;
-				mObjectToMaterial[objectName] = currentMtl;
-			}
-
-			vector<string> parts;
-			boost::split( parts, line, boost::is_any_of( " " ) );
-			objectName = parts[1];
-			objectVertices.clear();
-		}
 		// Vertex data of some form
-		else if( line[0] == 'v' ) {
+		if( line[0] == 'v' ) {
 			// vertex
 			if( line[1] == ' ' ) {
 				this->parseVertex( line, &mVertices );
@@ -164,10 +150,6 @@ void ObjParser::load( string filepath, string filename ) {
 				GLuint facesV_before = mFacesV.size();
 				this->parseFace( line, &mFacesV, &mFacesVN, &mFacesVT );
 				mFacesMtl.push_back( currentMtl );
-
-				for( int i = facesV_before - 1; i < mFacesV.size(); i++ ) {
-					objectVertices.push_back( mVertices[mFacesV[i]] );
-				}
 			}
 		}
 		// Use material
@@ -178,17 +160,6 @@ void ObjParser::load( string filepath, string filename ) {
 			currentMtl = ( it != materialNames.end() ) ? it - materialNames.begin() : -1;
 		}
 	}
-
-	// map<string, vector<GLfloat> >::iterator it = mObjects.begin();
-	// while( it != mObjects.end() ) {
-	// 	printf(
-	// 		"Object: %s | Material: %d -> %s\n",
-	// 		it->first.c_str(), mObjectToMaterial[it->first], materialNames[mObjectToMaterial[it->first]].c_str()
-	// 	);
-	// 	it++;
-	// }
-
-
 
 	fileIn.close();
 }

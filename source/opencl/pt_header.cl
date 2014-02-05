@@ -4,7 +4,9 @@
 #define EPSILON 0.00001f
 #define IMG_HEIGHT #IMG_HEIGHT#
 #define IMG_WIDTH #IMG_WIDTH#
+#define NI_AIR 1.0f
 #define PI_X2 6.28318530718f
+#define SPEC 40
 #define SPECTRAL_COLORSYSTEM #SPECTRAL_COLORSYSTEM#
 #define SAMPLES #SAMPLES#
 #define WORKGROUPSIZE #WORKGROUPSIZE#
@@ -43,13 +45,13 @@ typedef struct {
 	char light
 } material;
 
-typedef struct {
-	int spdMaterial;
-	int spdLight;
-	float u;
-	float D;
-	float cosLaw;
-	float u_light;
-	float D_light;
-	float cosLaw_light;
-} pathPoint;
+// typedef struct {
+// 	int spdMaterial;
+// 	int spdLight;
+// 	float u;
+// 	float D;
+// 	float cosLaw;
+// 	float u_light;
+// 	float D_light;
+// 	float cosLaw_light;
+// } pathPoint;
