@@ -15,10 +15,15 @@
 constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 constant int MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
 
+
+typedef struct {
+	float4 a, b, c;    // vertices; a.w = material index
+	float4 an, bn, cn; // vertex normals
+} face_t;
+
 typedef struct {
 	float4 origin;
 	float4 dir;
-	float4 normal;
 	float t;
 	int nodeIndex;
 	int faceIndex;
@@ -38,20 +43,8 @@ typedef struct {
 typedef struct {
 	float d;
 	float Ni;
-	float Ns;
 	float gloss;
 	ushort spd;
 	char illum;
 	char light
 } material;
-
-// typedef struct {
-// 	int spdMaterial;
-// 	int spdLight;
-// 	float u;
-// 	float D;
-// 	float cosLaw;
-// 	float u_light;
-// 	float D_light;
-// 	float cosLaw_light;
-// } pathPoint;

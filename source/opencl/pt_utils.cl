@@ -343,35 +343,25 @@ inline float cosineLaw( float4 n, float4 l ) {
 }
 
 
-inline void getRayToLight( ray4* explicitRay, ray4 ray, float4 lightTarget ) {
-	explicitRay->nodeIndex = -1;
-	explicitRay->faceIndex = -1;
-	explicitRay->t = -2.0f;
-	explicitRay->origin = fma( ray.t, ray.dir, ray.origin );
-	explicitRay->dir = fast_normalize( lightTarget - explicitRay->origin );
-}
-
-
-ray4 getNewRay( ray4 prevRay, material mtl, float* seed ) {
+ray4 getNewRay( ray4 prevRay, float4 normal, material mtl, float* seed ) {
 	ray4 newRay;
 	newRay.t = -2.0f;
 	newRay.nodeIndex = -1;
-	newRay.faceIndex = -1;
 	newRay.origin = fma( prevRay.t, prevRay.dir, prevRay.origin );
 
 	// Transparency and refraction
 	if( mtl.d < 1.0f && mtl.d <= rand( seed ) ) {
-		newRay.dir = reflect( prevRay.dir, prevRay.normal );
+		newRay.dir = reflect( prevRay.dir, normal );
 
-		float a = dot( prevRay.normal, prevRay.dir );
+		float a = dot( normal, prevRay.dir );
 		float ddn = fabs( a );
 		float nnt = ( a > 0.0f ) ? mtl.Ni / NI_AIR : NI_AIR / mtl.Ni;
 		float cos2t = 1.0f - nnt * nnt * ( 1.0f - ddn * ddn );
 
 		if( cos2t > 0.0f ) {
-			float4 tdir = fast_normalize( newRay.dir * nnt + sign( a ) * prevRay.normal * ( ddn * nnt + sqrt( cos2t ) ) );
+			float4 tdir = fast_normalize( newRay.dir * nnt + sign( a ) * normal * ( ddn * nnt + sqrt( cos2t ) ) );
 			float R0 = ( mtl.Ni - NI_AIR ) * ( mtl.Ni - NI_AIR ) / ( ( mtl.Ni + NI_AIR ) * ( mtl.Ni + NI_AIR ) );
-			float c = 1.0f - mix( ddn, dot( tdir, prevRay.normal ), (float) a > 0.0f );
+			float c = 1.0f - mix( ddn, dot( tdir, normal ), (float) a > 0.0f );
 			float Re = R0 + ( 1.0f - R0 ) * pown( c, 5 );
 			float P = 0.25f + 0.5f * Re;
 			float RP = Re / P;
@@ -384,7 +374,7 @@ ray4 getNewRay( ray4 prevRay, material mtl, float* seed ) {
 	}
 	// Specular
 	else if( mtl.illum == 3 ) {
-		newRay.dir = reflect( prevRay.dir, prevRay.normal );
+		newRay.dir = reflect( prevRay.dir, normal );
 		newRay.dir += ( mtl.gloss > 0.0f )
 		            ? uniformlyRandomVector( seed ) * mtl.gloss
 		            : (float4)( 0.0f );
@@ -392,11 +382,11 @@ ray4 getNewRay( ray4 prevRay, material mtl, float* seed ) {
 	}
 	// Diffuse
 	else {
-		// newRay.dir = cosineWeightedDirection( seed, prevRay.normal );
+		// newRay.dir = cosineWeightedDirection( seed, normal );
 		float rnd1 = rand( seed );
 		float rnd2 = rand( seed );
 		newRay.dir = jitter(
-			prevRay.normal, 2.0f * M_PI * rnd1,
+			normal, 2.0f * M_PI * rnd1,
 			sqrt( rnd2 ), sqrt( 1.0f - rnd2 )
 		);
 	}

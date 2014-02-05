@@ -76,7 +76,6 @@ kernel void initRays(
 	ray.origin = eye;
 	ray.t = -2.0f;
 	ray.nodeIndex = -1;
-	ray.nodeIndex = -1;
 	ray.dir = fast_normalize( initialRay );
 
 	rays[workIndex] = ray;
@@ -101,11 +100,10 @@ kernel void initRays(
  */
 kernel void pathTracing(
 	const uint2 offset, float seed, float pixelWeight,
-	const global float4* scVertices, const global uint4* scFaces,
-	const global float4* scNormals, const global uint* scFacesVN,
+	const global face_t* faces,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
 	const global uint* kdFaces, const float8 kdRootBB,
-	global ray4* rays, const global int* faceToMaterial, const global material* materials,
+	global ray4* rays, const global material* materials,
 	const global float* specPowerDists,
 	read_only image2d_t imageIn, write_only image2d_t imageOut
 ) {
@@ -124,12 +122,7 @@ kernel void pathTracing(
 	};
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
-	const float4 bbMinRoot = { kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, 0.0f };
-	const float4 bbMaxRoot = { kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, 0.0f };
-
-	ray4 newRay, ray;
 	ray4 firstRay = rays[workIndex];
-	material mtl;
 
 	float firstEntryDistance, entryDistance;
 	float tFar = FLT_MAX;
@@ -137,15 +130,22 @@ kernel void pathTracing(
 	float spd[SPEC], spdTotal[SPEC];
 	setArray( spdTotal, 0.0f );
 
-	if( !intersectBoundingBox( firstRay.origin, firstRay.dir, bbMinRoot, bbMaxRoot, &firstEntryDistance, &tFar ) ) {
+	if( !intersectBoundingBox(
+		firstRay.origin, firstRay.dir,
+		(float4)( kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, 0.0f ),
+		(float4)( kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, 0.0f ),
+		&firstEntryDistance, &tFar
+	) ) {
 		setColors( pos, imageIn, imageOut, pixelWeight, spdTotal );
 		return;
 	}
 
+	ray4 newRay, ray;
+	material mtl;
+	face_t f;
 
-	float4 H, T;
-	float cosLaw, maxValSpd, roughness, t, v, vIn, w;
-	float isotropy = 1.0f;
+	float4 hit, normal, vn0, vn1, vn2;
+	float cosLaw, l0, l1, l2, lm, maxValSpd;
 
 	int firstStartNode = goToLeafNode( 0, kdNonLeaves, fma( firstEntryDistance, firstRay.dir, firstRay.origin ) );
 	int light, startNode;
@@ -164,25 +164,28 @@ kernel void pathTracing(
 		for( uint bounce = 0; bounce < BOUNCES; bounce++ ) {
 			traverseKdTree(
 				&ray, startNode, kdNonLeaves, kdLeaves, kdFaces,
-				scVertices, scFaces, entryDistance, FLT_MAX
+				faces, entryDistance, FLT_MAX
 			);
 
 			if( ray.nodeIndex < 0 ) {
 				break;
 			}
 
-			float4 x = fma( ray.t, ray.dir, ray.origin );
-			float4 vn0 = scNormals[scFacesVN[ray.faceIndex * 3]];
-			float4 vn1 = scNormals[scFacesVN[ray.faceIndex * 3 + 1]];
-			float4 vn2 = scNormals[scFacesVN[ray.faceIndex * 3 + 2]];
-			float l0 = fast_length( vn0 - x );
-			float l1 = fast_length( vn1 - x );
-			float l2 = fast_length( vn2 - x );
-			float lm = l0 + l1 + l2;
-			l0 /= lm; l1 /= lm; l2 /= lm;
-			ray.normal = fast_normalize( vn0 / l0 + vn1 / l1 + vn2 / l2 );
+			hit = fma( ray.t, ray.dir, ray.origin );
+			f = faces[ray.faceIndex];
+			vn0 = f.an;
+			vn1 = f.bn;
+			vn2 = f.cn;
+			l0 = fast_length( vn0 - hit );
+			l1 = fast_length( vn1 - hit );
+			l2 = fast_length( vn2 - hit );
+			lm = l0 + l1 + l2;
+			l0 /= lm;
+			l1 /= lm;
+			l2 /= lm;
+			normal = fast_normalize( vn0 / l0 + vn1 / l1 + vn2 / l2 );
 
-			mtl = materials[faceToMaterial[ray.faceIndex]];
+			mtl = materials[(int) f.a.w];
 
 			// Implicit connection to a light found
 			if( mtl.light == 1 ) {
@@ -196,10 +199,10 @@ kernel void pathTracing(
 
 			// New direction of the ray (bouncing of the hit surface)
 			seed += ray.t;
-			newRay = getNewRay( ray, mtl, &seed );
+			newRay = getNewRay( ray, normal, mtl, &seed );
 
 			index = mtl.spd * SPEC;
-			cosLaw = cosineLaw( ray.normal, newRay.dir );
+			cosLaw = cosineLaw( normal, newRay.dir );
 
 			if( mtl.d == 1.0f || mtl.d > rand( &seed ) ) {
 				for( int i = 0; i < SPEC; i++ ) {

@@ -19,10 +19,16 @@
 using std::vector;
 
 
+struct face_cl {
+	cl_float4 a; // a.w = material index
+	cl_float4 b;
+	cl_float4 c;
+	cl_float4 an, bn, cn;
+};
+
 struct ray4 {
 	cl_float4 origin;
 	cl_float4 dir;
-	cl_float4 normal;
 	cl_float t;
 	cl_int nodeIndex;
 	cl_int faceIndex;
@@ -42,7 +48,6 @@ struct kdLeaf_cl {
 struct material_cl_t {
 	cl_float d;
 	cl_float Ni;
-	cl_float Ns;
 	cl_float gloss;
 	cl_ushort spd;
 	cl_char illum;
@@ -79,16 +84,15 @@ class PathTracer {
 		void initArgsKernelRays();
 		void initKernelArgs();
 		void initOpenCLBuffers_KdTree(
-			vector<cl_float> vertices, vector<cl_uint> faces,
+			ModelLoader* ml,
+			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
 			vector<kdNode_t> kdNodes, kdNode_t* rootNode
 		);
 		void initOpenCLBuffers_Materials( ModelLoader* ml );
-		void initOpenCLBuffers_Normals( vector<cl_float> normals, ModelLoader* ml );
 		void initOpenCLBuffers_Rays();
 		void initOpenCLBuffers_Textures();
 		void kdNodesToVectors(
-			vector<cl_float4> vertices4, vector<cl_uint4> faces4,
-			vector<kdNode_t> kdNodes, vector<cl_uint>* kdFaces,
+			vector<cl_uint> faces, vector<kdNode_t> kdNodes, vector<cl_uint>* kdFaces,
 			vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves
 		);
 		void updateEyeBuffer();
@@ -107,17 +111,12 @@ class PathTracer {
 		cl_kernel mKernelPathTracing;
 		cl_kernel mKernelRays;
 
-		cl_mem mBufScVertices;
-		cl_mem mBufScFaces;
-		cl_mem mBufScNormals;
-		cl_mem mBufScFacesVN;
-
 		cl_mem mBufKdNonLeaves;
 		cl_mem mBufKdLeaves;
 		cl_mem mBufKdFaces;
 
+		cl_mem mBufFaces;
 		cl_mem mBufMaterials;
-		cl_mem mBufFaceToMaterial;
 		cl_mem mBufSPDs;
 
 		cl_mem mBufEye;

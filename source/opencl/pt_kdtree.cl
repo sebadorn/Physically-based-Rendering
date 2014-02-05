@@ -1,34 +1,21 @@
 /**
  * Check all faces of a leaf node for intersections with the given ray.
- * @param {const int}             nodeIndex
- * @param {const int}             faceIndex
- * @param {const float4*}         origin
- * @param {const float4*}         dir
- * @param {const global float*}   scVertices
- * @param {const global uint*}    scFaces
- * @param {const global int*}     kdNodeFaces
- * @param {const float}           entryDistance
- * @param {float*}                exitDistance
  */
 void checkFaces(
 	ray4* ray, const int nodeIndex, const int faceIndex,
-	const int numFaces, const global uint* kdFaces,
-	const global float4* scVertices, const global uint4* scFaces,
+	const int numFaces, const global uint* kdFaces, const global face_t* faces,
 	const float entryDistance, float* exitDistance, const float boxExitLimit
 ) {
-	float4 a, b, c;
 	float r = -2.0f;
+	face_t face;
 	uint j;
 
 	for( uint i = 0; i < numFaces; i++ ) {
 		j = kdFaces[faceIndex + i];
-
-		a = scVertices[scFaces[j].x];
-		b = scVertices[scFaces[j].y];
-		c = scVertices[scFaces[j].z];
+		face = faces[j];
 
 		r = checkFaceIntersection(
-			ray->origin, ray->dir, a, b, c,
+			ray->origin, ray->dir, face.a, face.b, face.c,
 			entryDistance, fmin( *exitDistance, boxExitLimit )
 		);
 
@@ -90,8 +77,7 @@ int goToLeafNode( int nodeIndex, const global kdNonLeaf* kdNonLeaves, const floa
  */
 void traverseKdTree(
 	ray4* ray, int nodeIndex, const global kdNonLeaf* kdNonLeaves,
-	const global kdLeaf* kdLeaves, const global uint* kdFaces,
-	const global float4* scVertices, const global uint4* scFaces,
+	const global kdLeaf* kdLeaves, const global uint* kdFaces, const global face_t* faces,
 	float entryDistance, float exitDistance
 ) {
 	kdLeaf currentNode;
@@ -106,7 +92,7 @@ void traverseKdTree(
 
 		checkFaces(
 			ray, nodeIndex, ropes.s6, ropes.s7, kdFaces,
-			scVertices, scFaces, entryDistance, &exitDistance, boxExitLimit
+			faces, entryDistance, &exitDistance, boxExitLimit
 		);
 
 		// Exit leaf node

@@ -3,7 +3,7 @@
 		"Material": "pure_white",
 		"Wall_front": "pure_white",
 		"Wall_ceiling": "CIE_D65",
-		"box_small": "red",
+		"box_small": "pure_white",
 		"box_tall": "pure_white",
 		"ceiling_light": "CIE_D65",
 		"blue": "blue",
