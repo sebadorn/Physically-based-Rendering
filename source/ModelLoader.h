@@ -12,6 +12,7 @@
 
 #include "ObjParser.h"
 #include "SpecParser.h"
+#include "utils.h"
 
 using std::map;
 using std::string;
@@ -36,9 +37,6 @@ class ModelLoader {
 		vector<cl_float> getTextureCoordinates();
 		vector<cl_float> getVertices();
 		void loadModel( string filepath, string filename );
-
-	protected:
-		vector<cl_float> computeBoundingBox( vector<cl_float> vertices );
 
 	private:
 		ObjParser* mObjParser;

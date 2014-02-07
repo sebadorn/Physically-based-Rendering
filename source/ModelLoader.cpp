@@ -23,37 +23,6 @@ ModelLoader::~ModelLoader() {
 
 
 /**
- * Compute the bounding box of the model.
- * @param  {std::vector<cl_float>} vertices Vertices of the model.
- * @return {std::vector<cl_float>}          Vector with the minimum and maximum of the bounding box.
- */
-vector<cl_float> ModelLoader::computeBoundingBox( vector<cl_float> vertices ) {
-	// Index 0 - 2: bbMin
-	// Index 3 - 5: bbMax
-	vector<cl_float> bb = vector<cl_float>( 6 );
-
-	for( int i = 0; i < vertices.size(); i += 3 ) {
-		if( i == 0 ) {
-			bb[0] = bb[3] = vertices[i];
-			bb[1] = bb[4] = vertices[i + 1];
-			bb[2] = bb[5] = vertices[i + 2];
-			continue;
-		}
-
-		bb[0] = ( vertices[i] < bb[0] ) ? vertices[i] : bb[0];
-		bb[1] = ( vertices[i + 1] < bb[1] ) ? vertices[i + 1] : bb[1];
-		bb[2] = ( vertices[i + 2] < bb[2] ) ? vertices[i + 2] : bb[2];
-
-		bb[3] = ( vertices[i] > bb[3] ) ? vertices[i] : bb[3];
-		bb[4] = ( vertices[i + 1] > bb[4] ) ? vertices[i + 1] : bb[4];
-		bb[5] = ( vertices[i + 2] > bb[5] ) ? vertices[i + 2] : bb[5];
-	}
-
-	return bb;
-}
-
-
-/**
  * Get the axis-aligned bounding box.
  * @return {std::vector<cl_float>} Axis-aligned bounding box.
  */
@@ -172,7 +141,7 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 
 	vector<cl_uint> facesV = mObjParser->getFacesV();
 	vector<cl_float> vertices = mObjParser->getVertices();
-	mBoundingBox = this->computeBoundingBox( vertices );
+	mBoundingBox = utils::computeBoundingBox( vertices );
 
 	char msg[256];
 	snprintf(

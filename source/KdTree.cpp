@@ -17,6 +17,9 @@ KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMi
 		return;
 	}
 
+	mBBmin = bbMin;
+	mBBmax = bbMax;
+
 	boost::posix_time::ptime timerStart = boost::posix_time::microsec_clock::local_time();
 
 	vector<cl_float4> vertsForNodes = this->verticesToFloat4( vertices );
@@ -157,6 +160,18 @@ kdNode_t* KdTree::findMedian( vector<cl_float4> vertsForNodes, cl_int axis, vect
 	median->pos[2] = medianVert.z;
 
 	return median;
+}
+
+
+cl_float4 KdTree::getBoundingBoxMax() {
+	cl_float4 bb = { mBBmax[0], mBBmax[1], mBBmax[2], 0.0f };
+	return bb;
+}
+
+
+cl_float4 KdTree::getBoundingBoxMin() {
+	cl_float4 bb = { mBBmin[0], mBBmin[1], mBBmin[2], 0.0f };
+	return bb;
 }
 
 
@@ -399,7 +414,7 @@ void KdTree::printLeafFacesStat() {
 	char msg[128];
 	const char* text = "[KdTree] On average there are %.2f faces in the %lu leaf nodes.";
 	snprintf( msg, 128, text, facesTotal / (float) mLeaves.size(), mLeaves.size() );
-	Logger::logInfo( msg );
+	Logger::logDebug( msg );
 }
 
 
@@ -417,7 +432,7 @@ void KdTree::setDepthLimit( vector<cl_float> vertices ) {
 
 	char msg[64];
 	snprintf( msg, 64, "[KdTree] Maximum depth set to %d.", mDepthLimit );
-	Logger::logInfo( msg );
+	Logger::logDebug( msg );
 }
 
 

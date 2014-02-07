@@ -72,6 +72,8 @@ class KdTree {
 		KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMin, cl_float* bbMax );
 		~KdTree();
 
+		cl_float4 getBoundingBoxMax();
+		cl_float4 getBoundingBoxMin();
 		kdNode_t* getRootNode();
 		vector<kdNode_t> getNodes();
 		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
@@ -116,6 +118,8 @@ class KdTree {
 		vector<kdNode_t*> mLeaves;
 		vector<kdNode_t*> mNodes;
 		vector<kdNode_t*> mNonLeaves;
+		cl_float* mBBmax;
+		cl_float* mBBmin;
 		kdNode_t* mRoot;
 		cl_uint mDepthLimit;
 		cl_uint mMinFaces;

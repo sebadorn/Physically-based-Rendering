@@ -296,10 +296,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	cl_float bbMax[3] = { mBoundingBox[3], mBoundingBox[4], mBoundingBox[5] };
 
 
-	BVH* bvh = new BVH( ml->getObjects(), mVertices, mNormals );
-
-
-
+	BVH* bvh = new BVH( ml->getObjects(), mVertices );
 	delete bvh;
 
 
