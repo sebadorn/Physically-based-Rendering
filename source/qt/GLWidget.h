@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <ctime>
 #include <GL/glew.h>
+#include <GL/glut.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
@@ -11,10 +12,10 @@
 #include <vector>
 #include <QGLWidget>
 
+#include "../BVH.h"
 #include "../Camera.h"
 #include "../CL.h"
 #include "../Cfg.h"
-#include "../KdTree.h"
 #include "../Logger.h"
 #include "../ModelLoader.h"
 #include "../PathTracer.h"
@@ -42,8 +43,6 @@ using std::vector;
 
 
 class Camera;
-
-
 class PathTracer;
 
 

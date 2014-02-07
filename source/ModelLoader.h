@@ -4,10 +4,8 @@
 #include <algorithm>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <GL/glew.h>
-#include <GL/glut.h>
+#include <CL/cl.hpp>
 #include <iostream>
-#include <IL/il.h>
 #include <map>
 #include <string>
 #include <vector>
@@ -25,31 +23,28 @@ class ModelLoader {
 	public:
 		ModelLoader();
 		~ModelLoader();
-		vector<GLfloat> getBoundingBox();
-		vector<GLint> getFacesMtl();
-		vector<GLuint> getFacesV();
-		vector<GLuint> getFacesVN();
-		vector<GLuint> getFacesVT();
+		vector<cl_float> getBoundingBox();
+		vector<cl_int> getFacesMtl();
+		vector<cl_uint> getFacesV();
+		vector<cl_uint> getFacesVN();
+		vector<cl_uint> getFacesVT();
 		vector<material_t> getMaterials();
 		map<string, string> getMaterialToSPD();
-		vector<GLfloat> getNormals();
+		vector<cl_float> getNormals();
+		vector<object3D> getObjects();
 		map<string, vector<cl_float> > getSpectralPowerDistributions();
-		vector<GLfloat> getTextureCoordinates();
-		vector<GLfloat> getVertices();
+		vector<cl_float> getTextureCoordinates();
+		vector<cl_float> getVertices();
 		void loadModel( string filepath, string filename );
 
 	protected:
-		vector<GLfloat> computeBoundingBox( vector<GLfloat> vertices );
-		GLuint loadTexture( string filepath );
+		vector<cl_float> computeBoundingBox( vector<cl_float> vertices );
 
 	private:
 		ObjParser* mObjParser;
 		SpecParser* mSpecParser;
 
-		map<string, GLuint> mFileToTextureID;
-		map<GLuint, GLuint> mTextureIDs;
-
-		vector<GLfloat> mBoundingBox;
+		vector<cl_float> mBoundingBox;
 
 };
 

@@ -24,13 +24,13 @@ ModelLoader::~ModelLoader() {
 
 /**
  * Compute the bounding box of the model.
- * @param  {std::vector<GLfloat>} vertices Vertices of the model.
- * @return {std::vector<GLfloat>}          Vector with the minimum and maximum of the bounding box.
+ * @param  {std::vector<cl_float>} vertices Vertices of the model.
+ * @return {std::vector<cl_float>}          Vector with the minimum and maximum of the bounding box.
  */
-vector<GLfloat> ModelLoader::computeBoundingBox( vector<GLfloat> vertices ) {
+vector<cl_float> ModelLoader::computeBoundingBox( vector<cl_float> vertices ) {
 	// Index 0 - 2: bbMin
 	// Index 3 - 5: bbMax
-	vector<GLfloat> bb = vector<GLfloat>( 6 );
+	vector<cl_float> bb = vector<cl_float>( 6 );
 
 	for( int i = 0; i < vertices.size(); i += 3 ) {
 		if( i == 0 ) {
@@ -55,45 +55,45 @@ vector<GLfloat> ModelLoader::computeBoundingBox( vector<GLfloat> vertices ) {
 
 /**
  * Get the axis-aligned bounding box.
- * @return {std::vector<GLfloat>} Axis-aligned bounding box.
+ * @return {std::vector<cl_float>} Axis-aligned bounding box.
  */
-vector<GLfloat> ModelLoader::getBoundingBox() {
+vector<cl_float> ModelLoader::getBoundingBox() {
 	return mBoundingBox;
 }
 
 
 /**
  * Get the material of each face.
- * @return {std::vector<GLint>} The material index of each face.
+ * @return {std::vector<cl_int>} The material index of each face.
  */
-vector<GLint> ModelLoader::getFacesMtl() {
+vector<cl_int> ModelLoader::getFacesMtl() {
 	return mObjParser->getFacesMtl();
 }
 
 
 /**
  * Get the faces.
- * @return {std::vector<GLuint>} Faces.
+ * @return {std::vector<cl_uint>} Faces.
  */
-vector<GLuint> ModelLoader::getFacesV() {
+vector<cl_uint> ModelLoader::getFacesV() {
 	return mObjParser->getFacesV();
 }
 
 
 /**
  * Get the loaded association of vertices to normals for each face.
- * @return {std::vector<GLuint>} The vertex normal indices of the faces.
+ * @return {std::vector<cl_uint>} The vertex normal indices of the faces.
  */
-vector<GLuint> ModelLoader::getFacesVN() {
+vector<cl_uint> ModelLoader::getFacesVN() {
 	return mObjParser->getFacesVN();
 }
 
 
 /**
  * Get the loaded association of vertices to texture coordinates for each face.
- * @return {std::vector<GLuint>} The vertex texture indices of the faces.
+ * @return {std::vector<cl_uint>} The vertex texture indices of the faces.
  */
-vector<GLuint> ModelLoader::getFacesVT() {
+vector<cl_uint> ModelLoader::getFacesVT() {
 	return mObjParser->getFacesVT();
 }
 
@@ -118,10 +118,19 @@ map<string, string> ModelLoader::getMaterialToSPD() {
 
 /**
  * Get the vertex normals.
- * @return {std::vector<GLfloat>} Normals.
+ * @return {std::vector<cl_float>} Normals.
  */
-vector<GLfloat> ModelLoader::getNormals() {
+vector<cl_float> ModelLoader::getNormals() {
 	return mObjParser->getNormals();
+}
+
+
+/**
+ * Get the loaded 3D objects (groups of faces that describe an object in the scene).
+ * @return {std::vector<object3D>} The 3D objects.
+ */
+vector<object3D> ModelLoader::getObjects() {
+	return mObjParser->getObjects();
 }
 
 
@@ -136,18 +145,18 @@ map<string, vector<cl_float> > ModelLoader::getSpectralPowerDistributions() {
 
 /**
  * Get the loaded vertex texture coordinates.
- * @return {std::vector<GLfloat>} The texture coordinates.
+ * @return {std::vector<cl_float>} The texture coordinates.
  */
-vector<GLfloat> ModelLoader::getTextureCoordinates() {
+vector<cl_float> ModelLoader::getTextureCoordinates() {
 	return mObjParser->getTextureCoordinates();
 }
 
 
 /**
  * Get the vertices.
- * @return {std::vector<GLfloat>} Vertices.
+ * @return {std::vector<cl_float>} Vertices.
  */
-vector<GLfloat> ModelLoader::getVertices() {
+vector<cl_float> ModelLoader::getVertices() {
 	return mObjParser->getVertices();
 }
 
@@ -171,75 +180,4 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 		filename.c_str(), vertices.size() / 3, facesV.size() / 3
 	);
 	Logger::logInfo( msg );
-}
-
-
-/**
- * Load texture file.
- * @param  {std::string} filepath Path to the textures.
- * @return {GLuint}               ID of the created texture.
- */
-GLuint ModelLoader::loadTexture( string filepath ) {
-	Logger::logWarning( "[ModelLoader] loadTexture() not implemented yet, since moving away from Assimp." );
-	return 0;
-
-	// ilInit();
-
-	// int textureIndex = 0;
-	// aiString path;
-	// aiReturn textureFound = material->GetTexture( aiTextureType_DIFFUSE, textureIndex, &path );
-
-	// if( textureFound != AI_SUCCESS ) {
-	// 	char msg[60];
-	// 	snprintf( msg, 60, "[ModelLoader] No diffuse texture found in material %d.", materialIndex );
-	// 	Logger::logDebug( msg );
-	// 	throw 0;
-	// }
-
-	// // No need to load the file again, we already did that.
-	// if( mFileToTextureID.count( path.data ) > 0 ) {
-	// 	return mFileToTextureID[path.data];
-	// }
-
-
-	// ILuint imageID;
-	// ilGenImages( 1, &imageID );
-
-	// GLuint textureID;
-	// glGenTextures( 1, &textureID );
-
-	// ilBindImage( imageID );
-	// ilEnable( IL_ORIGIN_SET );
-	// ilOriginFunc( IL_ORIGIN_LOWER_LEFT );
-
-	// string filename = filepath.append( path.data );
-	// ILboolean success = ilLoadImage( (ILstring) filename.c_str() );
-
-	// if( success ) {
-	// 	ilConvertImage( IL_RGBA, IL_UNSIGNED_BYTE );
-
-	// 	glBindTexture( GL_TEXTURE_2D, textureID );
-	// 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-	// 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
-	// 	glTexImage2D(
-	// 		GL_TEXTURE_2D, 0, GL_RGBA,
-	// 		ilGetInteger( IL_IMAGE_WIDTH ), ilGetInteger( IL_IMAGE_HEIGHT ), 0,
-	// 		GL_RGBA, GL_UNSIGNED_BYTE, ilGetData()
-	// 	);
-	// 	glGenerateMipmap( GL_TEXTURE_2D );
-
-	// 	glBindTexture( GL_TEXTURE_2D, 0 );
-	// 	mFileToTextureID[path.data] = textureID;
-
-	// 	Logger::logDebug( string( "[ModelLoader] Loaded texture " ).append( path.data ) );
-	// }
-
-	// ilDeleteImages( 1, &imageID );
-
-	// if( !success ) {
-	// 	Logger::logError( string( "[ModelLoader] Failed to load texture file " ).append( path.data ) );
-	// 	throw 1;
-	// }
-
-	// return textureID;
 }

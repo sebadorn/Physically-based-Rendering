@@ -295,6 +295,14 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	cl_float bbMin[3] = { mBoundingBox[0], mBoundingBox[1], mBoundingBox[2] };
 	cl_float bbMax[3] = { mBoundingBox[3], mBoundingBox[4], mBoundingBox[5] };
 
+
+	BVH* bvh = new BVH( ml->getObjects(), mVertices, mNormals );
+
+
+
+	delete bvh;
+
+
 	mKdTree = new KdTree( mVertices, mFaces, bbMin, bbMax );
 
 	vector<GLfloat> verticesKdTree;
@@ -706,6 +714,7 @@ QSize GLWidget::sizeHint() const {
  */
 void GLWidget::startRendering() {
 	if( !mDoRendering ) {
+		mPathTracer->resetSampleCount();
 		mDoRendering = true;
 		mTimer->start( Cfg::get().value<float>( Cfg::RENDER_INTERVAL ) );
 	}
