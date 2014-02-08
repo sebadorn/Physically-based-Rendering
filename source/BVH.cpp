@@ -84,15 +84,22 @@ void BVH::buildHierarchy( vector<BVnode*> nodes, BVnode* parent ) {
 vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> vertices ) {
 	vector<BVnode*> BVnodes;
 	vector<cl_float> bb;
+	vector<cl_float> ov;
+	vector<cl_uint> ignore;
 
 	for( int i = 0; i < objects.size(); i++ ) {
 		object3D o = objects[i];
-		vector<cl_float> ov;
+		ov.clear();
+		ignore.clear();
 
 		for( int j = 0; j < o.facesV.size(); j++ ) {
-			ov.push_back( vertices[o.facesV[j]] );
-			ov.push_back( vertices[o.facesV[j] + 1] );
-			ov.push_back( vertices[o.facesV[j] + 2] );
+			if( std::find( ignore.begin(), ignore.end(), o.facesV[j] ) != ignore.end() ) {
+				continue;
+			}
+			ov.push_back( vertices[o.facesV[j] * 3] );
+			ov.push_back( vertices[o.facesV[j] * 3 + 1] );
+			ov.push_back( vertices[o.facesV[j] * 3 + 2] );
+			ignore.push_back( o.facesV[j] );
 		}
 
 		bb = utils::computeBoundingBox( ov );

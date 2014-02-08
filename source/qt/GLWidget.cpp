@@ -295,16 +295,20 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	cl_float bbMin[3] = { mBoundingBox[0], mBoundingBox[1], mBoundingBox[2] };
 	cl_float bbMax[3] = { mBoundingBox[3], mBoundingBox[4], mBoundingBox[5] };
 
-
 	BVH* bvh = new BVH( ml->getObjects(), mVertices );
-	delete bvh;
-
 
 	mKdTree = new KdTree( mVertices, mFaces, bbMin, bbMax );
 
-	vector<GLfloat> verticesKdTree;
-	vector<GLuint> indicesKdTree;
-	mKdTree->visualize( &verticesKdTree, &indicesKdTree );
+	vector<cl_float> verticesKdTree;
+	vector<cl_uint> indicesKdTree;
+
+	vector<BVnode*> BVnodes = bvh->getLeaves();
+	for( int i = 0; i < BVnodes.size(); i++ ) {
+		KdTree* kdt = BVnodes[i]->kdtree;
+		kdt->visualize( &verticesKdTree, &indicesKdTree );
+	}
+
+	// mKdTree->visualize( &verticesKdTree, &indicesKdTree );
 	mKdTreeNumIndices = indicesKdTree.size();
 
 	this->setShaderBuffersForOverlay( mVertices, mFaces );
@@ -319,6 +323,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	);
 
 	delete ml;
+	delete bvh;
 
 	// Ready
 	this->startRendering();

@@ -1,6 +1,7 @@
 #ifndef BVH_H
 #define BVH_H
 
+#include <algorithm>
 #include <CL/cl.hpp>
 #include <glm/glm.hpp>
 #include <vector>
