@@ -93,16 +93,14 @@ kernel void initRays(
  * @param {const global uint*}       scFacesVN
  * @param {const global kdNonLeaf*}  kdNonLeaves
  * @param {const global kdLeaf*}     kdLeaves
- * @param {const global float*}      kdNodeBB
  * @param {const global int*}        kdNodeFaces
  * @param {global float4*}           hits
  * @param {global float4*}           hitNormals
  */
 kernel void pathTracing(
 	const uint2 offset, float seed, float pixelWeight,
-	const global face_t* faces,
-	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves,
-	const global uint* kdFaces, const float8 kdRootBB,
+	const global face_t* faces, const global bvhNode* bvh,
+	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves, const global uint* kdFaces,
 	global ray4* rays, const global material* materials,
 	const global float* specPowerDists,
 	read_only image2d_t imageIn, write_only image2d_t imageOut
@@ -130,15 +128,14 @@ kernel void pathTracing(
 	float spd[SPEC], spdTotal[SPEC];
 	setArray( spdTotal, 0.0f );
 
-	if( !intersectBoundingBox(
-		firstRay.origin, firstRay.dir,
-		(float4)( kdRootBB.s0, kdRootBB.s1, kdRootBB.s2, 0.0f ),
-		(float4)( kdRootBB.s4, kdRootBB.s5, kdRootBB.s6, 0.0f ),
-		&firstEntryDistance, &tFar
-	) ) {
+
+	bvhNode bvhRoot = bvh[0];
+
+	if( !intersectBB( firstRay.origin, firstRay.dir, bvhRoot.bbMin, bvhRoot.bbMax ) ) {
 		setColors( pos, imageIn, imageOut, pixelWeight, spdTotal );
 		return;
 	}
+
 
 	ray4 newRay, ray;
 	material mtl;
@@ -147,25 +144,19 @@ kernel void pathTracing(
 	float4 hit, normal, vn0, vn1, vn2;
 	float cosLaw, l0, l1, l2, lm, maxValSpd;
 
-	int firstStartNode = goToLeafNode( 0, kdNonLeaves, fma( firstEntryDistance, firstRay.dir, firstRay.origin ) );
 	int light, startNode;
-
 	uint index;
 
 
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
 		setArray( spd, 1.0f );
 		light = -1;
-		startNode = firstStartNode;
 		entryDistance = firstEntryDistance;
 		ray = firstRay;
 		maxValSpd = 0.0f;
 
 		for( uint bounce = 0; bounce < BOUNCES; bounce++ ) {
-			traverseKdTree(
-				&ray, startNode, kdNonLeaves, kdLeaves, kdFaces,
-				faces, entryDistance, FLT_MAX
-			);
+			traverseBVH( bvh, bvhRoot, &ray, kdNonLeaves, kdLeaves, kdFaces, faces, entryDistance );
 
 			if( ray.nodeIndex < 0 ) {
 				break;
@@ -217,7 +208,6 @@ kernel void pathTracing(
 			}
 
 			entryDistance = 0.0f;
-			startNode = ray.nodeIndex;
 			ray = newRay;
 
 		} // end bounces

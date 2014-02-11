@@ -75,7 +75,9 @@ class KdTree {
 		cl_float4 getBoundingBoxMax();
 		cl_float4 getBoundingBoxMin();
 		kdNode_t* getRootNode();
+		vector<kdNode_t> getLeaves();
 		vector<kdNode_t> getNodes();
+		vector<kdNode_t> getNonLeaves();
 		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	protected:

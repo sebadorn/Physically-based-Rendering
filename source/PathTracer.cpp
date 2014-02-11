@@ -130,10 +130,10 @@ void PathTracer::initArgsKernelPathTracing() {
 	++i; // 1: timeSinceStart
 	++i; // 2: pixelWeight
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufFaces );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufBVH );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNonLeaves );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdLeaves );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdFaces );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_float8 ), &mKdRootBB );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufRays );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufMaterials );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufSPDs );
@@ -192,11 +192,12 @@ void PathTracer::initKernelArgs() {
  */
 void PathTracer::initOpenCLBuffers(
 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-	ModelLoader* ml, vector<kdNode_t> kdNodes, kdNode_t* rootNode
+	ModelLoader* ml, BVH* bvh
 ) {
 	Logger::logInfo( "[PathTracer] Initializing OpenCL buffers ..." );
 	mCL->freeBuffers();
-	this->initOpenCLBuffers_KdTree( ml, vertices, faces, normals, kdNodes, rootNode );
+	this->initOpenCLBuffers_BVH( bvh );
+	this->initOpenCLBuffers_KdTree( ml, bvh, vertices, faces, normals );
 	this->initOpenCLBuffers_Materials( ml );
 	this->initOpenCLBuffers_Rays();
 	this->initOpenCLBuffers_Textures();
@@ -207,16 +208,53 @@ void PathTracer::initOpenCLBuffers(
 
 
 /**
- * Init OpenCL buffers for the kd-tree.
+ * Init OpenCL buffer for the BVH.
+ * @param {BVH*} bvh
+ */
+void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
+	vector<bvhNode_cl> bvNodesCL;
+	vector<BVnode*> bvNodes = bvh->getNodes();
+	cl_uint offsetNonLeaves = 0;
+
+	for( cl_uint i = 0; i < bvNodes.size(); i++ ) {
+		BVnode* node = bvNodes[i];
+
+		cl_float4 bbMin = { node->bbMin[0], node->bbMin[1], node->bbMin[2], 0.0f };
+		cl_float4 bbMax = { node->bbMax[0], node->bbMax[1], node->bbMax[2], 0.0f };
+
+		bvhNode_cl nodeCL;
+		nodeCL.bbMin = bbMin;
+		nodeCL.bbMax = bbMax;
+
+		if( node->left != NULL ) {
+			nodeCL.leftChild = node->left->id;
+		}
+		else if( node->kdtree != NULL ) {
+			nodeCL.bbMin.w = 1.0f; // Flag: This is a BVH leaf node with a kD-tree.
+			nodeCL.bbMax.w = offsetNonLeaves;
+			offsetNonLeaves += node->kdtree->getNonLeaves().size();
+			nodeCL.leftChild = -1;
+		}
+
+		nodeCL.rightChild = ( node->right != NULL ) ? node->right->id : -1;
+
+		bvNodesCL.push_back( nodeCL );
+	}
+
+	mBufBVH = mCL->createBuffer( bvNodesCL, sizeof( bvhNode_cl ) * bvNodesCL.size() );
+}
+
+
+/**
+ * Init OpenCL buffers for the kD-tree.
  * @param {std::vector<cl_float>} vertices Vertices of the model.
  * @param {std::vector<cl_uint>}  faces    Faces (triangles) of the model.
  * @param {std::vector<kdNode_t>} kdNodes  Nodes of the kd-tree.
  * @param {kdNode_t*}             rootNode Root node of the kd-tree.
  */
 void PathTracer::initOpenCLBuffers_KdTree(
-	ModelLoader* ml,
-	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-	vector<kdNode_t> kdNodes, kdNode_t* rootNode
+	ModelLoader* ml, BVH* bvh,
+	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
 ) {
 	vector<cl_uint> facesVN = ml->getFacesVN();
 	vector<cl_int> facesMtl = ml->getFacesMtl();
@@ -225,46 +263,16 @@ void PathTracer::initOpenCLBuffers_KdTree(
 	for( int i = 0; i < faces.size(); i += 3 ) {
 		face_cl face;
 
-		cl_float4 a = {
-			vertices[faces[i] * 3],
-			vertices[faces[i] * 3 + 1],
-			vertices[faces[i] * 3 + 2],
-			0.0f
-		};
-		cl_float4 b = {
-			vertices[faces[i + 1] * 3],
-			vertices[faces[i + 1] * 3 + 1],
-			vertices[faces[i + 1] * 3 + 2],
-			0.0f
-		};
-		cl_float4 c = {
-			vertices[faces[i + 2] * 3],
-			vertices[faces[i + 2] * 3 + 1],
-			vertices[faces[i + 2] * 3 + 2],
-			0.0f
-		};
+		cl_float4 a = { vertices[faces[i + 0] * 3], vertices[faces[i + 0] * 3 + 1], vertices[faces[i + 0] * 3 + 2], 0.0f };
+		cl_float4 b = { vertices[faces[i + 1] * 3], vertices[faces[i + 1] * 3 + 1], vertices[faces[i + 1] * 3 + 2], 0.0f };
+		cl_float4 c = { vertices[faces[i + 2] * 3], vertices[faces[i + 2] * 3 + 1], vertices[faces[i + 2] * 3 + 2], 0.0f };
 		face.a = a;
 		face.b = b;
 		face.c = c;
 
-		cl_float4 an = {
-			normals[facesVN[i] * 3],
-			normals[facesVN[i] * 3 + 1],
-			normals[facesVN[i] * 3 + 2],
-			0.0f
-		};
-		cl_float4 bn = {
-			normals[facesVN[i + 1] * 3],
-			normals[facesVN[i + 1] * 3 + 1],
-			normals[facesVN[i + 1] * 3 + 2],
-			0.0f
-		};
-		cl_float4 cn = {
-			normals[facesVN[i + 2] * 3],
-			normals[facesVN[i + 2] * 3 + 1],
-			normals[facesVN[i + 2] * 3 + 2],
-			0.0f
-		};
+		cl_float4 an = { normals[facesVN[i + 0] * 3], normals[facesVN[i + 0] * 3 + 1], normals[facesVN[i + 0] * 3 + 2], 0.0f };
+		cl_float4 bn = { normals[facesVN[i + 1] * 3], normals[facesVN[i + 1] * 3 + 1], normals[facesVN[i + 1] * 3 + 2], 0.0f };
+		cl_float4 cn = { normals[facesVN[i + 2] * 3], normals[facesVN[i + 2] * 3 + 1], normals[facesVN[i + 2] * 3 + 2], 0.0f };
 		face.an = an;
 		face.bn = bn;
 		face.cn = cn;
@@ -276,17 +284,19 @@ void PathTracer::initOpenCLBuffers_KdTree(
 	mBufFaces = mCL->createBuffer( faceStructs, sizeof( face_cl ) * faceStructs.size() );
 
 
+	vector<kdNode_t> kdNodes;
 	vector<kdNonLeaf_cl> kdNonLeaves;
 	vector<kdLeaf_cl> kdLeaves;
 	vector<cl_uint> kdFaces;
+	vector<BVnode*> bvLeaves = bvh->getLeaves();
+	cl_uint2 offset = { 0, 0 };
 
-	this->kdNodesToVectors( faces, kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves );
-
-	cl_float8 kdRootBB = {
-		rootNode->bbMin[0], rootNode->bbMin[1], rootNode->bbMin[2], 0.0f,
-		rootNode->bbMax[0], rootNode->bbMax[1], rootNode->bbMax[2], 0.0f
-	};
-	mKdRootBB = kdRootBB;
+	for( int i = 0; i < bvLeaves.size(); i++ ) {
+		kdNodes = bvLeaves[i]->kdtree->getNodes();
+		this->kdNodesToVectors( faces, kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, offset );
+		offset.x += kdNonLeaves.size();
+		offset.y += kdLeaves.size();
+	}
 
 	mBufKdNonLeaves = mCL->createBuffer( kdNonLeaves, sizeof( kdNonLeaf_cl ) * kdNonLeaves.size() );
 	mBufKdLeaves = mCL->createBuffer( kdLeaves, sizeof( kdLeaf_cl ) * kdLeaves.size() );
@@ -373,7 +383,7 @@ void PathTracer::initOpenCLBuffers_Textures() {
  */
 void PathTracer::kdNodesToVectors(
 	vector<cl_uint> faces, vector<kdNode_t> kdNodes, vector<cl_uint>* kdFaces,
-	vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves
+	vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves, cl_uint2 offset
 ) {
 	cl_uint a, b, c;
 	cl_int pos;
@@ -394,9 +404,27 @@ void PathTracer::kdNodesToVectors(
 			cl_int4 children = {
 				kdNodes[i].left->index,
 				kdNodes[i].right->index,
-				( kdNodes[i].left->axis < 0 ) ? 1 : 0, // is left node a leaf
-				( kdNodes[i].right->axis < 0 ) ? 1 : 0 // is right node a leaf
+				0, 0
 			};
+
+			// Is left node a leaf
+			if( kdNodes[i].left->axis < 0 ) {
+				children.x += offset.y;
+				children.z = 1;
+			}
+			else {
+				children.x += offset.x;
+			}
+
+			// Is right node a leaf
+			if( kdNodes[i].right->axis < 0 ) {
+				children.y += offset.y;
+				children.w = 1;
+			}
+			else {
+				children.y += offset.x;
+			}
+
 			node.children = children;
 
 			kdNonLeaves->push_back( node );
@@ -423,12 +451,12 @@ void PathTracer::kdNodesToVectors(
 			// Set highest bit as flag for being a leaf node.
 			// The -1 isn't going to be a problem, because the entryDistance < exitDistance condition
 			// in the kernel will stop the loop.
-			ropes.s0 *= ( ropes.s0 != 0 && nodeRopes[0]->axis < 0 ) ? -1 : 1;
-			ropes.s1 *= ( ropes.s1 != 0 && nodeRopes[1]->axis < 0 ) ? -1 : 1;
-			ropes.s2 *= ( ropes.s2 != 0 && nodeRopes[2]->axis < 0 ) ? -1 : 1;
-			ropes.s3 *= ( ropes.s3 != 0 && nodeRopes[3]->axis < 0 ) ? -1 : 1;
-			ropes.s4 *= ( ropes.s4 != 0 && nodeRopes[4]->axis < 0 ) ? -1 : 1;
-			ropes.s5 *= ( ropes.s5 != 0 && nodeRopes[5]->axis < 0 ) ? -1 : 1;
+			ropes.s0 = ( ropes.s0 != 0 && nodeRopes[0]->axis < 0 ) ? -( ropes.s0 + offset.y ) : ropes.s0 + offset.x;
+			ropes.s1 = ( ropes.s1 != 0 && nodeRopes[1]->axis < 0 ) ? -( ropes.s1 + offset.y ) : ropes.s1 + offset.x;
+			ropes.s2 = ( ropes.s2 != 0 && nodeRopes[2]->axis < 0 ) ? -( ropes.s2 + offset.y ) : ropes.s2 + offset.x;
+			ropes.s3 = ( ropes.s3 != 0 && nodeRopes[3]->axis < 0 ) ? -( ropes.s3 + offset.y ) : ropes.s3 + offset.x;
+			ropes.s4 = ( ropes.s4 != 0 && nodeRopes[4]->axis < 0 ) ? -( ropes.s4 + offset.y ) : ropes.s4 + offset.x;
+			ropes.s5 = ( ropes.s5 != 0 && nodeRopes[5]->axis < 0 ) ? -( ropes.s5 + offset.y ) : ropes.s5 + offset.x;
 
 			// Index of faces of this node in kdFaces
 			ropes.s6 = kdFaces->size();

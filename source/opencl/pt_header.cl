@@ -41,6 +41,13 @@ typedef struct {
 } kdLeaf;
 
 typedef struct {
+	float4 bbMin;
+	float4 bbMax;
+	int leftChild;
+	int rightChild;
+} bvhNode;
+
+typedef struct {
 	float d;
 	float Ni;
 	float gloss;

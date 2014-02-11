@@ -11,10 +11,11 @@ using std::vector;
 BVH::BVH( vector<object3D> objects, vector<cl_float> vertices ) {
 	boost::posix_time::ptime timerStart = boost::posix_time::microsec_clock::local_time();
 
-	mBVnodes = this->createKdTrees( objects, vertices );
 	vector<cl_float> bb = utils::computeBoundingBox( vertices );
+	mCounterID = 0;
 
 	mRoot = new BVnode;
+	mRoot->id = mCounterID++;
 	mRoot->left = NULL;
 	mRoot->right = NULL;
 	mRoot->kdtree = NULL;
@@ -22,12 +23,19 @@ BVH::BVH( vector<object3D> objects, vector<cl_float> vertices ) {
 	mRoot->bbMax = glm::vec3( bb[3], bb[4], bb[5] );
 	mRoot->bbCenter = ( mRoot->bbMin + mRoot->bbMax ) / 2.0f;
 
+	mBVleaves = this->createKdTrees( objects, vertices );
+	mBVnodes.insert( mBVnodes.end(), mBVleaves.begin(), mBVleaves.end() );
+
 	this->buildHierarchy( mBVnodes, mRoot );
+	mBVnodes.insert( mBVnodes.begin(), mRoot );
 
 	boost::posix_time::ptime timerEnd = boost::posix_time::microsec_clock::local_time();
 	cl_float timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	char msg[128];
-	snprintf( msg, 128, "[BVH] Generated in %g ms. Contains %lu kD-trees.", timeDiff, mBVnodes.size() );
+	snprintf(
+		msg, 128, "[BVH] Generated in %g ms. Contains %lu nodes and %lu kD-trees.",
+		timeDiff, mBVnodes.size(), mBVleaves.size()
+	);
 	Logger::logInfo( msg );
 }
 
@@ -43,8 +51,6 @@ BVH::~BVH() {
 		delete mBVnodes[i];
 	}
 	mBVnodes.clear();
-
-	delete mRoot;
 }
 
 
@@ -55,7 +61,6 @@ BVH::~BVH() {
  */
 void BVH::buildHierarchy( vector<BVnode*> nodes, BVnode* parent ) {
 	if( nodes.size() == 1 ) {
-		parent = nodes[0];
 		return;
 	}
 
@@ -63,12 +68,30 @@ void BVH::buildHierarchy( vector<BVnode*> nodes, BVnode* parent ) {
 	BVnode* rightmost = NULL;
 	this->findCornerNodes( nodes, parent, &leftmost, &rightmost );
 
+	// TODO: Fix bug (happens only with some models)
+	if( leftmost == rightmost ) {
+		Logger::logError( "Leftmost node is also rightmost node. This shouldn't happen!" );
+	}
+
 	vector<BVnode*> leftGroup;
 	vector<BVnode*> rightGroup;
 	this->groupByCorner( nodes, leftmost, rightmost, &leftGroup, &rightGroup );
 
-	parent->left = this->makeNodeFromGroup( leftGroup );
-	parent->right = this->makeNodeFromGroup( leftGroup );
+	if( leftGroup.size() > 1 ) {
+		parent->left = this->makeNodeFromGroup( leftGroup );
+		mBVnodes.push_back( parent->left );
+	}
+	else {
+		parent->left = leftGroup[0];
+	}
+
+	if( rightGroup.size() > 1 ) {
+		parent->right = this->makeNodeFromGroup( rightGroup );
+		mBVnodes.push_back( parent->right );
+	}
+	else {
+		parent->right = rightGroup[0];
+	}
 
 	this->buildHierarchy( leftGroup, parent->left );
 	this->buildHierarchy( rightGroup, parent->right );
@@ -86,13 +109,14 @@ vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> v
 	vector<cl_float> bb;
 	vector<cl_float> ov;
 	vector<cl_uint> ignore;
+	char msg[128];
 
-	for( int i = 0; i < objects.size(); i++ ) {
+	for( cl_uint i = 0; i < objects.size(); i++ ) {
 		object3D o = objects[i];
 		ov.clear();
 		ignore.clear();
 
-		for( int j = 0; j < o.facesV.size(); j++ ) {
+		for( cl_uint j = 0; j < o.facesV.size(); j++ ) {
 			if( std::find( ignore.begin(), ignore.end(), o.facesV[j] ) != ignore.end() ) {
 				continue;
 			}
@@ -107,6 +131,7 @@ vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> v
 		cl_float bbMax[3] = { bb[3], bb[4], bb[5] };
 
 		BVnode* node = new BVnode;
+		node->id = mCounterID++;
 		node->left = NULL;
 		node->right = NULL;
 		node->kdtree = new KdTree( ov, o.facesV, bbMin, bbMax );
@@ -114,6 +139,9 @@ vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> v
 		node->bbMax = glm::vec3( bb[3], bb[4], bb[5] );
 		node->bbCenter = ( node->bbMin + node->bbMax ) / 2.0f;
 		BVnodes.push_back( node );
+
+		snprintf( msg, 128, "[BVH] Build kD-tree %u of %lu: \"%s\"", i + 1, objects.size(), o.oName.c_str() );
+		Logger::logInfo( msg );
 	}
 
 	return BVnodes;
@@ -124,17 +152,20 @@ vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> v
  * Find the two nodes that are closest to the min and max bounding box of the parent node.
  * @param {std::vector<BVnode*>} nodes
  * @param {BVnode*}              parent
- * @param {BVnode*}              leftmost
- * @param {BVnode*}              rightmost
+ * @param {BVnode**}             leftmost
+ * @param {BVnode**}             rightmost
  */
-void BVH::findCornerNodes( vector<BVnode*> nodes, BVnode* parent, BVnode** leftmost, BVnode** rightmost ) {
+void BVH::findCornerNodes(
+	vector<BVnode*> nodes, BVnode* parent,
+	BVnode** leftmost, BVnode** rightmost
+) {
 	cl_float distNodeLeft, distNodeRight;
 	cl_float distLeftmost, distRightmost;
 
 	*leftmost = nodes[0];
 	*rightmost = nodes[0];
 
-	for( int i = 1; i < nodes.size(); i++ ) {
+	for( cl_uint i = 1; i < nodes.size(); i++ ) {
 		BVnode* node = nodes[i];
 
 		distNodeLeft = glm::length( node->bbCenter - parent->bbMin );
@@ -142,8 +173,12 @@ void BVH::findCornerNodes( vector<BVnode*> nodes, BVnode* parent, BVnode** leftm
 		distLeftmost = glm::length( (*leftmost)->bbCenter - parent->bbMin );
 		distRightmost = glm::length( (*rightmost)->bbCenter - parent->bbMax );
 
-		*leftmost = ( distNodeLeft < distLeftmost ) ? node : *leftmost;
-		*rightmost = ( distNodeRight < distRightmost ) ? node : *rightmost;
+		if( distNodeLeft < distLeftmost ) {
+			*leftmost = node;
+		}
+		if( distNodeRight < distRightmost ) {
+			*rightmost = node;
+		}
 	}
 }
 
@@ -154,6 +189,15 @@ void BVH::findCornerNodes( vector<BVnode*> nodes, BVnode* parent, BVnode** leftm
  * @return {std::vector<BVnode*>}
  */
 vector<BVnode*> BVH::getLeaves() {
+	return mBVleaves;
+}
+
+
+/**
+ * Get the nodes of the BVH.
+ * @return {std::vector<BVnode*>}
+ */
+vector<BVnode*> BVH::getNodes() {
 	return mBVnodes;
 }
 
@@ -181,8 +225,15 @@ void BVH::groupByCorner(
 ) {
 	cl_float distToLeftmost, distToRightmost;
 
+	leftGroup->push_back( leftmost );
+	rightGroup->push_back( rightmost );
+
 	for( int i = 0; i < nodes.size(); i++ ) {
 		BVnode* node = nodes[i];
+
+		if( node == leftmost || node == rightmost ) {
+			continue;
+		}
 
 		distToLeftmost = glm::length( node->bbCenter - leftmost->bbCenter );
 		distToRightmost = glm::length( node->bbCenter - rightmost->bbCenter );
@@ -204,6 +255,7 @@ void BVH::groupByCorner(
  */
 BVnode* BVH::makeNodeFromGroup( vector<BVnode*> group ) {
 	BVnode* vol = new BVnode;
+	vol->id = mCounterID++;
 	vol->left = NULL;
 	vol->right = NULL;
 	vol->kdtree = NULL;

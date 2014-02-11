@@ -197,6 +197,17 @@ vector<cl_float> KdTree::getFaceBB( cl_float v0[3], cl_float v1[3], cl_float v2[
 }
 
 
+vector<kdNode_t> KdTree::getLeaves() {
+	vector<kdNode_t> leaves;
+
+	for( cl_uint i = 0; i < mLeaves.size(); i++ ) {
+		leaves.push_back( *mLeaves[i] );
+	}
+
+	return leaves;
+}
+
+
 /**
  * Get the list of generated nodes.
  * @return {std::vector<kdNode_t>} The nodes of the kd-tree.
@@ -209,6 +220,17 @@ vector<kdNode_t> KdTree::getNodes() {
 	}
 
 	return nodes;
+}
+
+
+vector<kdNode_t> KdTree::getNonLeaves() {
+	vector<kdNode_t> nonLeaves;
+
+	for( cl_uint i = 0; i < mNonLeaves.size(); i++ ) {
+		nonLeaves.push_back( *mNonLeaves[i] );
+	}
+
+	return nonLeaves;
 }
 
 

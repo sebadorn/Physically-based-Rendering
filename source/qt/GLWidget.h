@@ -110,7 +110,6 @@ class GLWidget : public QGLWidget {
 		GLuint mPreviousTime;
 
 		QTimer* mTimer;
-		KdTree* mKdTree;
 		PathTracer* mPathTracer;
 
 		vector<GLuint> mNumIndices;

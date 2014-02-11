@@ -110,6 +110,20 @@ bool intersectBoundingBox(
 }
 
 
+bool intersectBB( const float4 origin, const float4 dir, const float4 bbMin, const float4 bbMax ) {
+	float4 invDir = native_recip( dir );
+	float4 t1 = ( bbMin - origin ) * invDir;
+	float4 tMax = ( bbMax - origin ) * invDir;
+	float4 tMin = fmin( t1, tMax );
+	tMax = fmax( t1, tMax );
+
+	float tNear = fmax( fmax( tMin.x, tMin.y ), tMin.z );
+	float tFar = fmin( fmin( tMax.x, tMax.y ), tMax.z );
+
+	return ( tNear <= tFar );
+}
+
+
 /**
  * Basically a shortened version of udpateEntryDistanceAndExitRope().
  * @param  {const float4*} origin

@@ -15,6 +15,7 @@ using std::vector;
 
 
 struct BVnode {
+	cl_uint id;
 	BVnode* left;
 	BVnode* right;
 	KdTree* kdtree;
@@ -30,6 +31,7 @@ class BVH {
 		BVH( vector<object3D> objects, vector<cl_float> vertices );
 		~BVH();
 		vector<BVnode*> getLeaves();
+		vector<BVnode*> getNodes();
 		BVnode* getRoot();
 
 	protected:
@@ -49,7 +51,9 @@ class BVH {
 
 	private:
 		vector<BVnode*> mBVnodes;
+		vector<BVnode*> mBVleaves;
 		BVnode* mRoot;
+		cl_uint mCounterID;
 
 };
 

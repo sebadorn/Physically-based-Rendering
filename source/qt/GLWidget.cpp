@@ -24,7 +24,6 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 
 	mPathTracer = new PathTracer();
 	mCamera = new Camera( this );
-	mKdTree = NULL;
 	mTimer = new QTimer( this );
 
 	mPathTracer->setCamera( mCamera );
@@ -142,11 +141,6 @@ void GLWidget::deleteOldModel() {
 			glDeleteTextures( 1, &((*texIter).second) );
 			texIter++;
 		}
-	}
-
-	// Delete model-specific kd-tree
-	if( mKdTree ) {
-		delete mKdTree;
 	}
 }
 
@@ -297,8 +291,6 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 	BVH* bvh = new BVH( ml->getObjects(), mVertices );
 
-	mKdTree = new KdTree( mVertices, mFaces, bbMin, bbMax );
-
 	vector<cl_float> verticesKdTree;
 	vector<cl_uint> indicesKdTree;
 
@@ -308,7 +300,6 @@ void GLWidget::loadModel( string filepath, string filename ) {
 		kdt->visualize( &verticesKdTree, &indicesKdTree );
 	}
 
-	// mKdTree->visualize( &verticesKdTree, &indicesKdTree );
 	mKdTreeNumIndices = indicesKdTree.size();
 
 	this->setShaderBuffersForOverlay( mVertices, mFaces );
@@ -317,10 +308,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	this->setShaderBuffersForTracer();
 	this->initShaders();
 
-	mPathTracer->initOpenCLBuffers(
-		mVertices, mFaces, mNormals, ml,
-		mKdTree->getNodes(), mKdTree->getRootNode()
-	);
+	mPathTracer->initOpenCLBuffers( mVertices, mFaces, mNormals, ml, bvh );
 
 	delete ml;
 	delete bvh;
