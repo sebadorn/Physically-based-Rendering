@@ -148,9 +148,7 @@ void traverseBVH(
 
 		if( intersectBB( ray->origin, ray->dir, leftNode.bbMin, leftNode.bbMax ) ) {
 			if( isLeftLeaf ) {
-				traverseKdTree(
-					&rayCp1, kdNonLeaves, kdLeaves, kdFaces, faces, entryDistance, leftKdRoot
-				);
+				traverseKdTree( &rayCp1, kdNonLeaves, kdLeaves, kdFaces, faces, entryDistance, leftKdRoot );
 			}
 			else {
 				bvhStack[stackIndex++] = leftNode;
@@ -159,9 +157,7 @@ void traverseBVH(
 
 		if( intersectBB( ray->origin, ray->dir, rightNode.bbMin, rightNode.bbMax ) ) {
 			if( isRightLeaf ) {
-				traverseKdTree(
-					&rayCp2, kdNonLeaves, kdLeaves, kdFaces, faces, entryDistance, rightKdRoot
-				);
+				traverseKdTree( &rayCp2, kdNonLeaves, kdLeaves, kdFaces, faces, entryDistance, rightKdRoot );
 			}
 			else {
 				bvhStack[stackIndex++] = rightNode;

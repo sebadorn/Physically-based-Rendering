@@ -19,6 +19,7 @@ Ni 1.000000
 d 1.000000
 illum 3
 gloss 0.0
+light 1
 
 newmtl left_wall
 Ns 96.078431

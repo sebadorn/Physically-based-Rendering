@@ -404,29 +404,14 @@ void PathTracer::kdNodesToVectors(
 			cl_int4 children = {
 				kdNodes[i].left->index,
 				kdNodes[i].right->index,
-				0, 0
+				( kdNodes[i].left->axis < 0 ), // Is node a leaf node
+				( kdNodes[i].right->axis < 0 )
 			};
 
-			// Is left node a leaf
-			if( kdNodes[i].left->axis < 0 ) {
-				children.x += offset.y;
-				children.z = 1;
-			}
-			else {
-				children.x += offset.x;
-			}
-
-			// Is right node a leaf
-			if( kdNodes[i].right->axis < 0 ) {
-				children.y += offset.y;
-				children.w = 1;
-			}
-			else {
-				children.y += offset.x;
-			}
+			children.x += ( kdNodes[i].left->axis < 0 ) ? offset.y : offset.x;
+			children.y += ( kdNodes[i].right->axis < 0 ) ? offset.y : offset.x;
 
 			node.children = children;
-
 			kdNonLeaves->push_back( node );
 
 			if( kdNodes[i].faces.size() > 0 ) {
