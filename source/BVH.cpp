@@ -33,7 +33,7 @@ BVH::BVH( vector<object3D> objects, vector<cl_float> vertices ) {
 	cl_float timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	char msg[128];
 	snprintf(
-		msg, 128, "[BVH] Generated in %g ms. Contains %lu nodes and %lu kD-trees.",
+		msg, 128, "[BVH] Generated in %g ms. Contains %lu nodes and %lu kD-tree(s).",
 		timeDiff, mBVnodes.size(), mBVleaves.size()
 	);
 	Logger::logInfo( msg );
@@ -61,6 +61,9 @@ BVH::~BVH() {
  */
 void BVH::buildHierarchy( vector<BVnode*> nodes, BVnode* parent ) {
 	if( nodes.size() == 1 ) {
+		if( parent == mRoot ) {
+			parent->left = nodes[0];
+		}
 		return;
 	}
 
@@ -108,21 +111,24 @@ vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> v
 	vector<BVnode*> BVnodes;
 	vector<cl_float> bb;
 	vector<cl_float> ov;
+	vector<cl_uint> of;
 	vector<cl_uint> ignore;
 	char msg[128];
 
 	for( cl_uint i = 0; i < objects.size(); i++ ) {
 		object3D o = objects[i];
 		ov.clear();
+		of.clear();
 		ignore.clear();
 
 		for( cl_uint j = 0; j < o.facesV.size(); j++ ) {
-			if( std::find( ignore.begin(), ignore.end(), o.facesV[j] ) != ignore.end() ) {
-				continue;
+			if( std::find( ignore.begin(), ignore.end(), o.facesV[j] ) == ignore.end() ) {
+				ov.push_back( vertices[o.facesV[j] * 3] );
+				ov.push_back( vertices[o.facesV[j] * 3 + 1] );
+				ov.push_back( vertices[o.facesV[j] * 3 + 2] );
 			}
-			ov.push_back( vertices[o.facesV[j] * 3] );
-			ov.push_back( vertices[o.facesV[j] * 3 + 1] );
-			ov.push_back( vertices[o.facesV[j] * 3 + 2] );
+
+			of.push_back( j );
 			ignore.push_back( o.facesV[j] );
 		}
 
@@ -134,7 +140,7 @@ vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> v
 		node->id = mCounterID++;
 		node->left = NULL;
 		node->right = NULL;
-		node->kdtree = new KdTree( ov, o.facesV, bbMin, bbMax );
+		node->kdtree = new KdTree( ov, of, bbMin, bbMax );
 		node->bbMin = glm::vec3( bb[0], bb[1], bb[2] );
 		node->bbMax = glm::vec3( bb[3], bb[4], bb[5] );
 		node->bbCenter = ( node->bbMin + node->bbMax ) / 2.0f;

@@ -289,11 +289,12 @@ void PathTracer::initOpenCLBuffers_KdTree(
 	vector<kdLeaf_cl> kdLeaves;
 	vector<cl_uint> kdFaces;
 	vector<BVnode*> bvLeaves = bvh->getLeaves();
+	vector<object3D> objects = ml->getObjects();
 	cl_uint2 offset = { 0, 0 };
 
 	for( int i = 0; i < bvLeaves.size(); i++ ) {
 		kdNodes = bvLeaves[i]->kdtree->getNodes();
-		this->kdNodesToVectors( faces, kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, offset );
+		this->kdNodesToVectors( faces, objects[i].facesV, kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, offset );
 		offset.x += kdNonLeaves.size();
 		offset.y += kdLeaves.size();
 	}
@@ -382,8 +383,9 @@ void PathTracer::initOpenCLBuffers_Textures() {
  * @param {std::vector<kdLeaf_cl>*}    kdLeaves    Output: Leaf nodes of the kd-tree.
  */
 void PathTracer::kdNodesToVectors(
-	vector<cl_uint> faces, vector<kdNode_t> kdNodes, vector<cl_uint>* kdFaces,
-	vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves, cl_uint2 offset
+	vector<cl_uint> faces, vector<cl_uint> objectFaces, vector<kdNode_t> kdNodes,
+	vector<cl_uint>* kdFaces, vector<kdNonLeaf_cl>* kdNonLeaves,
+	vector<kdLeaf_cl>* kdLeaves, cl_uint2 offset
 ) {
 	cl_uint a, b, c;
 	cl_int pos;
@@ -475,14 +477,14 @@ void PathTracer::kdNodesToVectors(
 
 
 			// Faces
-			for( cl_uint j = 0; j < kdNodes[i].faces.size(); j += 3 ) {
+			for( cl_uint j = 0; j < objectFaces.size(); j += 3 ) {
 				pos = -1;
 
 				for( cl_uint k = 0; k < faces.size(); k += 3 ) {
 					if(
-						faces[k] == kdNodes[i].faces[j] &&
-						faces[k + 1] == kdNodes[i].faces[j + 1] &&
-						faces[k + 2] == kdNodes[i].faces[j + 2]
+						faces[k] == objectFaces[j] &&
+						faces[k + 1] == objectFaces[j + 1] &&
+						faces[k + 2] == objectFaces[j + 2]
 					) {
 						pos = k / 3;
 						break;

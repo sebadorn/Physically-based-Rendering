@@ -129,24 +129,27 @@ void traverseBVH(
 	int i = 0;
 	while( i++ < 20 && stackIndex >= 0 ) {
 		node = bvhStack[stackIndex--];
-		leftNode = bvh[node.leftChild];
-		rightNode = bvh[node.rightChild];
 
-		isLeftLeaf = ( leftNode.bbMin.w == 1.0f );
-		isRightLeaf = ( rightNode.bbMin.w == 1.0f );
+		if( node.leftChild >= 0 ) {
+			leftNode = bvh[node.leftChild];
+			isLeftLeaf = ( leftNode.bbMin.w == 1.0f );
+			leftKdRoot = leftNode.bbMax.w;
+			leftNode.bbMin.w = 0.0f;
+			leftNode.bbMax.w = 0.0f;
+		}
 
-		leftKdRoot = leftNode.bbMax.w;
-		rightKdRoot = rightNode.bbMax.w;
-
-		leftNode.bbMin.w = 0.0f;
-		rightNode.bbMin.w = 0.0f;
-		leftNode.bbMax.w = 0.0f;
-		rightNode.bbMax.w = 0.0f;
+		if( node.rightChild >= 0 ) {
+			rightNode = bvh[node.rightChild];
+			isRightLeaf = ( rightNode.bbMin.w == 1.0f );
+			rightKdRoot = rightNode.bbMax.w;
+			rightNode.bbMin.w = 0.0f;
+			rightNode.bbMax.w = 0.0f;
+		}
 
 		ray4 rayCp1 = *ray;
 		ray4 rayCp2 = *ray;
 
-		if( intersectBB( ray->origin, ray->dir, leftNode.bbMin, leftNode.bbMax ) ) {
+		if( node.leftChild >= 0 && intersectBB( ray->origin, ray->dir, leftNode.bbMin, leftNode.bbMax ) ) {
 			if( isLeftLeaf ) {
 				traverseKdTree( &rayCp1, kdNonLeaves, kdLeaves, kdFaces, faces, entryDistance, leftKdRoot );
 			}
@@ -155,7 +158,7 @@ void traverseBVH(
 			}
 		}
 
-		if( intersectBB( ray->origin, ray->dir, rightNode.bbMin, rightNode.bbMax ) ) {
+		if( node.rightChild >= 0 && intersectBB( ray->origin, ray->dir, rightNode.bbMin, rightNode.bbMax ) ) {
 			if( isRightLeaf ) {
 				traverseKdTree( &rayCp2, kdNonLeaves, kdLeaves, kdFaces, faces, entryDistance, rightKdRoot );
 			}
@@ -164,16 +167,16 @@ void traverseBVH(
 			}
 		}
 
-		if(
+		if( node.leftChild >= 0 && (
 			( ray->nodeIndex < 0 && rayCp1.nodeIndex >= 0 ) ||
 			( rayCp1.nodeIndex >= 0 && ray->t > rayCp1.t )
-		) {
+		) ) {
 			*ray = rayCp1;
 		}
-		if(
+		if( node.rightChild >= 0 && (
 			( ray->nodeIndex < 0 && rayCp2.nodeIndex >= 0 ) ||
 			( rayCp2.nodeIndex >= 0 && ray->t > rayCp2.t )
-		) {
+		) ) {
 			*ray = rayCp2;
 		}
 	}

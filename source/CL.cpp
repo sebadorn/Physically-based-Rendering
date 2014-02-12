@@ -351,7 +351,6 @@ void CL::freeBuffers() {
  * Get the default device of the platform.
  */
 void CL::getDefaultDevice() {
-	char* value;
 	size_t valueSize;
 	cl_uint deviceCount;
 	cl_device_id* devices;
@@ -372,6 +371,7 @@ void CL::getDefaultDevice() {
 
 	// Get device name
 	for( int i = deviceCount - 1; i >= 0; i-- ) {
+		char* value = NULL;
 		clGetDeviceInfo( devices[i], CL_DEVICE_NAME, 0, NULL, &valueSize );
 		value = (char*) malloc( valueSize );
 		clGetDeviceInfo( devices[i], CL_DEVICE_NAME, valueSize, value, NULL );
@@ -426,7 +426,6 @@ void CL::getDefaultDevice() {
  * Get the default platform of the system.
  */
 void CL::getDefaultPlatform() {
-	char* value;
 	size_t valueSize;
 	cl_uint platformCount;
 	cl_platform_id* platforms;
@@ -442,6 +441,7 @@ void CL::getDefaultPlatform() {
 	clGetPlatformIDs( platformCount, platforms, NULL );
 
 	for( int i = platformCount - 1; i >= 0; i-- ) {
+		char* value = NULL;
 		clGetPlatformInfo( platforms[i], CL_PLATFORM_NAME, 0, NULL, &valueSize );
 		value = (char*) malloc( valueSize );
 		clGetPlatformInfo( platforms[i], CL_PLATFORM_NAME, valueSize, value, NULL );
