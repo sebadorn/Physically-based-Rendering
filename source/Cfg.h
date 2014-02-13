@@ -29,7 +29,7 @@ class Cfg {
 		static const char* KDTREE_DEPTH;
 		static const char* KDTREE_MINFACES;
 		static const char* KDTREE_OPTIMIZEROPES;
-		static const char* LOGGING;
+		static const char* LOG_LEVEL;
 		static const char* RENDER_ANTIALIAS;
 		static const char* RENDER_BACKFACECULLING;
 		static const char* RENDER_BOUNCES;

@@ -136,17 +136,22 @@ vector<cl_float> ModelLoader::getVertices() {
  * @param {std::string} filename Name of the file.
  */
 void ModelLoader::loadModel( string filepath, string filename ) {
+	char msg[256];
+	snprintf( msg, 256, "[ModelLoader] Importing model \"%s\" ...", filename.c_str() );
+	Logger::logInfo( msg );
+
+	Logger::indent( LOG_INDENT );
 	mObjParser->load( filepath, filename );
 	mSpecParser->load( filepath, filename );
+	Logger::indent( 0 );
 
 	vector<cl_uint> facesV = mObjParser->getFacesV();
 	vector<cl_float> vertices = mObjParser->getVertices();
 	mBoundingBox = utils::computeBoundingBox( vertices );
 
-	char msg[256];
 	snprintf(
-		msg, 256, "[ModelLoader] Imported model \"%s\". %lu vertices and %lu faces.",
-		filename.c_str(), vertices.size() / 3, facesV.size() / 3
+		msg, 256, "[ModelLoader] ... Done. %lu vertices and %lu faces.",
+		vertices.size() / 3, facesV.size() / 3
 	);
 	Logger::logInfo( msg );
 }

@@ -118,6 +118,11 @@ vector<BVHnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> 
 		ov.clear();
 		of.clear();
 
+		snprintf( msg, 128, "[BVH] Building kD-tree %u of %lu: \"%s\"", i + 1, objects.size(), o.oName.c_str() );
+		Logger::indent( 0 );
+		Logger::logInfo( msg );
+		Logger::indent( LOG_INDENT );
+
 		for( cl_uint j = 0; j < o.facesV.size(); j++ ) {
 			ov.push_back( vertices[o.facesV[j] * 3] );
 			ov.push_back( vertices[o.facesV[j] * 3 + 1] );
@@ -139,10 +144,9 @@ vector<BVHnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> 
 		node->bbMax = glm::vec3( bb[3], bb[4], bb[5] );
 		node->bbCenter = ( node->bbMin + node->bbMax ) / 2.0f;
 		BVHnodes.push_back( node );
-
-		snprintf( msg, 128, "[BVH] Build kD-tree %u of %lu: \"%s\"", i + 1, objects.size(), o.oName.c_str() );
-		Logger::logInfo( msg );
 	}
+
+	Logger::indent( 0 );
 
 	return BVHnodes;
 }

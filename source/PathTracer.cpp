@@ -195,12 +195,19 @@ void PathTracer::initOpenCLBuffers(
 	ModelLoader* ml, BVH* bvh
 ) {
 	Logger::logInfo( "[PathTracer] Initializing OpenCL buffers ..." );
+	Logger::indent( LOG_INDENT );
 	mCL->freeBuffers();
 	this->initOpenCLBuffers_BVH( bvh );
+	Logger::logDebug( "[PathTracer] Finished buffer for BVH." );
 	this->initOpenCLBuffers_KdTree( ml, bvh, vertices, faces, normals );
+	Logger::logDebug( "[PathTracer] Finished buffer for kD-trees." );
 	this->initOpenCLBuffers_Materials( ml );
+	Logger::logDebug( "[PathTracer] Finished buffer for materials." );
 	this->initOpenCLBuffers_Rays();
+	Logger::logDebug( "[PathTracer] Finished buffer for rays." );
 	this->initOpenCLBuffers_Textures();
+	Logger::logDebug( "[PathTracer] Finished buffer for target textures." );
+	Logger::indent( 0 );
 	Logger::logInfo( "[PathTracer] ... Done." );
 
 	this->initKernelArgs();

@@ -6,14 +6,41 @@ using std::endl;
 using std::string;
 
 
+int Logger::mIndent = 0;
+char Logger::mIndentChar[21];
+
+
+/**
+ * Get the currently set indentation level.
+ * @return {int}
+ */
+int Logger::getIndent() {
+	return mIndent;
+}
+
+
+/**
+ * Set the new indent value for log entries.
+ * @param  {int} indent New value for indentation.
+ * @return {int}        The new indentation length.
+ */
+int Logger::indent( int indent ) {
+	mIndent = ( indent < 0 ) ? 0 : indent;
+	snprintf( mIndentChar, 21, "%d", mIndent );
+
+	return mIndent;
+}
+
+
 /**
  * Log messages of level "debug".
  * @param {const char*} msg    Message to log.
  * @param {const char*} prefix Prefix for the line.
  */
 void Logger::logDebug( const char* msg, const char* prefix ) {
-	if( Cfg::get().value<int>( Cfg::LOGGING ) < 3 ) { return; }
-	cout << "\033[36m" << prefix << msg << "\033[0m" << endl;
+	if( Cfg::get().value<int>( Cfg::LOG_LEVEL ) < 3 ) { return; }
+	string p = string( "\033[36m%" ).append( mIndentChar ).append( "s%s%s\033[0m\n" );
+	printf( p.c_str(), "", prefix, msg );
 }
 
 
@@ -33,8 +60,9 @@ void Logger::logDebug( string msg, const char* prefix ) {
  * @param {const char*} prefix Prefix for the line.
  */
 void Logger::logDebugVerbose( const char* msg, const char* prefix ) {
-	if( Cfg::get().value<int>( Cfg::LOGGING ) < 4 ) { return; }
-	cout << "\033[36m" << prefix << msg << "\033[0m" << endl;
+	if( Cfg::get().value<int>( Cfg::LOG_LEVEL ) < 4 ) { return; }
+	string p = string( "\033[36m%" ).append( mIndentChar ).append( "s%s%s\033[0m\n" );
+	printf( p.c_str(), "", prefix, msg );
 }
 
 
@@ -54,8 +82,9 @@ void Logger::logDebugVerbose( string msg, const char* prefix ) {
  * @param {const char*} prefix Prefix for the line.
  */
 void Logger::logError( const char* msg, const char* prefix ) {
-	if( Cfg::get().value<int>( Cfg::LOGGING ) < 1 ) { return; }
-	cerr << "\033[31;1m" << prefix << msg << "\033[0m" << endl;
+	if( Cfg::get().value<int>( Cfg::LOG_LEVEL ) < 1 ) { return; }
+	string p = string( "\033[31;1m%" ).append( mIndentChar ).append( "s%s%s\033[0m\n" );
+	printf( p.c_str(), "", prefix, msg );
 }
 
 
@@ -75,8 +104,9 @@ void Logger::logError( string msg, const char* prefix ) {
  * @param {const char*} prefix Prefix for the line.
  */
 void Logger::logInfo( const char* msg, const char* prefix ) {
-	if( Cfg::get().value<int>( Cfg::LOGGING ) < 2 ) { return; }
-	cout << prefix << msg << endl;
+	if( Cfg::get().value<int>( Cfg::LOG_LEVEL ) < 2 ) { return; }
+	string p = string( "%" ).append( mIndentChar ).append( "s%s%s\n" );
+	printf( p.c_str(), "", prefix, msg );
 }
 
 
@@ -96,8 +126,9 @@ void Logger::logInfo( string msg, const char* prefix ) {
  * @param {const char*} prefix Prefix for the line.
  */
 void Logger::logWarning( const char* msg, const char* prefix ) {
-	if( Cfg::get().value<int>( Cfg::LOGGING ) < 1 ) { return; }
-	cout << "\033[33;1m" << prefix << msg << "\033[0m" << endl;
+	if( Cfg::get().value<int>( Cfg::LOG_LEVEL ) < 1 ) { return; }
+	string p = string( "\033[33;1m%" ).append( mIndentChar ).append( "s%s%s\033[0m\n" );
+	printf( p.c_str(), "", prefix, msg );
 }
 
 
