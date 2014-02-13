@@ -14,7 +14,7 @@ ModelLoader::ModelLoader() {
 
 
 /**
- * Deconstructor.
+ * Destructor.
  */
 ModelLoader::~ModelLoader() {
 	delete mObjParser;

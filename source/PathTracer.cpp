@@ -27,7 +27,7 @@ PathTracer::PathTracer() {
 
 
 /**
- * Deconstructor.
+ * Destructor.
  */
 PathTracer::~PathTracer() {
 	delete mCL;
@@ -225,6 +225,7 @@ void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 		bvhNode_cl nodeCL;
 		nodeCL.bbMin = bbMin;
 		nodeCL.bbMax = bbMax;
+		nodeCL.rightChild = ( node->right != NULL ) ? node->right->id : -1;
 
 		if( node->left != NULL ) {
 			nodeCL.leftChild = node->left->id;
@@ -235,8 +236,6 @@ void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 			offsetNonLeaves += node->kdtree->getNonLeaves().size();
 			nodeCL.leftChild = -1;
 		}
-
-		nodeCL.rightChild = ( node->right != NULL ) ? node->right->id : -1;
 
 		bvNodesCL.push_back( nodeCL );
 	}
@@ -295,8 +294,8 @@ void PathTracer::initOpenCLBuffers_KdTree(
 	for( int i = 0; i < bvLeaves.size(); i++ ) {
 		kdNodes = bvLeaves[i]->kdtree->getNodes();
 		this->kdNodesToVectors( faces, objects[i].facesV, kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, offset );
-		offset.x += kdNonLeaves.size();
-		offset.y += kdLeaves.size();
+		offset.x = kdNonLeaves.size();
+		offset.y = kdLeaves.size();
 	}
 
 	mBufKdNonLeaves = mCL->createBuffer( kdNonLeaves, sizeof( kdNonLeaf_cl ) * kdNonLeaves.size() );
@@ -435,7 +434,7 @@ void PathTracer::kdNodesToVectors(
 				0, 0
 			};
 
-			// Set highest bit as flag for being a leaf node.
+			// Set highest bit as flag for being a leaf node. (Use a negative value.)
 			// The -1 isn't going to be a problem, because the entryDistance < exitDistance condition
 			// in the kernel will stop the loop.
 			ropes.s0 = ( ropes.s0 != 0 && nodeRopes[0]->axis < 0 ) ? -( ropes.s0 + offset.y ) : ropes.s0 + offset.x;

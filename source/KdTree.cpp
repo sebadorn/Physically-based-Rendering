@@ -55,7 +55,7 @@ KdTree::KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMi
 
 
 /**
- * Deconstructor.
+ * Destructor.
  */
 KdTree::~KdTree() {
 	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
@@ -129,7 +129,6 @@ void KdTree::createRopes( kdNode_t* node, vector<kdNode_t*> ropes ) {
  * @return {kdNode_t*}                             The object that is the median.
  */
 kdNode_t* KdTree::findMedian( vector<cl_float4> vertsForNodes, cl_int axis, vector<cl_float> splits ) {
-	kdNode_t* median = new kdNode_t;
 	cl_int index = 0;
 
 	vector<cl_float4> candidates;
@@ -153,6 +152,7 @@ kdNode_t* KdTree::findMedian( vector<cl_float4> vertsForNodes, cl_int axis, vect
 
 	cl_float4 medianVert = candidates[index];
 
+	kdNode_t* median = new kdNode_t;
 	median->index = mNonLeaves.size();
 	median->axis = axis;
 	median->pos[0] = medianVert.x;

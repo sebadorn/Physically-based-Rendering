@@ -26,6 +26,14 @@ InfoWindow::InfoWindow( QWidget* parent, CL* cl ) : QWidget( parent, Qt::Window 
 
 
 /**
+ * Destructor.
+ */
+InfoWindow::~InfoWindow() {
+	delete mTimer;
+}
+
+
+/**
  * Add names of the kernels to the layout.
  * @param {std::map<cl_kernel, std::string>} kernelNames Kernel IDs and their names.
  */

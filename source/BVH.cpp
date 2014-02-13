@@ -41,7 +41,7 @@ BVH::BVH( vector<object3D> objects, vector<cl_float> vertices ) {
 
 
 /**
- * Deconstructor.
+ * Destructor.
  */
 BVH::~BVH() {
 	for( int i = 0; i < mBVnodes.size(); i++ ) {
@@ -50,7 +50,6 @@ BVH::~BVH() {
 		}
 		delete mBVnodes[i];
 	}
-	mBVnodes.clear();
 }
 
 
@@ -73,7 +72,8 @@ void BVH::buildHierarchy( vector<BVnode*> nodes, BVnode* parent ) {
 
 	// TODO: Fix bug (happens only with some models)
 	if( leftmost == rightmost ) {
-		Logger::logError( "Leftmost node is also rightmost node. This shouldn't happen!" );
+		Logger::logError( "[BVH] Leftmost node is also rightmost node." );
+		return;
 	}
 
 	vector<BVnode*> leftGroup;
@@ -113,6 +113,7 @@ vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> v
 	vector<cl_float> ov;
 	vector<cl_uint> of;
 	vector<cl_uint> ignore;
+	map<cl_uint, cl_uint> faceIndexMap;
 	char msg[128];
 
 	for( cl_uint i = 0; i < objects.size(); i++ ) {
@@ -120,16 +121,24 @@ vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> v
 		ov.clear();
 		of.clear();
 		ignore.clear();
+		faceIndexMap.clear();
 
 		for( cl_uint j = 0; j < o.facesV.size(); j++ ) {
+			// New vertex, add it to the list
 			if( std::find( ignore.begin(), ignore.end(), o.facesV[j] ) == ignore.end() ) {
 				ov.push_back( vertices[o.facesV[j] * 3] );
 				ov.push_back( vertices[o.facesV[j] * 3 + 1] );
 				ov.push_back( vertices[o.facesV[j] * 3 + 2] );
-			}
 
-			of.push_back( j );
-			ignore.push_back( o.facesV[j] );
+				of.push_back( j );
+				ignore.push_back( o.facesV[j] );
+				faceIndexMap[o.facesV[j]] = j;
+			}
+			// Vertex has already been added. Don't add it again to save memory.
+			// The face will just reference the first entry of this vertex.
+			else {
+				of.push_back( faceIndexMap[o.facesV[j]] );
+			}
 		}
 
 		bb = utils::computeBoundingBox( ov );

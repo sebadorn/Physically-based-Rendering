@@ -14,7 +14,7 @@ ObjParser::ObjParser() {
 
 
 /**
- * Deconstructor.
+ * Destructor.
  */
 ObjParser::~ObjParser() {
 	delete mMtlParser;

@@ -122,7 +122,6 @@ kernel void pathTracing(
 
 	ray4 firstRay = rays[workIndex];
 
-	float firstEntryDistance, entryDistance;
 	float tFar = FLT_MAX;
 
 	float spd[SPEC], spdTotal[SPEC];
@@ -151,12 +150,11 @@ kernel void pathTracing(
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
 		setArray( spd, 1.0f );
 		light = -1;
-		entryDistance = firstEntryDistance;
 		ray = firstRay;
 		maxValSpd = 0.0f;
 
 		for( uint bounce = 0; bounce < BOUNCES; bounce++ ) {
-			traverseBVH( bvh, bvhRoot, &ray, kdNonLeaves, kdLeaves, kdFaces, faces, entryDistance );
+			traverseBVH( bvh, bvhRoot, &ray, kdNonLeaves, kdLeaves, kdFaces, faces );
 
 			if( ray.nodeIndex < 0 ) {
 				break;
@@ -207,9 +205,7 @@ kernel void pathTracing(
 				break;
 			}
 
-			entryDistance = 0.0f;
 			ray = newRay;
-
 		} // end bounces
 
 		if( light >= 0 ) {

@@ -22,7 +22,7 @@ Window::Window() {
 
 
 /**
- * Deconstructor.
+ * Destructor.
  */
 Window::~Window() {
 	delete mGLWidget;

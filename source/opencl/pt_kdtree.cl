@@ -39,9 +39,7 @@ void checkFaces(
  * @param  {const float4}            hitNear
  * @return {int}
  */
-int goToLeafNode(
-	uint nodeIndex, const global kdNonLeaf* kdNonLeaves, const float4 hitNear
-) {
+int goToLeafNode( uint nodeIndex, const global kdNonLeaf* kdNonLeaves, const float4 hitNear ) {
 	float4 split;
 	int4 children;
 
@@ -79,48 +77,47 @@ int goToLeafNode(
 void traverseKdTree(
 	ray4* ray, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global uint* kdFaces, const global face_t* faces,
-	float entryDistance, uint kdRoot
+	float tNear, float tFar, uint kdRoot
 ) {
 	kdLeaf currentNode;
 	int8 ropes;
 	int exitRope;
 	float boxExitLimit;
-	float exitDistance = FLT_MAX;
 
-	int nodeIndex = goToLeafNode( kdRoot, kdNonLeaves, fma( entryDistance, ray->dir, ray->origin ) );
+	int nodeIndex = goToLeafNode( kdRoot, kdNonLeaves, fma( tNear, ray->dir, ray->origin ) );
 
-	while( nodeIndex >= 0 && entryDistance < exitDistance ) {
+	while( nodeIndex >= 0 && tNear < tFar ) {
 		currentNode = kdLeaves[nodeIndex];
 		ropes = currentNode.ropes;
 		boxExitLimit = getBoxExitLimit( ray->origin, ray->dir, currentNode.bbMin, currentNode.bbMax );
 
 		checkFaces(
 			ray, nodeIndex, ropes.s6, ropes.s7, kdFaces,
-			faces, entryDistance, &exitDistance, boxExitLimit
+			faces, tNear, &tFar, boxExitLimit
 		);
 
 		// Exit leaf node
 		updateEntryDistanceAndExitRope(
 			ray->origin, ray->dir, currentNode.bbMin, currentNode.bbMax,
-			&entryDistance, &exitRope
+			&tNear, &exitRope
 		);
 
 		nodeIndex = ( (int*) &ropes )[exitRope];
 		nodeIndex = ( nodeIndex < 1 )
 		          ? -nodeIndex - 1
-		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( entryDistance, ray->dir, ray->origin ) );
+		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, fma( tNear, ray->dir, ray->origin ) );
 	}
 }
 
 
 void traverseBVH(
 	const global bvhNode* bvh, bvhNode node, ray4* ray, const global kdNonLeaf* kdNonLeaves,
-	const global kdLeaf* kdLeaves, const global uint* kdFaces, const global face_t* faces,
-	float entryDistance
+	const global kdLeaf* kdLeaves, const global uint* kdFaces, const global face_t* faces
 ) {
 	bvhNode leftNode, rightNode;
-	bool isLeftLeaf, isRightLeaf;
+	bool leftIsLeaf, rightIsLeaf;
 	uint leftKdRoot, rightKdRoot;
+	float tNear, tFar;
 
 	int stackIndex = 0;
 	bvhNode bvhStack[20];
@@ -128,43 +125,72 @@ void traverseBVH(
 
 	int i = 0;
 	while( i++ < 20 && stackIndex >= 0 ) {
-		node = bvhStack[stackIndex--];
-
-		if( node.leftChild >= 0 ) {
-			leftNode = bvh[node.leftChild];
-			isLeftLeaf = ( leftNode.bbMin.w == 1.0f );
-			leftKdRoot = leftNode.bbMax.w;
-			leftNode.bbMin.w = 0.0f;
-			leftNode.bbMax.w = 0.0f;
-		}
+		node = bvhStack[stackIndex];
+		stackIndex--;
 
 		if( node.rightChild >= 0 ) {
 			rightNode = bvh[node.rightChild];
-			isRightLeaf = ( rightNode.bbMin.w == 1.0f );
+			rightIsLeaf = ( rightNode.bbMin.w == 1.0f );
 			rightKdRoot = rightNode.bbMax.w;
 			rightNode.bbMin.w = 0.0f;
 			rightNode.bbMax.w = 0.0f;
 		}
 
-		ray4 rayCp1 = *ray;
-		ray4 rayCp2 = *ray;
+		if( node.leftChild >= 0 ) {
+			leftNode = bvh[node.leftChild];
+			leftIsLeaf = ( leftNode.bbMin.w == 1.0f );
+			leftKdRoot = leftNode.bbMax.w;
+			leftNode.bbMin.w = 0.0f;
+			leftNode.bbMax.w = 0.0f;
+		}
 
-		if( node.leftChild >= 0 && intersectBB( ray->origin, ray->dir, leftNode.bbMin, leftNode.bbMax ) ) {
-			if( isLeftLeaf ) {
-				traverseKdTree( &rayCp1, kdNonLeaves, kdLeaves, kdFaces, faces, entryDistance, leftKdRoot );
+		ray4 rayCp1;
+		rayCp1.origin = ray->origin;
+		rayCp1.dir = ray->dir;
+		rayCp1.t = ray->t;
+		rayCp1.nodeIndex = ray->nodeIndex;
+		rayCp1.faceIndex = ray->faceIndex;
+
+		ray4 rayCp2;
+		rayCp2.origin = ray->origin;
+		rayCp2.dir = ray->dir;
+		rayCp2.t = ray->t;
+		rayCp2.nodeIndex = ray->nodeIndex;
+		rayCp2.faceIndex = ray->faceIndex;
+
+		tFar = FLT_MAX;
+
+		if(
+			node.rightChild >= 0 &&
+			intersectBoundingBox( ray->origin, ray->dir, rightNode.bbMin, rightNode.bbMax, &tNear, &tFar )
+		) {
+			if( rightIsLeaf ) {
+				traverseKdTree( &rayCp2, kdNonLeaves, kdLeaves, kdFaces, faces, tNear, tFar, rightKdRoot );
 			}
 			else {
-				bvhStack[stackIndex++] = leftNode;
+				stackIndex++;
+				bvhStack[stackIndex] = rightNode;
 			}
 		}
 
-		if( node.rightChild >= 0 && intersectBB( ray->origin, ray->dir, rightNode.bbMin, rightNode.bbMax ) ) {
-			if( isRightLeaf ) {
-				traverseKdTree( &rayCp2, kdNonLeaves, kdLeaves, kdFaces, faces, entryDistance, rightKdRoot );
+		if(
+			node.leftChild >= 0 &&
+			intersectBoundingBox( ray->origin, ray->dir, leftNode.bbMin, leftNode.bbMax, &tNear, &tFar )
+		) {
+			if( leftIsLeaf ) {
+				traverseKdTree( &rayCp1, kdNonLeaves, kdLeaves, kdFaces, faces, tNear, tFar, leftKdRoot );
 			}
 			else {
-				bvhStack[stackIndex++] = rightNode;
+				stackIndex++;
+				bvhStack[stackIndex] = leftNode;
 			}
+		}
+
+		if( node.rightChild >= 0 && (
+			( ray->nodeIndex < 0 && rayCp2.nodeIndex >= 0 ) ||
+			( rayCp2.nodeIndex >= 0 && ray->t > rayCp2.t )
+		) ) {
+			*ray = rayCp2;
 		}
 
 		if( node.leftChild >= 0 && (
@@ -172,12 +198,6 @@ void traverseBVH(
 			( rayCp1.nodeIndex >= 0 && ray->t > rayCp1.t )
 		) ) {
 			*ray = rayCp1;
-		}
-		if( node.rightChild >= 0 && (
-			( ray->nodeIndex < 0 && rayCp2.nodeIndex >= 0 ) ||
-			( rayCp2.nodeIndex >= 0 && ray->t > rayCp2.t )
-		) ) {
-			*ray = rayCp2;
 		}
 	}
 }

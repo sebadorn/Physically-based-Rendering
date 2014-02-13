@@ -13,6 +13,7 @@ class InfoWindow : public QWidget {
 
 	public:
 		InfoWindow( QWidget* parent, CL* cl );
+		~InfoWindow();
 		void startUpdating();
 		void stopUpdating();
 

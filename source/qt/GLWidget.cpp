@@ -42,6 +42,7 @@ GLWidget::~GLWidget() {
 	glDeleteProgram( mGLProgramTracer );
 	glDeleteProgram( mGLProgramSimple );
 
+	delete mTimer;
 	delete mCamera;
 	delete mPathTracer;
 }
