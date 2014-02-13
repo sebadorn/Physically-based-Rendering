@@ -17,7 +17,7 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mFrameCount = 0;
 	mPreviousTime = 0;
 
-	mViewBoundingBox = false;
+	mViewBVH = false;
 	mViewKdTree = false;
 	mViewOverlay = false;
 	mViewTracer = true;
@@ -281,30 +281,34 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	ModelLoader* ml = new ModelLoader();
 	ml->loadModel( filepath, filename );
 
-	vector<GLfloat> bbox = ml->getBoundingBox();
-    mBoundingBox = &(bbox)[0];
     mFaces = ml->getFacesV();
 	mNormals = ml->getNormals();
 	mVertices = ml->getVertices();
 
-	cl_float bbMin[3] = { mBoundingBox[0], mBoundingBox[1], mBoundingBox[2] };
-	cl_float bbMax[3] = { mBoundingBox[3], mBoundingBox[4], mBoundingBox[5] };
-
 	BVH* bvh = new BVH( ml->getObjects(), mVertices );
 
-	vector<cl_float> verticesKdTree;
-	vector<cl_uint> indicesKdTree;
 
-	vector<BVnode*> BVnodes = bvh->getLeaves();
-	for( int i = 0; i < BVnodes.size(); i++ ) {
-		KdTree* kdt = BVnodes[i]->kdtree;
-		kdt->visualize( &verticesKdTree, &indicesKdTree );
+	// Visualization of kD-tree
+
+	vector<GLfloat> verticesKdTree;
+	vector<GLuint> indicesKdTree;
+	vector<BVHnode*> bvhLeaves = bvh->getLeaves();
+
+	for( int i = 0; i < bvhLeaves.size(); i++ ) {
+		bvhLeaves[i]->kdtree->visualize( &verticesKdTree, &indicesKdTree );
 	}
 
 	mKdTreeNumIndices = indicesKdTree.size();
 
+
+	// Visualization of BVH
+	vector<GLfloat> verticesBVH;
+	vector<GLuint> indicesBVH;
+	bvh->visualize( &verticesBVH, &indicesBVH );
+	mBVHNumIndices = indicesBVH.size();
+
 	this->setShaderBuffersForOverlay( mVertices, mFaces );
-	this->setShaderBuffersForBoundingBox( mBoundingBox );
+	this->setShaderBuffersForBVH( verticesBVH, indicesBVH );
 	this->setShaderBuffersForKdTree( verticesKdTree, indicesKdTree );
 	this->setShaderBuffersForTracer();
 	this->initShaders();
@@ -467,7 +471,7 @@ void GLWidget::paintScene() {
 
 
 	// Bounding box
-	if( mViewBoundingBox ) {
+	if( mViewBVH ) {
 		glUseProgram( mGLProgramSimple );
 		glUniformMatrix4fv(
 			glGetUniformLocation( mGLProgramSimple, "mvp" ),
@@ -479,15 +483,15 @@ void GLWidget::paintScene() {
 		GLfloat translate[3] = { 0.0f, 0.0f, 0.0f };
 		glUniform3fv( glGetUniformLocation( mGLProgramSimple, "translate" ), 1, translate );
 
-		glBindVertexArray( mVA[VA_BOUNDINGBOX] );
-		glDrawElements( GL_LINES, 24, GL_UNSIGNED_INT, NULL );
+		glBindVertexArray( mVA[VA_BVH] );
+		glDrawElements( GL_LINES, mBVHNumIndices, GL_UNSIGNED_INT, NULL );
 
 		glBindVertexArray( 0 );
 		glUseProgram( 0 );
 	}
 
 
-	// kd-tree
+	// kD-tree
 	if( mViewKdTree ) {
 		glUseProgram( mGLProgramSimple );
 		glUniformMatrix4fv(
@@ -559,33 +563,11 @@ void GLWidget::setShaderBuffersForOverlay( vector<GLfloat> vertices, vector<GLui
 
 
 /**
- * Set the vertex array for the model bounding box.
- * @param {GLfloat*} bbox Min and max vertices of the bounding box.
+ * Set the vertex array for the BVH.
+ * @param {std::vector<GLfloat>} vertices
+ * @param {std::vector<GLuint>}  indices
  */
-void GLWidget::setShaderBuffersForBoundingBox( GLfloat* bbox ) {
-	GLfloat bbVertices[24] = {
-		// bottom
-		bbox[0], bbox[1], bbox[2],
-		bbox[3], bbox[1], bbox[2],
-		bbox[0], bbox[1], bbox[5],
-		bbox[3], bbox[1], bbox[5],
-		// top
-		bbox[0], bbox[4], bbox[2],
-		bbox[3], bbox[4], bbox[2],
-		bbox[0], bbox[4], bbox[5],
-		bbox[3], bbox[4], bbox[5]
-	};
-	GLuint bbIndices[24] = {
-		// bottom
-		0, 1, 1, 3, 3, 2, 2, 0,
-		// left
-		0, 4, 2, 6,
-		// top
-		6, 4, 4, 5, 5, 7, 7, 6,
-		// right
-		1, 5, 3, 7
-	};
-
+void GLWidget::setShaderBuffersForBVH( vector<GLfloat> vertices, vector<GLuint> indices ) {
 	GLuint vaID;
 	glGenVertexArrays( 1, &vaID );
 	glBindVertexArray( vaID );
@@ -593,19 +575,19 @@ void GLWidget::setShaderBuffersForBoundingBox( GLfloat* bbox ) {
 	GLuint vertexBuffer;
 	glGenBuffers( 1, &vertexBuffer );
 	glBindBuffer( GL_ARRAY_BUFFER, vertexBuffer );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( bbVertices ), &bbVertices, GL_STATIC_DRAW );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( GLfloat ) * vertices.size(), &vertices[0], GL_STATIC_DRAW );
 	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0 );
 	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
 
 	GLuint indexBuffer;
 	glGenBuffers( 1, &indexBuffer );
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
-	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( bbIndices ), &bbIndices, GL_STATIC_DRAW );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( GLuint ) * indices.size(), &indices[0], GL_STATIC_DRAW );
 
 	glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	glBindVertexArray( 0 );
 
-	mVA[VA_BOUNDINGBOX] = vaID;
+	mVA[VA_BVH] = vaID;
 }
 
 
@@ -725,15 +707,15 @@ void GLWidget::stopRendering() {
 
 
 /**
- * Toggle rendering of the bounding box.
+ * Toggle rendering of the BVH.
  */
-void GLWidget::toggleViewBoundingBox() {
-	mViewBoundingBox = !mViewBoundingBox;
+void GLWidget::toggleViewBVH() {
+	mViewBVH = !mViewBVH;
 }
 
 
 /**
- * Toggle rendering of the kd-tree visualization.
+ * Toggle rendering of the kD-tree visualization.
  */
 void GLWidget::toggleViewKdTree() {
 	mViewKdTree = !mViewKdTree;

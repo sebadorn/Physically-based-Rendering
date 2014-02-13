@@ -32,9 +32,9 @@
 #define VA_TRACER 0
 // Vertex array for model overlay (for position comparison)
 #define VA_OVERLAY 1
-// Vertex array for bounding box of the model
-#define VA_BOUNDINGBOX 2
-// Vertex array for kd-tree visualization
+// Vertex array for Bounding Volume Hierarchy visualization
+#define VA_BVH 2
+// Vertex array for kD-tree visualization
 #define VA_KDTREE 3
 
 using std::map;
@@ -81,27 +81,27 @@ class GLWidget : public QGLWidget {
 		void paintScene();
 		void resizeGL( int width, int height );
 		void setShaderBuffersForOverlay( vector<GLfloat> vertices, vector<GLuint> indices );
-		void setShaderBuffersForBoundingBox( GLfloat* bbox );
+		void setShaderBuffersForBVH( vector<GLfloat> vertices, vector<GLuint> indices );
 		void setShaderBuffersForKdTree( vector<GLfloat> vertices, vector<GLuint> indices );
 		void setShaderBuffersForTracer();
 		void showFPS();
 
 	protected slots:
-		void toggleViewBoundingBox();
+		void toggleViewBVH();
 		void toggleViewKdTree();
 		void toggleViewOverlay();
 		void toggleViewTracer();
 
 	private:
 		bool mDoRendering;
-		bool mViewBoundingBox;
+		bool mViewBVH;
 		bool mViewKdTree;
 		bool mViewOverlay;
 		bool mViewTracer;
 
 		cl_float mFOV;
-		cl_float* mBoundingBox;
 
+		GLuint mBVHNumIndices;
 		GLuint mFrameCount;
 		GLuint mGLProgramTracer;
 		GLuint mGLProgramSimple;

@@ -14,7 +14,7 @@ BVH::BVH( vector<object3D> objects, vector<cl_float> vertices ) {
 	vector<cl_float> bb = utils::computeBoundingBox( vertices );
 	mCounterID = 0;
 
-	mRoot = new BVnode;
+	mRoot = new BVHnode;
 	mRoot->id = mCounterID++;
 	mRoot->left = NULL;
 	mRoot->right = NULL;
@@ -24,17 +24,17 @@ BVH::BVH( vector<object3D> objects, vector<cl_float> vertices ) {
 	mRoot->bbCenter = ( mRoot->bbMin + mRoot->bbMax ) / 2.0f;
 
 	mBVleaves = this->createKdTrees( objects, vertices );
-	mBVnodes.insert( mBVnodes.end(), mBVleaves.begin(), mBVleaves.end() );
+	mBVHnodes.insert( mBVHnodes.end(), mBVleaves.begin(), mBVleaves.end() );
 
-	this->buildHierarchy( mBVnodes, mRoot );
-	mBVnodes.insert( mBVnodes.begin(), mRoot );
+	this->buildHierarchy( mBVHnodes, mRoot );
+	mBVHnodes.insert( mBVHnodes.begin(), mRoot );
 
 	boost::posix_time::ptime timerEnd = boost::posix_time::microsec_clock::local_time();
 	cl_float timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	char msg[128];
 	snprintf(
 		msg, 128, "[BVH] Generated in %g ms. Contains %lu nodes and %lu kD-tree(s).",
-		timeDiff, mBVnodes.size(), mBVleaves.size()
+		timeDiff, mBVHnodes.size(), mBVleaves.size()
 	);
 	Logger::logInfo( msg );
 }
@@ -44,21 +44,21 @@ BVH::BVH( vector<object3D> objects, vector<cl_float> vertices ) {
  * Destructor.
  */
 BVH::~BVH() {
-	for( int i = 0; i < mBVnodes.size(); i++ ) {
-		if( mBVnodes[i]->kdtree != NULL ) {
-			delete mBVnodes[i]->kdtree;
+	for( int i = 0; i < mBVHnodes.size(); i++ ) {
+		if( mBVHnodes[i]->kdtree != NULL ) {
+			delete mBVHnodes[i]->kdtree;
 		}
-		delete mBVnodes[i];
+		delete mBVHnodes[i];
 	}
 }
 
 
 /**
  * Build the Bounding Volume Hierarchy.
- * @param {std::vector<BVnode*>} nodes
- * @param {BVnode*}              parent
+ * @param {std::vector<BVHnode*>} nodes
+ * @param {BVHnode*}              parent
  */
-void BVH::buildHierarchy( vector<BVnode*> nodes, BVnode* parent ) {
+void BVH::buildHierarchy( vector<BVHnode*> nodes, BVHnode* parent ) {
 	if( nodes.size() == 1 ) {
 		if( parent == mRoot ) {
 			parent->left = nodes[0];
@@ -66,8 +66,8 @@ void BVH::buildHierarchy( vector<BVnode*> nodes, BVnode* parent ) {
 		return;
 	}
 
-	BVnode* leftmost = NULL;
-	BVnode* rightmost = NULL;
+	BVHnode* leftmost = NULL;
+	BVHnode* rightmost = NULL;
 	this->findCornerNodes( nodes, parent, &leftmost, &rightmost );
 
 	// TODO: Fix bug (happens only with some models)
@@ -76,13 +76,13 @@ void BVH::buildHierarchy( vector<BVnode*> nodes, BVnode* parent ) {
 		return;
 	}
 
-	vector<BVnode*> leftGroup;
-	vector<BVnode*> rightGroup;
+	vector<BVHnode*> leftGroup;
+	vector<BVHnode*> rightGroup;
 	this->groupByCorner( nodes, leftmost, rightmost, &leftGroup, &rightGroup );
 
 	if( leftGroup.size() > 1 ) {
 		parent->left = this->makeNodeFromGroup( leftGroup );
-		mBVnodes.push_back( parent->left );
+		mBVHnodes.push_back( parent->left );
 	}
 	else {
 		parent->left = leftGroup[0];
@@ -90,7 +90,7 @@ void BVH::buildHierarchy( vector<BVnode*> nodes, BVnode* parent ) {
 
 	if( rightGroup.size() > 1 ) {
 		parent->right = this->makeNodeFromGroup( rightGroup );
-		mBVnodes.push_back( parent->right );
+		mBVHnodes.push_back( parent->right );
 	}
 	else {
 		parent->right = rightGroup[0];
@@ -105,10 +105,10 @@ void BVH::buildHierarchy( vector<BVnode*> nodes, BVnode* parent ) {
  * Create a kD-tree for each 3D object in the scene.
  * @param  {std::vector<object3D>} objects
  * @param  {std::vector<cl_float>} vertices
- * @return {std::vector<BVnode*>}
+ * @return {std::vector<BVHnode*>}
  */
-vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> vertices ) {
-	vector<BVnode*> BVnodes;
+vector<BVHnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> vertices ) {
+	vector<BVHnode*> BVHnodes;
 	vector<cl_float> bb, ov;
 	vector<cl_uint> of;
 	char msg[128];
@@ -130,7 +130,7 @@ vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> v
 		cl_float bbMin[3] = { bb[0], bb[1], bb[2] };
 		cl_float bbMax[3] = { bb[3], bb[4], bb[5] };
 
-		BVnode* node = new BVnode;
+		BVHnode* node = new BVHnode;
 		node->id = mCounterID++;
 		node->left = NULL;
 		node->right = NULL;
@@ -138,26 +138,26 @@ vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> v
 		node->bbMin = glm::vec3( bb[0], bb[1], bb[2] );
 		node->bbMax = glm::vec3( bb[3], bb[4], bb[5] );
 		node->bbCenter = ( node->bbMin + node->bbMax ) / 2.0f;
-		BVnodes.push_back( node );
+		BVHnodes.push_back( node );
 
 		snprintf( msg, 128, "[BVH] Build kD-tree %u of %lu: \"%s\"", i + 1, objects.size(), o.oName.c_str() );
 		Logger::logInfo( msg );
 	}
 
-	return BVnodes;
+	return BVHnodes;
 }
 
 
 /**
  * Find the two nodes that are closest to the min and max bounding box of the parent node.
- * @param {std::vector<BVnode*>} nodes
- * @param {BVnode*}              parent
- * @param {BVnode**}             leftmost
- * @param {BVnode**}             rightmost
+ * @param {std::vector<BVHnode*>} nodes
+ * @param {BVHnode*}              parent
+ * @param {BVHnode**}             leftmost
+ * @param {BVHnode**}             rightmost
  */
 void BVH::findCornerNodes(
-	vector<BVnode*> nodes, BVnode* parent,
-	BVnode** leftmost, BVnode** rightmost
+	vector<BVHnode*> nodes, BVHnode* parent,
+	BVHnode** leftmost, BVHnode** rightmost
 ) {
 	cl_float distNodeLeft, distNodeRight;
 	cl_float distLeftmost, distRightmost;
@@ -166,7 +166,7 @@ void BVH::findCornerNodes(
 	*rightmost = nodes[0];
 
 	for( cl_uint i = 1; i < nodes.size(); i++ ) {
-		BVnode* node = nodes[i];
+		BVHnode* node = nodes[i];
 
 		distNodeLeft = glm::length( node->bbCenter - parent->bbMin );
 		distNodeRight = glm::length( node->bbCenter - parent->bbMax );
@@ -186,42 +186,42 @@ void BVH::findCornerNodes(
 /**
  * Get the leaves of the BVH.
  * That are all nodes with a reference to a kD-tree.
- * @return {std::vector<BVnode*>}
+ * @return {std::vector<BVHnode*>}
  */
-vector<BVnode*> BVH::getLeaves() {
+vector<BVHnode*> BVH::getLeaves() {
 	return mBVleaves;
 }
 
 
 /**
  * Get the nodes of the BVH.
- * @return {std::vector<BVnode*>}
+ * @return {std::vector<BVHnode*>}
  */
-vector<BVnode*> BVH::getNodes() {
-	return mBVnodes;
+vector<BVHnode*> BVH::getNodes() {
+	return mBVHnodes;
 }
 
 
 /**
  * Get the root node of the BVH.
- * @return {BVnode*}
+ * @return {BVHnode*}
  */
-BVnode* BVH::getRoot() {
+BVHnode* BVH::getRoot() {
 	return mRoot;
 }
 
 
 /**
  * Group the nodes in two groups.
- * @param {std::vector<BVnode*>}  nodes
- * @param {BVnode*}               leftmost
- * @param {BVnode*}               rightmost
- * @param {std::vector<BVnode*>*} leftGroup
- * @param {std::vector<BVnode*>*} rightGroup
+ * @param {std::vector<BVHnode*>}  nodes
+ * @param {BVHnode*}               leftmost
+ * @param {BVHnode*}               rightmost
+ * @param {std::vector<BVHnode*>*} leftGroup
+ * @param {std::vector<BVHnode*>*} rightGroup
  */
 void BVH::groupByCorner(
-	vector<BVnode*> nodes, BVnode* leftmost, BVnode* rightmost,
-	vector<BVnode*>* leftGroup, vector<BVnode*>* rightGroup
+	vector<BVHnode*> nodes, BVHnode* leftmost, BVHnode* rightmost,
+	vector<BVHnode*>* leftGroup, vector<BVHnode*>* rightGroup
 ) {
 	cl_float distToLeftmost, distToRightmost;
 
@@ -229,7 +229,7 @@ void BVH::groupByCorner(
 	rightGroup->push_back( rightmost );
 
 	for( int i = 0; i < nodes.size(); i++ ) {
-		BVnode* node = nodes[i];
+		BVHnode* node = nodes[i];
 
 		if( node == leftmost || node == rightmost ) {
 			continue;
@@ -250,11 +250,11 @@ void BVH::groupByCorner(
 
 /**
  * Make a BV node out of a given group of BV nodes.
- * @param  {std::vector<BVnode*>} group
- * @return {BVnode*}
+ * @param  {std::vector<BVHnode*>} group
+ * @return {BVHnode*}
  */
-BVnode* BVH::makeNodeFromGroup( vector<BVnode*> group ) {
-	BVnode* vol = new BVnode;
+BVHnode* BVH::makeNodeFromGroup( vector<BVHnode*> group ) {
+	BVHnode* vol = new BVHnode;
 	vol->id = mCounterID++;
 	vol->left = NULL;
 	vol->right = NULL;
@@ -263,7 +263,7 @@ BVnode* BVH::makeNodeFromGroup( vector<BVnode*> group ) {
 	vol->bbMax = glm::vec3( group[0]->bbMax );
 
 	for( int i = 1; i < group.size(); i++ ) {
-		BVnode* node = group[i];
+		BVHnode* node = group[i];
 
 		vol->bbMin[0] = ( node->bbMin[0] < vol->bbMin[0] ) ? node->bbMin[0] : vol->bbMin[0];
 		vol->bbMin[1] = ( node->bbMin[1] < vol->bbMin[1] ) ? node->bbMin[1] : vol->bbMin[1];
@@ -276,4 +276,67 @@ BVnode* BVH::makeNodeFromGroup( vector<BVnode*> group ) {
 	vol->bbCenter = ( vol->bbMin + vol->bbMax ) / 2.0f;
 
 	return vol;
+}
+
+
+/**
+ * Get vertices and indices to draw a 3D visualization of the bounding box.
+ * @param {std::vector<cl_float>*} vertices Vector to put the vertices into.
+ * @param {std::vector<cl_uint>*}  indices  Vector to put the indices into.
+ */
+void BVH::visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) {
+	this->visualizeNextNode( mRoot, vertices, indices );
+}
+
+
+/**
+ * Visualize the next node in the BVH.
+ * @param {kdNode_t*}              node     Current node.
+ * @param {std::vector<cl_float>*} vertices Vector to put the vertices into.
+ * @param {std::vector<cl_uint>*}  indices  Vector to put the indices into.
+ */
+void BVH::visualizeNextNode( BVHnode* node, vector<cl_float>* vertices, vector<cl_uint>* indices ) {
+	if( node == NULL ) {
+		return;
+	}
+
+	cl_uint i = vertices->size() / 3;
+
+	// bottom
+	vertices->push_back( node->bbMin[0] ); vertices->push_back( node->bbMin[1] ); vertices->push_back( node->bbMin[2] );
+	vertices->push_back( node->bbMin[0] ); vertices->push_back( node->bbMin[1] ); vertices->push_back( node->bbMax[2] );
+	vertices->push_back( node->bbMax[0] ); vertices->push_back( node->bbMin[1] ); vertices->push_back( node->bbMax[2] );
+	vertices->push_back( node->bbMax[0] ); vertices->push_back( node->bbMin[1] ); vertices->push_back( node->bbMin[2] );
+
+	// top
+	vertices->push_back( node->bbMin[0] ); vertices->push_back( node->bbMax[1] ); vertices->push_back( node->bbMin[2] );
+	vertices->push_back( node->bbMin[0] ); vertices->push_back( node->bbMax[1] ); vertices->push_back( node->bbMax[2] );
+	vertices->push_back( node->bbMax[0] ); vertices->push_back( node->bbMax[1] ); vertices->push_back( node->bbMax[2] );
+	vertices->push_back( node->bbMax[0] ); vertices->push_back( node->bbMax[1] ); vertices->push_back( node->bbMin[2] );
+
+	cl_uint newIndices[24] = {
+		// bottom
+		i + 0, i + 1,
+		i + 1, i + 2,
+		i + 2, i + 3,
+		i + 3, i + 0,
+		// top
+		i + 4, i + 5,
+		i + 5, i + 6,
+		i + 6, i + 7,
+		i + 7, i + 4,
+		// back
+		i + 0, i + 4,
+		i + 3, i + 7,
+		// front
+		i + 1, i + 5,
+		i + 2, i + 6
+	};
+	indices->insert( indices->end(), newIndices, newIndices + 24 );
+
+	// Proceed with left side
+	this->visualizeNextNode( node->left, vertices, indices );
+
+	// Proceed width right side
+	this->visualizeNextNode( node->right, vertices, indices );
 }

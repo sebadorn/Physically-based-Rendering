@@ -71,14 +71,14 @@ QMenuBar* Window::createMenuBar() {
 
 	// Menu 2: View
 
-	QAction* actionBoundingBox = new QAction( tr( "Toggle &bounding box" ), this );
-	actionBoundingBox->setStatusTip( tr( "Bounding box of the model." ) );
-	actionBoundingBox->setCheckable( true );
-	actionBoundingBox->setChecked( false );
-	connect( actionBoundingBox, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewBoundingBox() ) );
+	QAction* actionBVH = new QAction( tr( "Toggle &Boundig Volume Hierarchy" ), this );
+	actionBVH->setStatusTip( tr( "Visualize the Bounding Volume Hierarchy." ) );
+	actionBVH->setCheckable( true );
+	actionBVH->setChecked( false );
+	connect( actionBVH, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewBVH() ) );
 
-	QAction* actionKdTree = new QAction( tr( "Toggle kd-&tree visualization" ), this );
-	actionKdTree->setStatusTip( tr( "Visualize the generated kd-tree." ) );
+	QAction* actionKdTree = new QAction( tr( "Toggle kD-&trees" ), this );
+	actionKdTree->setStatusTip( tr( "Visualize the kD-trees." ) );
 	actionKdTree->setCheckable( true );
 	actionKdTree->setChecked( false );
 	connect( actionKdTree, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewKdTree() ) );
@@ -96,7 +96,7 @@ QMenuBar* Window::createMenuBar() {
 	connect( actionTracer, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewTracer() ) );
 
 	QMenu* menuView = new QMenu( tr( "&View" ) );
-	menuView->addAction( actionBoundingBox );
+	menuView->addAction( actionBVH );
 	menuView->addAction( actionKdTree );
 	menuView->addAction( actionOverlay );
 	menuView->addAction( actionTracer );

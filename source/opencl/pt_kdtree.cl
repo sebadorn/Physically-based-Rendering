@@ -111,14 +111,14 @@ void traverseKdTree(
 
 
 /**
- *
- * @param bvh
- * @param node
- * @param ray
- * @param kdNonLeaves
- * @param kdLeaves
- * @param kdFaces
- * @param faces
+ * Traverse the BVH and test the kD-trees against the given ray.
+ * @param {const global bvhNode*}   bvh
+ * @param {bvhNode}                 node        Root node of the BVH.
+ * @param {ray4*}                   ray
+ * @param {const global kdNonLeaf*} kdNonLeaves
+ * @param {const global kdLeaf*}    kdLeaves
+ * @param {const global uint*}      kdFaces
+ * @param {const global face_t*}    faces
  */
 void traverseBVH(
 	const global bvhNode* bvh, bvhNode node, ray4* ray, const global kdNonLeaf* kdNonLeaves,
@@ -154,19 +154,8 @@ void traverseBVH(
 			leftNode.bbMax.w = 0.0f;
 		}
 
-		ray4 rayCp1;
-		rayCp1.origin = ray->origin;
-		rayCp1.dir = ray->dir;
-		rayCp1.t = ray->t;
-		rayCp1.nodeIndex = ray->nodeIndex;
-		rayCp1.faceIndex = ray->faceIndex;
-
-		ray4 rayCp2;
-		rayCp2.origin = ray->origin;
-		rayCp2.dir = ray->dir;
-		rayCp2.t = ray->t;
-		rayCp2.nodeIndex = ray->nodeIndex;
-		rayCp2.faceIndex = ray->faceIndex;
+		ray4 rayCp1 = *ray;
+		ray4 rayCp2 = *ray;
 
 		tFar = FLT_MAX;
 
@@ -198,17 +187,17 @@ void traverseBVH(
 			}
 		}
 
-		if( node.rightChild >= 0 && (
+		if(
 			( ray->nodeIndex < 0 && rayCp2.nodeIndex >= 0 ) ||
 			( rayCp2.nodeIndex >= 0 && ray->t > rayCp2.t )
-		) ) {
+		) {
 			*ray = rayCp2;
 		}
 
-		if( node.leftChild >= 0 && (
+		if(
 			( ray->nodeIndex < 0 && rayCp1.nodeIndex >= 0 ) ||
 			( rayCp1.nodeIndex >= 0 && ray->t > rayCp1.t )
-		) ) {
+		) {
 			*ray = rayCp1;
 		}
 	}

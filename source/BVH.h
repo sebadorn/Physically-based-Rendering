@@ -14,10 +14,10 @@
 using std::vector;
 
 
-struct BVnode {
+struct BVHnode {
 	cl_uint id;
-	BVnode* left;
-	BVnode* right;
+	BVHnode* left;
+	BVHnode* right;
 	KdTree* kdtree;
 	glm::vec3 bbMin;
 	glm::vec3 bbMax;
@@ -30,29 +30,31 @@ class BVH {
 	public:
 		BVH( vector<object3D> objects, vector<cl_float> vertices );
 		~BVH();
-		vector<BVnode*> getLeaves();
-		vector<BVnode*> getNodes();
-		BVnode* getRoot();
+		vector<BVHnode*> getLeaves();
+		vector<BVHnode*> getNodes();
+		BVHnode* getRoot();
+		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	protected:
-		vector<BVnode*> createKdTrees(
+		vector<BVHnode*> createKdTrees(
 			vector<object3D> objects, vector<cl_float> vertices
 		);
-		void buildHierarchy( vector<BVnode*> nodes, BVnode* parent );
+		void buildHierarchy( vector<BVHnode*> nodes, BVHnode* parent );
 		void findCornerNodes(
-			vector<BVnode*> nodes, BVnode* parent,
-			BVnode** leftmost, BVnode** rightmost
+			vector<BVHnode*> nodes, BVHnode* parent,
+			BVHnode** leftmost, BVHnode** rightmost
 		);
 		void groupByCorner(
-			vector<BVnode*> nodes, BVnode* leftmost, BVnode* rightmost,
-			vector<BVnode*>* leftGroup, vector<BVnode*>* rightGroup
+			vector<BVHnode*> nodes, BVHnode* leftmost, BVHnode* rightmost,
+			vector<BVHnode*>* leftGroup, vector<BVHnode*>* rightGroup
 		);
-		BVnode* makeNodeFromGroup( vector<BVnode*> group );
+		BVHnode* makeNodeFromGroup( vector<BVHnode*> group );
+		void visualizeNextNode( BVHnode* node, vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	private:
-		vector<BVnode*> mBVnodes;
-		vector<BVnode*> mBVleaves;
-		BVnode* mRoot;
+		vector<BVHnode*> mBVHnodes;
+		vector<BVHnode*> mBVleaves;
+		BVHnode* mRoot;
 		cl_uint mCounterID;
 
 };

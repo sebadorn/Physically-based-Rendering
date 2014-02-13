@@ -212,12 +212,12 @@ void PathTracer::initOpenCLBuffers(
  * @param {BVH*} bvh
  */
 void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
-	vector<bvhNode_cl> bvNodesCL;
-	vector<BVnode*> bvNodes = bvh->getNodes();
+	vector<bvhNode_cl> BVHnodesCL;
+	vector<BVHnode*> BVHnodes = bvh->getNodes();
 	cl_uint offsetNonLeaves = 0;
 
-	for( cl_uint i = 0; i < bvNodes.size(); i++ ) {
-		BVnode* node = bvNodes[i];
+	for( cl_uint i = 0; i < BVHnodes.size(); i++ ) {
+		BVHnode* node = BVHnodes[i];
 
 		cl_float4 bbMin = { node->bbMin[0], node->bbMin[1], node->bbMin[2], 0.0f };
 		cl_float4 bbMax = { node->bbMax[0], node->bbMax[1], node->bbMax[2], 0.0f };
@@ -237,10 +237,10 @@ void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 			nodeCL.leftChild = -1;
 		}
 
-		bvNodesCL.push_back( nodeCL );
+		BVHnodesCL.push_back( nodeCL );
 	}
 
-	mBufBVH = mCL->createBuffer( bvNodesCL, sizeof( bvhNode_cl ) * bvNodesCL.size() );
+	mBufBVH = mCL->createBuffer( BVHnodesCL, sizeof( bvhNode_cl ) * BVHnodesCL.size() );
 }
 
 
@@ -287,7 +287,7 @@ void PathTracer::initOpenCLBuffers_KdTree(
 	vector<kdNonLeaf_cl> kdNonLeaves;
 	vector<kdLeaf_cl> kdLeaves;
 	vector<cl_uint> kdFaces;
-	vector<BVnode*> bvLeaves = bvh->getLeaves();
+	vector<BVHnode*> bvLeaves = bvh->getLeaves();
 	vector<object3D> objects = ml->getObjects();
 	cl_uint2 offset = { 0, 0 };
 
@@ -374,12 +374,13 @@ void PathTracer::initOpenCLBuffers_Textures() {
 /**
  * Store the kd-nodes data in seperate lists for each data type
  * in order to pass it to OpenCL.
- * @param {std::vector<cl_float>*}     vertices    Vertices.
  * @param {std::vector<cl_uint>*}      faces       Faces.
+ * @param {std::vector<cl_uint>}       objectFaces Faces of the individuell objects in the scene.
  * @param {std::vector<KdNode_t>}      kdNodes     All nodes of the kd-tree.
  * @param {std::vector<cl_float>*}     kdFaces     Data: [a, b, c ..., faceIndex]
  * @param {std::vector<kdNonLeaf_cl>*} kdNonLeaves Output: Nodes of the kd-tree, that aren't leaves.
  * @param {std::vector<kdLeaf_cl>*}    kdLeaves    Output: Leaf nodes of the kd-tree.
+ * @param {cl_uint2}                   offset
  */
 void PathTracer::kdNodesToVectors(
 	vector<cl_uint> faces, vector<cl_uint> objectFaces, vector<kdNode_t> kdNodes,
