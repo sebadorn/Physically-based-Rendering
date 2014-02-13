@@ -109,36 +109,21 @@ void BVH::buildHierarchy( vector<BVnode*> nodes, BVnode* parent ) {
  */
 vector<BVnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> vertices ) {
 	vector<BVnode*> BVnodes;
-	vector<cl_float> bb;
-	vector<cl_float> ov;
+	vector<cl_float> bb, ov;
 	vector<cl_uint> of;
-	vector<cl_uint> ignore;
-	map<cl_uint, cl_uint> faceIndexMap;
 	char msg[128];
 
 	for( cl_uint i = 0; i < objects.size(); i++ ) {
 		object3D o = objects[i];
 		ov.clear();
 		of.clear();
-		ignore.clear();
-		faceIndexMap.clear();
 
 		for( cl_uint j = 0; j < o.facesV.size(); j++ ) {
-			// New vertex, add it to the list
-			if( std::find( ignore.begin(), ignore.end(), o.facesV[j] ) == ignore.end() ) {
-				ov.push_back( vertices[o.facesV[j] * 3] );
-				ov.push_back( vertices[o.facesV[j] * 3 + 1] );
-				ov.push_back( vertices[o.facesV[j] * 3 + 2] );
+			ov.push_back( vertices[o.facesV[j] * 3] );
+			ov.push_back( vertices[o.facesV[j] * 3 + 1] );
+			ov.push_back( vertices[o.facesV[j] * 3 + 2] );
 
-				of.push_back( j );
-				ignore.push_back( o.facesV[j] );
-				faceIndexMap[o.facesV[j]] = j;
-			}
-			// Vertex has already been added. Don't add it again to save memory.
-			// The face will just reference the first entry of this vertex.
-			else {
-				of.push_back( faceIndexMap[o.facesV[j]] );
-			}
+			of.push_back( j );
 		}
 
 		bb = utils::computeBoundingBox( ov );

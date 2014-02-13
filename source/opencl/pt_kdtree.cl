@@ -110,6 +110,16 @@ void traverseKdTree(
 }
 
 
+/**
+ *
+ * @param bvh
+ * @param node
+ * @param ray
+ * @param kdNonLeaves
+ * @param kdLeaves
+ * @param kdFaces
+ * @param faces
+ */
 void traverseBVH(
 	const global bvhNode* bvh, bvhNode node, ray4* ray, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global uint* kdFaces, const global face_t* faces
@@ -120,11 +130,11 @@ void traverseBVH(
 	float tNear, tFar;
 
 	int stackIndex = 0;
-	bvhNode bvhStack[20];
+	bvhNode bvhStack[20]; // TODO
 	bvhStack[stackIndex] = node;
 
 	int i = 0;
-	while( i++ < 20 && stackIndex >= 0 ) {
+	while( i++ < 20 && stackIndex >= 0 ) { // TODO
 		node = bvhStack[stackIndex];
 		stackIndex--;
 
@@ -172,6 +182,8 @@ void traverseBVH(
 				bvhStack[stackIndex] = rightNode;
 			}
 		}
+
+		tFar = FLT_MAX;
 
 		if(
 			node.leftChild >= 0 &&

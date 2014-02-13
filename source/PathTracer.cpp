@@ -476,14 +476,14 @@ void PathTracer::kdNodesToVectors(
 
 
 			// Faces
-			for( cl_uint j = 0; j < objectFaces.size(); j += 3 ) {
+			for( cl_uint j = 0; j < kdNodes[i].faces.size(); j += 3 ) {
 				pos = -1;
 
 				for( cl_uint k = 0; k < faces.size(); k += 3 ) {
 					if(
-						faces[k] == objectFaces[j] &&
-						faces[k + 1] == objectFaces[j + 1] &&
-						faces[k + 2] == objectFaces[j + 2]
+						faces[k] == objectFaces[kdNodes[i].faces[j]] &&
+						faces[k + 1] == objectFaces[kdNodes[i].faces[j + 1]] &&
+						faces[k + 2] == objectFaces[kdNodes[i].faces[j + 2]]
 					) {
 						pos = k / 3;
 						break;
