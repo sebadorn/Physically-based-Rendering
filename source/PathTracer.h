@@ -29,8 +29,8 @@ struct face_cl {
 struct ray4 {
 	cl_float4 origin;
 	cl_float4 dir;
+	cl_float4 normal;
 	cl_float t;
-	cl_int nodeIndex;
 	cl_int faceIndex;
 };
 

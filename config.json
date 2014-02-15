@@ -76,7 +76,7 @@
 		// Backface culling (don't render backsides).
 		// Can boost performance, but in some rare cases may
 		// introduce rendering errors.
-		"backface_culling": true,
+		"backface_culling": false,
 		// Number of times a light ray bounces.
 		// More bounces = less FPS.
 		"bounces": 3,

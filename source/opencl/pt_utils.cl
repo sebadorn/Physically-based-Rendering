@@ -1,3 +1,8 @@
+/**
+ *
+ * @param  {float*} seed
+ * @return {float}
+ */
 float rand( float* seed ) {
 	float i;
 	*seed += 1.0f;
@@ -24,6 +29,19 @@ float4 cosineWeightedDirection( float* seed, const float4 normal ) {
 	const float4 tdir = cross( normal, sdir );
 
 	return r * native_cos( angle ) * sdir + r * native_sin( angle ) * tdir + native_sqrt( 1.0f - u ) * normal;
+}
+
+
+/**
+ *
+ * @param  {const face_t} face
+ * @param  {const float2} uv
+ * @return {float4}
+ */
+float4 getTriangleNormal( const face_t face, const float2 uv ) {
+	const float w = 1.0f - uv.x - uv.y;
+
+	return fast_normalize( w * face.an + uv.x * face.bn + uv.y * face.cn );
 }
 
 
@@ -188,45 +206,25 @@ inline bool isInsideBoundingBox( const float* bbMin, const float* bbMax, const f
 
 
 /**
- * Face intersection test after Möller and Trumbore.
- * @param  {const float4*} origin
- * @param  {const float4*} dir
- * @param  {const float4*} a
- * @param  {const float4*} b
- * @param  {const float4*} c
- * @param  {const float}   tNear
- * @param  {const float}   tFar
- * @param  {hit_t*}        result
+ * Apply the cosine law for light sources.
+ * @param  {float4} n Normal of the surface the light hits.
+ * @param  {float4} l Normalized direction to the light source.
  * @return {float}
  */
-inline float checkFaceIntersection(
-	const float4 origin, const float4 dir, const float4 a, const float4 b, const float4 c,
-	const float tNear, const float tFar
-) {
-	const float4 edge1 = b - a;
-	const float4 edge2 = c - a;
-	const float4 tVec = origin - a;
-	const float4 pVec = cross( dir, edge2 );
-	const float4 qVec = cross( tVec, edge1 );
-	const float det = dot( edge1, pVec );
-	const float invDet = native_recip( det );
-	float t = dot( edge2, qVec ) * invDet;
+inline float cosineLaw( float4 n, float4 l ) {
+	return fmax( dot( n, l ), 0.0f );
+}
 
-	#define MT_FINAL_T_TEST fmax( t - tFar, tNear - t ) > EPSILON || t < EPSILON
 
-	#ifdef BACKFACE_CULLING
-		const float u = dot( tVec, pVec );
-		const float v = dot( dir, qVec );
-
-		t = ( fmin( u, v ) < 0.0f || u > det || u + v > det || MT_FINAL_T_TEST ) ? -2.0f : t;
-	#else
-		const float u = dot( tVec, pVec ) * invDet;
-		const float v = dot( dir, qVec ) * invDet;
-
-		t = ( fmin( u, v ) < 0.0f || u > 1.0f || u + v > 1.0f || MT_FINAL_T_TEST ) ? -2.0f : t;
-	#endif
-
-	return t;
+/**
+ * Initialize a float array with a default value.
+ * @param {float*} arr  The array to initialize.
+ * @param {float}  val  The default value to set.
+ */
+inline void setArray( float* arr, float val ) {
+	for( int i = 0; i < SPEC; i++ ) {
+		arr[i] = val;
+	}
 }
 
 
@@ -344,78 +342,3 @@ inline float checkFaceIntersection(
 
 // 	return p;
 // }
-
-
-/**
- * Apply the cosine law for light sources.
- * @param  {float4} n Normal of the surface the light hits.
- * @param  {float4} l Normalized direction to the light source.
- * @return {float}
- */
-inline float cosineLaw( float4 n, float4 l ) {
-	return fmax( dot( n, l ), 0.0f );
-}
-
-
-ray4 getNewRay( ray4 prevRay, float4 normal, material mtl, float* seed ) {
-	ray4 newRay;
-	newRay.t = -2.0f;
-	newRay.nodeIndex = -1;
-	newRay.origin = fma( prevRay.t, prevRay.dir, prevRay.origin );
-
-	// Transparency and refraction
-	if( mtl.d < 1.0f && mtl.d <= rand( seed ) ) {
-		newRay.dir = reflect( prevRay.dir, normal );
-
-		float a = dot( normal, prevRay.dir );
-		float ddn = fabs( a );
-		float nnt = ( a > 0.0f ) ? mtl.Ni / NI_AIR : NI_AIR / mtl.Ni;
-		float cos2t = 1.0f - nnt * nnt * ( 1.0f - ddn * ddn );
-
-		if( cos2t > 0.0f ) {
-			float4 tdir = fast_normalize( newRay.dir * nnt + sign( a ) * normal * ( ddn * nnt + sqrt( cos2t ) ) );
-			float R0 = ( mtl.Ni - NI_AIR ) * ( mtl.Ni - NI_AIR ) / ( ( mtl.Ni + NI_AIR ) * ( mtl.Ni + NI_AIR ) );
-			float c = 1.0f - mix( ddn, dot( tdir, normal ), (float) a > 0.0f );
-			float Re = R0 + ( 1.0f - R0 ) * pown( c, 5 );
-			float P = 0.25f + 0.5f * Re;
-			float RP = Re / P;
-			float TP = ( 1.0f - Re ) / ( 1.0f - P );
-
-			if( rand( seed ) >= P ) {
-				newRay.dir = tdir;
-			}
-		}
-	}
-	// Specular
-	else if( mtl.illum == 3 ) {
-		newRay.dir = reflect( prevRay.dir, normal );
-		newRay.dir += ( mtl.gloss > 0.0f )
-		            ? uniformlyRandomVector( seed ) * mtl.gloss
-		            : (float4)( 0.0f );
-		newRay.dir = fast_normalize( newRay.dir );
-	}
-	// Diffuse
-	else {
-		// newRay.dir = cosineWeightedDirection( seed, normal );
-		float rnd1 = rand( seed );
-		float rnd2 = rand( seed );
-		newRay.dir = jitter(
-			normal, 2.0f * M_PI * rnd1,
-			sqrt( rnd2 ), sqrt( 1.0f - rnd2 )
-		);
-	}
-
-	return newRay;
-}
-
-
-/**
- * Initialize a float array with a default value.
- * @param {float*} arr  The array to initialize.
- * @param {float}  val  The default value to set.
- */
-inline void setArray( float* arr, float val ) {
-	for( int i = 0; i < SPEC; i++ ) {
-		arr[i] = val;
-	}
-}

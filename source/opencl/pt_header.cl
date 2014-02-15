@@ -5,6 +5,7 @@
 #define EPSILON 0.00001f
 #define IMG_HEIGHT #IMG_HEIGHT#
 #define IMG_WIDTH #IMG_WIDTH#
+#define MAX_ADDED_BOUNCES 3
 #define NI_AIR 1.0f
 #define PI_X2 6.28318530718f
 #define SPEC 40
@@ -25,8 +26,8 @@ typedef struct {
 typedef struct {
 	float4 origin;
 	float4 dir;
+	float4 normal;
 	float t;
-	int nodeIndex;
 	int faceIndex;
 } ray4;
 

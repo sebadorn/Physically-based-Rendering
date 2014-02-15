@@ -75,7 +75,6 @@ kernel void initRays(
 	ray4 ray;
 	ray.origin = eye;
 	ray.t = -2.0f;
-	ray.nodeIndex = -1;
 	ray.dir = fast_normalize( initialRay );
 
 	rays[workIndex] = ray;
@@ -140,11 +139,12 @@ kernel void pathTracing(
 	material mtl;
 	face_t f;
 
-	float4 hit, normal, vn0, vn1, vn2;
-	float cosLaw, l0, l1, l2, lm, maxValSpd;
+	float4 normal;
+	float cosLaw, maxValSpd;
 
-	int light, startNode;
+	int bouncesAdded, light;
 	uint index;
+	bool addBounce, isTransparent;
 
 
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
@@ -152,29 +152,17 @@ kernel void pathTracing(
 		light = -1;
 		ray = firstRay;
 		maxValSpd = 0.0f;
+		bouncesAdded = 0;
 
-		for( uint bounce = 0; bounce < BOUNCES; bounce++ ) {
+		for( uint bounce = 0; bounce < BOUNCES + bouncesAdded; bounce++ ) {
 			traverseBVH( bvh, bvhRoot, &ray, kdNonLeaves, kdLeaves, kdFaces, faces );
 
-			if( ray.nodeIndex < 0 ) {
+			if( ray.t < 0.0f ) {
 				break;
 			}
 
-			hit = fma( ray.t, ray.dir, ray.origin );
 			f = faces[ray.faceIndex];
-			vn0 = f.an;
-			vn1 = f.bn;
-			vn2 = f.cn;
-			l0 = fast_length( vn0 - hit );
-			l1 = fast_length( vn1 - hit );
-			l2 = fast_length( vn2 - hit );
-			lm = l0 + l1 + l2;
-			l0 /= lm;
-			l1 /= lm;
-			l2 /= lm;
-			normal = fast_normalize( vn0 / l0 + vn1 / l1 + vn2 / l2 );
-
-			mtl = materials[(int) f.a.w];
+			mtl = materials[(uint) f.a.w];
 
 			// Implicit connection to a light found
 			if( mtl.light == 1 ) {
@@ -182,18 +170,18 @@ kernel void pathTracing(
 				break;
 			}
 
-			if( bounce == BOUNCES - 1 ) {
-				break;
-			}
-
 			// New direction of the ray (bouncing of the hit surface)
 			seed += ray.t;
-			newRay = getNewRay( ray, normal, mtl, &seed );
+			newRay = getNewRay( ray, mtl, &seed, &isTransparent, &addBounce );
+
+			if( addBounce && bouncesAdded < MAX_ADDED_BOUNCES ) {
+				bouncesAdded++;
+			}
 
 			index = mtl.spd * SPEC;
-			cosLaw = cosineLaw( normal, newRay.dir );
+			cosLaw = cosineLaw( ray.normal, newRay.dir );
 
-			if( mtl.d == 1.0f || mtl.d > rand( &seed ) ) {
+			if( !isTransparent ) {
 				for( int i = 0; i < SPEC; i++ ) {
 					spd[i] *= specPowerDists[index + i] * cosLaw;
 					maxValSpd = fmax( spd[i], maxValSpd );

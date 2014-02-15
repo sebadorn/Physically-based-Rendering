@@ -1,34 +1,149 @@
 /**
+ * Face intersection test after Möller and Trumbore.
+ * @param  {const float4*} origin
+ * @param  {const float4*} dir
+ * @param  {const float4*} a
+ * @param  {const float4*} b
+ * @param  {const float4*} c
+ * @param  {const float}   tNear
+ * @param  {const float}   tFar
+ * @param  {hit_t*}        result
+ * @return {float}
+ */
+inline float checkFaceIntersection(
+	const ray4* ray, const float4 a, const float4 b, const float4 c, float2* uv,
+	const float tNear, const float tFar
+) {
+	const float4 edge1 = b - a;
+	const float4 edge2 = c - a;
+	const float4 tVec = ray->origin - a;
+	const float4 pVec = cross( ray->dir, edge2 );
+	const float4 qVec = cross( tVec, edge1 );
+	const float det = dot( edge1, pVec );
+	const float invDet = native_recip( det );
+	float t = dot( edge2, qVec ) * invDet;
+
+	#define MT_FINAL_T_TEST fmax( t - tFar, tNear - t ) > EPSILON || t < EPSILON
+
+	#ifdef BACKFACE_CULLING
+		const float u = dot( tVec, pVec );
+		const float v = dot( ray->dir, qVec );
+
+		t = ( fmin( u, v ) < 0.0f || u > det || u + v > det || MT_FINAL_T_TEST ) ? -2.0f : t;
+	#else
+		const float u = dot( tVec, pVec ) * invDet;
+		const float v = dot( ray->dir, qVec ) * invDet;
+
+		t = ( fmin( u, v ) < 0.0f || u > 1.0f || u + v > 1.0f || MT_FINAL_T_TEST ) ? -2.0f : t;
+	#endif
+
+	uv->x = u;
+	uv->y = v;
+
+	return t;
+}
+
+
+/**
  * Check all faces of a leaf node for intersections with the given ray.
  */
 void checkFaces(
-	ray4* ray, const int nodeIndex, const int faceIndex,
-	const int numFaces, const global uint* kdFaces, const global face_t* faces,
+	ray4* ray, const int faceIndex, const int numFaces,
+	const global uint* kdFaces, const global face_t* faces,
 	const float entryDistance, float* exitDistance, const float boxExitLimit
 ) {
 	float r = -2.0f;
 	face_t face;
 	uint j;
+	float2 uv;
 
 	for( uint i = 0; i < numFaces; i++ ) {
 		j = kdFaces[faceIndex + i];
 		face = faces[j];
 
 		r = checkFaceIntersection(
-			ray->origin, ray->dir, face.a, face.b, face.c,
+			ray, face.a, face.b, face.c, &uv,
 			entryDistance, fmin( *exitDistance, boxExitLimit )
 		);
 
 		if( r > -1.0f ) {
 			*exitDistance = r;
 
-			if( ray->t > r || ray->nodeIndex < 0 ) {
+			if( ray->t > r || ray->t < 0.0f ) {
 				ray->t = r;
-				ray->nodeIndex = nodeIndex;
 				ray->faceIndex = j;
+				ray->normal = getTriangleNormal( face, uv );
 			}
 		}
 	}
+}
+
+
+/**
+ *
+ * @param  prevRay
+ * @param  normal
+ * @param  mtl
+ * @param  seed
+ * @param  addBounce
+ * @return
+ */
+ray4 getNewRay( ray4 prevRay, material mtl, float* seed, bool* isTransparent, bool* addBounce ) {
+	ray4 newRay;
+	newRay.t = -2.0f;
+	newRay.origin = fma( prevRay.t, prevRay.dir, prevRay.origin ) + prevRay.normal * EPSILON;
+
+	*addBounce = false;
+	*isTransparent = false;
+
+	// Transparency and refraction
+	if( mtl.d < 1.0f && mtl.d <= rand( seed ) ) {
+		newRay.dir = reflect( prevRay.dir, prevRay.normal );
+
+		float a = dot( prevRay.normal, prevRay.dir );
+		float ddn = fabs( a );
+		float nnt = ( a > 0.0f ) ? mtl.Ni / NI_AIR : NI_AIR / mtl.Ni;
+		float cos2t = 1.0f - nnt * nnt * ( 1.0f - ddn * ddn );
+
+		if( cos2t > 0.0f ) {
+			float4 tdir = fast_normalize( newRay.dir * nnt + sign( a ) * prevRay.normal * ( ddn * nnt + sqrt( cos2t ) ) );
+			float R0 = ( mtl.Ni - NI_AIR ) * ( mtl.Ni - NI_AIR ) / ( ( mtl.Ni + NI_AIR ) * ( mtl.Ni + NI_AIR ) );
+			float c = 1.0f - mix( ddn, dot( tdir, prevRay.normal ), (float) a > 0.0f );
+			float Re = R0 + ( 1.0f - R0 ) * pown( c, 5 );
+			float P = 0.25f + 0.5f * Re;
+			float RP = Re / P;
+			float TP = ( 1.0f - Re ) / ( 1.0f - P );
+
+			if( rand( seed ) >= P ) {
+				newRay.dir = tdir;
+			}
+		}
+
+		*addBounce = true;
+		*isTransparent = true;
+	}
+	// Specular
+	else if( mtl.illum == 3 ) {
+		newRay.dir = reflect( prevRay.dir, prevRay.normal );
+		newRay.dir += ( mtl.gloss > 0.0f )
+		            ? uniformlyRandomVector( seed ) * mtl.gloss
+		            : (float4)( 0.0f );
+		newRay.dir = fast_normalize( newRay.dir );
+
+		*addBounce = true;
+	}
+	// Diffuse
+	else {
+		// newRay.dir = cosineWeightedDirection( seed, prevRay.normal );
+		float rnd1 = rand( seed );
+		float rnd2 = rand( seed );
+		newRay.dir = jitter(
+			prevRay.normal, 2.0f * M_PI * rnd1,
+			sqrt( rnd2 ), sqrt( 1.0f - rnd2 )
+		);
+	}
+
+	return newRay;
 }
 
 
@@ -92,7 +207,7 @@ void traverseKdTree(
 		boxExitLimit = getBoxExitLimit( ray->origin, ray->dir, currentNode.bbMin, currentNode.bbMax );
 
 		checkFaces(
-			ray, nodeIndex, ropes.s6, ropes.s7, kdFaces,
+			ray, ropes.s6, ropes.s7, kdFaces,
 			faces, tNear, &tFar, boxExitLimit
 		);
 
@@ -126,17 +241,16 @@ void traverseBVH(
 ) {
 	bvhNode leftNode, rightNode;
 	ray4 rayCp1, rayCp2;
-	bool leftIsLeaf, rightIsLeaf;
+	bool addLeftToStack, addRightToStack, leftIsLeaf, rightIsLeaf;
 	uint leftKdRoot, rightKdRoot;
-	float tNear, tFar;
+	float tFarL, tFarR, tNearL, tNearR;
 
 	int stackIndex = 0;
 	bvhNode bvhStack[BVH_STACKSIZE];
 	bvhStack[stackIndex] = node;
 
 	while( stackIndex >= 0 ) {
-		node = bvhStack[stackIndex];
-		stackIndex--;
+		node = bvhStack[stackIndex--];
 
 		if( node.rightChild >= 0 ) {
 			rightNode = bvh[node.rightChild];
@@ -154,50 +268,61 @@ void traverseBVH(
 			leftNode.bbMax.w = 0.0f;
 		}
 
+		tNearR = -2.0f;
+		tNearL = -2.0f;
+		tFarR = FLT_MAX;
+		tFarL = FLT_MAX;
+
+		if( node.rightChild >= 0 ) {
+			intersectBoundingBox( ray->origin, ray->dir, rightNode.bbMin, rightNode.bbMax, &tNearR, &tFarR );
+		}
+		if( node.leftChild >= 0 ) {
+			intersectBoundingBox( ray->origin, ray->dir, leftNode.bbMin, leftNode.bbMax, &tNearL, &tFarL );
+		}
+
+		addRightToStack = node.rightChild >= 0 && !rightIsLeaf && ( ray->t < 0.0f || ray->t >= tNearR );
+		addLeftToStack = node.leftChild >= 0 && !leftIsLeaf && ( ray->t < 0.0f || ray->t >= tNearL );
+
+		// If the left node is closer to the ray origin, test it first.
+		// By pushing the right node first on the stack and then the left one,
+		// the left one will be popped first.
+		if( tNearR > tNearL ) {
+			if( addRightToStack ) {
+				bvhStack[++stackIndex] = rightNode;
+			}
+			if( addLeftToStack ) {
+				bvhStack[++stackIndex] = leftNode;
+			}
+		}
+		else {
+			if( addLeftToStack ) {
+				bvhStack[++stackIndex] = leftNode;
+			}
+			if( addRightToStack ) {
+				bvhStack[++stackIndex] = rightNode;
+			}
+		}
+
 		rayCp1 = *ray;
 		rayCp2 = *ray;
-		tFar = FLT_MAX;
 
-		if(
-			node.rightChild >= 0 &&
-			intersectBoundingBox( ray->origin, ray->dir, rightNode.bbMin, rightNode.bbMax, &tNear, &tFar ) &&
-			( ray->t < -1.0f || ray->t >= tNear )
-		) {
-			if( rightIsLeaf ) {
-				traverseKdTree( &rayCp2, kdNonLeaves, kdLeaves, kdFaces, faces, tNear, tFar, rightKdRoot );
-			}
-			else {
-				stackIndex++;
-				bvhStack[stackIndex] = rightNode;
-			}
+		if( node.rightChild >= 0 && rightIsLeaf ) {
+			traverseKdTree( &rayCp2, kdNonLeaves, kdLeaves, kdFaces, faces, tNearR, tFarR, rightKdRoot );
 		}
-
-		tFar = FLT_MAX;
-
-		if(
-			node.leftChild >= 0 &&
-			intersectBoundingBox( ray->origin, ray->dir, leftNode.bbMin, leftNode.bbMax, &tNear, &tFar ) &&
-			( ray->t < -1.0f || ray->t >= tNear )
-		) {
-			if( leftIsLeaf ) {
-				traverseKdTree( &rayCp1, kdNonLeaves, kdLeaves, kdFaces, faces, tNear, tFar, leftKdRoot );
-			}
-			else {
-				stackIndex++;
-				bvhStack[stackIndex] = leftNode;
-			}
+		if( node.leftChild >= 0 && leftIsLeaf ) {
+			traverseKdTree( &rayCp1, kdNonLeaves, kdLeaves, kdFaces, faces, tNearL, tFarL, leftKdRoot );
 		}
 
 		if(
-			( ray->nodeIndex < 0 && rayCp2.nodeIndex >= 0 ) ||
-			( rayCp2.nodeIndex >= 0 && ray->t > rayCp2.t )
+			( ray->t < 0.0f && rayCp2.t > -1.0f ) ||
+			( rayCp2.t > -1.0f && ray->t > rayCp2.t )
 		) {
 			*ray = rayCp2;
 		}
 
 		if(
-			( ray->nodeIndex < 0 && rayCp1.nodeIndex >= 0 ) ||
-			( rayCp1.nodeIndex >= 0 && ray->t > rayCp1.t )
+			( ray->t < 0.0f && rayCp1.t > -1.0f ) ||
+			( rayCp1.t > -1.0f && ray->t > rayCp1.t )
 		) {
 			*ray = rayCp1;
 		}
