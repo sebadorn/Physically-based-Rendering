@@ -623,6 +623,7 @@ string CL::setValues( string clProgramString ) {
 	valueReplace.push_back( "BOUNCES" );
 	valueReplace.push_back( "IMG_HEIGHT" );
 	valueReplace.push_back( "IMG_WIDTH" );
+	valueReplace.push_back( "MAX_ADDED_BOUNCES" );
 	valueReplace.push_back( "SAMPLES" );
 	valueReplace.push_back( "SPECTRAL_COLORSYSTEM" );
 
@@ -630,6 +631,7 @@ string CL::setValues( string clProgramString ) {
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_BOUNCES ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH ) );
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_MAXADDEDBOUNCES ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SAMPLES ) );
 	configInt.push_back( Cfg::get().value<cl_int>( Cfg::SPECTRAL_COLORSYSTEM ) );
 

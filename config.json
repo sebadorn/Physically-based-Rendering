@@ -82,6 +82,8 @@
 		"bounces": 3,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 100.0,
+		// Extend the path if a reflective or transparent surface is hit
+		"max_added_bounces": 3,
 		// Samples of paths per frame
 		"samples": 1
 	},
