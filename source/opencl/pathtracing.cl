@@ -144,7 +144,7 @@ kernel void pathTracing(
 
 	int bouncesAdded, light;
 	uint index;
-	bool addBounce, isTransparent;
+	bool addBounce, ignoreColor;
 
 
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
@@ -170,18 +170,24 @@ kernel void pathTracing(
 				break;
 			}
 
+			// Last round, no need to calculate a new ray.
+			// Unless we hit a material that extends the path.
+			if( mtl.d == 1.0f && mtl.illum != 3 && bounce == BOUNCES + bouncesAdded - 1 ) {
+				break;
+			}
+
 			// New direction of the ray (bouncing of the hit surface)
 			seed += ray.t;
-			newRay = getNewRay( ray, mtl, &seed, &isTransparent, &addBounce );
+			newRay = getNewRay( ray, mtl, &seed, &ignoreColor, &addBounce );
 
 			if( addBounce && bouncesAdded < MAX_ADDED_BOUNCES ) {
 				bouncesAdded++;
 			}
 
-			index = mtl.spd * SPEC;
-			cosLaw = cosineLaw( ray.normal, newRay.dir );
+			if( !ignoreColor ) {
+				index = mtl.spd * SPEC;
+				cosLaw = cosineLaw( ray.normal, newRay.dir );
 
-			if( !isTransparent ) {
 				for( int i = 0; i < SPEC; i++ ) {
 					spd[i] *= specPowerDists[index + i] * cosLaw;
 					maxValSpd = fmax( spd[i], maxValSpd );

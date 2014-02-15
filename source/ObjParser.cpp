@@ -133,9 +133,8 @@ void ObjParser::load( string filepath, string filename ) {
 		getline( fileIn, line );
 		boost::algorithm::trim( line );
 
-		// Lines with less characters then this and comments
-		// can't contain anything interesting
-		if( line.length() < 7 || line[0] == '#' ) {
+		// Ignore comment lines
+		if( line[0] == '#' ) {
 			continue;
 		}
 
@@ -143,7 +142,7 @@ void ObjParser::load( string filepath, string filename ) {
 		if( line[0] == 'o' ) {
 			object3D o;
 			vector<string> parts;
-			boost::split( parts, line, boost::is_any_of( " " ) );
+			boost::split( parts, line, boost::is_any_of( " \t" ) );
 			o.oName = parts[1];
 
 			mObjects.push_back( o );

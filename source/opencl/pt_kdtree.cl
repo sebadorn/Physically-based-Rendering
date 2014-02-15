@@ -88,13 +88,13 @@ void checkFaces(
  * @param  addBounce
  * @return
  */
-ray4 getNewRay( ray4 prevRay, material mtl, float* seed, bool* isTransparent, bool* addBounce ) {
+ray4 getNewRay( ray4 prevRay, material mtl, float* seed, bool* ignoreColor, bool* addBounce ) {
 	ray4 newRay;
 	newRay.t = -2.0f;
 	newRay.origin = fma( prevRay.t, prevRay.dir, prevRay.origin ) + prevRay.normal * EPSILON;
 
 	*addBounce = false;
-	*isTransparent = false;
+	*ignoreColor = false;
 
 	// Transparency and refraction
 	if( mtl.d < 1.0f && mtl.d <= rand( seed ) ) {
@@ -120,7 +120,7 @@ ray4 getNewRay( ray4 prevRay, material mtl, float* seed, bool* isTransparent, bo
 		}
 
 		*addBounce = true;
-		*isTransparent = true;
+		*ignoreColor = true;
 	}
 	// Specular
 	else if( mtl.illum == 3 ) {
@@ -131,6 +131,7 @@ ray4 getNewRay( ray4 prevRay, material mtl, float* seed, bool* isTransparent, bo
 		newRay.dir = fast_normalize( newRay.dir );
 
 		*addBounce = true;
+		*ignoreColor = true;
 	}
 	// Diffuse
 	else {

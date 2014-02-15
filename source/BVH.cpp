@@ -304,39 +304,41 @@ void BVH::visualizeNextNode( BVHnode* node, vector<cl_float>* vertices, vector<c
 		return;
 	}
 
-	cl_uint i = vertices->size() / 3;
+	if( node->kdtree != NULL ) {
+		cl_uint i = vertices->size() / 3;
 
-	// bottom
-	vertices->push_back( node->bbMin[0] ); vertices->push_back( node->bbMin[1] ); vertices->push_back( node->bbMin[2] );
-	vertices->push_back( node->bbMin[0] ); vertices->push_back( node->bbMin[1] ); vertices->push_back( node->bbMax[2] );
-	vertices->push_back( node->bbMax[0] ); vertices->push_back( node->bbMin[1] ); vertices->push_back( node->bbMax[2] );
-	vertices->push_back( node->bbMax[0] ); vertices->push_back( node->bbMin[1] ); vertices->push_back( node->bbMin[2] );
-
-	// top
-	vertices->push_back( node->bbMin[0] ); vertices->push_back( node->bbMax[1] ); vertices->push_back( node->bbMin[2] );
-	vertices->push_back( node->bbMin[0] ); vertices->push_back( node->bbMax[1] ); vertices->push_back( node->bbMax[2] );
-	vertices->push_back( node->bbMax[0] ); vertices->push_back( node->bbMax[1] ); vertices->push_back( node->bbMax[2] );
-	vertices->push_back( node->bbMax[0] ); vertices->push_back( node->bbMax[1] ); vertices->push_back( node->bbMin[2] );
-
-	cl_uint newIndices[24] = {
 		// bottom
-		i + 0, i + 1,
-		i + 1, i + 2,
-		i + 2, i + 3,
-		i + 3, i + 0,
+		vertices->push_back( node->bbMin[0] ); vertices->push_back( node->bbMin[1] ); vertices->push_back( node->bbMin[2] );
+		vertices->push_back( node->bbMin[0] ); vertices->push_back( node->bbMin[1] ); vertices->push_back( node->bbMax[2] );
+		vertices->push_back( node->bbMax[0] ); vertices->push_back( node->bbMin[1] ); vertices->push_back( node->bbMax[2] );
+		vertices->push_back( node->bbMax[0] ); vertices->push_back( node->bbMin[1] ); vertices->push_back( node->bbMin[2] );
+
 		// top
-		i + 4, i + 5,
-		i + 5, i + 6,
-		i + 6, i + 7,
-		i + 7, i + 4,
-		// back
-		i + 0, i + 4,
-		i + 3, i + 7,
-		// front
-		i + 1, i + 5,
-		i + 2, i + 6
-	};
-	indices->insert( indices->end(), newIndices, newIndices + 24 );
+		vertices->push_back( node->bbMin[0] ); vertices->push_back( node->bbMax[1] ); vertices->push_back( node->bbMin[2] );
+		vertices->push_back( node->bbMin[0] ); vertices->push_back( node->bbMax[1] ); vertices->push_back( node->bbMax[2] );
+		vertices->push_back( node->bbMax[0] ); vertices->push_back( node->bbMax[1] ); vertices->push_back( node->bbMax[2] );
+		vertices->push_back( node->bbMax[0] ); vertices->push_back( node->bbMax[1] ); vertices->push_back( node->bbMin[2] );
+
+		cl_uint newIndices[24] = {
+			// bottom
+			i + 0, i + 1,
+			i + 1, i + 2,
+			i + 2, i + 3,
+			i + 3, i + 0,
+			// top
+			i + 4, i + 5,
+			i + 5, i + 6,
+			i + 6, i + 7,
+			i + 7, i + 4,
+			// back
+			i + 0, i + 4,
+			i + 3, i + 7,
+			// front
+			i + 1, i + 5,
+			i + 2, i + 6
+		};
+		indices->insert( indices->end(), newIndices, newIndices + 24 );
+	}
 
 	// Proceed with left side
 	this->visualizeNextNode( node->left, vertices, indices );

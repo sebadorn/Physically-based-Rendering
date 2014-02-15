@@ -41,7 +41,7 @@
 		"depth": -1,
 		// Minimum of faces per leaf node.
 		// However, 1 split is minimum and will occur regardless
-		"min_faces": 16,
+		"min_faces": 4,
 		"optimize_ropes": true
 	},
 
@@ -102,9 +102,9 @@
 	},
 
 	"window": {
-		"height": 512,
+		"height": 600,
 		"title": "Physically-based Renderer",
-		"width": 512
+		"width": 800
 	}
 
 }
