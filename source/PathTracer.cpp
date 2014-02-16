@@ -12,7 +12,6 @@ PathTracer::PathTracer() {
 
 	mWidth = Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH );
 	mHeight = Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT );
-	mBounces = Cfg::get().value<cl_uint>( Cfg::RENDER_BOUNCES );
 
 	mCL = new CL();
 	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
@@ -221,7 +220,7 @@ void PathTracer::initOpenCLBuffers(
 void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 	vector<bvhNode_cl> BVHnodesCL;
 	vector<BVHnode*> BVHnodes = bvh->getNodes();
-	cl_uint offsetNonLeaves = 0;
+	cl_int offsetNonLeaves = 0;
 
 	for( cl_uint i = 0; i < BVHnodes.size(); i++ ) {
 		BVHnode* node = BVHnodes[i];
@@ -232,16 +231,12 @@ void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 		bvhNode_cl nodeCL;
 		nodeCL.bbMin = bbMin;
 		nodeCL.bbMax = bbMax;
-		nodeCL.rightChild = ( node->right != NULL ) ? node->right->id : -1;
+		nodeCL.bbMin.w = ( node->left != NULL ) ? (cl_float) ( node->left->id + 1 ) : 0.0f;
+		nodeCL.bbMax.w = ( node->right != NULL ) ? (cl_float) ( node->right->id + 1 ) : 0.0f;
 
-		if( node->left != NULL ) {
-			nodeCL.leftChild = node->left->id;
-		}
-		else if( node->kdtree != NULL ) {
-			nodeCL.bbMin.w = 1.0f; // Flag: This is a BVH leaf node with a kD-tree.
-			nodeCL.bbMax.w = offsetNonLeaves;
+		if( node->kdtree != NULL ) {
+			nodeCL.bbMin.w = (cl_float) -( offsetNonLeaves + 1 ); // Offset for the index of the kD-tree root node
 			offsetNonLeaves += node->kdtree->getNonLeaves().size();
-			nodeCL.leftChild = -1;
 		}
 
 		BVHnodesCL.push_back( nodeCL );
@@ -345,6 +340,8 @@ void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 		mtl.gloss = materials[i].gloss;
 		mtl.illum = materials[i].illum;
 		mtl.light = materials[i].light;
+		mtl.scratch = materials[i].scratch;
+		mtl.scratch.w = materials[i].p;
 
 		string spdName = mtl2spd[materials[i].mtlName];
 		mtl.spd = specID[spdName];

@@ -32,9 +32,9 @@ class Cfg {
 		static const char* LOG_LEVEL;
 		static const char* RENDER_ANTIALIAS;
 		static const char* RENDER_BACKFACECULLING;
-		static const char* RENDER_BOUNCES;
 		static const char* RENDER_INTERVAL;
-		static const char* RENDER_MAXADDEDBOUNCES;
+		static const char* RENDER_MAXADDEDDEPTH;
+		static const char* RENDER_MAXDEPTH;
 		static const char* RENDER_SAMPLES;
 		static const char* OPENCL_BUILDOPTIONS;
 		static const char* OPENCL_CHECKERRORS;
@@ -47,7 +47,6 @@ class Cfg {
 		static const char* SHADER_NAME;
 		static const char* SPECTRAL_COLORSYSTEM;
 		static const char* WINDOW_HEIGHT;
-		static const char* WINDOW_TITLE;
 		static const char* WINDOW_WIDTH;
 
 	private:

@@ -17,7 +17,7 @@ Window::Window() {
 	mInfoWindow = new InfoWindow( this, mGLWidget->getCLObject() );
 
 	this->setLayout( this->createLayout() );
-	this->setWindowTitle( tr( Cfg::get().value<std::string>( Cfg::WINDOW_TITLE ).c_str() ) );
+	this->setWindowTitle( tr( PBR_TITLE ) );
 }
 
 

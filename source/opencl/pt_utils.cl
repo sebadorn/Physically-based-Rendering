@@ -228,117 +228,110 @@ inline void setArray( float* arr, float val ) {
 }
 
 
-// /**
-//  *
-//  * @param  t
-//  * @param  r Roughness factor (0: perfect specular, 1: perfect diffuse).
-//  * @return
-//  */
-// inline float Z( float t, float r ) {
-// 	return r / pown( 1.0f + r * t * t - t * t, 2 );
-// }
+
+// ---- //
+// BRDF //
+// ---- //
 
 
-// /**
-//  *
-//  * @param  w
-//  * @param  p Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
-//  * @return
-//  */
-// inline float A( float w, float p ) {
-// 	return sqrt( p / ( p * p - p * p * w * w + w * w ) );
-// }
+/**
+ *
+ * @param  t
+ * @param  r Roughness factor (0: perfect specular, 1: perfect diffuse).
+ * @return
+ */
+inline float Z( float t, float r ) {
+	return r / pown( 1.0f + r * t * t - t * t, 2 );
+}
 
 
-// /**
-//  *
-//  * @param  v
-//  * @param  r Roughness factor (0: perfect specular, 1: perfect diffuse)
-//  * @return
-//  */
-// inline float G( float v, float r ) {
-// 	return v / ( r - r * v + v );
-// }
+/**
+ *
+ * @param  w
+ * @param  p Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
+ * @return
+ */
+inline float A( float w, float p ) {
+	return sqrt( p / ( p * p - p * p * w * w + w * w ) );
+}
 
 
-// /**
-//  *
-//  * @param  t
-//  * @param  vOut
-//  * @param  vIn
-//  * @param  w
-//  * @param  r   Roughness factor (0: perfect specular, 1: perfect diffuse)
-//  * @param  p   Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
-//  * @return
-//  */
-// inline float B( float t, float vOut, float vIn, float w, float r, float p ) {
-// 	float gp = G( vOut, r ) * G( vIn, r );
-// 	float d = 4.0f * M_PI * vOut * vIn;
-// 	float part1 = gp * Z( t, r ) * A( w, p ) / d;
-// 	float part2 = ( 1.0f - gp ) / d;
-
-// 	return part1 + part2;
-// }
+/**
+ *
+ * @param  v
+ * @param  r Roughness factor (0: perfect specular, 1: perfect diffuse)
+ * @return
+ */
+inline float G( float v, float r ) {
+	return v / ( r - r * v + v );
+}
 
 
-// /**
-//  * Directional factor.
-//  * @param  t
-//  * @param  v
-//  * @param  vIn
-//  * @param  w
-//  * @param  r
-//  * @param  p
-//  * @return
-//  */
-// inline float D( float t, float vOut, float vIn, float w, float r, float p ) {
-// 	float b = 4.0f * r * ( 1.0f - r );
-// 	float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
-// 	float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
+/**
+ *
+ * @param  t
+ * @param  vOut
+ * @param  vIn
+ * @param  w
+ * @param  r   Roughness factor (0: perfect specular, 1: perfect diffuse)
+ * @param  p   Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
+ * @return
+ */
+inline float B( float t, float vOut, float vIn, float w, float r, float p ) {
+	float gp = G( vOut, r ) * G( vIn, r );
+	float d = 4.0f * M_PI * vOut * vIn;
+	float part1 = gp * Z( t, r ) * A( w, p ) / d;
+	float part2 = ( 1.0f - gp ) / d;
 
-// 	return ( a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn );
-// 	// TODO: ( c / vIn ) probably not correct
-// }
-
-
-// /**
-//  * Spectral factor.
-//  * @param  u
-//  * @param  c Reflection factor.
-//  * @return
-//  */
-// inline float S( float u, float c ) {
-// 	return c + ( 1.0f - c ) * pown( 1.0f - u, 5 );
-// }
+	return part1 + part2;
+}
 
 
-// inline float4 projection( float4 h, float4 n ) {
-// 	return dot( h, n ) / pown( fast_length( n ), 2 ) * n;
-// }
+/**
+ * Directional factor.
+ * @param  t
+ * @param  v
+ * @param  vIn
+ * @param  w
+ * @param  r
+ * @param  p
+ * @return
+ */
+inline float D( float t, float vOut, float vIn, float w, float r, float p ) {
+	float b = 4.0f * r * ( 1.0f - r );
+	float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
+	float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
+
+	return ( a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn );
+	// TODO: ( c / vIn ) probably not correct
+}
 
 
-// inline void getValuesBRDF(
-// 	float4 V_in, float4 V_out, float4 N, float4 T,
-// 	float4* H, float* t, float* v, float* vIn, float* w
-// ) {
-// 	*H = fast_normalize( V_out + V_in );
-// 	*t = fmax( dot( *H, N ), 0.0f );
-// 	*v = fmax( dot( V_out, N ), 0.0f );
-// 	*vIn = fmax( dot( V_in, N ), 0.0f );
-// 	*w = dot( T, projection( *H, N ) );
-// }
+/**
+ * Spectral factor.
+ * @param  u
+ * @param  c Reflection factor.
+ * @return
+ */
+inline float S( float u, float c ) {
+	return c + ( 1.0f - c ) * pown( 1.0f - u, 5 );
+}
 
 
-// inline pathPoint getDefaultPathPoint() {
-// 	pathPoint p;
-// 	p.spdMaterial = -1;
-// 	p.spdLight = -1;
-// 	p.D = 0.0f;
-// 	p.u = 1.0f;
-// 	p.cosLaw = 0.0f;
-// 	p.D_light = 0.0f;
-// 	p.u_light = 1.0f;
-// 	p.cosLaw_light = 0.0f;
+inline float4 projection( float4 h, float4 n ) {
+	return dot( h, n ) / pown( fast_length( n ), 2 ) * n;
+}
 
-// 	return p;
-// }
+
+inline void getValuesBRDF(
+	float4 V_in, float4 V_out, float4 N, float4 T,
+	float4* H, float* t, float* v, float* vIn, float* vOut, float* w
+) {
+	T.w = 0.0f;
+	*H = fast_normalize( V_out + V_in );
+	*t = fmax( dot( *H, N ), 0.0f );
+	*v = fmax( dot( V_out, N ), 0.0f );
+	*vIn = fmax( dot( V_in, N ), 0.0f );
+	*vOut = fmax( dot( V_out, N ), 0.0f );
+	*w = dot( T, projection( *H, N ) );
+}

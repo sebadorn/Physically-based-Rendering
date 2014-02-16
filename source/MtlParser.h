@@ -28,18 +28,22 @@ using std::vector;
  *         A value of 0.0 will be interpreted as disabled specular highlights. (Implementation dependent.)
  *
  * Custom additions:
- * gloss - Glossiness factor [0.0, 1.0].
- * light - Is this a light [0, 1].
+ * gloss   - Glossiness factor [0.0, 1.0].
+ * light   - Is this a light [0, 1].
+ * p       - Isotropy/anisotropy factor [0.0, 1.0] with 1.0 having perfect isotropy.
+ * scratch - Direction of scratches on the surface for anisotropy/isotropy [unit vector].
  */
 struct material_t {
 	string mtlName;
 	cl_float4 Ka;
 	cl_float4 Kd;
 	cl_float4 Ks;
+	cl_float4 scratch;
 	cl_float d;
 	cl_float Ni;
 	cl_float Ns;
 	cl_float gloss;
+	cl_float p;
 	cl_char illum;
 	cl_char light;
 };

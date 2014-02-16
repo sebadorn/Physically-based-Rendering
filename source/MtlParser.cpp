@@ -22,6 +22,8 @@ material_t MtlParser::getEmptyMaterial() {
 	mtl.gloss = 0.0f;
 	mtl.illum = 2;
 	mtl.light = 0;
+	mtl.p = 1.0f;
+	mtl.scratch = zeros;
 
 	return mtl;
 }
@@ -173,6 +175,24 @@ void MtlParser::load( string file ) {
 				continue;
 			}
 			mtl.light = atoi( parts[1].c_str() );
+		}
+		// Anisotropy/isotropy
+		else if( parts[0] == "p" ) {
+			if( parts.size() < 2 ) {
+				Logger::logWarning( "[MtlParser] Not enough parameters for <p>. Ignoring attribute." );
+				continue;
+			}
+			mtl.p = atof( parts[1].c_str() );
+		}
+		// Scratch orientation (anisotropy)
+		else if( parts[0] == "scr" ) {
+			if( parts.size() < 4 ) {
+				Logger::logWarning( "[MtlParser] Not enough parameters for <scr>. Ignoring attribute." );
+				continue;
+			}
+			mtl.scratch.x = atof( parts[1].c_str() );
+			mtl.scratch.y = atof( parts[2].c_str() );
+			mtl.scratch.z = atof( parts[3].c_str() );
 		}
 	}
 

@@ -15,7 +15,7 @@
  */
 void setColors(
 	const int2 pos, read_only image2d_t imageIn, write_only image2d_t imageOut,
-	const float pixelWeight, float spdLight[40]
+	const float pixelWeight, float spdLight[40], float focus
 ) {
 	const float4 imagePixel = read_imagef( imageIn, sampler, pos );
 	const float4 accumulatedColor = spectrumToRGB( spdLight );
@@ -23,6 +23,7 @@ void setColors(
 		clamp( accumulatedColor, 0.0f, 1.0f ),
 		imagePixel, pixelWeight
 	);
+	color.w = focus;
 
 	write_imagef( imageOut, pos, color );
 }
@@ -119,32 +120,19 @@ kernel void pathTracing(
 	};
 	const uint workIndex = pos.x + pos.y * IMG_WIDTH;
 
-	ray4 firstRay = rays[workIndex];
-
-	float tFar = FLT_MAX;
-
 	float spd[SPEC], spdTotal[SPEC];
 	setArray( spdTotal, 0.0f );
 
-
-	bvhNode bvhRoot = bvh[0];
-
-	if( !intersectBB( firstRay.origin, firstRay.dir, bvhRoot.bbMin, bvhRoot.bbMax ) ) {
-		setColors( pos, imageIn, imageOut, pixelWeight, spdTotal );
-		return;
-	}
-
-
+	const bvhNode bvhRoot = bvh[0];
+	const ray4 firstRay = rays[workIndex];
 	ray4 newRay, ray;
 	material mtl;
 	face_t f;
 
-	float4 normal;
-	float cosLaw, maxValSpd;
-
-	int bouncesAdded, light;
+	float brdf, cosLaw, focus, maxValSpd;
+	int depthAdded, light;
 	uint index;
-	bool addBounce, ignoreColor;
+	bool addDepth, ignoreColor;
 
 
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
@@ -152,13 +140,17 @@ kernel void pathTracing(
 		light = -1;
 		ray = firstRay;
 		maxValSpd = 0.0f;
-		bouncesAdded = 0;
+		depthAdded = 0;
 
-		for( uint bounce = 0; bounce < BOUNCES + bouncesAdded; bounce++ ) {
+		for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
 			traverseBVH( bvh, bvhRoot, &ray, kdNonLeaves, kdLeaves, kdFaces, faces );
 
 			if( ray.t < 0.0f ) {
 				break;
+			}
+
+			if( depth == 0 ) {
+				focus = ray.t;
 			}
 
 			f = faces[ray.faceIndex];
@@ -172,30 +164,37 @@ kernel void pathTracing(
 
 			// Last round, no need to calculate a new ray.
 			// Unless we hit a material that extends the path.
-			if( mtl.d == 1.0f && mtl.illum != 3 && bounce == BOUNCES + bouncesAdded - 1 ) {
+			if( mtl.d == 1.0f && mtl.illum != 3 && depth == MAX_DEPTH + depthAdded - 1 ) {
 				break;
 			}
 
 			// New direction of the ray (bouncing of the hit surface)
 			seed += ray.t;
-			newRay = getNewRay( ray, mtl, &seed, &ignoreColor, &addBounce );
-
-			if( addBounce && bouncesAdded < MAX_ADDED_BOUNCES ) {
-				bouncesAdded++;
-			}
+			newRay = getNewRay( ray, mtl, &seed, &ignoreColor, &addDepth );
 
 			if( !ignoreColor ) {
 				index = mtl.spd * SPEC;
 				cosLaw = cosineLaw( ray.normal, newRay.dir );
 
+				// float4 H;
+				// float t, v, vIn, vOut, w;
+				// float r = 1.0f;
+				// getValuesBRDF( newRay.dir, -ray.dir, ray.normal, mtl.scratch, &H, &t, &v, &vIn, &vOut, &w );
+				// float u = fmax( dot( H, -ray.dir ), 0.0f );
+				// brdf = D( t, vOut, vIn, w, r, mtl.scratch.w );
+				brdf = 1.0f;
+
 				for( int i = 0; i < SPEC; i++ ) {
-					spd[i] *= specPowerDists[index + i] * cosLaw;
+					spd[i] *= specPowerDists[index + i] * brdf * cosLaw;
 					maxValSpd = fmax( spd[i], maxValSpd );
 				}
 			}
 
+			// Extend max path depth
+			depthAdded += ( addDepth && depthAdded < MAX_ADDED_DEPTH );
+
 			// Russian roulette termination
-			if( bounce > 2 && maxValSpd < rand( &seed ) ) {
+			if( depth > 2 && maxValSpd < rand( &seed ) ) {
 				break;
 			}
 
@@ -215,5 +214,5 @@ kernel void pathTracing(
 	}
 
 
-	setColors( pos, imageIn, imageOut, pixelWeight, spdTotal );
+	setColors( pos, imageIn, imageOut, pixelWeight, spdTotal, focus );
 }

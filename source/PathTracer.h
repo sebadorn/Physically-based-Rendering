@@ -46,13 +46,12 @@ struct kdLeaf_cl {
 };
 
 struct bvhNode_cl {
-	cl_float4 bbMin;
-	cl_float4 bbMax;
-	cl_int leftChild;
-	cl_int rightChild;
+	cl_float4 bbMin; // bbMin.w = left child node / kD-tree root node
+	cl_float4 bbMax; // bbMax.w = right child node
 };
 
 struct material_cl_t {
+	cl_float4 scratch; // scratch.w = p (isotropy factor)
 	cl_float d;
 	cl_float Ni;
 	cl_float gloss;
@@ -106,7 +105,6 @@ class PathTracer {
 		void updateEyeBuffer();
 
 	private:
-		cl_uint mBounces;
 		cl_uint mHeight;
 		cl_uint mWidth;
 		cl_float mFOV;

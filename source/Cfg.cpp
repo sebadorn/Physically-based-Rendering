@@ -16,9 +16,9 @@ const char* Cfg::KDTREE_OPTIMIZEROPES = "kdtree.optimize_ropes";
 const char* Cfg::LOG_LEVEL = "logging.level";
 const char* Cfg::RENDER_ANTIALIAS = "render.antialiasing";
 const char* Cfg::RENDER_BACKFACECULLING = "render.backface_culling";
-const char* Cfg::RENDER_BOUNCES = "render.bounces";
 const char* Cfg::RENDER_INTERVAL = "render.interval";
-const char* Cfg::RENDER_MAXADDEDBOUNCES = "render.max_added_bounces";
+const char* Cfg::RENDER_MAXADDEDDEPTH = "render.max_added_depth";
+const char* Cfg::RENDER_MAXDEPTH = "render.max_depth";
 const char* Cfg::RENDER_SAMPLES = "render.samples";
 const char* Cfg::OPENCL_BUILDOPTIONS = "opencl.build_options";
 const char* Cfg::OPENCL_CHECKERRORS = "opencl.check_errors";
@@ -31,7 +31,6 @@ const char* Cfg::SHADER_PATH = "shader.path";
 const char* Cfg::SHADER_NAME = "shader.name";
 const char* Cfg::SPECTRAL_COLORSYSTEM = "spectral.color_system";
 const char* Cfg::WINDOW_HEIGHT = "window.height";
-const char* Cfg::WINDOW_TITLE = "window.title";
 const char* Cfg::WINDOW_WIDTH = "window.width";
 
 

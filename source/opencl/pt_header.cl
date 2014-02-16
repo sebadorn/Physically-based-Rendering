@@ -1,11 +1,11 @@
 #ANTI_ALIASING#
 #BACKFACE_CULLING#
-#define BOUNCES #BOUNCES#
+#define MAX_DEPTH #MAX_DEPTH#
 #define BVH_STACKSIZE 20
 #define EPSILON 0.00001f
 #define IMG_HEIGHT #IMG_HEIGHT#
 #define IMG_WIDTH #IMG_WIDTH#
-#define MAX_ADDED_BOUNCES #MAX_ADDED_BOUNCES#
+#define MAX_ADDED_DEPTH #MAX_ADDED_DEPTH#
 #define NI_AIR 1.0f
 #define PI_X2 6.28318530718f
 #define SPEC 40
@@ -43,13 +43,12 @@ typedef struct {
 } kdLeaf;
 
 typedef struct {
-	float4 bbMin;
-	float4 bbMax;
-	int leftChild;
-	int rightChild;
+	float4 bbMin; // bbMin.w = left child node / kD-tree root node
+	float4 bbMax; // bbMax.w = right child node
 } bvhNode;
 
 typedef struct {
+	float4 scratch; // scratch.w = p (isotropy factor)
 	float d;
 	float Ni;
 	float gloss;

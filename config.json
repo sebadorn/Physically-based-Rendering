@@ -77,13 +77,12 @@
 		// Can boost performance, but in some rare cases may
 		// introduce rendering errors.
 		"backface_culling": false,
-		// Number of times a light ray bounces.
-		// More bounces = less FPS.
-		"bounces": 3,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 100.0,
 		// Extend the path if a reflective or transparent surface is hit
-		"max_added_bounces": 3,
+		"max_added_depth": 3,
+		// Maximum path length
+		"max_depth": 3,
 		// Samples of paths per frame
 		"samples": 1
 	},
@@ -105,7 +104,6 @@
 
 	"window": {
 		"height": 600,
-		"title": "Physically-based Renderer",
 		"width": 800
 	}
 

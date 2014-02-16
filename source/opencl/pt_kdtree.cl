@@ -85,15 +85,15 @@ void checkFaces(
  * @param  normal
  * @param  mtl
  * @param  seed
- * @param  addBounce
+ * @param  addDepth
  * @return
  */
-ray4 getNewRay( ray4 prevRay, material mtl, float* seed, bool* ignoreColor, bool* addBounce ) {
+ray4 getNewRay( ray4 prevRay, material mtl, float* seed, bool* ignoreColor, bool* addDepth ) {
 	ray4 newRay;
 	newRay.t = -2.0f;
 	newRay.origin = fma( prevRay.t, prevRay.dir, prevRay.origin ) + prevRay.normal * EPSILON;
 
-	*addBounce = false;
+	*addDepth = false;
 	*ignoreColor = false;
 
 	// Transparency and refraction
@@ -119,7 +119,7 @@ ray4 getNewRay( ray4 prevRay, material mtl, float* seed, bool* ignoreColor, bool
 			}
 		}
 
-		*addBounce = true;
+		*addDepth = true;
 		*ignoreColor = true;
 	}
 	// Specular
@@ -130,7 +130,7 @@ ray4 getNewRay( ray4 prevRay, material mtl, float* seed, bool* ignoreColor, bool
 		            : (float4)( 0.0f );
 		newRay.dir = fast_normalize( newRay.dir );
 
-		*addBounce = true;
+		*addDepth = true;
 		*ignoreColor = true;
 	}
 	// Diffuse
@@ -241,91 +241,174 @@ void traverseBVH(
 	const global kdLeaf* kdLeaves, const global uint* kdFaces, const global face_t* faces
 ) {
 	bvhNode leftNode, rightNode;
-	ray4 rayCp1, rayCp2;
-	bool addLeftToStack, addRightToStack, leftIsLeaf, rightIsLeaf;
-	uint leftKdRoot, rightKdRoot;
+	ray4 rayCp, rayBest;
+	bool addLeftToStack, addRightToStack, leftIsLeaf, rightIsLeaf, rightThenLeft;
+	int kdRoot, leftKdRoot, rightKdRoot;
 	float tFarL, tFarR, tNearL, tNearR;
 
+	float4 bbMax, bbMin;
+
+	int leftChildIndex, rightChildIndex;
 	int stackIndex = 0;
 	bvhNode bvhStack[BVH_STACKSIZE];
 	bvhStack[stackIndex] = node;
 
+	rayBest = *ray;
+	rayCp = *ray;
+
+
 	while( stackIndex >= 0 ) {
 		node = bvhStack[stackIndex--];
 
-		if( node.rightChild >= 0 ) {
-			rightNode = bvh[node.rightChild];
-			rightIsLeaf = ( rightNode.bbMin.w == 1.0f );
-			rightKdRoot = rightNode.bbMax.w;
-			rightNode.bbMin.w = 0.0f;
-			rightNode.bbMax.w = 0.0f;
-		}
+		leftChildIndex = (int) node.bbMin.w;
+		rightChildIndex = (int) node.bbMax.w;
 
-		if( node.leftChild >= 0 ) {
-			leftNode = bvh[node.leftChild];
-			leftIsLeaf = ( leftNode.bbMin.w == 1.0f );
-			leftKdRoot = leftNode.bbMax.w;
-			leftNode.bbMin.w = 0.0f;
-			leftNode.bbMax.w = 0.0f;
-		}
-
-		tNearR = -2.0f;
 		tNearL = -2.0f;
-		tFarR = FLT_MAX;
 		tFarL = FLT_MAX;
+		tNearR = -2.0f;
+		tFarR = FLT_MAX;
 
-		if( node.rightChild >= 0 ) {
-			intersectBoundingBox( ray->origin, ray->dir, rightNode.bbMin, rightNode.bbMax, &tNearR, &tFarR );
-		}
-		if( node.leftChild >= 0 ) {
-			intersectBoundingBox( ray->origin, ray->dir, leftNode.bbMin, leftNode.bbMax, &tNearL, &tFarL );
-		}
+		// Is a leaf node and contains a kD-tree
+		if( leftChildIndex < 0 ) {
+			kdRoot = -( leftChildIndex + 1 );
+			bbMin = node.bbMin.w;
+			bbMax = node.bbMax.w;
+			bbMin.w = 0.0f;
+			bbMax.w = 0.0f;
 
-		addRightToStack = node.rightChild >= 0 && !rightIsLeaf && ( ray->t < 0.0f || ray->t >= tNearR );
-		addLeftToStack = node.leftChild >= 0 && !leftIsLeaf && ( ray->t < 0.0f || ray->t >= tNearL );
-
-		// If the left node is closer to the ray origin, test it first.
-		// By pushing the right node first on the stack and then the left one,
-		// the left one will be popped first.
-		if( tNearR > tNearL ) {
-			if( addRightToStack ) {
-				bvhStack[++stackIndex] = rightNode;
+			if( intersectBoundingBox( ray->origin, ray->dir, node.bbMin, node.bbMax, &tNearL, &tFarL ) ) {
+				rayCp = *ray;
+				traverseKdTree( &rayCp, kdNonLeaves, kdLeaves, kdFaces, faces, tNearL, tFarL, kdRoot );
+				rayBest = ( rayBest.t < 0.0f || ( rayCp.t > -1.0f && rayCp.t < rayBest.t ) ) ? rayCp : rayBest;
 			}
-			if( addLeftToStack ) {
-				bvhStack[++stackIndex] = leftNode;
+
+			continue;
+		}
+
+		addLeftToStack = false;
+		addRightToStack = false;
+
+		// Not a leaf, add child nodes to stack, if hit by ray
+		if( leftChildIndex > 0 ) {
+			leftNode = bvh[leftChildIndex - 1];
+			bbMin = leftNode.bbMin;
+			bbMax = leftNode.bbMax;
+			bbMin.w = 0.0f;
+			bbMax.w = 0.0f;
+
+			if( intersectBoundingBox( ray->origin, ray->dir, bbMin, bbMax, &tNearL, &tFarL ) ) {
+				addLeftToStack = true;
 			}
 		}
-		else {
-			if( addLeftToStack ) {
-				bvhStack[++stackIndex] = leftNode;
+		if( rightChildIndex > 0 ) {
+			rightNode = bvh[rightChildIndex - 1];
+			bbMin = rightNode.bbMin;
+			bbMax = rightNode.bbMax;
+			bbMin.w = 0.0f;
+			bbMax.w = 0.0f;
+
+			if( intersectBoundingBox( ray->origin, ray->dir, bbMin, bbMax, &tNearR, &tFarR ) ) {
+				addRightToStack = true;
 			}
-			if( addRightToStack ) {
-				bvhStack[++stackIndex] = rightNode;
-			}
 		}
 
-		rayCp1 = *ray;
-		rayCp2 = *ray;
+		// The node that is pushed on the stack first will be evaluated last.
+		// So the nearer one should be pushed last, because it will be popped first then.
+		rightThenLeft = ( tNearR > tNearL );
 
-		if( node.rightChild >= 0 && rightIsLeaf ) {
-			traverseKdTree( &rayCp2, kdNonLeaves, kdLeaves, kdFaces, faces, tNearR, tFarR, rightKdRoot );
+		if( rightThenLeft && addRightToStack) {
+			bvhStack[++stackIndex] = rightNode;
 		}
-		if( node.leftChild >= 0 && leftIsLeaf ) {
-			traverseKdTree( &rayCp1, kdNonLeaves, kdLeaves, kdFaces, faces, tNearL, tFarL, leftKdRoot );
-		}
-
-		if(
-			( ray->t < 0.0f && rayCp2.t > -1.0f ) ||
-			( rayCp2.t > -1.0f && ray->t > rayCp2.t )
-		) {
-			*ray = rayCp2;
+		if( rightThenLeft && addLeftToStack) {
+			bvhStack[++stackIndex] = leftNode;
 		}
 
-		if(
-			( ray->t < 0.0f && rayCp1.t > -1.0f ) ||
-			( rayCp1.t > -1.0f && ray->t > rayCp1.t )
-		) {
-			*ray = rayCp1;
+		if( !rightThenLeft && addLeftToStack) {
+			bvhStack[++stackIndex] = leftNode;
+		}
+		if( !rightThenLeft && addRightToStack) {
+			bvhStack[++stackIndex] = rightNode;
 		}
 	}
+
+	*ray = rayBest;
+
+
+	// while( stackIndex >= 0 ) {
+	// 	node = bvhStack[stackIndex--];
+	// 	leftChildIndex = (int) node.bbMin.w;
+	// 	rightChildIndex = (int) node.bbMax.w;
+
+	// 	tNearL = -2.0f;
+	// 	tNearR = -2.0f;
+	// 	tFarL = FLT_MAX;
+	// 	tFarR = FLT_MAX;
+	// 	addLeftToStack = false;
+	// 	addRightToStack = false;
+	// 	leftIsLeaf = false;
+	// 	rightIsLeaf = false;
+
+	// 	if( leftChildIndex > 0 ) {
+	// 		leftNode = bvh[leftChildIndex - 1];
+
+	// 		leftIsLeaf = ( (int) leftNode.bbMin.w < 0 );
+	// 		leftKdRoot = -( (int) leftNode.bbMin.w + 1 );
+	// 		leftNode.bbMin.w = 0.0f;
+	// 		leftNode.bbMax.w = 0.0f;
+
+	// 		intersectBoundingBox( ray->origin, ray->dir, leftNode.bbMin, leftNode.bbMax, &tNearL, &tFarL );
+	// 		addLeftToStack = !leftIsLeaf && ( ray->t < 0.0f || ray->t >= tNearL );
+	// 	}
+
+	// 	if( rightChildIndex > 0 ) {
+	// 		rightNode = bvh[rightChildIndex - 1];
+
+	// 		rightIsLeaf = ( (int) rightNode.bbMin.w < 0 );
+	// 		rightKdRoot = -( (int) rightNode.bbMin.w + 1 );
+	// 		rightNode.bbMin.w = 0.0f;
+	// 		rightNode.bbMax.w = 0.0f;
+
+	// 		intersectBoundingBox( ray->origin, ray->dir, rightNode.bbMin, rightNode.bbMax, &tNearR, &tFarR );
+	// 		addRightToStack = !rightIsLeaf && ( ray->t < 0.0f || ray->t >= tNearR );
+	// 	}
+
+
+	// 	// If the left node is closer to the ray origin, test it first.
+	// 	// By pushing the right node first on the stack and then the left one,
+	// 	// the left one will be popped first.
+
+	// 	rightThenLeft = ( tNearR > tNearL );
+
+	// 	if( rightThenLeft && addRightToStack ) {
+	// 		bvhStack[++stackIndex] = rightNode;
+	// 	}
+	// 	if( rightThenLeft && addLeftToStack ) {
+	// 		bvhStack[++stackIndex] = leftNode;
+	// 	}
+
+	// 	if( !rightThenLeft && addLeftToStack ) {
+	// 		bvhStack[++stackIndex] = leftNode;
+	// 	}
+	// 	if( !rightThenLeft && addRightToStack ) {
+	// 		bvhStack[++stackIndex] = rightNode;
+	// 	}
+
+
+	// 	rayCp1 = *ray;
+	// 	rayCp2 = *ray;
+
+	// 	if( leftIsLeaf && ( ray->t < 0.0f || ray->t >= tNearL ) ) {
+	// 		traverseKdTree( &rayCp1, kdNonLeaves, kdLeaves, kdFaces, faces, tNearL, tFarL, leftKdRoot );
+	// 	}
+	// 	if( ( ray->t < 0.0f && rayCp1.t > -1.0f ) || ( rayCp1.t > -1.0f && ray->t > rayCp1.t ) ) {
+	// 		*ray = rayCp1;
+	// 	}
+
+	// 	if( rightIsLeaf && ( ray->t < 0.0f || ray->t >= tNearR ) ) {
+	// 		traverseKdTree( &rayCp2, kdNonLeaves, kdLeaves, kdFaces, faces, tNearR, tFarR, rightKdRoot );
+	// 	}
+	// 	if( ( ray->t < 0.0f && rayCp2.t > -1.0f ) || ( rayCp2.t > -1.0f && ray->t > rayCp2.t ) ) {
+	// 		*ray = rayCp2;
+	// 	}
+	// }
 }

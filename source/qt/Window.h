@@ -9,6 +9,7 @@
 #include "GLWidget.h"
 #include "InfoWindow.h"
 
+#define PBR_TITLE "Physically-based Renderer"
 
 class GLWidget;
 class InfoWindow;
