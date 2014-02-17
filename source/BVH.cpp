@@ -110,8 +110,9 @@ void BVH::buildHierarchy( vector<BVHnode*> nodes, BVHnode* parent ) {
 vector<BVHnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> vertices ) {
 	vector<BVHnode*> BVHnodes;
 	vector<cl_float> bb, ov;
-	vector<cl_uint> of;
+	vector<cl_uint4> of;
 	char msg[128];
+	uint globalFaceIndex = 0;
 
 	for( cl_uint i = 0; i < objects.size(); i++ ) {
 		object3D o = objects[i];
@@ -123,12 +124,21 @@ vector<BVHnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> 
 		Logger::logInfo( msg );
 		Logger::indent( LOG_INDENT );
 
-		for( cl_uint j = 0; j < o.facesV.size(); j++ ) {
+		for( cl_uint j = 0; j < o.facesV.size(); j += 3 ) {
 			ov.push_back( vertices[o.facesV[j] * 3] );
 			ov.push_back( vertices[o.facesV[j] * 3 + 1] );
 			ov.push_back( vertices[o.facesV[j] * 3 + 2] );
 
-			of.push_back( j );
+			ov.push_back( vertices[o.facesV[j + 1] * 3] );
+			ov.push_back( vertices[o.facesV[j + 1] * 3 + 1] );
+			ov.push_back( vertices[o.facesV[j + 1] * 3 + 2] );
+
+			ov.push_back( vertices[o.facesV[j + 2] * 3] );
+			ov.push_back( vertices[o.facesV[j + 2] * 3 + 1] );
+			ov.push_back( vertices[o.facesV[j + 2] * 3 + 2] );
+
+			cl_uint4 face = { j, j + 1, j + 2, globalFaceIndex++ };
+			of.push_back( face );
 		}
 
 		bb = utils::computeBoundingBox( ov );

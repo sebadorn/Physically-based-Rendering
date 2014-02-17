@@ -51,7 +51,7 @@
 		// 2 - also info
 		// 3 - also debug
 		// 4 - extra verbose (additional debug messages)
-		"level": 3
+		"level": 2
 	},
 
 	"opencl": {

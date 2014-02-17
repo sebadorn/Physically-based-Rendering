@@ -193,19 +193,55 @@ void PathTracer::initOpenCLBuffers(
 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
 	ModelLoader* ml, BVH* bvh
 ) {
+	boost::posix_time::ptime timerStart;
+	boost::posix_time::ptime timerEnd;
+	cl_float timeDiff;
+	char msg[64];
+
 	Logger::logInfo( "[PathTracer] Initializing OpenCL buffers ..." );
 	Logger::indent( LOG_INDENT );
 	mCL->freeBuffers();
+
+	// Buffer: BVH
+	timerStart = boost::posix_time::microsec_clock::local_time();
 	this->initOpenCLBuffers_BVH( bvh );
-	Logger::logDebug( "[PathTracer] Finished buffer for BVH." );
+	timerEnd = boost::posix_time::microsec_clock::local_time();
+	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
+	snprintf( msg, 64, "[PathTracer] Created BVH buffer in %g ms.", timeDiff );
+	Logger::logInfo( msg );
+
+	// Buffer: kD-tree(s)
+	timerStart = boost::posix_time::microsec_clock::local_time();
 	this->initOpenCLBuffers_KdTree( ml, bvh, vertices, faces, normals );
-	Logger::logDebug( "[PathTracer] Finished buffer for kD-trees." );
+	timerEnd = boost::posix_time::microsec_clock::local_time();
+	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
+	snprintf( msg, 64, "[PathTracer] Created kD-tree buffer in %g ms.", timeDiff );
+	Logger::logInfo( msg );
+
+	// Buffer: material(s)
+	timerStart = boost::posix_time::microsec_clock::local_time();
 	this->initOpenCLBuffers_Materials( ml );
-	Logger::logDebug( "[PathTracer] Finished buffer for materials." );
+	timerEnd = boost::posix_time::microsec_clock::local_time();
+	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
+	snprintf( msg, 64, "[PathTracer] Created material buffer in %g ms.", timeDiff );
+	Logger::logInfo( msg );
+
+	// Buffer: rays
+	timerStart = boost::posix_time::microsec_clock::local_time();
 	this->initOpenCLBuffers_Rays();
-	Logger::logDebug( "[PathTracer] Finished buffer for rays." );
+	timerEnd = boost::posix_time::microsec_clock::local_time();
+	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
+	snprintf( msg, 64, "[PathTracer] Created ray buffer in %g ms.", timeDiff );
+	Logger::logInfo( msg );
+
+	// Buffer: textures
+	timerStart = boost::posix_time::microsec_clock::local_time();
 	this->initOpenCLBuffers_Textures();
-	Logger::logDebug( "[PathTracer] Finished buffer for target textures." );
+	timerEnd = boost::posix_time::microsec_clock::local_time();
+	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
+	snprintf( msg, 64, "[PathTracer] Created texture buffer in %g ms.", timeDiff );
+	Logger::logInfo( msg );
+
 	Logger::indent( 0 );
 	Logger::logInfo( "[PathTracer] ... Done." );
 
@@ -290,12 +326,11 @@ void PathTracer::initOpenCLBuffers_KdTree(
 	vector<kdLeaf_cl> kdLeaves;
 	vector<cl_uint> kdFaces;
 	vector<BVHnode*> bvLeaves = bvh->getLeaves();
-	vector<object3D> objects = ml->getObjects();
 	cl_uint2 offset = { 0, 0 };
 
 	for( int i = 0; i < bvLeaves.size(); i++ ) {
 		kdNodes = bvLeaves[i]->kdtree->getNodes();
-		this->kdNodesToVectors( faces, objects[i].facesV, kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, offset );
+		this->kdNodesToVectors( kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, offset );
 		offset.x = kdNonLeaves.size();
 		offset.y = kdLeaves.size();
 	}
@@ -378,8 +413,6 @@ void PathTracer::initOpenCLBuffers_Textures() {
 /**
  * Store the kd-nodes data in seperate lists for each data type
  * in order to pass it to OpenCL.
- * @param {std::vector<cl_uint>*}      faces       Faces.
- * @param {std::vector<cl_uint>}       objectFaces Faces of the individuell objects in the scene.
  * @param {std::vector<KdNode_t>}      kdNodes     All nodes of the kd-tree.
  * @param {std::vector<cl_float>*}     kdFaces     Data: [a, b, c ..., faceIndex]
  * @param {std::vector<kdNonLeaf_cl>*} kdNonLeaves Output: Nodes of the kd-tree, that aren't leaves.
@@ -387,12 +420,10 @@ void PathTracer::initOpenCLBuffers_Textures() {
  * @param {cl_uint2}                   offset
  */
 void PathTracer::kdNodesToVectors(
-	vector<cl_uint> faces, vector<cl_uint> objectFaces, vector<kdNode_t> kdNodes,
-	vector<cl_uint>* kdFaces, vector<kdNonLeaf_cl>* kdNonLeaves,
+	vector<kdNode_t> kdNodes, vector<cl_uint>* kdFaces, vector<kdNonLeaf_cl>* kdNonLeaves,
 	vector<kdLeaf_cl>* kdLeaves, cl_uint2 offset
 ) {
 	cl_uint a, b, c;
-	cl_int pos;
 
 	for( cl_uint i = 0; i < kdNodes.size(); i++ ) {
 		// Non-leaf node
@@ -453,7 +484,7 @@ void PathTracer::kdNodesToVectors(
 			ropes.s6 = kdFaces->size();
 
 			// Number of faces in this node
-			ropes.s7 = kdNodes[i].faces.size() / 3;
+			ropes.s7 = kdNodes[i].faces.size();
 
 			node.ropes = ropes;
 
@@ -479,27 +510,9 @@ void PathTracer::kdNodesToVectors(
 				Logger::logWarning( "[PathTracer] Converting kd-node data: Leaf node without any faces." );
 			}
 
-
 			// Faces
-			for( cl_uint j = 0; j < kdNodes[i].faces.size(); j += 3 ) {
-				pos = -1;
-
-				for( cl_uint k = 0; k < faces.size(); k += 3 ) {
-					if(
-						faces[k] == objectFaces[kdNodes[i].faces[j]] &&
-						faces[k + 1] == objectFaces[kdNodes[i].faces[j + 1]] &&
-						faces[k + 2] == objectFaces[kdNodes[i].faces[j + 2]]
-					) {
-						pos = k / 3;
-						break;
-					}
-				}
-
-				if( pos < 0 ) {
-					Logger::logError( "[PathTracer] Converting kd-node data: No index for face found." );
-				}
-
-				kdFaces->push_back( pos );
+			for( cl_uint j = 0; j < kdNodes[i].faces.size(); j++ ) {
+				kdFaces->push_back( kdNodes[i].faces[j].w );
 			}
 		}
 	}

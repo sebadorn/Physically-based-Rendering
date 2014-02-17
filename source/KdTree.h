@@ -22,7 +22,7 @@ using std::vector;
  * Node of the kd-tree, used for non-leaves and leaves alike.
  */
 struct kdNode_t {
-	vector<cl_uint> faces;
+	vector<cl_uint4> faces;
 	vector<kdNode_t*> ropes;
 	cl_float pos[3];
 	cl_float bbMax[3];
@@ -69,7 +69,7 @@ struct kdSearchFloat4 {
 class KdTree {
 
 	public:
-		KdTree( vector<cl_float> vertices, vector<cl_uint> faces, cl_float* bbMin, cl_float* bbMax );
+		KdTree( vector<cl_float> vertices, vector<cl_uint4> faces, cl_float* bbMin, cl_float* bbMax );
 		~KdTree();
 
 		cl_float4 getBoundingBoxMax();
@@ -83,7 +83,7 @@ class KdTree {
 	protected:
 		kdNode_t* createLeafNode(
 			cl_float* bbMin, cl_float* bbMax,
-			vector<cl_float> vertices, vector<cl_uint> faces
+			vector<cl_float> vertices, vector<cl_uint4> faces
 		);
 		void createRopes( kdNode_t* node, vector<kdNode_t*> ropes );
 		kdNode_t* findMedian(
@@ -101,7 +101,7 @@ class KdTree {
 		) const;
 		kdNode_t* makeTree(
 			vector<cl_float4> t, cl_int axis, cl_float* bbMin, cl_float* bbMax,
-			vector<cl_float> vertices, vector<cl_uint> faces,
+			vector<cl_float> vertices, vector<cl_uint4> faces,
 			vector< vector<cl_float> > splitsByAxis, cl_uint depth
 		);
 		void optimizeRope( vector<kdNode_t*>* ropes, cl_float* bbMin, cl_float* bbMax );
@@ -109,8 +109,8 @@ class KdTree {
 		void setDepthLimit( vector<cl_float> vertices );
 		void splitVerticesAndFacesAtMedian(
 			cl_uint axis, cl_float* medianPos, vector<cl_float4> vertsForNodes,
-			vector<cl_float> vertices, vector<cl_uint> faces,
-			vector<cl_uint>* leftFaces, vector<cl_uint>* rightFaces,
+			vector<cl_float> vertices, vector<cl_uint4> faces,
+			vector<cl_uint4>* leftFaces, vector<cl_uint4>* rightFaces,
 			vector<cl_float4>* leftNodes, vector<cl_float4>* rightNodes
 		);
 		vector<cl_float4> verticesToFloat4( vector<cl_float> vertices );

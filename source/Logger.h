@@ -6,7 +6,7 @@
 
 #include "Cfg.h"
 
-#define LOG_INDENT 2
+#define LOG_INDENT 4
 
 using std::string;
 

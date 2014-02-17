@@ -40,7 +40,7 @@ void SpecParser::load( string filepath, string filename ) {
 
 	char msg[128];
 	snprintf( msg, 128, "[SpecParser] Loaded %lu spectral power distributions.", mSPDs.size() );
-	Logger::logDebug( msg );
+	Logger::logInfo( msg );
 }
 
 

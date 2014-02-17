@@ -204,5 +204,5 @@ void MtlParser::load( string file ) {
 
 	char msg[64];
 	snprintf( msg, 64, "[MtlParser] Loaded %lu materials.", mMaterials.size() );
-	Logger::logDebug( msg );
+	Logger::logInfo( msg );
 }
