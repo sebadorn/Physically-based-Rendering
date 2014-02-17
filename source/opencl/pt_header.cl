@@ -15,7 +15,7 @@
 #define WORKGROUPSIZE_HALF #WORKGROUPSIZE_HALF#
 
 constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
-constant int MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
+constant uint MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
 
 
 typedef struct {
@@ -26,9 +26,13 @@ typedef struct {
 typedef struct {
 	float4 origin;
 	float4 dir;
+} rayBase;
+
+typedef struct {
+	float4 origin;
+	float4 dir;
 	float4 normal;
 	float t;
-	int faceIndex;
 } ray4;
 
 typedef struct {

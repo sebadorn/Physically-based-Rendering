@@ -26,12 +26,9 @@ struct face_cl {
 	cl_float4 an, bn, cn;
 };
 
-struct ray4 {
+struct rayBase {
 	cl_float4 origin;
 	cl_float4 dir;
-	cl_float4 normal;
-	cl_float t;
-	cl_int faceIndex;
 };
 
 struct kdNonLeaf_cl {

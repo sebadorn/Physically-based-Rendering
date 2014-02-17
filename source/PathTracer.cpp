@@ -396,7 +396,7 @@ void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 void PathTracer::initOpenCLBuffers_Rays() {
 	cl_uint pixels = mWidth * mHeight;
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
-	mBufRays = mCL->createEmptyBuffer( sizeof( ray4 ) * pixels, CL_MEM_READ_WRITE );
+	mBufRays = mCL->createEmptyBuffer( sizeof( rayBase ) * pixels, CL_MEM_READ_WRITE );
 }
 
 

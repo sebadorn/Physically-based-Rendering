@@ -41,7 +41,7 @@
 		"depth": -1,
 		// Minimum of faces per leaf node.
 		// However, 1 split is minimum and will occur regardless
-		"min_faces": 4,
+		"min_faces": 3,
 		"optimize_ropes": true
 	},
 
@@ -51,7 +51,7 @@
 		// 2 - also info
 		// 3 - also debug
 		// 4 - extra verbose (additional debug messages)
-		"level": 2
+		"level": 3
 	},
 
 	"opencl": {
@@ -80,7 +80,7 @@
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 100.0,
 		// Extend the path if a reflective or transparent surface is hit
-		"max_added_depth": 3,
+		"max_added_depth": 2,
 		// Maximum path length
 		"max_depth": 3,
 		// Samples of paths per frame

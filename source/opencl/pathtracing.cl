@@ -46,7 +46,7 @@ void setColors(
 kernel void initRays(
 	const uint2 offset, float seed,
 	const float4 initRayParts, const global float* eyeIn,
-	global ray4* rays
+	global rayBase* rays
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 
@@ -73,9 +73,8 @@ kernel void initRays(
 			+ ( pos.x - adjustW ) * pxWidthAndHeight * u
 			- ( WORKGROUPSIZE - pos.y + adjustH ) * pxWidthAndHeight * v;
 
-	ray4 ray;
+	rayBase ray;
 	ray.origin = eye;
-	ray.t = -2.0f;
 	ray.dir = fast_normalize( initialRay );
 
 	rays[workIndex] = ray;
@@ -101,19 +100,10 @@ kernel void pathTracing(
 	const uint2 offset, float seed, float pixelWeight,
 	const global face_t* faces, const global bvhNode* bvh,
 	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves, const global uint* kdFaces,
-	global ray4* rays, const global material* materials,
+	const global rayBase* initRays, const global material* materials,
 	const global float* specPowerDists,
 	read_only image2d_t imageIn, write_only image2d_t imageOut
 ) {
-	// local float4 scVertices[36];
-
-	// if( get_local_id( 0 ) == 1 ) {
-	// 	for( int i = 0; i < 36; i++ ) {
-	// 		scVertices[i] = gscVertices[i];
-	// 	}
-	// }
-	// barrier( CLK_LOCAL_MEM_FENCE );
-
 	const int2 pos = {
 		offset.x + get_global_id( 0 ),
 		offset.y + get_global_id( 1 )
@@ -124,10 +114,13 @@ kernel void pathTracing(
 	setArray( spdTotal, 0.0f );
 
 	const bvhNode bvhRoot = bvh[0];
-	const ray4 firstRay = rays[workIndex];
+	ray4 firstRay;
+	firstRay.origin = initRays[workIndex].origin;
+	firstRay.dir = initRays[workIndex].dir;
+	firstRay.t = -2.0f;
+
 	ray4 newRay, ray;
 	material mtl;
-	face_t f;
 
 	float brdf, cosLaw, focus, maxValSpd;
 	int depthAdded, light;
@@ -153,8 +146,8 @@ kernel void pathTracing(
 				focus = ray.t;
 			}
 
-			f = faces[ray.faceIndex];
-			mtl = materials[(uint) f.a.w];
+			mtl = materials[(uint) faces[(uint) ray.normal.w].a.w];
+			ray.normal.w = 0.0f;
 
 			// Implicit connection to a light found
 			if( mtl.light == 1 ) {

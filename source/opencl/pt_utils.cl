@@ -35,13 +35,13 @@ float4 cosineWeightedDirection( float* seed, const float4 normal ) {
 /**
  *
  * @param  {const face_t} face
- * @param  {const float2} uv
+ * @param  {const float4} tuv
  * @return {float4}
  */
-float4 getTriangleNormal( const face_t face, const float2 uv ) {
-	const float w = 1.0f - uv.x - uv.y;
+inline float4 getTriangleNormal( const face_t face, const float4 tuv ) {
+	const float w = 1.0f - tuv.y - tuv.z;
 
-	return fast_normalize( w * face.an + uv.x * face.bn + uv.y * face.cn );
+	return fast_normalize( w * face.an + tuv.y * face.bn + tuv.z * face.cn );
 }
 
 
@@ -54,7 +54,7 @@ float4 getTriangleNormal( const face_t face, const float2 uv ) {
  * @return
  */
 float4 jitter( float4 d, float phi, float sina, float cosa ) {
-	float4 u = fast_normalize( cross( (float4)( d.y, d.z, d.x, 0.0f ), d ) );
+	float4 u = fast_normalize( cross( d.yzxw, d ) );
 	float4 v = cross( d, u );
 
 	return fast_normalize(
@@ -112,12 +112,14 @@ inline float4 uniformlyRandomVector( float* seed ) {
  * @return {bool}
  */
 bool intersectBoundingBox(
-	const float4 origin, const float4 dir, const float4 bbMin, const float4 bbMax,
-	float* tNear, float* tFar
+	const ray4* ray, float4 bbMin, float4 bbMax, float* tNear, float* tFar
 ) {
-	float4 invDir = native_recip( dir );
-	float4 t1 = ( bbMin - origin ) * invDir;
-	float4 tMax = ( bbMax - origin ) * invDir;
+	bbMin.w = 0.0f;
+	bbMax.w = 0.0f;
+
+	float4 invDir = native_recip( ray->dir );
+	float4 t1 = ( bbMin - ray->origin ) * invDir;
+	float4 tMax = ( bbMax - ray->origin ) * invDir;
 	float4 tMin = fmin( t1, tMax );
 	tMax = fmax( t1, tMax );
 
@@ -125,39 +127,6 @@ bool intersectBoundingBox(
 	*tFar = fmin( fmin( tMax.x, tMax.y ), fmin( tMax.z, *tFar ) );
 
 	return ( *tNear <= *tFar );
-}
-
-
-bool intersectBB( const float4 origin, const float4 dir, const float4 bbMin, const float4 bbMax ) {
-	float4 invDir = native_recip( dir );
-	float4 t1 = ( bbMin - origin ) * invDir;
-	float4 tMax = ( bbMax - origin ) * invDir;
-	float4 tMin = fmin( t1, tMax );
-	tMax = fmax( t1, tMax );
-
-	float tNear = fmax( fmax( tMin.x, tMin.y ), tMin.z );
-	float tFar = fmin( fmin( tMax.x, tMax.y ), tMax.z );
-
-	return ( tNear <= tFar );
-}
-
-
-/**
- * Basically a shortened version of udpateEntryDistanceAndExitRope().
- * @param  {const float4*} origin
- * @param  {const float4*} dir
- * @param  {const float*}  bbMin
- * @param  {const float*}  bbMax
- * @return {float}
- */
-float getBoxExitLimit(
-	const float4 origin, const float4 dir, const float4 bbMin, const float4 bbMax
-) {
-	float4 t1 = native_divide( bbMin - origin, dir );
-	float4 tMax = native_divide( bbMax - origin, dir );
-	tMax = fmax( t1, tMax );
-
-	return fmin( fmin( tMax.x, tMax.y ), tMax.z );
 }
 
 
@@ -172,47 +141,20 @@ float getBoxExitLimit(
  * @param {int*}          exitRope
  */
 void updateEntryDistanceAndExitRope(
-	const float4 origin, const float4 dir, const float4 bbMin, const float4 bbMax,
-	float* tFar, int* exitRope
+	const ray4* ray, const float4 bbMin, const float4 bbMax, float* tFar, int* exitRope
 ) {
-	const float4 invDir = native_recip( dir ); // WARNING: native_
+	const float4 invDir = native_recip( ray->dir );
 	const bool signX = signbit( invDir.x );
 	const bool signY = signbit( invDir.y );
 	const bool signZ = signbit( invDir.z );
 
-	float4 t1 = native_divide( bbMin - origin, dir );
-	float4 tMax = native_divide( bbMax - origin, dir );
+	float4 t1 = native_divide( bbMin - ray->origin, ray->dir );
+	float4 tMax = native_divide( bbMax - ray->origin, ray->dir );
 	tMax = fmax( t1, tMax );
 
 	*tFar = fmin( fmin( tMax.x, tMax.y ), tMax.z );
 	*exitRope = ( *tFar == tMax.y ) ? 3 - signY : 1 - signX;
 	*exitRope = ( *tFar == tMax.z ) ? 5 - signZ : *exitRope;
-}
-
-
-/**
- * Test, if a point is inside a given axis aligned bounding box.
- * @param  {const float*}  bbMin
- * @param  {const float*}  bbMax
- * @param  {const float4*} p
- * @return {bool}
- */
-inline bool isInsideBoundingBox( const float* bbMin, const float* bbMax, const float4* p ) {
-	return (
-		p->x >= bbMin[0] && p->y >= bbMin[1] && p->z >= bbMin[2] &&
-		p->x <= bbMax[0] && p->y <= bbMax[1] && p->z <= bbMax[2]
-	);
-}
-
-
-/**
- * Apply the cosine law for light sources.
- * @param  {float4} n Normal of the surface the light hits.
- * @param  {float4} l Normalized direction to the light source.
- * @return {float}
- */
-inline float cosineLaw( float4 n, float4 l ) {
-	return fmax( dot( n, l ), 0.0f );
 }
 
 
@@ -225,6 +167,17 @@ inline void setArray( float* arr, float val ) {
 	for( int i = 0; i < SPEC; i++ ) {
 		arr[i] = val;
 	}
+}
+
+
+/**
+ * Apply the cosine law for light sources.
+ * @param  {float4} n Normal of the surface the light hits.
+ * @param  {float4} l Normalized direction to the light source.
+ * @return {float}
+ */
+inline float cosineLaw( float4 n, float4 l ) {
+	return fmax( dot( n, l ), 0.0f );
 }
 
 

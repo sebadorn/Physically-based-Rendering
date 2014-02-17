@@ -70,7 +70,7 @@ void BVH::buildHierarchy( vector<BVHnode*> nodes, BVHnode* parent ) {
 	BVHnode* rightmost = NULL;
 	this->findCornerNodes( nodes, parent, &leftmost, &rightmost );
 
-	// TODO: Fix bug (happens only with some models)
+	// Shouldn't happen. Catch it just to be sure.
 	if( leftmost == rightmost ) {
 		Logger::logError( "[BVH] Leftmost node is also rightmost node." );
 		return;
@@ -175,6 +175,7 @@ void BVH::findCornerNodes(
 ) {
 	cl_float distNodeLeft, distNodeRight;
 	cl_float distLeftmost, distRightmost;
+	BVHnode* secondRightmost = nodes[1];
 
 	*leftmost = nodes[0];
 	*rightmost = nodes[0];
@@ -183,16 +184,23 @@ void BVH::findCornerNodes(
 		BVHnode* node = nodes[i];
 
 		distNodeLeft = glm::length( node->bbCenter - parent->bbMin );
-		distNodeRight = glm::length( node->bbCenter - parent->bbMax );
 		distLeftmost = glm::length( (*leftmost)->bbCenter - parent->bbMin );
+
+		distNodeRight = glm::length( node->bbCenter - parent->bbMax );
 		distRightmost = glm::length( (*rightmost)->bbCenter - parent->bbMax );
 
 		if( distNodeLeft < distLeftmost ) {
 			*leftmost = node;
 		}
 		if( distNodeRight < distRightmost ) {
+			secondRightmost = *rightmost;
 			*rightmost = node;
 		}
+	}
+
+	// More of a workaround than an actual bugfix.
+	if( *leftmost == *rightmost ) {
+		*rightmost = secondRightmost;
 	}
 }
 
@@ -239,15 +247,8 @@ void BVH::groupByCorner(
 ) {
 	cl_float distToLeftmost, distToRightmost;
 
-	leftGroup->push_back( leftmost );
-	rightGroup->push_back( rightmost );
-
 	for( int i = 0; i < nodes.size(); i++ ) {
 		BVHnode* node = nodes[i];
-
-		if( node == leftmost || node == rightmost ) {
-			continue;
-		}
 
 		distToLeftmost = glm::length( node->bbCenter - leftmost->bbCenter );
 		distToRightmost = glm::length( node->bbCenter - rightmost->bbCenter );
@@ -279,12 +280,13 @@ BVHnode* BVH::makeNodeFromGroup( vector<BVHnode*> group ) {
 	for( int i = 1; i < group.size(); i++ ) {
 		BVHnode* node = group[i];
 
-		vol->bbMin[0] = ( node->bbMin[0] < vol->bbMin[0] ) ? node->bbMin[0] : vol->bbMin[0];
-		vol->bbMin[1] = ( node->bbMin[1] < vol->bbMin[1] ) ? node->bbMin[1] : vol->bbMin[1];
-		vol->bbMin[2] = ( node->bbMin[2] < vol->bbMin[2] ) ? node->bbMin[2] : vol->bbMin[2];
-		vol->bbMax[0] = ( node->bbMax[0] > vol->bbMax[0] ) ? node->bbMax[0] : vol->bbMax[0];
-		vol->bbMax[1] = ( node->bbMax[1] > vol->bbMax[1] ) ? node->bbMax[1] : vol->bbMax[1];
-		vol->bbMax[2] = ( node->bbMax[2] > vol->bbMax[2] ) ? node->bbMax[2] : vol->bbMax[2];
+		if( node->bbMin[0] < vol->bbMin[0] ) { vol->bbMin[0] = node->bbMin[0]; }
+		if( node->bbMin[1] < vol->bbMin[1] ) { vol->bbMin[1] = node->bbMin[1]; }
+		if( node->bbMin[2] < vol->bbMin[2] ) { vol->bbMin[2] = node->bbMin[2]; }
+
+		if( node->bbMax[0] > vol->bbMax[0] ) { vol->bbMax[0] = node->bbMax[0]; }
+		if( node->bbMax[1] > vol->bbMax[1] ) { vol->bbMax[1] = node->bbMax[1]; }
+		if( node->bbMax[2] > vol->bbMax[2] ) { vol->bbMax[2] = node->bbMax[2]; }
 	}
 
 	vol->bbCenter = ( vol->bbMin + vol->bbMax ) / 2.0f;

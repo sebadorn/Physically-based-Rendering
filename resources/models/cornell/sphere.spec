@@ -1,7 +1,9 @@
 {
 	"materials": {
 		"Ceiling": "CIE_D65",
-		"Sphere": "white",
+		"Sphere0": "white",
+		"Sphere1": "white",
+		"Sphere2": "white",
 		"Wall": "white",
 		"LeftWall": "blue",
 		"RightWall": "green",
