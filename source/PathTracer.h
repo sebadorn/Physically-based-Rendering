@@ -20,10 +20,14 @@ using std::vector;
 
 
 struct face_cl {
+	// vertices
 	cl_float4 a; // a.w = material index
 	cl_float4 b;
 	cl_float4 c;
-	cl_float4 an, bn, cn;
+	// vertex normals
+	cl_float4 an;
+	cl_float4 bn;
+	cl_float4 cn;
 };
 
 struct rayBase {

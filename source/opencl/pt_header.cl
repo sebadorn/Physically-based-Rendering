@@ -19,8 +19,14 @@ constant uint MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
 
 
 typedef struct {
-	float4 a, b, c;    // vertices; a.w = material index
-	float4 an, bn, cn; // vertex normals
+	// vertices
+	float4 a; // a.w = material index
+	float4 b;
+	float4 c;
+	// vertex normals
+	float4 an;
+	float4 bn;
+	float4 cn;
 } face_t;
 
 typedef struct {

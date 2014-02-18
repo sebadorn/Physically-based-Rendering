@@ -113,7 +113,6 @@ kernel void pathTracing(
 	float spd[SPEC], spdTotal[SPEC];
 	setArray( spdTotal, 0.0f );
 
-	const bvhNode bvhRoot = bvh[0];
 	ray4 firstRay;
 	firstRay.origin = initRays[workIndex].origin;
 	firstRay.dir = initRays[workIndex].dir;
@@ -127,7 +126,6 @@ kernel void pathTracing(
 	uint index;
 	bool addDepth, ignoreColor;
 
-
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
 		setArray( spd, 1.0f );
 		light = -1;
@@ -136,7 +134,7 @@ kernel void pathTracing(
 		depthAdded = 0;
 
 		for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
-			traverseBVH( bvh, bvhRoot, &ray, kdNonLeaves, kdLeaves, kdFaces, faces );
+			traverseBVH( bvh, &ray, kdNonLeaves, kdLeaves, kdFaces, faces );
 
 			if( ray.t < 0.0f ) {
 				break;

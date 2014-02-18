@@ -38,7 +38,7 @@
 		// Maximum depth of leaf nodes. Set a positive, non-negative value or:
 		// -1 - round( log2( #vertices ) )
 		//  0 - no limit
-		"depth": -1,
+		"depth": 0,
 		// Minimum of faces per leaf node.
 		// However, 1 split is minimum and will occur regardless
 		"min_faces": 3,
@@ -58,8 +58,10 @@
 		// Build options to try:
 		// -cl-fast-relaxed-math
 		// -cl-mad-enable
+		// -cl-single-precision-constant
 		// -cl-strict-aliasing
-		"build_options": "-cl-mad-enable",
+		// -cl-unsafe-math-optimizations
+		"build_options": "",
 		// Check each executed OpenCL function for encountered errors.
 		// (Disabling doesn't show any performance improvements.)
 		"check_errors": true,

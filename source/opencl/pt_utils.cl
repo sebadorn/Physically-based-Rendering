@@ -3,7 +3,7 @@
  * @param  {float*} seed
  * @return {float}
  */
-float rand( float* seed ) {
+inline float rand( float* seed ) {
 	float i;
 	*seed += 1.0f;
 
@@ -19,9 +19,8 @@ float rand( float* seed ) {
  */
 float4 cosineWeightedDirection( float* seed, const float4 normal ) {
 	const float u = rand( seed );
-	const float v = rand( seed );
 	const float r = native_sqrt( u );
-	const float angle = PI_X2 * v;
+	const float angle = PI_X2 * rand( seed );
 
 	const float4 sdir = ( fabs( normal.x ) < 0.5f )
 	                  ? (float4)( 0.0f, normal.z, -normal.y, 0.0f )
@@ -54,8 +53,8 @@ inline float4 getTriangleNormal( const face_t face, const float4 tuv ) {
  * @return
  */
 float4 jitter( float4 d, float phi, float sina, float cosa ) {
-	float4 u = fast_normalize( cross( d.yzxw, d ) );
-	float4 v = cross( d, u );
+	const float4 u = fast_normalize( cross( d.yzxw, d ) );
+	const float4 v = cross( d, u );
 
 	return fast_normalize(
 		( u * native_cos( phi ) + v * native_sin( phi ) ) * sina + d * cosa
@@ -64,14 +63,12 @@ float4 jitter( float4 d, float phi, float sina, float cosa ) {
 
 
 /**
- * Reflect a ray.
+ * MACRO: Reflect a ray.
  * @param  {float4} dir    Direction of ray.
  * @param  {float4} normal Normal of surface.
  * @return {float4}        Reflected ray.
  */
-float4 reflect( float4 dir, float4 normal ) {
-	return dir - 2.0f * dot( normal, dir ) * normal;
-}
+#define reflect( dir, normal ) ( ( dir ) - 2.0f * dot( ( normal ).xyz, ( dir ).xyz ) * ( normal ) )
 
 
 /**
@@ -91,13 +88,11 @@ inline float4 uniformlyRandomDirection( float* seed ) {
 
 
 /**
- * Get a vector in a random direction.
- * @param  {const float}  seed Seed for the random value.
- * @return {float4}            Random vector.
+ * MACRO: Get a vector in a random direction.
+ * @param  {float*} seed Seed for the random value.
+ * @return {float4}      Random vector.
  */
-inline float4 uniformlyRandomVector( float* seed ) {
-	return uniformlyRandomDirection( seed ) * native_sqrt( rand( seed ) );
-}
+#define uniformlyRandomVector( seed ) ( uniformlyRandomDirection( ( seed ) ) * native_sqrt( rand( ( seed ) ) ) )
 
 
 /**
@@ -111,16 +106,13 @@ inline float4 uniformlyRandomVector( float* seed ) {
  * @param  {float*}        tFar
  * @return {bool}
  */
-bool intersectBoundingBox(
-	const ray4* ray, float4 bbMin, float4 bbMax, float* tNear, float* tFar
+const bool intersectBoundingBox(
+	const ray4* ray, const float4 bbMin, const float4 bbMax, float* tNear, float* tFar
 ) {
-	bbMin.w = 0.0f;
-	bbMax.w = 0.0f;
-
-	float4 invDir = native_recip( ray->dir );
-	float4 t1 = ( bbMin - ray->origin ) * invDir;
-	float4 tMax = ( bbMax - ray->origin ) * invDir;
-	float4 tMin = fmin( t1, tMax );
+	const float3 invDir = native_recip( ray->dir.xyz );
+	const float3 t1 = ( bbMin.xyz - ray->origin.xyz ) * invDir;
+	float3 tMax = ( bbMax.xyz - ray->origin.xyz ) * invDir;
+	const float3 tMin = fmin( t1, tMax );
 	tMax = fmax( t1, tMax );
 
 	*tNear = fmax( fmax( tMin.x, tMin.y ), tMin.z );
@@ -143,18 +135,14 @@ bool intersectBoundingBox(
 void updateEntryDistanceAndExitRope(
 	const ray4* ray, const float4 bbMin, const float4 bbMax, float* tFar, int* exitRope
 ) {
-	const float4 invDir = native_recip( ray->dir );
-	const bool signX = signbit( invDir.x );
-	const bool signY = signbit( invDir.y );
-	const bool signZ = signbit( invDir.z );
-
-	float4 t1 = native_divide( bbMin - ray->origin, ray->dir );
-	float4 tMax = native_divide( bbMax - ray->origin, ray->dir );
+	const float3 invDir = native_recip( ray->dir.xyz );
+	const float3 t1 = native_divide( bbMin.xyz - ray->origin.xyz, ray->dir.xyz );
+	float3 tMax = native_divide( bbMax.xyz - ray->origin.xyz, ray->dir.xyz );
 	tMax = fmax( t1, tMax );
 
 	*tFar = fmin( fmin( tMax.x, tMax.y ), tMax.z );
-	*exitRope = ( *tFar == tMax.y ) ? 3 - signY : 1 - signX;
-	*exitRope = ( *tFar == tMax.z ) ? 5 - signZ : *exitRope;
+	*exitRope = ( *tFar == tMax.y ) ? 3 - signbit( invDir.y ) : 1 - signbit( invDir.x );
+	*exitRope = ( *tFar == tMax.z ) ? 5 - signbit( invDir.z ) : *exitRope;
 }
 
 
@@ -171,14 +159,12 @@ inline void setArray( float* arr, float val ) {
 
 
 /**
- * Apply the cosine law for light sources.
+ * MACRO: Apply the cosine law for light sources.
  * @param  {float4} n Normal of the surface the light hits.
  * @param  {float4} l Normalized direction to the light source.
  * @return {float}
  */
-inline float cosineLaw( float4 n, float4 l ) {
-	return fmax( dot( n, l ), 0.0f );
-}
+#define cosineLaw( n, l ) ( fmax( dot( ( n ).xyz, ( l ).xyz ), 0.0f ) )
 
 
 
