@@ -108,50 +108,15 @@ void checkFaces(
 ray4 getNewRay( ray4 prevRay, material mtl, float* seed, bool* ignoreColor, bool* addDepth ) {
 	ray4 newRay;
 	newRay.t = -2.0f;
-	newRay.origin = fma( prevRay.t, prevRay.dir, prevRay.origin ) + prevRay.normal * EPSILON;
+	newRay.origin = fma( prevRay.t, prevRay.dir, prevRay.origin );
 
 	*addDepth = false;
 	*ignoreColor = false;
 
 	// Transparency and refraction
 	if( mtl.d < 1.0f && mtl.d <= rand( seed ) ) {
-		// float4 n = prevRay.normal;
-		// float4 nl = ( dot( n.xyz, prevRay.dir.xyz ) < 0.0f ) ? n : -n;
-
-		// newRay.dir = reflect( prevRay.dir, n );
-		// bool into = dot( n, nl ) > 0.0f;
-
-		// float nc = NI_AIR;
-		// float nt = mtl.Ni;
-		// float nnt = into ? nc / nt : nt / nc;
-		// float ddn = dot( prevRay.dir.xyz, nl.xyz );
-
-		// float cos2t = 1.0f - nnt * nnt * ( 1.0f - ddn * ddn );
-
-		// // Reflection or refraction (otherwise it's just reflection)
-		// if( cos2t >= 0.0f ) {
-		// 	float4 tdir = fast_normalize(
-		// 		prevRay.dir * nnt - n * ( into ? 1.0f : -1.0f ) * ( ddn * nnt + native_sqrt( cos2t ) )
-		// 	);
-		// 	float a = nt - nc;
-		// 	float b = nt + nc;
-		// 	float R0 = a * a / ( b * b );
-		// 	float c = 1.0f - ( into ? -ddn : dot( tdir.xyz, n.xyz ) );
-		// 	float Re = R0 + ( 1.0f - R0 ) * pown( c, 5 );
-		// 	float Tr = 1.0f - Re;
-		// 	float P = 0.25f + 0.5f * Re;
-		// 	float RP = Re / P;
-		// 	float TP = Tr / ( 1.0f - P );
-
-		// 	if( rand( seed ) >= P ) {
-		// 		newRay.dir = tdir;
-		// 	}
-		// }
-
-
-		float4 n = prevRay.normal;
-		float4 nl = dot( n.xyz, prevRay.dir.xyz ) < 0.0f ? -n : n;
-		bool into = !( n.x != nl.x && n.y != nl.y && n.z != nl.z );
+		bool into = dot( prevRay.normal.xyz, prevRay.dir.xyz ) < 0.0f;
+		float4 nl = into ? prevRay.normal : -prevRay.normal;
 
 		float m1 = into ? NI_AIR : mtl.Ni;
 		float m2 = into ? mtl.Ni : NI_AIR;
@@ -161,32 +126,22 @@ ray4 getNewRay( ray4 prevRay, material mtl, float* seed, bool* ignoreColor, bool
 		float cosISq = iThetaCos * iThetaCos;
 		float sinSq = m * m * ( 1.0f - cosISq );
 
-		float4 tDir = m * prevRay.dir + ( m * iThetaCos - native_sqrt( 1.0f - sinSq ) ) * nl;
-
 		// Critical angle. Total internal reflection.
 		if( sinSq > 1.0f ) {
-			newRay.dir = reflect( prevRay.dir, n );
+			newRay.dir = reflect( prevRay.dir, nl );
 		}
+		// No TIR, proceed.
 		else {
+			float4 tDir = m * prevRay.dir + ( m * iThetaCos - native_sqrt( 1.0f - sinSq ) ) * nl;
+
 			float r0 = native_divide( m1 - m2, m1 + m2 );
 			r0 *= r0;
-			// float ui = 1.0f - iThetaCos;
-			// float ut = 1.0f - native_sqrt( 1.0f - sinSq );
-			// float refl = r0;
-			// refl += ( m1 <= m2 )
-			//       ? ( 1.0f - r0 ) * ui * ui * ui * ui * ui
-			//       : ( 1.0f - r0 ) * ut * ut * ut * ut * ut;
 			float c = ( m1 > m2 ) ? native_sqrt( 1.0f - sinSq ) : iThetaCos;
 			float x = 1.0f - c;
 			float refl = r0 + ( 1.0f - r0 ) * x * x * x * x * x;
 			float trans = 1.0f - refl;
 
-			// if( refl < rand( seed ) ) {
-				newRay.dir = -tDir;
-			// }
-			// else {
-			// 	newRay.dir = reflect( prevRay.dir, n );
-			// }
+			newRay.dir = ( refl < rand( seed ) ) ? tDir : reflect( prevRay.dir, nl );
 		}
 
 		*addDepth = true;
