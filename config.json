@@ -82,7 +82,7 @@
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 100.0,
 		// Extend the path if a reflective or transparent surface is hit
-		"max_added_depth": 2,
+		"max_added_depth": 3,
 		// Maximum path length
 		"max_depth": 3,
 		// Samples of paths per frame
@@ -105,8 +105,8 @@
 	},
 
 	"window": {
-		"height": 600,
-		"width": 800
+		"height": 512,
+		"width": 512
 	}
 
 }
