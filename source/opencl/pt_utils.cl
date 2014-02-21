@@ -72,6 +72,43 @@ float4 jitter( float4 d, float phi, float sina, float cosa ) {
 
 
 /**
+ *
+ * @param  prevRay
+ * @param  mtl
+ * @param  seed
+ * @return
+ */
+float4 refract( ray4* prevRay, material* mtl, float* seed ) {
+	bool into = ( dot( prevRay->normal.xyz, prevRay->dir.xyz ) < 0.0f );
+	float4 nl = into ? prevRay->normal : -prevRay->normal;
+
+	float m1 = into ? NI_AIR : mtl->Ni;
+	float m2 = into ? mtl->Ni : NI_AIR;
+	float m = native_divide( m1, m2 );
+
+	float cosI = -dot( prevRay->dir.xyz, nl.xyz );
+	float sinSq = m * m * ( 1.0f - cosI * cosI );
+
+	// Critical angle. Total internal reflection.
+	if( sinSq > 1.0f ) {
+		return reflect( prevRay->dir, nl );
+	}
+
+	// No TIR, proceed.
+	float4 tDir = m * prevRay->dir + ( m * cosI - native_sqrt( 1.0f - sinSq ) ) * nl;
+
+	float r0 = native_divide( m1 - m2, m1 + m2 );
+	r0 *= r0;
+	float c = ( m1 > m2 ) ? native_sqrt( 1.0f - sinSq ) : cosI;
+	float x = 1.0f - c;
+	float refl = r0 + ( 1.0f - r0 ) * x * x * x * x * x;
+	// float trans = 1.0f - refl;
+
+	return ( refl < rand( seed ) ) ? tDir : reflect( prevRay->dir, nl );
+}
+
+
+/**
  * Get a vector in a random direction.
  * @param  {const float} seed Seed for the random value.
  * @return {float4}           Random vector.

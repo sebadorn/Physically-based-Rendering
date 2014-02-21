@@ -115,34 +115,7 @@ ray4 getNewRay( ray4 prevRay, material mtl, float* seed, bool* ignoreColor, bool
 
 	// Transparency and refraction
 	if( mtl.d < 1.0f && mtl.d <= rand( seed ) ) {
-		bool into = dot( prevRay.normal.xyz, prevRay.dir.xyz ) < 0.0f;
-		float4 nl = into ? prevRay.normal : -prevRay.normal;
-
-		float m1 = into ? NI_AIR : mtl.Ni;
-		float m2 = into ? mtl.Ni : NI_AIR;
-		float m = m1 / m2;
-
-		float iThetaCos = -dot( prevRay.dir.xyz, nl.xyz );
-		float cosISq = iThetaCos * iThetaCos;
-		float sinSq = m * m * ( 1.0f - cosISq );
-
-		// Critical angle. Total internal reflection.
-		if( sinSq > 1.0f ) {
-			newRay.dir = reflect( prevRay.dir, nl );
-		}
-		// No TIR, proceed.
-		else {
-			float4 tDir = m * prevRay.dir + ( m * iThetaCos - native_sqrt( 1.0f - sinSq ) ) * nl;
-
-			float r0 = native_divide( m1 - m2, m1 + m2 );
-			r0 *= r0;
-			float c = ( m1 > m2 ) ? native_sqrt( 1.0f - sinSq ) : iThetaCos;
-			float x = 1.0f - c;
-			float refl = r0 + ( 1.0f - r0 ) * x * x * x * x * x;
-			float trans = 1.0f - refl;
-
-			newRay.dir = ( refl < rand( seed ) ) ? tDir : reflect( prevRay.dir, nl );
-		}
+		newRay.dir = refract( &prevRay, &mtl, seed );
 
 		*addDepth = true;
 		*ignoreColor = true;
