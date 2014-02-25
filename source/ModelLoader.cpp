@@ -32,6 +32,36 @@ vector<cl_float> ModelLoader::getBoundingBox() {
 
 
 /**
+ * Extract the faces and vertices data from an object3D.
+ * @param {object3D}                object
+ * @param {std::vector<cl_float>}   allVertices
+ * @param {std::vector<cl_uint4>*}  faces
+ * @param {std::vector<cl_float4>*} vertices
+ */
+void ModelLoader::getFacesAndVertices(
+	object3D object, vector<cl_float> allVertices,
+	vector<cl_uint4>* faces, vector<cl_float4>* vertices
+) {
+	cl_uint flen;
+
+	for( int i = 0; i < object.facesV.size(); i += 3 ) {
+		flen = faces->size();
+
+		cl_uint4 f = { flen + 0, flen + 1, flen + 2, 0 };
+		cl_float4 v = {
+			allVertices[object.facesV[i + 0]],
+			allVertices[object.facesV[i + 1]],
+			allVertices[object.facesV[i + 2]],
+			0.0f
+		};
+
+		faces->push_back( f );
+		vertices->push_back( v );
+	}
+}
+
+
+/**
  * Get the material of each face.
  * @return {std::vector<cl_int>} The material index of each face.
  */

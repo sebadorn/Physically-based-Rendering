@@ -38,6 +38,11 @@ class ModelLoader {
 		vector<cl_float> getVertices();
 		void loadModel( string filepath, string filename );
 
+		static void getFacesAndVertices(
+			object3D object, vector<cl_float> allVertices,
+			vector<cl_uint4>* faces, vector<cl_float4>* vertices
+		);
+
 	private:
 		ObjParser* mObjParser;
 		SpecParser* mSpecParser;

@@ -19,6 +19,7 @@
 #include "../Logger.h"
 #include "../ModelLoader.h"
 #include "../PathTracer.h"
+#include "../SphereTree.h"
 #include "../utils.h"
 #include "Window.h"
 

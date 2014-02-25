@@ -287,6 +287,8 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 	BVH* bvh = new BVH( ml->getObjects(), mVertices );
 
+	SphereTree* st = new SphereTree( ml->getObjects(), mVertices );
+	delete st;
 
 	// Visualization of kD-tree
 

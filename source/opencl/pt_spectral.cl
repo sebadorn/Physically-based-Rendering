@@ -332,6 +332,7 @@ void xyz_to_rgb( const colorSystem cs, float4 xyz, float4* rgb ) {
 	float m21inv = detMrecip * sg * sr * ( Xg * Zr - Xr * Zg );
 	float m22inv = detMrecip * sg * sr * ( Xr - Xg );
 
+	// TODO: Use pre-calculated matrix http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_RGB.html
 
 	rgb->x = m00inv * xyz.x + m01inv * xyz.y + m02inv * xyz.z;
 	rgb->y = m10inv * xyz.x + m11inv * xyz.y + m12inv * xyz.z;
