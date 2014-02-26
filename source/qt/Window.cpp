@@ -126,6 +126,18 @@ QMenuBar* Window::createMenuBar() {
 
 
 /**
+ * Create the status bar.
+ * @return {QStatusBar*} The status bar.
+ */
+QStatusBar* Window::createStatusBar() {
+	QStatusBar *statusBar = new QStatusBar( this );
+	statusBar->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+
+	return statusBar;
+}
+
+
+/**
  * Import a file through a file dialog.
  */
 void Window::importFile() {
@@ -141,6 +153,7 @@ void Window::importFile() {
 	std::string filePath = fileDialogResult.toStdString();
 
 	if( filePath.empty() ) {
+		mGLWidget->startRendering();
 		return;
 	}
 
@@ -149,18 +162,6 @@ void Window::importFile() {
 	filePath = filePath.substr( 0, splitHere + 1 );
 
 	mGLWidget->loadModel( filePath, fileName );
-}
-
-
-/**
- * Create the status bar.
- * @return {QStatusBar*} The status bar.
- */
-QStatusBar* Window::createStatusBar() {
-	QStatusBar *statusBar = new QStatusBar( this );
-	statusBar->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
-
-	return statusBar;
 }
 
 

@@ -42,21 +42,25 @@ void ModelLoader::getFacesAndVertices(
 	object3D object, vector<cl_float> allVertices,
 	vector<cl_uint4>* faces, vector<cl_float4>* vertices
 ) {
-	cl_uint flen;
+	cl_uint a, b, c;
 
-	for( int i = 0; i < object.facesV.size(); i += 3 ) {
-		flen = faces->size();
-
-		cl_uint4 f = { flen + 0, flen + 1, flen + 2, 0 };
+	for( cl_uint i = 0; i < allVertices.size(); i += 3 ) {
 		cl_float4 v = {
-			allVertices[object.facesV[i + 0]],
-			allVertices[object.facesV[i + 1]],
-			allVertices[object.facesV[i + 2]],
+			allVertices[i + 0],
+			allVertices[i + 1],
+			allVertices[i + 2],
 			0.0f
 		};
-
-		faces->push_back( f );
 		vertices->push_back( v );
+	}
+
+	for( cl_uint i = 0; i < object.facesV.size(); i += 3 ) {
+		a = object.facesV[i + 0];
+		b = object.facesV[i + 1];
+		c = object.facesV[i + 2];
+
+		cl_uint4 f = { a, b, c, 0 };
+		faces->push_back( f );
 	}
 }
 

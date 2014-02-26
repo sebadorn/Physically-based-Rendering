@@ -15,6 +15,7 @@
 #include "Cfg.h"
 #include "KdTree.h"
 #include "MtlParser.h"
+#include "SphereTree.h"
 
 using std::vector;
 
@@ -51,6 +52,16 @@ struct bvhNode_cl {
 	cl_float4 bbMax; // bbMax.w = right child node
 };
 
+struct sphereNode_cl {
+	cl_float4 bbMin;
+	cl_float4 bbMax;
+	cl_int4 faces;
+	// cl_float4 center; // center.w = radius
+	cl_uint id;
+	cl_int leftChild;
+	cl_int rightChild;
+};
+
 struct material_cl_t {
 	cl_float4 scratch; // scratch.w = p (isotropy factor)
 	cl_float d;
@@ -74,7 +85,7 @@ class PathTracer {
 		CL* getCLObject();
 		void initOpenCLBuffers(
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-			ModelLoader* ml, BVH* bvh
+			ModelLoader* ml, BVH* bvh, SphereTree* st
 		);
 		void resetSampleCount();
 		void setCamera( Camera* camera );
@@ -97,6 +108,10 @@ class PathTracer {
 		);
 		void initOpenCLBuffers_Materials( ModelLoader* ml );
 		void initOpenCLBuffers_Rays();
+		void initOpenCLBuffers_SphereTree(
+			ModelLoader* ml, SphereTree* st,
+			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
+		);
 		void initOpenCLBuffers_Textures();
 		void kdNodesToVectors(
 			vector<kdNode_t> kdNodes, vector<cl_uint>* kdFaces, vector<kdNonLeaf_cl>* kdNonLeaves,

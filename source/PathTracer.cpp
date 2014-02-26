@@ -191,7 +191,7 @@ void PathTracer::initKernelArgs() {
  */
 void PathTracer::initOpenCLBuffers(
 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-	ModelLoader* ml, BVH* bvh
+	ModelLoader* ml, BVH* bvh, SphereTree* st
 ) {
 	boost::posix_time::ptime timerStart;
 	boost::posix_time::ptime timerEnd;
@@ -217,6 +217,14 @@ void PathTracer::initOpenCLBuffers(
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	snprintf( msg, 64, "[PathTracer] Created kD-tree buffer in %g ms.", timeDiff );
 	Logger::logInfo( msg );
+
+	// // Buffer: sphere tree
+	// timerStart = boost::posix_time::microsec_clock::local_time();
+	// this->initOpenCLBuffers_SphereTree( ml, st, vertices, faces, normals );
+	// timerEnd = boost::posix_time::microsec_clock::local_time();
+	// timeDiff = ( timerEnd - timerStart ).total_milliseconds();
+	// snprintf( msg, 64, "[PathTracer] Created sphere tree buffer in %g ms.", timeDiff );
+	// Logger::logInfo( msg );
 
 	// Buffer: material(s)
 	timerStart = boost::posix_time::microsec_clock::local_time();
@@ -397,6 +405,42 @@ void PathTracer::initOpenCLBuffers_Rays() {
 	cl_uint pixels = mWidth * mHeight;
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
 	mBufRays = mCL->createEmptyBuffer( sizeof( rayBase ) * pixels, CL_MEM_READ_WRITE );
+}
+
+
+void PathTracer::initOpenCLBuffers_SphereTree(
+	ModelLoader* ml, SphereTree* st,
+	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
+) {
+	vector<cl_uint> facesVN = ml->getFacesVN();
+	vector<cl_int> facesMtl = ml->getFacesMtl();
+	vector<face_cl> faceStructs;
+
+	for( int i = 0; i < faces.size(); i += 3 ) {
+		face_cl face;
+
+		cl_float4 a = { vertices[faces[i + 0] * 3], vertices[faces[i + 0] * 3 + 1], vertices[faces[i + 0] * 3 + 2], 0.0f };
+		cl_float4 b = { vertices[faces[i + 1] * 3], vertices[faces[i + 1] * 3 + 1], vertices[faces[i + 1] * 3 + 2], 0.0f };
+		cl_float4 c = { vertices[faces[i + 2] * 3], vertices[faces[i + 2] * 3 + 1], vertices[faces[i + 2] * 3 + 2], 0.0f };
+		face.a = a;
+		face.b = b;
+		face.c = c;
+
+		cl_float4 an = { normals[facesVN[i + 0] * 3], normals[facesVN[i + 0] * 3 + 1], normals[facesVN[i + 0] * 3 + 2], 0.0f };
+		cl_float4 bn = { normals[facesVN[i + 1] * 3], normals[facesVN[i + 1] * 3 + 1], normals[facesVN[i + 1] * 3 + 2], 0.0f };
+		cl_float4 cn = { normals[facesVN[i + 2] * 3], normals[facesVN[i + 2] * 3 + 1], normals[facesVN[i + 2] * 3 + 2], 0.0f };
+		face.an = an;
+		face.bn = bn;
+		face.cn = cn;
+
+		face.a.w = (cl_float) facesMtl[i / 3];
+		faceStructs.push_back( face );
+	}
+
+	mBufFaces = mCL->createBuffer( faceStructs, sizeof( face_cl ) * faceStructs.size() );
+
+
+	vector<SphereTreeNode*> stNodes = st->getNodes();
 }
 
 

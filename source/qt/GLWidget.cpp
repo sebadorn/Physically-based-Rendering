@@ -288,7 +288,6 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	BVH* bvh = new BVH( ml->getObjects(), mVertices );
 
 	SphereTree* st = new SphereTree( ml->getObjects(), mVertices );
-	delete st;
 
 	// Visualization of kD-tree
 
@@ -306,7 +305,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	// Visualization of BVH
 	vector<GLfloat> verticesBVH;
 	vector<GLuint> indicesBVH;
-	bvh->visualize( &verticesBVH, &indicesBVH );
+	st->visualize( &verticesBVH, &indicesBVH );
 	mBVHNumIndices = indicesBVH.size();
 
 	this->setShaderBuffersForOverlay( mVertices, mFaces );
@@ -315,10 +314,11 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	this->setShaderBuffersForTracer();
 	this->initShaders();
 
-	mPathTracer->initOpenCLBuffers( mVertices, mFaces, mNormals, ml, bvh );
+	mPathTracer->initOpenCLBuffers( mVertices, mFaces, mNormals, ml, bvh, st );
 
 	delete ml;
 	delete bvh;
+	delete st;
 
 	// Ready
 	this->startRendering();
