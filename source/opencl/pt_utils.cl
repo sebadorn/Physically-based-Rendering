@@ -172,7 +172,7 @@ const bool intersectSphere( const ray4* ray, const float4 pos, const float radiu
 	*tNear = b - det;
 	*tFar = b + det;
 
-	return ( *tNear > EPSILON ) ? true : ( ( *tFar > EPSILON ) ? true : false );
+	return ( *tNear > EPSILON || *tFar > EPSILON );
 }
 
 

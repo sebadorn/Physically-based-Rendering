@@ -61,8 +61,8 @@ SphereTreeNode* SphereTree::buildTree( vector<cl_uint4> faces, vector<cl_float4>
 		return containerNode;
 	}
 
-	cl_uint axis;
-	cl_float midpoint = this->findMidpoint( containerNode, &axis );
+	cl_uint axis = this->longestAxis( containerNode );
+	cl_float midpoint = this->findMidpoint( containerNode, axis );
 
 	vector<cl_uint4> leftFaces;
 	vector<cl_uint4> rightFaces;
@@ -286,30 +286,10 @@ cl_float SphereTree::findMeanOfNodes( vector<SphereTreeNode*> nodes, cl_uint axi
  * @param  {cl_uint*}        axis
  * @return {cl_float}
  */
-cl_float SphereTree::findMidpoint( SphereTreeNode* container, cl_uint* axis ) {
-	glm::vec3 bbLen = ( container->bbMax - container->bbMin );
-	cl_float mp;
+cl_float SphereTree::findMidpoint( SphereTreeNode* container, cl_uint axis ) {
+	glm::vec3 sides = ( container->bbMax + container->bbMin ) / 2.0f;
 
-	if( bbLen[0] > bbLen[1] ) {
-		mp = bbLen[0];
-		*axis = 0;
-
-		if( bbLen[2] > mp ) {
-			mp = bbLen[2];
-			*axis = 2;
-		}
-	}
-	else {
-		mp = bbLen[1];
-		*axis = 1;
-
-		if( bbLen[2] > mp ) {
-			mp = bbLen[2];
-			*axis = 2;
-		}
-	}
-
-	return mp;
+	return sides[axis];
 }
 
 
@@ -416,8 +396,8 @@ void SphereTree::groupTreesToNodes( vector<SphereTreeNode*> nodes, SphereTreeNod
 		return;
 	}
 
-	cl_uint axis;
-	cl_float midpoint = this->findMidpoint( parent, &axis );
+	cl_uint axis = this->longestAxis( parent );
+	cl_float midpoint = this->findMidpoint( parent, axis );
 
 	vector<SphereTreeNode*> leftGroup;
 	vector<SphereTreeNode*> rightGroup;
@@ -455,6 +435,18 @@ void SphereTree::logStats( boost::posix_time::ptime timerStart ) {
 		timeDiff, mNodes.size(), mLeafNodes.size()
 	);
 	Logger::logInfo( msg );
+}
+
+
+cl_uint SphereTree::longestAxis( SphereTreeNode* node ) {
+	glm::vec3 sides = node->bbMax - node->bbMin;
+
+	if( sides[0] > sides[1] ) {
+		return ( sides[0] > sides[2] ) ? 0 : 2;
+	}
+	else { // sides[1] > sides[0]
+		return ( sides[1] > sides[2] ) ? 1 : 2;
+	}
 }
 
 

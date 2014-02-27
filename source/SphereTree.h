@@ -49,13 +49,14 @@ class SphereTree {
 		);
 		cl_float findMean( vector<cl_uint4> faces, vector<cl_float4> allVertices, cl_uint axis );
 		cl_float findMeanOfNodes( vector<SphereTreeNode*> nodes, cl_uint axis );
-		cl_float findMidpoint( SphereTreeNode* container, cl_uint* axis );
+		cl_float findMidpoint( SphereTreeNode* container, cl_uint axis );
 		void getBoundingBox( vector<cl_float4> vertices, glm::vec3* bbMin, glm::vec3* bbMax );
 		void getTriangleBB( cl_uint4 face, vector<cl_float4> vertices, glm::vec3* bbMin, glm::vec3* bbMax );
 		glm::vec3 getTriangleCenter( cl_uint4 face, vector<cl_float4> vertices );
 		glm::vec3 getTriangleCentroid( cl_uint4 face, vector<cl_float4> vertices );
 		void groupTreesToNodes( vector<SphereTreeNode*> nodes, SphereTreeNode* parent );
 		void logStats( boost::posix_time::ptime timerStart );
+		cl_uint longestAxis( SphereTreeNode* node );
 		SphereTreeNode* makeNode( vector<cl_uint4> faces, vector<cl_float4> vertices );
 		SphereTreeNode* makeContainerNode( vector<SphereTreeNode*> subTrees, bool isRoot );
 		void visualizeNextNode( SphereTreeNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices );

@@ -273,6 +273,7 @@ void traverseBVH( const global sphereNode* bvh, ray4* ray, const global face_t* 
 	ray4 rayBest = *ray;
 	ray4 rayCp = *ray;
 
+
 	while( stackIndex >= 0 ) {
 		node = bvh[bvhStack[stackIndex--]];
 		tNearL = -2.0f;
@@ -300,13 +301,13 @@ void traverseBVH( const global sphereNode* bvh, ray4* ray, const global face_t* 
 		// Add child nodes to stack, if hit by ray
 		if( node.leftChild > 0 ) {
 			nodeLeft = bvh[node.leftChild];
-			float4 center = ( nodeLeft.bbMin + nodeLeft.bbMax ) / 2.0f;
-			float4 r = nodeLeft.bbMin + center;
-			float radius = fast_length( r );
+			// float4 center = ( nodeLeft.bbMin + nodeLeft.bbMax ) / 2.0f;
+			// float4 r = nodeLeft.bbMin + center;
+			// float radius = fast_length( r );
 
 			if(
-				// intersectBoundingBox( ray, nodeLeft.bbMin, nodeLeft.bbMax, &tNearL, &tFarL ) &&
-				intersectSphere( ray, center, radius, &tNearL, &tFarL ) &&
+				intersectBoundingBox( ray, nodeLeft.bbMin, nodeLeft.bbMax, &tNearL, &tFarL ) &&
+				// intersectSphere( ray, center, radius, &tNearL, &tFarL ) &&
 				( rayBest.t < -1.0f || rayBest.t > tNearL )
 			) {
 				addLeftToStack = true;
@@ -315,13 +316,9 @@ void traverseBVH( const global sphereNode* bvh, ray4* ray, const global face_t* 
 
 		if( node.rightChild > 0 ) {
 			nodeRight = bvh[node.rightChild];
-			float4 center = ( nodeRight.bbMin + nodeRight.bbMax ) / 2.0f;
-			float4 r = nodeRight.bbMin + center;
-			float radius = fast_length( r );
 
 			if(
-				// intersectBoundingBox( ray, nodeRight.bbMin, nodeRight.bbMax, &tNearR, &tFarR ) &&
-				intersectSphere( ray, center, radius, &tNearR, &tFarR ) &&
+				intersectBoundingBox( ray, nodeRight.bbMin, nodeRight.bbMax, &tNearR, &tFarR ) &&
 				( rayBest.t < -1.0f || rayBest.t > tNearR )
 			) {
 				addRightToStack = true;
