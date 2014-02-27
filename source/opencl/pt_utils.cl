@@ -159,6 +159,23 @@ const bool intersectBoundingBox(
 }
 
 
+const bool intersectSphere( const ray4* ray, const float4 pos, const float radius, float* tNear, float* tFar ) {
+	float3 op = pos.xyz - ray->origin.xyz;
+	float b = dot( op, ray->dir.xyz );
+	float det = b * b - dot( op, op ) + radius * radius;
+
+	if( det < 0.0f ) {
+		return false;
+	}
+
+	det = native_sqrt( det );
+	*tNear = b - det;
+	*tFar = b + det;
+
+	return ( *tNear > EPSILON ) ? true : ( ( *tFar > EPSILON ) ? true : false );
+}
+
+
 /**
  * Source: http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
  * Which is based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.

@@ -57,7 +57,6 @@ struct sphereNode_cl {
 	cl_float4 bbMax;
 	cl_int4 faces;
 	// cl_float4 center; // center.w = radius
-	cl_uint id;
 	cl_int leftChild;
 	cl_int rightChild;
 };
@@ -85,7 +84,7 @@ class PathTracer {
 		CL* getCLObject();
 		void initOpenCLBuffers(
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-			ModelLoader* ml, BVH* bvh, SphereTree* st
+			ModelLoader* ml, SphereTree* st
 		);
 		void resetSampleCount();
 		void setCamera( Camera* camera );
@@ -136,6 +135,8 @@ class PathTracer {
 		cl_mem mBufKdNonLeaves;
 		cl_mem mBufKdLeaves;
 		cl_mem mBufKdFaces;
+
+		cl_mem mBufSphereTree;
 
 		cl_mem mBufFaces;
 		cl_mem mBufMaterials;

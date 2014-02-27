@@ -1,7 +1,7 @@
 #ANTI_ALIASING#
 #BACKFACE_CULLING#
 #define MAX_DEPTH #MAX_DEPTH#
-#define BVH_STACKSIZE 20
+#define BVH_STACKSIZE 128
 #define EPSILON 0.00001f
 #define IMG_HEIGHT #IMG_HEIGHT#
 #define IMG_WIDTH #IMG_WIDTH#
@@ -42,20 +42,29 @@ typedef struct {
 } ray4;
 
 typedef struct {
-	float4 split;  // [x, y, z, axis]
-	int4 children; // [left, right, isLeftLeaf, isRightLeaf]
-} kdNonLeaf;
-
-typedef struct {
-	int8 ropes; // [left, right, back, front, bottom, top, facesIndex, numFaces]
 	float4 bbMin;
 	float4 bbMax;
-} kdLeaf;
+	int4 faces;
+	// float4 center; // center.w = radius
+	int leftChild;
+	int rightChild;
+} sphereNode;
 
-typedef struct {
-	float4 bbMin; // bbMin.w = left child node / kD-tree root node
-	float4 bbMax; // bbMax.w = right child node
-} bvhNode;
+// typedef struct {
+// 	float4 split;  // [x, y, z, axis]
+// 	int4 children; // [left, right, isLeftLeaf, isRightLeaf]
+// } kdNonLeaf;
+
+// typedef struct {
+// 	int8 ropes; // [left, right, back, front, bottom, top, facesIndex, numFaces]
+// 	float4 bbMin;
+// 	float4 bbMax;
+// } kdLeaf;
+
+// typedef struct {
+// 	float4 bbMin; // bbMin.w = left child node / kD-tree root node
+// 	float4 bbMax; // bbMax.w = right child node
+// } bvhNode;
 
 typedef struct {
 	float4 scratch; // scratch.w = p (isotropy factor)

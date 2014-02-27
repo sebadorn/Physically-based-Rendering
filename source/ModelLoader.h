@@ -40,7 +40,7 @@ class ModelLoader {
 
 		static void getFacesAndVertices(
 			object3D object, vector<cl_float> allVertices,
-			vector<cl_uint4>* faces, vector<cl_float4>* vertices
+			vector<cl_uint4>* faces, vector<cl_float4>* vertices, cl_int offset
 		);
 
 	private:

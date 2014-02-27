@@ -285,21 +285,21 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mNormals = ml->getNormals();
 	mVertices = ml->getVertices();
 
-	BVH* bvh = new BVH( ml->getObjects(), mVertices );
+	// BVH* bvh = new BVH( ml->getObjects(), mVertices );
 
 	SphereTree* st = new SphereTree( ml->getObjects(), mVertices );
 
 	// Visualization of kD-tree
 
-	vector<GLfloat> verticesKdTree;
-	vector<GLuint> indicesKdTree;
-	vector<BVHnode*> bvhLeaves = bvh->getLeaves();
+	// vector<GLfloat> verticesKdTree;
+	// vector<GLuint> indicesKdTree;
+	// vector<BVHnode*> bvhLeaves = bvh->getLeaves();
 
-	for( int i = 0; i < bvhLeaves.size(); i++ ) {
-		bvhLeaves[i]->kdtree->visualize( &verticesKdTree, &indicesKdTree );
-	}
+	// for( int i = 0; i < bvhLeaves.size(); i++ ) {
+	// 	bvhLeaves[i]->kdtree->visualize( &verticesKdTree, &indicesKdTree );
+	// }
 
-	mKdTreeNumIndices = indicesKdTree.size();
+	// mKdTreeNumIndices = indicesKdTree.size();
 
 
 	// Visualization of BVH
@@ -310,14 +310,14 @@ void GLWidget::loadModel( string filepath, string filename ) {
 
 	this->setShaderBuffersForOverlay( mVertices, mFaces );
 	this->setShaderBuffersForBVH( verticesBVH, indicesBVH );
-	this->setShaderBuffersForKdTree( verticesKdTree, indicesKdTree );
+	// this->setShaderBuffersForKdTree( verticesKdTree, indicesKdTree );
 	this->setShaderBuffersForTracer();
 	this->initShaders();
 
-	mPathTracer->initOpenCLBuffers( mVertices, mFaces, mNormals, ml, bvh, st );
+	mPathTracer->initOpenCLBuffers( mVertices, mFaces, mNormals, ml, st );
 
 	delete ml;
-	delete bvh;
+	// delete bvh;
 	delete st;
 
 	// Ready

@@ -98,8 +98,8 @@ kernel void initRays(
  */
 kernel void pathTracing(
 	const uint2 offset, float seed, float pixelWeight,
-	const global face_t* faces, const global bvhNode* bvh,
-	const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves, const global uint* kdFaces,
+	const global face_t* faces, const global sphereNode* bvh, //const global bvhNode* bvh,
+	// const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves, const global uint* kdFaces,
 	const global rayBase* initRays, const global material* materials,
 	const global float* specPowerDists,
 	read_only image2d_t imageIn, write_only image2d_t imageOut
@@ -134,7 +134,7 @@ kernel void pathTracing(
 		depthAdded = 0;
 
 		for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
-			traverseBVH( bvh, &ray, kdNonLeaves, kdLeaves, kdFaces, faces );
+			traverseBVH( bvh, &ray, faces );
 
 			if( ray.t < 0.0f ) {
 				break;

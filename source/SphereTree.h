@@ -67,6 +67,7 @@ class SphereTree {
 		SphereTreeNode* mRoot;
 
 		cl_uint mMaxFaces;
+		cl_uint mDepthReached;
 
 };
 

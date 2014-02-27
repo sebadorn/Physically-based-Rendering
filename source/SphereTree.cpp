@@ -12,6 +12,7 @@ using std::vector;
 SphereTree::SphereTree( vector<object3D> sceneObjects, vector<cl_float> allVertices ) {
 	boost::posix_time::ptime timerStart = boost::posix_time::microsec_clock::local_time();
 	mMaxFaces = 3; // TODO: Cfg
+	mDepthReached = 0;
 
 	vector<SphereTreeNode*> subTrees = this->buildTreesFromObjects( sceneObjects, allVertices );
 	mRoot = this->makeContainerNode( subTrees, true );
@@ -93,11 +94,13 @@ vector<SphereTreeNode*> SphereTree::buildTreesFromObjects(
 ) {
 	vector<SphereTreeNode*> subTrees;
 	char msg[256];
+	cl_int offset = 0;
 
 	for( cl_uint i = 0; i < sceneObjects.size(); i++ ) {
 		vector<cl_uint4> facesThisObj;
 		vector<cl_float4> allVertices4;
-		ModelLoader::getFacesAndVertices( sceneObjects[i], allVertices, &facesThisObj, &allVertices4 );
+		ModelLoader::getFacesAndVertices( sceneObjects[i], allVertices, &facesThisObj, &allVertices4, offset );
+		offset += facesThisObj.size();
 
 		snprintf(
 			msg, 256, "[SphereTree] Building tree %u/%lu: \"%s\". %lu faces.",
@@ -210,6 +213,32 @@ void SphereTree::divideNodes(
 		else {
 			rightGroup->push_back( node );
 		}
+	}
+
+	// Just do it 50:50 then.
+	if( leftGroup->size() == 0 || rightGroup->size() == 0 ) {
+		Logger::logDebugVerbose( "[SphereTree] Dividing nodes by center left one side empty. Just doing it 50:50 now." );
+
+		leftGroup->clear();
+		rightGroup->clear();
+
+		for( cl_uint i = 0; i < nodes.size(); i++ ) {
+			if( i < nodes.size() / 2 ) {
+				leftGroup->push_back( nodes[i] );
+			}
+			else {
+				rightGroup->push_back( nodes[i] );
+			}
+		}
+	}
+
+	// There has to be somewhere else something wrong.
+	if( leftGroup->size() == 0 || rightGroup->size() == 0 ) {
+		char msg[256];
+		snprintf(
+			msg, 256, "[SphereTree] Dividing nodes 50:50 left one side empty. Nodes: %lu.", nodes.size()
+		);
+		Logger::logError( msg );
 	}
 }
 

@@ -40,7 +40,7 @@ vector<cl_float> ModelLoader::getBoundingBox() {
  */
 void ModelLoader::getFacesAndVertices(
 	object3D object, vector<cl_float> allVertices,
-	vector<cl_uint4>* faces, vector<cl_float4>* vertices
+	vector<cl_uint4>* faces, vector<cl_float4>* vertices, cl_int offset
 ) {
 	cl_uint a, b, c;
 
@@ -59,7 +59,7 @@ void ModelLoader::getFacesAndVertices(
 		b = object.facesV[i + 1];
 		c = object.facesV[i + 2];
 
-		cl_uint4 f = { a, b, c, 0 };
+		cl_uint4 f = { a, b, c, offset + faces->size() };
 		faces->push_back( f );
 	}
 }
