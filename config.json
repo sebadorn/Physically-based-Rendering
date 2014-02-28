@@ -34,15 +34,10 @@
 		"kernel_times": 250.0
 	},
 
-	"kdtree": {
-		// Maximum depth of leaf nodes. Set a positive, non-negative value or:
-		// -1 - round( log2( #vertices ) )
-		//  0 - no limit
-		"depth": 0,
-		// Minimum of faces per leaf node.
-		// However, 1 split is minimum and will occur regardless
-		"min_faces": 3,
-		"optimize_ropes": true
+	// Bounding Volume Hierarchy
+	"bvh": {
+		// Maximum of faces per leaf node [1, 4].
+		"max_faces": 4
 	},
 
 	"logging": {

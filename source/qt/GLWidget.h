@@ -19,7 +19,6 @@
 #include "../Logger.h"
 #include "../ModelLoader.h"
 #include "../PathTracer.h"
-#include "../SphereTree.h"
 #include "../utils.h"
 #include "Window.h"
 
@@ -28,15 +27,13 @@
 #endif
 
 // Number of vertex arrays
-#define NUM_VA 4
+#define NUM_VA 3
 // Vertex array for path tracer texture
 #define VA_TRACER 0
 // Vertex array for model overlay (for position comparison)
 #define VA_OVERLAY 1
 // Vertex array for Bounding Volume Hierarchy visualization
 #define VA_BVH 2
-// Vertex array for kD-tree visualization
-#define VA_KDTREE 3
 
 using std::map;
 using std::string;
@@ -83,20 +80,17 @@ class GLWidget : public QGLWidget {
 		void resizeGL( int width, int height );
 		void setShaderBuffersForOverlay( vector<GLfloat> vertices, vector<GLuint> indices );
 		void setShaderBuffersForBVH( vector<GLfloat> vertices, vector<GLuint> indices );
-		void setShaderBuffersForKdTree( vector<GLfloat> vertices, vector<GLuint> indices );
 		void setShaderBuffersForTracer();
 		void showFPS();
 
 	protected slots:
 		void toggleViewBVH();
-		void toggleViewKdTree();
 		void toggleViewOverlay();
 		void toggleViewTracer();
 
 	private:
 		bool mDoRendering;
 		bool mViewBVH;
-		bool mViewKdTree;
 		bool mViewOverlay;
 		bool mViewTracer;
 

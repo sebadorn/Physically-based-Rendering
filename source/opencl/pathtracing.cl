@@ -1,17 +1,18 @@
 #FILE:pt_header.cl:FILE#
 #FILE:pt_utils.cl:FILE#
 #FILE:pt_spectral.cl:FILE#
-#FILE:pt_kdtree.cl:FILE#
+#FILE:pt_traversal.cl:FILE#
 
 
 
 /**
- *
- * @param pos
- * @param imageIn
- * @param imageOut
- * @param pixelWeight
- * @param spdLight
+ * Write the final color to the output image.
+ * @param {const int2}           pos         Pixel coordinate in the image to read from/write to.
+ * @param {read_only image2d_t}  imageIn     The previously generated image.
+ * @param {write_only image2d_t} imageOut    Output.
+ * @param {const float}          pixelWeight Mixing weight of the new color with the old one.
+ * @param {float[40]}            spdLight    Spectral power distribution reaching this pixel.
+ * @param {float}                focus       Value <t> of the ray.
  */
 void setColors(
 	const int2 pos, read_only image2d_t imageIn, write_only image2d_t imageOut,
@@ -36,12 +37,11 @@ void setColors(
 /**
  * KERNEL.
  * Generate the initial rays into the scene.
- * @param {const uint2}         offset
- * @param {const float4}        initRayParts
- * @param {const global float*} eyeIn          Camera eye position.
- * @param {global float4*}      origins        Output. The origin of each ray. (The camera eye.)
- * @param {global float4*}      dirs           Output. The generated rays for each pixel.
- * @param {const float}         timeSinceStart
+ * @param {const uint2}         offset       Pixel offset for the current image tile.
+ * @param {float}               seed         Seed for the random number generator.
+ * @param {const float4}        initRayParts Diverse parameters that are needed to calculate the ray.
+ * @param {const global float*} eyeIn        Camera eye position.
+ * @param {global rayBase*}     rays         Output. Array for the created rays.
  */
 kernel void initRays(
 	const uint2 offset, float seed,
@@ -83,23 +83,21 @@ kernel void initRays(
 
 /**
  * KERNEL.
- * Search the kd-tree to find the closest intersection of the ray with a surface.
- * @param {const uint2}              offset
- * @param {const float}              timeSinceStart
- * @param {global float4*}           origins
- * @param {global float4*}           dirs
- * @param {const global float4*}     scNormals
- * @param {const global uint*}       scFacesVN
- * @param {const global kdNonLeaf*}  kdNonLeaves
- * @param {const global kdLeaf*}     kdLeaves
- * @param {const global int*}        kdNodeFaces
- * @param {global float4*}           hits
- * @param {global float4*}           hitNormals
+ * Do the path tracing and calculate the final color for the pixel.
+ * @param {const uint2}            offset
+ * @param {float}                  seed
+ * @param {float}                  pixelWeight
+ * @param {const global face_t*}   faces
+ * @param {const global bvhNode*}  bvh
+ * @param {const global rayBase*}  initRays
+ * @param {const global material*} materials
+ * @param {const global float*}    specPowerDists
+ * @param {read_only image2d_t}    imageIn
+ * @param {write_only image2d_t}   imageOut
  */
 kernel void pathTracing(
 	const uint2 offset, float seed, float pixelWeight,
-	const global face_t* faces, const global sphereNode* bvh, //const global bvhNode* bvh,
-	// const global kdNonLeaf* kdNonLeaves, const global kdLeaf* kdLeaves, const global uint* kdFaces,
+	const global face_t* faces, const global bvhNode* bvh,
 	const global rayBase* initRays, const global material* materials,
 	const global float* specPowerDists,
 	read_only image2d_t imageIn, write_only image2d_t imageOut

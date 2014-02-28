@@ -4,39 +4,33 @@ using std::vector;
 
 
 /**
- * Constructor.
- * @param {std::vector<object3D>} objects
- * @param {std::vector<cl_float>} vertices
+ * Build a sphere tree for each object in the scene and combine them into one big tree.
+ * @param  {std::vector<object3D>} sceneObjects
+ * @param  {std::vector<cl_float>} allVertices
+ * @return {BVH*}
  */
-BVH::BVH( vector<object3D> objects, vector<cl_float> vertices ) {
+BVH::BVH( vector<object3D> sceneObjects, vector<cl_float> allVertices ) {
 	boost::posix_time::ptime timerStart = boost::posix_time::microsec_clock::local_time();
 
-	vector<cl_float> bb = utils::computeBoundingBox( vertices );
-	mCounterID = 0;
+	mDepthReached = 0; // TODO: Keep track of tree depth
+	mMaxFaces = Cfg::get().value<cl_uint>( Cfg::BVH_MAXFACES );
+	mMaxFaces = ( mMaxFaces < 1 || mMaxFaces > 4 ) ? 4 : mMaxFaces;
 
-	mRoot = new BVHnode;
-	mRoot->id = mCounterID++;
-	mRoot->left = NULL;
-	mRoot->right = NULL;
-	mRoot->kdtree = NULL;
-	mRoot->bbMin = glm::vec3( bb[0], bb[1], bb[2] );
-	mRoot->bbMax = glm::vec3( bb[3], bb[4], bb[5] );
-	mRoot->bbCenter = ( mRoot->bbMin + mRoot->bbMax ) / 2.0f;
+	vector<BVHNode*> subTrees = this->buildTreesFromObjects( sceneObjects, allVertices );
+	mRoot = this->makeContainerNode( subTrees, true );
+	this->groupTreesToNodes( subTrees, mRoot );
 
-	mBVleaves = this->createKdTrees( objects, vertices );
-	mBVHnodes.insert( mBVHnodes.end(), mBVleaves.begin(), mBVleaves.end() );
+	if( subTrees.size() > 1 ) {
+		mNodes.push_back( mRoot );
+	}
+	mNodes.insert( mNodes.end(), mContainerNodes.begin(), mContainerNodes.end() );
+	mNodes.insert( mNodes.end(), mLeafNodes.begin(), mLeafNodes.end() );
 
-	this->buildHierarchy( mBVHnodes, mRoot );
-	mBVHnodes.insert( mBVHnodes.begin(), mRoot );
+	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
+		mNodes[i]->id = i;
+	}
 
-	boost::posix_time::ptime timerEnd = boost::posix_time::microsec_clock::local_time();
-	cl_float timeDiff = ( timerEnd - timerStart ).total_milliseconds();
-	char msg[128];
-	snprintf(
-		msg, 128, "[BVH] Generated in %g ms. Contains %lu nodes and %lu kD-tree(s).",
-		timeDiff, mBVHnodes.size(), mBVleaves.size()
-	);
-	Logger::logInfo( msg );
+	this->logStats( timerStart );
 }
 
 
@@ -44,254 +38,488 @@ BVH::BVH( vector<object3D> objects, vector<cl_float> vertices ) {
  * Destructor.
  */
 BVH::~BVH() {
-	for( int i = 0; i < mBVHnodes.size(); i++ ) {
-		if( mBVHnodes[i]->kdtree != NULL ) {
-			delete mBVHnodes[i]->kdtree;
-		}
-		delete mBVHnodes[i];
+	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
+		delete mNodes[i];
 	}
 }
 
 
 /**
- * Build the Bounding Volume Hierarchy.
- * @param {std::vector<BVHnode*>} nodes
- * @param {BVHnode*}              parent
+ * Build the sphere tree.
+ * @param  {std::vector<cl_uint4>}  faces
+ * @param  {std::vector<cl_float4>} allVertices
+ * @return {BVHNode*}
  */
-void BVH::buildHierarchy( vector<BVHnode*> nodes, BVHnode* parent ) {
-	if( nodes.size() == 1 ) {
-		if( parent == mRoot ) {
-			parent->left = nodes[0];
+BVHNode* BVH::buildTree( vector<cl_uint4> faces, vector<cl_float4> allVertices ) {
+	BVHNode* containerNode = this->makeNode( faces, allVertices );
+
+	// leaf node
+	if( faces.size() <= mMaxFaces ) {
+		if( faces.size() <= 0 ) {
+			Logger::logWarning( "[BVH] No faces in node." );
 		}
-		return;
+		containerNode->faces = faces;
+
+		return containerNode;
 	}
 
-	BVHnode* leftmost = NULL;
-	BVHnode* rightmost = NULL;
-	this->findCornerNodes( nodes, parent, &leftmost, &rightmost );
+	cl_uint axis = this->longestAxis( containerNode );
+	cl_float midpoint = this->findMidpoint( containerNode, axis );
 
-	// Shouldn't happen. Catch it just to be sure.
-	if( leftmost == rightmost ) {
-		Logger::logError( "[BVH] Leftmost node is also rightmost node." );
-		return;
+	vector<cl_uint4> leftFaces;
+	vector<cl_uint4> rightFaces;
+	this->divideFaces( faces, allVertices, midpoint, axis, &leftFaces, &rightFaces );
+
+	if( leftFaces.size() <= 0 || rightFaces.size() <= 0 ) {
+		cl_float mean = this->findMean( faces, allVertices, axis );
+
+		leftFaces.clear();
+		rightFaces.clear();
+		this->divideFaces( faces, allVertices, mean, axis, &leftFaces, &rightFaces );
 	}
 
-	vector<BVHnode*> leftGroup;
-	vector<BVHnode*> rightGroup;
-	this->groupByCorner( nodes, leftmost, rightmost, &leftGroup, &rightGroup );
+	containerNode->leftChild = this->buildTree( leftFaces, allVertices );
+	containerNode->rightChild = this->buildTree( rightFaces, allVertices );
 
-	if( leftGroup.size() > 1 ) {
-		parent->left = this->makeNodeFromGroup( leftGroup );
-		mBVHnodes.push_back( parent->left );
-	}
-	else {
-		parent->left = leftGroup[0];
-	}
-
-	if( rightGroup.size() > 1 ) {
-		parent->right = this->makeNodeFromGroup( rightGroup );
-		mBVHnodes.push_back( parent->right );
-	}
-	else {
-		parent->right = rightGroup[0];
-	}
-
-	this->buildHierarchy( leftGroup, parent->left );
-	this->buildHierarchy( rightGroup, parent->right );
+	return containerNode;
 }
 
 
 /**
- * Create a kD-tree for each 3D object in the scene.
- * @param  {std::vector<object3D>} objects
- * @param  {std::vector<cl_float>} vertices
- * @return {std::vector<BVHnode*>}
+ * Build sphere trees for all given scene objects.
+ * @param  {std::vector<object3D>}        sceneObjects
+ * @param  {std::vector<cl_float>}        allVertices
+ * @return {std::vector<BVHNode*>}
  */
-vector<BVHnode*> BVH::createKdTrees( vector<object3D> objects, vector<cl_float> vertices ) {
-	vector<BVHnode*> BVHnodes;
-	vector<cl_float> bb, ov;
-	vector<cl_uint4> of;
-	char msg[128];
-	uint globalFaceIndex = 0;
+vector<BVHNode*> BVH::buildTreesFromObjects(
+	vector<object3D> sceneObjects, vector<cl_float> allVertices
+) {
+	vector<BVHNode*> subTrees;
+	char msg[256];
+	cl_int offset = 0;
 
-	for( cl_uint i = 0; i < objects.size(); i++ ) {
-		object3D o = objects[i];
-		ov.clear();
-		of.clear();
+	for( cl_uint i = 0; i < sceneObjects.size(); i++ ) {
+		vector<cl_uint4> facesThisObj;
+		vector<cl_float4> allVertices4;
+		ModelLoader::getFacesAndVertices( sceneObjects[i], allVertices, &facesThisObj, &allVertices4, offset );
+		offset += facesThisObj.size();
 
-		snprintf( msg, 128, "[BVH] Building kD-tree %u of %lu: \"%s\"", i + 1, objects.size(), o.oName.c_str() );
-		Logger::indent( 0 );
+		snprintf(
+			msg, 256, "[BVH] Building tree %u/%lu: \"%s\". %lu faces.",
+			i + 1, sceneObjects.size(), sceneObjects[i].oName.c_str(), facesThisObj.size()
+		);
 		Logger::logInfo( msg );
-		Logger::indent( LOG_INDENT );
 
-		for( cl_uint j = 0; j < o.facesV.size(); j += 3 ) {
-			ov.push_back( vertices[o.facesV[j] * 3] );
-			ov.push_back( vertices[o.facesV[j] * 3 + 1] );
-			ov.push_back( vertices[o.facesV[j] * 3 + 2] );
-
-			ov.push_back( vertices[o.facesV[j + 1] * 3] );
-			ov.push_back( vertices[o.facesV[j + 1] * 3 + 1] );
-			ov.push_back( vertices[o.facesV[j + 1] * 3 + 2] );
-
-			ov.push_back( vertices[o.facesV[j + 2] * 3] );
-			ov.push_back( vertices[o.facesV[j + 2] * 3 + 1] );
-			ov.push_back( vertices[o.facesV[j + 2] * 3 + 2] );
-
-			cl_uint4 face = { j, j + 1, j + 2, globalFaceIndex++ };
-			of.push_back( face );
-		}
-
-		bb = utils::computeBoundingBox( ov );
-		cl_float bbMin[3] = { bb[0], bb[1], bb[2] };
-		cl_float bbMax[3] = { bb[3], bb[4], bb[5] };
-
-		BVHnode* node = new BVHnode;
-		node->id = mCounterID++;
-		node->left = NULL;
-		node->right = NULL;
-		node->kdtree = new KdTree( ov, of, bbMin, bbMax );
-		node->bbMin = glm::vec3( bb[0], bb[1], bb[2] );
-		node->bbMax = glm::vec3( bb[3], bb[4], bb[5] );
-		node->bbCenter = ( node->bbMin + node->bbMax ) / 2.0f;
-		BVHnodes.push_back( node );
+		BVHNode* st = this->buildTree( facesThisObj, allVertices4 );
+		subTrees.push_back( st );
 	}
 
-	Logger::indent( 0 );
-
-	return BVHnodes;
+	return subTrees;
 }
 
 
 /**
- * Find the two nodes that are closest to the min and max bounding box of the parent node.
- * @param {std::vector<BVHnode*>} nodes
- * @param {BVHnode*}              parent
- * @param {BVHnode**}             leftmost
- * @param {BVHnode**}             rightmost
+ * Divide the faces into two groups using the given midpoint and axis as criterium.
+ * @param {std::vector<cl_uint4>}  faces
+ * @param {std::vector<cl_float4>} vertices
+ * @param {cl_float}               midpoint
+ * @param {cl_uint}                axis
+ * @param {std::vector<cl_uint4>*} leftFaces
+ * @param {std::vector<cl_uint4>*} rightFaces
  */
-void BVH::findCornerNodes(
-	vector<BVHnode*> nodes, BVHnode* parent,
-	BVHnode** leftmost, BVHnode** rightmost
+void BVH::divideFaces(
+	vector<cl_uint4> faces, vector<cl_float4> vertices, cl_float midpoint, cl_uint axis,
+	vector<cl_uint4>* leftFaces, vector<cl_uint4>* rightFaces
 ) {
-	cl_float distNodeLeft, distNodeRight;
-	cl_float distLeftmost, distRightmost;
-	BVHnode* secondRightmost = nodes[1];
+	for( cl_uint i = 0; i < faces.size(); i++ ) {
+		cl_uint4 face = faces[i];
+		glm::vec3 centroid = this->getTriangleCentroid( face, vertices );
 
-	*leftmost = nodes[0];
-	*rightmost = nodes[0];
-
-	for( cl_uint i = 1; i < nodes.size(); i++ ) {
-		BVHnode* node = nodes[i];
-
-		distNodeLeft = glm::length( node->bbCenter - parent->bbMin );
-		distLeftmost = glm::length( (*leftmost)->bbCenter - parent->bbMin );
-
-		distNodeRight = glm::length( node->bbCenter - parent->bbMax );
-		distRightmost = glm::length( (*rightmost)->bbCenter - parent->bbMax );
-
-		if( distNodeLeft < distLeftmost ) {
-			*leftmost = node;
+		if( centroid[axis] < midpoint ) {
+			leftFaces->push_back( face );
 		}
-		if( distNodeRight < distRightmost ) {
-			secondRightmost = *rightmost;
-			*rightmost = node;
+		else {
+			rightFaces->push_back( face );
 		}
 	}
 
-	// More of a workaround than an actual bugfix.
-	if( *leftmost == *rightmost ) {
-		*rightmost = secondRightmost;
+	// One group has no children. We cannot allow that.
+	// Try again with the triangle center instead of the centroid.
+	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
+		Logger::logDebugVerbose( "[BVH] Dividing faces by centroid left one side empty. Trying again with center." );
+
+		leftFaces->clear();
+		rightFaces->clear();
+
+		for( cl_uint i = 0; i < faces.size(); i++ ) {
+			cl_uint4 face = faces[i];
+			glm::vec3 center = this->getTriangleCenter( face, vertices );
+
+			if( center[axis] < midpoint ) {
+				leftFaces->push_back( face );
+			}
+			else {
+				rightFaces->push_back( face );
+			}
+		}
+	}
+
+	// Oh, come on! Just do it 50:50 then.
+	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
+		Logger::logDebugVerbose( "[BVH] Dividing faces by center left one side empty. Just doing it 50:50 now." );
+
+		leftFaces->clear();
+		rightFaces->clear();
+
+		for( cl_uint i = 0; i < faces.size(); i++ ) {
+			if( i < faces.size() / 2 ) {
+				leftFaces->push_back( faces[i] );
+			}
+			else {
+				rightFaces->push_back( faces[i] );
+			}
+		}
+	}
+
+	// There has to be somewhere else something wrong.
+	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
+		char msg[256];
+		snprintf(
+			msg, 256, "[BVH] Dividing faces 50:50 left one side empty. Faces: %lu. Vertices: %lu.",
+			faces.size(), vertices.size()
+		);
+		Logger::logError( msg );
 	}
 }
 
 
 /**
- * Get the leaves of the BVH.
- * That are all nodes with a reference to a kD-tree.
- * @return {std::vector<BVHnode*>}
+ * Divide the nodes into two groups using the given midpoint and axis as criterium.
+ * @param {std::vector<BVHNode*>}  nodes
+ * @param {cl_float}                      midpoint
+ * @param {cl_uint}                       axis
+ * @param {std::vector<BVHNode*>*} leftGroup
+ * @param {std::vector<BVHNode*>*} rightGroup
  */
-vector<BVHnode*> BVH::getLeaves() {
-	return mBVleaves;
-}
-
-
-/**
- * Get the nodes of the BVH.
- * @return {std::vector<BVHnode*>}
- */
-vector<BVHnode*> BVH::getNodes() {
-	return mBVHnodes;
-}
-
-
-/**
- * Get the root node of the BVH.
- * @return {BVHnode*}
- */
-BVHnode* BVH::getRoot() {
-	return mRoot;
-}
-
-
-/**
- * Group the nodes in two groups.
- * @param {std::vector<BVHnode*>}  nodes
- * @param {BVHnode*}               leftmost
- * @param {BVHnode*}               rightmost
- * @param {std::vector<BVHnode*>*} leftGroup
- * @param {std::vector<BVHnode*>*} rightGroup
- */
-void BVH::groupByCorner(
-	vector<BVHnode*> nodes, BVHnode* leftmost, BVHnode* rightmost,
-	vector<BVHnode*>* leftGroup, vector<BVHnode*>* rightGroup
+void BVH::divideNodes(
+	vector<BVHNode*> nodes, cl_float midpoint, cl_uint axis,
+	vector<BVHNode*>* leftGroup, vector<BVHNode*>* rightGroup
 ) {
-	cl_float distToLeftmost, distToRightmost;
+	for( cl_uint i = 0; i < nodes.size(); i++ ) {
+		BVHNode* node = nodes[i];
+		glm::vec3 center = ( node->bbMax - node->bbMin ) / 2.0f;
 
-	for( int i = 0; i < nodes.size(); i++ ) {
-		BVHnode* node = nodes[i];
-
-		distToLeftmost = glm::length( node->bbCenter - leftmost->bbCenter );
-		distToRightmost = glm::length( node->bbCenter - rightmost->bbCenter );
-
-		if( distToLeftmost < distToRightmost ) {
+		if( center[axis] < midpoint ) {
 			leftGroup->push_back( node );
 		}
 		else {
 			rightGroup->push_back( node );
 		}
 	}
+
+	// Just do it 50:50 then.
+	if( leftGroup->size() == 0 || rightGroup->size() == 0 ) {
+		Logger::logDebugVerbose( "[BVH] Dividing nodes by center left one side empty. Just doing it 50:50 now." );
+
+		leftGroup->clear();
+		rightGroup->clear();
+
+		for( cl_uint i = 0; i < nodes.size(); i++ ) {
+			if( i < nodes.size() / 2 ) {
+				leftGroup->push_back( nodes[i] );
+			}
+			else {
+				rightGroup->push_back( nodes[i] );
+			}
+		}
+	}
+
+	// There has to be somewhere else something wrong.
+	if( leftGroup->size() == 0 || rightGroup->size() == 0 ) {
+		char msg[256];
+		snprintf(
+			msg, 256, "[BVH] Dividing nodes 50:50 left one side empty. Nodes: %lu.", nodes.size()
+		);
+		Logger::logError( msg );
+	}
 }
 
 
 /**
- * Make a BV node out of a given group of BV nodes.
- * @param  {std::vector<BVHnode*>} group
- * @return {BVHnode*}
+ * Find the mean of the triangles regarding the given axis.
+ * @param  {std::vector<cl_uint4>}  faces
+ * @param  {std::vector<cl_float4>} allVertices
+ * @param  {cl_uint}                axis
+ * @return {cl_float}
  */
-BVHnode* BVH::makeNodeFromGroup( vector<BVHnode*> group ) {
-	BVHnode* vol = new BVHnode;
-	vol->id = mCounterID++;
-	vol->left = NULL;
-	vol->right = NULL;
-	vol->kdtree = NULL;
-	vol->bbMin = glm::vec3( group[0]->bbMin );
-	vol->bbMax = glm::vec3( group[0]->bbMax );
+cl_float BVH::findMean( vector<cl_uint4> faces, vector<cl_float4> allVertices, cl_uint axis ) {
+	cl_float sum = 0.0f;
 
-	for( int i = 1; i < group.size(); i++ ) {
-		BVHnode* node = group[i];
-
-		if( node->bbMin[0] < vol->bbMin[0] ) { vol->bbMin[0] = node->bbMin[0]; }
-		if( node->bbMin[1] < vol->bbMin[1] ) { vol->bbMin[1] = node->bbMin[1]; }
-		if( node->bbMin[2] < vol->bbMin[2] ) { vol->bbMin[2] = node->bbMin[2]; }
-
-		if( node->bbMax[0] > vol->bbMax[0] ) { vol->bbMax[0] = node->bbMax[0]; }
-		if( node->bbMax[1] > vol->bbMax[1] ) { vol->bbMax[1] = node->bbMax[1]; }
-		if( node->bbMax[2] > vol->bbMax[2] ) { vol->bbMax[2] = node->bbMax[2]; }
+	for( cl_uint i = 0; i < faces.size(); i++ ) {
+		glm::vec3 center = this->getTriangleCentroid( faces[i], allVertices );
+		sum += center[axis];
 	}
 
-	vol->bbCenter = ( vol->bbMin + vol->bbMax ) / 2.0f;
+	return sum / faces.size();
+}
 
-	return vol;
+
+/**
+ * Find the mean of the centers of the given nodes.
+ * @param  {std::vector<BVHNode*>} nodes
+ * @param  {cl_uint}                      axis
+ * @return {cl_float}
+ */
+cl_float BVH::findMeanOfNodes( vector<BVHNode*> nodes, cl_uint axis ) {
+	cl_float sum = 0.0f;
+
+	for( cl_uint i = 0; i < nodes.size(); i++ ) {
+		glm::vec3 center = ( nodes[i]->bbMax - nodes[i]->bbMin ) / 2.0f;
+		sum += center[axis];
+	}
+
+	return sum / nodes.size();
+}
+
+
+/**
+ * Find the midpoint on the longest axis of the node.
+ * @param  {BVHNode*} container
+ * @param  {cl_uint*}        axis
+ * @return {cl_float}
+ */
+cl_float BVH::findMidpoint( BVHNode* container, cl_uint axis ) {
+	glm::vec3 sides = ( container->bbMax + container->bbMin ) / 2.0f;
+
+	return sides[axis];
+}
+
+
+/**
+ * Calculate the bounding box from the given vertices.
+ * @param {std::vector<cl_float4>} vertices
+ * @param {glm::vec3}              bbMin
+ * @param {glm::vec3}              bbMax
+ */
+void BVH::getBoundingBox( vector<cl_float4> vertices, glm::vec3* bbMin, glm::vec3* bbMax ) {
+	*bbMin = glm::vec3( vertices[0].x, vertices[0].y, vertices[0].z );
+	*bbMax = glm::vec3( vertices[0].x, vertices[0].y, vertices[0].z );
+
+	for( cl_uint i = 1; i < vertices.size(); i++ ) {
+		cl_float4 v = vertices[i];
+
+		(*bbMin)[0] = ( (*bbMin)[0] < v.x ) ? (*bbMin)[0] : v.x;
+		(*bbMin)[1] = ( (*bbMin)[1] < v.y ) ? (*bbMin)[1] : v.y;
+		(*bbMin)[2] = ( (*bbMin)[2] < v.z ) ? (*bbMin)[2] : v.z;
+
+		(*bbMax)[0] = ( (*bbMax)[0] > v.x ) ? (*bbMax)[0] : v.x;
+		(*bbMax)[1] = ( (*bbMax)[1] > v.y ) ? (*bbMax)[1] : v.y;
+		(*bbMax)[2] = ( (*bbMax)[2] > v.z ) ? (*bbMax)[2] : v.z;
+	}
+}
+
+
+vector<BVHNode*> BVH::getContainerNodes() {
+	return mContainerNodes;
+}
+
+
+vector<BVHNode*> BVH::getLeafNodes() {
+	return mLeafNodes;
+}
+
+
+vector<BVHNode*> BVH::getNodes() {
+	return mNodes;
+}
+
+
+BVHNode* BVH::getRoot() {
+	return mRoot;
+}
+
+
+/**
+ * Get the bounding box a face (triangle).
+ * @param {cl_uint4}               face
+ * @param {std::vector<cl_float4>} vertices
+ * @param {glm::vec3}              bbMin
+ * @param {glm::vec3}              bbMax
+ */
+void BVH::getTriangleBB( cl_uint4 face, vector<cl_float4> vertices, glm::vec3* bbMin, glm::vec3* bbMax ) {
+	vector<cl_float4> triangleVertices;
+
+	triangleVertices.push_back( vertices[face.x] );
+	triangleVertices.push_back( vertices[face.y] );
+	triangleVertices.push_back( vertices[face.z] );
+
+	this->getBoundingBox( triangleVertices, bbMin, bbMax );
+}
+
+
+/**
+ * Get the center of a face (triangle).
+ * @param  {cl_uint4}               face
+ * @param  {std::vector<cl_float4>} vertices
+ * @return {glm::vec3}
+ */
+glm::vec3 BVH::getTriangleCenter( cl_uint4 face, vector<cl_float4> vertices ) {
+	glm::vec3 bbMin;
+	glm::vec3 bbMax;
+	this->getTriangleBB( face, vertices, &bbMin, &bbMax );
+
+	return ( bbMax - bbMin ) / 2.0f;
+}
+
+
+/**
+ * Get the centroid of a face (triangle).
+ * @param  {cl_uint4}               face
+ * @param  {std::vector<cl_float4>} vertices
+ * @return {glm::vec3}
+ */
+glm::vec3 BVH::getTriangleCentroid( cl_uint4 face, vector<cl_float4> vertices ) {
+	glm::vec3 v0( vertices[face.x].x, vertices[face.x].y, vertices[face.x].z );
+	glm::vec3 v1( vertices[face.y].x, vertices[face.y].y, vertices[face.y].z );
+	glm::vec3 v2( vertices[face.z].x, vertices[face.z].y, vertices[face.z].z );
+
+	return ( v0 + v1 + v2 ) / 3.0f;
+}
+
+
+/**
+ * Group the sphere nodes into two groups and assign them to the given parent node.
+ * @param {std::vector<BVHNode*>} nodes
+ * @param {BVHNode*}              parent
+ */
+void BVH::groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent ) {
+	if( nodes.size() == 1 ) {
+		// Implies: parent == nodes[0], nothing to do
+		return;
+	}
+
+	cl_uint axis = this->longestAxis( parent );
+	cl_float midpoint = this->findMidpoint( parent, axis );
+
+	vector<BVHNode*> leftGroup;
+	vector<BVHNode*> rightGroup;
+	this->divideNodes( nodes, midpoint, axis, &leftGroup, &rightGroup );
+
+	if( leftGroup.size() <= 0 || rightGroup.size() <= 0 ) {
+		cl_float mean = this->findMeanOfNodes( nodes, axis );
+
+		leftGroup.clear();
+		rightGroup.clear();
+		this->divideNodes( nodes, mean, axis, &leftGroup, &rightGroup );
+	}
+
+	BVHNode* leftNode = this->makeContainerNode( leftGroup, false );
+	parent->leftChild = leftNode;
+	this->groupTreesToNodes( leftGroup, parent->leftChild );
+
+	BVHNode* rightNode = this->makeContainerNode( rightGroup, false );
+	parent->rightChild = rightNode;
+	this->groupTreesToNodes( rightGroup, parent->rightChild );
+}
+
+
+/**
+ * Log some stats.
+ * @param {boost::posix_time::ptime} timerStart
+ */
+void BVH::logStats( boost::posix_time::ptime timerStart ) {
+	boost::posix_time::ptime timerEnd = boost::posix_time::microsec_clock::local_time();
+	cl_float timeDiff = ( timerEnd - timerStart ).total_milliseconds();
+
+	char msg[128];
+	snprintf(
+		msg, 128, "[BVH] Generated in %g ms. Contains %lu nodes (%lu leaves).",
+		timeDiff, mNodes.size(), mLeafNodes.size()
+	);
+	Logger::logInfo( msg );
+}
+
+
+cl_uint BVH::longestAxis( BVHNode* node ) {
+	glm::vec3 sides = node->bbMax - node->bbMin;
+
+	if( sides[0] > sides[1] ) {
+		return ( sides[0] > sides[2] ) ? 0 : 2;
+	}
+	else { // sides[1] > sides[0]
+		return ( sides[1] > sides[2] ) ? 1 : 2;
+	}
+}
+
+
+/**
+ * Create a container node that can contain the created sub-trees.
+ * @param  {std::vector<BVHNode*>} subTrees
+ * @return {BVHNode*}
+ */
+BVHNode* BVH::makeContainerNode( vector<BVHNode*> subTrees, bool isRoot ) {
+	if( subTrees.size() == 1 ) {
+		return subTrees[0];
+	}
+
+	BVHNode* node = new BVHNode;
+
+	node->leftChild = NULL;
+	node->rightChild = NULL;
+
+	node->bbMin = glm::vec3( subTrees[0]->bbMin );
+	node->bbMax = glm::vec3( subTrees[0]->bbMax );
+
+	for( cl_uint i = 1; i < subTrees.size(); i++ ) {
+		node->bbMin[0] = ( node->bbMin[0] < subTrees[i]->bbMin[0] ) ? node->bbMin[0] : subTrees[i]->bbMin[0];
+		node->bbMin[1] = ( node->bbMin[1] < subTrees[i]->bbMin[1] ) ? node->bbMin[1] : subTrees[i]->bbMin[1];
+		node->bbMin[2] = ( node->bbMin[2] < subTrees[i]->bbMin[2] ) ? node->bbMin[2] : subTrees[i]->bbMin[2];
+
+		node->bbMax[0] = ( node->bbMax[0] > subTrees[i]->bbMax[0] ) ? node->bbMax[0] : subTrees[i]->bbMax[0];
+		node->bbMax[1] = ( node->bbMax[1] > subTrees[i]->bbMax[1] ) ? node->bbMax[1] : subTrees[i]->bbMax[1];
+		node->bbMax[2] = ( node->bbMax[2] > subTrees[i]->bbMax[2] ) ? node->bbMax[2] : subTrees[i]->bbMax[2];
+	}
+
+	if( !isRoot ) {
+		mContainerNodes.push_back( node );
+	}
+
+	return node;
+}
+
+
+/**
+ * Create a new node.
+ * @param  {std::vector<cl_uint4>} faces
+ * @param  {std::vector<cl_float>} allVertices Vertices to compute the bounding box from.
+ * @return {BVHNode*}
+ */
+BVHNode* BVH::makeNode( vector<cl_uint4> faces, vector<cl_float4> allVertices ) {
+	BVHNode* node = new BVHNode;
+	node->leftChild = NULL;
+	node->rightChild = NULL;
+
+	vector<cl_float4> vertices;
+	for( cl_uint i = 0; i < faces.size(); i++ ) {
+		vertices.push_back( allVertices[faces[i].x] );
+		vertices.push_back( allVertices[faces[i].y] );
+		vertices.push_back( allVertices[faces[i].z] );
+	}
+
+	glm::vec3 bbMin;
+	glm::vec3 bbMax;
+	this->getBoundingBox( vertices, &bbMin, &bbMax );
+	node->bbMin = bbMin;
+	node->bbMax = bbMax;
+
+	if( faces.size() <= mMaxFaces ) {
+		mLeafNodes.push_back( node );
+	}
+	else {
+		mContainerNodes.push_back( node );
+	}
+
+	return node;
 }
 
 
@@ -307,16 +535,17 @@ void BVH::visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) {
 
 /**
  * Visualize the next node in the BVH.
- * @param {kdNode_t*}              node     Current node.
+ * @param {BVHNode*}        node     Current node.
  * @param {std::vector<cl_float>*} vertices Vector to put the vertices into.
  * @param {std::vector<cl_uint>*}  indices  Vector to put the indices into.
  */
-void BVH::visualizeNextNode( BVHnode* node, vector<cl_float>* vertices, vector<cl_uint>* indices ) {
+void BVH::visualizeNextNode( BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices ) {
 	if( node == NULL ) {
 		return;
 	}
 
-	if( node->kdtree != NULL ) {
+	// Only visualize leaf nodes
+	if( node->faces.size() > 0 ) {
 		cl_uint i = vertices->size() / 3;
 
 		// bottom
@@ -353,8 +582,8 @@ void BVH::visualizeNextNode( BVHnode* node, vector<cl_float>* vertices, vector<c
 	}
 
 	// Proceed with left side
-	this->visualizeNextNode( node->left, vertices, indices );
+	this->visualizeNextNode( node->leftChild, vertices, indices );
 
 	// Proceed width right side
-	this->visualizeNextNode( node->right, vertices, indices );
+	this->visualizeNextNode( node->rightChild, vertices, indices );
 }

@@ -72,30 +72,30 @@ float4 jitter( float4 d, float phi, float sina, float cosa ) {
 
 
 /**
- *
- * @param  prevRay
- * @param  mtl
- * @param  seed
- * @return
+ * Get the a new direction for a ray hitting a transparent surface (glass etc.).
+ * @param  {const ray4*}     currentRay The current ray.
+ * @param  {const material*} mtl        Material of the hit surface.
+ * @param  {float*}          seed       Seed for the random number generator.
+ * @return {float4}                     A new direction for the ray.
  */
-float4 refract( ray4* prevRay, material* mtl, float* seed ) {
-	bool into = ( dot( prevRay->normal.xyz, prevRay->dir.xyz ) < 0.0f );
-	float4 nl = into ? prevRay->normal : -prevRay->normal;
+float4 refract( const ray4* currentRay, const material* mtl, float* seed ) {
+	bool into = ( dot( currentRay->normal.xyz, currentRay->dir.xyz ) < 0.0f );
+	float4 nl = into ? currentRay->normal : -currentRay->normal;
 
 	float m1 = into ? NI_AIR : mtl->Ni;
 	float m2 = into ? mtl->Ni : NI_AIR;
 	float m = native_divide( m1, m2 );
 
-	float cosI = -dot( prevRay->dir.xyz, nl.xyz );
+	float cosI = -dot( currentRay->dir.xyz, nl.xyz );
 	float sinSq = m * m * ( 1.0f - cosI * cosI );
 
 	// Critical angle. Total internal reflection.
 	if( sinSq > 1.0f ) {
-		return reflect( prevRay->dir, nl );
+		return reflect( currentRay->dir, nl );
 	}
 
 	// No TIR, proceed.
-	float4 tDir = m * prevRay->dir + ( m * cosI - native_sqrt( 1.0f - sinSq ) ) * nl;
+	float4 tDir = m * currentRay->dir + ( m * cosI - native_sqrt( 1.0f - sinSq ) ) * nl;
 
 	float r0 = native_divide( m1 - m2, m1 + m2 );
 	r0 *= r0;
@@ -104,7 +104,7 @@ float4 refract( ray4* prevRay, material* mtl, float* seed ) {
 	float refl = r0 + ( 1.0f - r0 ) * x * x * x * x * x;
 	// float trans = 1.0f - refl;
 
-	return ( refl < rand( seed ) ) ? tDir : reflect( prevRay->dir, nl );
+	return ( refl < rand( seed ) ) ? tDir : reflect( currentRay->dir, nl );
 }
 
 
@@ -135,15 +135,14 @@ inline float4 uniformlyRandomDirection( float* seed ) {
 /**
  * Source: http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
  * Which is based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
- * @param  {const float4*} origin
- * @param  {const float4*} dir
+ * @param  {const ray4*}   ray
  * @param  {const float*}  bbMin
  * @param  {const float*}  bbMax
  * @param  {float*}        tNear
  * @param  {float*}        tFar
- * @return {bool}
+ * @return {const bool}          True, if ray intersects box, false otherwise.
  */
-const bool intersectBoundingBox(
+const bool intersectBox(
 	const ray4* ray, const float4 bbMin, const float4 bbMax, float* tNear, float* tFar
 ) {
 	const float3 invDir = native_recip( ray->dir.xyz );
@@ -159,8 +158,19 @@ const bool intersectBoundingBox(
 }
 
 
-const bool intersectSphere( const ray4* ray, const float4 pos, const float radius, float* tNear, float* tFar ) {
-	float3 op = pos.xyz - ray->origin.xyz;
+/**
+ * Calculate intersection of a ray with a sphere.
+ * @param  {const ray4*}  ray          The ray.
+ * @param  {const float4} sphereCenter Center of the sphere.
+ * @param  {const float}  radius       Radius of the sphere.
+ * @param  {float*}       tNear        <t> near of the intersection (ray entering the sphere).
+ * @param  {float*}       tFar         <t> far of the intersection (ray leaving the sphere).
+ * @return {const bool}                True, if ray intersects sphere, false otherwise.
+ */
+const bool intersectSphere(
+	const ray4* ray, const float4 sphereCenter, const float radius, float* tNear, float* tFar
+) {
+	float3 op = sphereCenter.xyz - ray->origin.xyz;
 	float b = dot( op, ray->dir.xyz );
 	float det = b * b - dot( op, op ) + radius * radius;
 

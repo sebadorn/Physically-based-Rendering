@@ -129,11 +129,7 @@ void PathTracer::initArgsKernelPathTracing() {
 	++i; // 1: timeSinceStart
 	++i; // 2: pixelWeight
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufFaces );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufSphereTree );
-	// mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufBVH );
-	// mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdNonLeaves );
-	// mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdLeaves );
-	// mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufKdFaces );
+	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufBVH );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufRays );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufMaterials );
 	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufSPDs );
@@ -187,12 +183,11 @@ void PathTracer::initKernelArgs() {
  * @param {std::vector<cl_uint>}  faces    Faces (triangles) of the model.
  * @param {std::vector<cl_float>} normals  Normals of the model.
  * @param {ModelLoader*}          ml       Model loader already holding the needed model data.
- * @param {std::vector<kdNode_t>} kdNodes  Nodes of the kd-tree.
- * @param {kdNode_t*}             rootNode Root node of the kd-tree.
+ * @param {BVH*}                  bvh      The generated Bounding Volume Hierarchy.
  */
 void PathTracer::initOpenCLBuffers(
 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-	ModelLoader* ml, SphereTree* st
+	ModelLoader* ml, BVH* bvh
 ) {
 	boost::posix_time::ptime timerStart;
 	boost::posix_time::ptime timerEnd;
@@ -203,31 +198,23 @@ void PathTracer::initOpenCLBuffers(
 	Logger::indent( LOG_INDENT );
 	mCL->freeBuffers();
 
-	// // Buffer: BVH
-	// timerStart = boost::posix_time::microsec_clock::local_time();
-	// this->initOpenCLBuffers_BVH( bvh );
-	// timerEnd = boost::posix_time::microsec_clock::local_time();
-	// timeDiff = ( timerEnd - timerStart ).total_milliseconds();
-	// snprintf( msg, 64, "[PathTracer] Created BVH buffer in %g ms.", timeDiff );
-	// Logger::logInfo( msg );
-
-	// // Buffer: kD-tree(s)
-	// timerStart = boost::posix_time::microsec_clock::local_time();
-	// this->initOpenCLBuffers_KdTree( ml, bvh, vertices, faces, normals );
-	// timerEnd = boost::posix_time::microsec_clock::local_time();
-	// timeDiff = ( timerEnd - timerStart ).total_milliseconds();
-	// snprintf( msg, 64, "[PathTracer] Created kD-tree buffer in %g ms.", timeDiff );
-	// Logger::logInfo( msg );
-
-	// Buffer: sphere tree
+	// Buffer: Faces
 	timerStart = boost::posix_time::microsec_clock::local_time();
-	this->initOpenCLBuffers_SphereTree( ml, st, vertices, faces, normals );
+	this->initOpenCLBuffers_Faces( ml, vertices, faces, normals );
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
-	snprintf( msg, 64, "[PathTracer] Created sphere tree buffer in %g ms.", timeDiff );
+	snprintf( msg, 64, "[PathTracer] Created faces buffer in %g ms.", timeDiff );
 	Logger::logInfo( msg );
 
-	// Buffer: material(s)
+	// Buffer: Bounding Volume Hierarchy
+	timerStart = boost::posix_time::microsec_clock::local_time();
+	this->initOpenCLBuffers_BVH( bvh );
+	timerEnd = boost::posix_time::microsec_clock::local_time();
+	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
+	snprintf( msg, 64, "[PathTracer] Created BVH buffer in %g ms.", timeDiff );
+	Logger::logInfo( msg );
+
+	// Buffer: Material(s)
 	timerStart = boost::posix_time::microsec_clock::local_time();
 	this->initOpenCLBuffers_Materials( ml );
 	timerEnd = boost::posix_time::microsec_clock::local_time();
@@ -235,7 +222,7 @@ void PathTracer::initOpenCLBuffers(
 	snprintf( msg, 64, "[PathTracer] Created material buffer in %g ms.", timeDiff );
 	Logger::logInfo( msg );
 
-	// Buffer: rays
+	// Buffer: Rays
 	timerStart = boost::posix_time::microsec_clock::local_time();
 	this->initOpenCLBuffers_Rays();
 	timerEnd = boost::posix_time::microsec_clock::local_time();
@@ -243,7 +230,7 @@ void PathTracer::initOpenCLBuffers(
 	snprintf( msg, 64, "[PathTracer] Created ray buffer in %g ms.", timeDiff );
 	Logger::logInfo( msg );
 
-	// Buffer: textures
+	// Buffer: Textures
 	timerStart = boost::posix_time::microsec_clock::local_time();
 	this->initOpenCLBuffers_Textures();
 	timerEnd = boost::posix_time::microsec_clock::local_time();
@@ -258,160 +245,48 @@ void PathTracer::initOpenCLBuffers(
 }
 
 
-// /**
-//  * Init OpenCL buffer for the BVH.
-//  * @param {BVH*} bvh
-//  */
-// void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
-// 	vector<bvhNode_cl> BVHnodesCL;
-// 	vector<BVHnode*> BVHnodes = bvh->getNodes();
-// 	cl_int offsetNonLeaves = 0;
-
-// 	for( cl_uint i = 0; i < BVHnodes.size(); i++ ) {
-// 		BVHnode* node = BVHnodes[i];
-
-// 		cl_float4 bbMin = { node->bbMin[0], node->bbMin[1], node->bbMin[2], 0.0f };
-// 		cl_float4 bbMax = { node->bbMax[0], node->bbMax[1], node->bbMax[2], 0.0f };
-
-// 		bvhNode_cl nodeCL;
-// 		nodeCL.bbMin = bbMin;
-// 		nodeCL.bbMax = bbMax;
-// 		nodeCL.bbMin.w = ( node->left != NULL ) ? (cl_float) ( node->left->id + 1 ) : 0.0f;
-// 		nodeCL.bbMax.w = ( node->right != NULL ) ? (cl_float) ( node->right->id + 1 ) : 0.0f;
-
-// 		if( node->kdtree != NULL ) {
-// 			nodeCL.bbMin.w = (cl_float) -( offsetNonLeaves + 1 ); // Offset for the index of the kD-tree root node
-// 			offsetNonLeaves += node->kdtree->getNonLeaves().size();
-// 		}
-
-// 		BVHnodesCL.push_back( nodeCL );
-// 	}
-
-// 	mBufBVH = mCL->createBuffer( BVHnodesCL, sizeof( bvhNode_cl ) * BVHnodesCL.size() );
-// }
-
-
-// /**
-//  * Init OpenCL buffers for the kD-tree.
-//  * @param {std::vector<cl_float>} vertices Vertices of the model.
-//  * @param {std::vector<cl_uint>}  faces    Faces (triangles) of the model.
-//  * @param {std::vector<kdNode_t>} kdNodes  Nodes of the kd-tree.
-//  * @param {kdNode_t*}             rootNode Root node of the kd-tree.
-//  */
-// void PathTracer::initOpenCLBuffers_KdTree(
-// 	ModelLoader* ml, BVH* bvh,
-// 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
-// ) {
-// 	vector<cl_uint> facesVN = ml->getFacesVN();
-// 	vector<cl_int> facesMtl = ml->getFacesMtl();
-// 	vector<face_cl> faceStructs;
-
-// 	for( int i = 0; i < faces.size(); i += 3 ) {
-// 		face_cl face;
-
-// 		cl_float4 a = { vertices[faces[i + 0] * 3], vertices[faces[i + 0] * 3 + 1], vertices[faces[i + 0] * 3 + 2], 0.0f };
-// 		cl_float4 b = { vertices[faces[i + 1] * 3], vertices[faces[i + 1] * 3 + 1], vertices[faces[i + 1] * 3 + 2], 0.0f };
-// 		cl_float4 c = { vertices[faces[i + 2] * 3], vertices[faces[i + 2] * 3 + 1], vertices[faces[i + 2] * 3 + 2], 0.0f };
-// 		face.a = a;
-// 		face.b = b;
-// 		face.c = c;
-
-// 		cl_float4 an = { normals[facesVN[i + 0] * 3], normals[facesVN[i + 0] * 3 + 1], normals[facesVN[i + 0] * 3 + 2], 0.0f };
-// 		cl_float4 bn = { normals[facesVN[i + 1] * 3], normals[facesVN[i + 1] * 3 + 1], normals[facesVN[i + 1] * 3 + 2], 0.0f };
-// 		cl_float4 cn = { normals[facesVN[i + 2] * 3], normals[facesVN[i + 2] * 3 + 1], normals[facesVN[i + 2] * 3 + 2], 0.0f };
-// 		face.an = an;
-// 		face.bn = bn;
-// 		face.cn = cn;
-
-// 		face.a.w = (cl_float) facesMtl[i / 3];
-// 		faceStructs.push_back( face );
-// 	}
-
-// 	mBufFaces = mCL->createBuffer( faceStructs, sizeof( face_cl ) * faceStructs.size() );
-
-
-// 	vector<kdNode_t> kdNodes;
-// 	vector<kdNonLeaf_cl> kdNonLeaves;
-// 	vector<kdLeaf_cl> kdLeaves;
-// 	vector<cl_uint> kdFaces;
-// 	vector<BVHnode*> bvLeaves = bvh->getLeaves();
-// 	cl_uint2 offset = { 0, 0 };
-
-// 	for( int i = 0; i < bvLeaves.size(); i++ ) {
-// 		kdNodes = bvLeaves[i]->kdtree->getNodes();
-// 		this->kdNodesToVectors( kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, offset );
-// 		offset.x = kdNonLeaves.size();
-// 		offset.y = kdLeaves.size();
-// 	}
-
-// 	mBufKdNonLeaves = mCL->createBuffer( kdNonLeaves, sizeof( kdNonLeaf_cl ) * kdNonLeaves.size() );
-// 	mBufKdLeaves = mCL->createBuffer( kdLeaves, sizeof( kdLeaf_cl ) * kdLeaves.size() );
-// 	mBufKdFaces = mCL->createBuffer( kdFaces, sizeof( cl_uint ) * kdFaces.size() );
-// }
-
-
 /**
- * Init OpenCL buffers for the materials, including spectral power distributions.
- * @param {ModelLoader*} ml Model loader already holding the needed model data.
+ * Init OpenCL buffers for the BVH.
+ * @param {BVH*} bvh The generated Bounding Volume Hierarchy.
  */
-void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
-	vector<material_t> materials = ml->getMaterials();
-	map<string, string> mtl2spd = ml->getMaterialToSPD();
-	map<string, vector<cl_float> > spectra = ml->getSpectralPowerDistributions();
+void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
+	vector<BVHNode*> stNodes = bvh->getNodes();
+	vector<bvhNode_cl> sphereNodes;
 
-	vector<cl_float> spd, spectraCL;
-	map<string, cl_ushort> specID;
-	map<string, vector<cl_float> >::iterator it;
-	ushort specCounter = 0;
+	for( cl_uint i = 0; i < stNodes.size(); i++ ) {
+		cl_float4 bbMin = { stNodes[i]->bbMin[0], stNodes[i]->bbMin[1], stNodes[i]->bbMin[2], 0.0f };
+		cl_float4 bbMax = { stNodes[i]->bbMax[0], stNodes[i]->bbMax[1], stNodes[i]->bbMax[2], 0.0f };
 
-	for( it = spectra.begin(); it != spectra.end(); it++, specCounter++ ) {
-		specID[it->first] = specCounter;
-		spd = it->second;
+		bvhNode_cl sn;
+		sn.bbMin = bbMin;
+		sn.bbMax = bbMax;
+		sn.leftChild = ( stNodes[i]->leftChild == NULL ) ? -1 : stNodes[i]->leftChild->id;
+		sn.rightChild = ( stNodes[i]->rightChild == NULL ) ? -1 : stNodes[i]->rightChild->id;
 
-		// Spectral power distribution has wavelength steps of 5nm, but we use only 10nm steps
-		for( int i = 0; i < spd.size(); i += 2 ) {
-			spectraCL.push_back( spd[i] );
-		}
+		vector<cl_uint4> facesVec = stNodes[i]->faces;
+		cl_int4 faces;
+		faces.x = ( facesVec.size() >= 1 ) ? facesVec[0].w : -1;
+		faces.y = ( facesVec.size() >= 2 ) ? facesVec[1].w : -1;
+		faces.z = ( facesVec.size() >= 3 ) ? facesVec[2].w : -1;
+		faces.w = ( facesVec.size() >= 4 ) ? facesVec[3].w : -1;
+		sn.faces = faces;
+
+		sphereNodes.push_back( sn );
 	}
 
-
-	vector<material_cl_t> materialsCL;
-
-	for( int i = 0; i < materials.size(); i++ ) {
-		material_cl_t mtl;
-		mtl.d = materials[i].d;
-		mtl.Ni = materials[i].Ni;
-		mtl.gloss = materials[i].gloss;
-		mtl.illum = materials[i].illum;
-		mtl.light = materials[i].light;
-		mtl.scratch = materials[i].scratch;
-		mtl.scratch.w = materials[i].p;
-
-		string spdName = mtl2spd[materials[i].mtlName];
-		mtl.spd = specID[spdName];
-
-		materialsCL.push_back( mtl );
-	}
-
-
-	mBufMaterials = mCL->createBuffer( materialsCL, sizeof( material_cl_t ) * materialsCL.size() );
-	mBufSPDs = mCL->createBuffer( spectraCL, sizeof( cl_float ) * spectraCL.size() );
+	mBufBVH = mCL->createBuffer( sphereNodes, sizeof( bvhNode_cl ) * sphereNodes.size() );
 }
 
 
 /**
- * Init OpenCL buffers of the rays.
+ * Init OpenCL buffers for the faces.
+ * @param {ModelLoader*}          ml       Model loader holding the model data.
+ * @param {std::vector<cl_float>} vertices Vertices of the model.
+ * @param {std::vector<cl_uint>}  faces    Faces of the model.
+ * @param {std::vector<cl_float>} normals  Normals of the model.
  */
-void PathTracer::initOpenCLBuffers_Rays() {
-	cl_uint pixels = mWidth * mHeight;
-	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
-	mBufRays = mCL->createEmptyBuffer( sizeof( rayBase ) * pixels, CL_MEM_READ_WRITE );
-}
-
-
-void PathTracer::initOpenCLBuffers_SphereTree(
-	ModelLoader* ml, SphereTree* st,
-	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
+void PathTracer::initOpenCLBuffers_Faces(
+	ModelLoader* ml, vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
 ) {
 	vector<cl_uint> facesVN = ml->getFacesVN();
 	vector<cl_int> facesMtl = ml->getFacesMtl();
@@ -439,33 +314,70 @@ void PathTracer::initOpenCLBuffers_SphereTree(
 	}
 
 	mBufFaces = mCL->createBuffer( faceStructs, sizeof( face_cl ) * faceStructs.size() );
+}
 
 
-	vector<SphereTreeNode*> stNodes = st->getNodes();
-	vector<sphereNode_cl> sphereNodes;
+/**
+ * Init OpenCL buffers for the materials, including spectral power distributions.
+ * @param {ModelLoader*} ml Model loader already holding the needed model data.
+ */
+void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
+	vector<material_t> materials = ml->getMaterials();
+	map<string, string> mtl2spd = ml->getMaterialToSPD();
+	map<string, vector<cl_float> > spectra = ml->getSpectralPowerDistributions();
 
-	for( cl_uint i = 0; i < stNodes.size(); i++ ) {
-		cl_float4 bbMin = { stNodes[i]->bbMin[0], stNodes[i]->bbMin[1], stNodes[i]->bbMin[2], 0.0f };
-		cl_float4 bbMax = { stNodes[i]->bbMax[0], stNodes[i]->bbMax[1], stNodes[i]->bbMax[2], 0.0f };
 
-		sphereNode_cl sn;
-		sn.bbMin = bbMin;
-		sn.bbMax = bbMax;
-		sn.leftChild = ( stNodes[i]->leftChild == NULL ) ? -1 : stNodes[i]->leftChild->id;
-		sn.rightChild = ( stNodes[i]->rightChild == NULL ) ? -1 : stNodes[i]->rightChild->id;
+	// Spectral Power Distributions
 
-		vector<cl_uint4> facesVec = stNodes[i]->faces;
-		cl_int4 faces;
-		faces.x = ( facesVec.size() >= 1 ) ? facesVec[0].w : -1;
-		faces.y = ( facesVec.size() >= 2 ) ? facesVec[1].w : -1;
-		faces.z = ( facesVec.size() >= 3 ) ? facesVec[2].w : -1;
-		faces.w = ( facesVec.size() >= 4 ) ? facesVec[3].w : -1;
-		sn.faces = faces;
+	vector<cl_float> spd, spectraCL;
+	map<string, cl_ushort> specID;
+	map<string, vector<cl_float> >::iterator it;
+	ushort specCounter = 0;
 
-		sphereNodes.push_back( sn );
+	for( it = spectra.begin(); it != spectra.end(); it++, specCounter++ ) {
+		specID[it->first] = specCounter;
+		spd = it->second;
+
+		// Spectral power distribution has wavelength steps of 5nm, but we use only 10nm steps
+		for( int i = 0; i < spd.size(); i += 2 ) {
+			spectraCL.push_back( spd[i] );
+		}
 	}
 
-	mBufSphereTree = mCL->createBuffer( sphereNodes, sizeof( sphereNode_cl ) * sphereNodes.size() );
+	mBufSPDs = mCL->createBuffer( spectraCL, sizeof( cl_float ) * spectraCL.size() );
+
+
+	// Materials
+
+	vector<material_cl_t> materialsCL;
+
+	for( int i = 0; i < materials.size(); i++ ) {
+		material_cl_t mtl;
+		mtl.d = materials[i].d;
+		mtl.Ni = materials[i].Ni;
+		mtl.gloss = materials[i].gloss;
+		mtl.illum = materials[i].illum;
+		mtl.light = materials[i].light;
+		mtl.scratch = materials[i].scratch;
+		mtl.scratch.w = materials[i].p;
+
+		string spdName = mtl2spd[materials[i].mtlName];
+		mtl.spd = specID[spdName];
+
+		materialsCL.push_back( mtl );
+	}
+
+	mBufMaterials = mCL->createBuffer( materialsCL, sizeof( material_cl_t ) * materialsCL.size() );
+}
+
+
+/**
+ * Init OpenCL buffers of the rays.
+ */
+void PathTracer::initOpenCLBuffers_Rays() {
+	cl_uint pixels = mWidth * mHeight;
+	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
+	mBufRays = mCL->createEmptyBuffer( sizeof( rayBase ) * pixels, CL_MEM_READ_WRITE );
 }
 
 
@@ -476,115 +388,6 @@ void PathTracer::initOpenCLBuffers_Textures() {
 	mTextureOut = vector<cl_float>( mWidth * mHeight * 4, 0.0f );
 	mBufTextureIn = mCL->createImage2DReadOnly( mWidth, mHeight, &mTextureOut[0] );
 	mBufTextureOut = mCL->createImage2DWriteOnly( mWidth, mHeight );
-}
-
-
-/**
- * Store the kd-nodes data in seperate lists for each data type
- * in order to pass it to OpenCL.
- * @param {std::vector<KdNode_t>}      kdNodes     All nodes of the kd-tree.
- * @param {std::vector<cl_float>*}     kdFaces     Data: [a, b, c ..., faceIndex]
- * @param {std::vector<kdNonLeaf_cl>*} kdNonLeaves Output: Nodes of the kd-tree, that aren't leaves.
- * @param {std::vector<kdLeaf_cl>*}    kdLeaves    Output: Leaf nodes of the kd-tree.
- * @param {cl_uint2}                   offset
- */
-void PathTracer::kdNodesToVectors(
-	vector<kdNode_t> kdNodes, vector<cl_uint>* kdFaces, vector<kdNonLeaf_cl>* kdNonLeaves,
-	vector<kdLeaf_cl>* kdLeaves, cl_uint2 offset
-) {
-	cl_uint a, b, c;
-
-	for( cl_uint i = 0; i < kdNodes.size(); i++ ) {
-		// Non-leaf node
-		if( kdNodes[i].axis >= 0 ) {
-			kdNonLeaf_cl node;
-
-			cl_float4 split = {
-				kdNodes[i].pos[0],
-				kdNodes[i].pos[1],
-				kdNodes[i].pos[2],
-				(cl_float) kdNodes[i].axis
-			};
-			node.split = split;
-
-			cl_int4 children = {
-				kdNodes[i].left->index,
-				kdNodes[i].right->index,
-				( kdNodes[i].left->axis < 0 ), // Is node a leaf node
-				( kdNodes[i].right->axis < 0 )
-			};
-
-			children.x += ( kdNodes[i].left->axis < 0 ) ? offset.y : offset.x;
-			children.y += ( kdNodes[i].right->axis < 0 ) ? offset.y : offset.x;
-
-			node.children = children;
-			kdNonLeaves->push_back( node );
-
-			if( kdNodes[i].faces.size() > 0 ) {
-				Logger::logWarning( "[PathTracer] Converting kd-node data: Non-leaf node with faces." );
-			}
-		}
-		// Leaf node
-		else {
-			kdLeaf_cl node;
-			vector<kdNode_t*> nodeRopes = kdNodes[i].ropes;
-
-			cl_int8 ropes = {
-				( nodeRopes[0] == NULL ) ? 0 : nodeRopes[0]->index + 1,
-				( nodeRopes[1] == NULL ) ? 0 : nodeRopes[1]->index + 1,
-				( nodeRopes[2] == NULL ) ? 0 : nodeRopes[2]->index + 1,
-				( nodeRopes[3] == NULL ) ? 0 : nodeRopes[3]->index + 1,
-				( nodeRopes[4] == NULL ) ? 0 : nodeRopes[4]->index + 1,
-				( nodeRopes[5] == NULL ) ? 0 : nodeRopes[5]->index + 1,
-				0, 0
-			};
-
-			// Set highest bit as flag for being a leaf node. (Use a negative value.)
-			// The -1 isn't going to be a problem, because the entryDistance < exitDistance condition
-			// in the kernel will stop the loop.
-			ropes.s0 = ( ropes.s0 != 0 && nodeRopes[0]->axis < 0 ) ? -( ropes.s0 + offset.y ) : ropes.s0 + offset.x;
-			ropes.s1 = ( ropes.s1 != 0 && nodeRopes[1]->axis < 0 ) ? -( ropes.s1 + offset.y ) : ropes.s1 + offset.x;
-			ropes.s2 = ( ropes.s2 != 0 && nodeRopes[2]->axis < 0 ) ? -( ropes.s2 + offset.y ) : ropes.s2 + offset.x;
-			ropes.s3 = ( ropes.s3 != 0 && nodeRopes[3]->axis < 0 ) ? -( ropes.s3 + offset.y ) : ropes.s3 + offset.x;
-			ropes.s4 = ( ropes.s4 != 0 && nodeRopes[4]->axis < 0 ) ? -( ropes.s4 + offset.y ) : ropes.s4 + offset.x;
-			ropes.s5 = ( ropes.s5 != 0 && nodeRopes[5]->axis < 0 ) ? -( ropes.s5 + offset.y ) : ropes.s5 + offset.x;
-
-			// Index of faces of this node in kdFaces
-			ropes.s6 = kdFaces->size();
-
-			// Number of faces in this node
-			ropes.s7 = kdNodes[i].faces.size();
-
-			node.ropes = ropes;
-
-			// Bounding box
-			cl_float4 bbMin = {
-				kdNodes[i].bbMin[0],
-				kdNodes[i].bbMin[1],
-				kdNodes[i].bbMin[2],
-				0.0f
-			};
-			cl_float4 bbMax = {
-				kdNodes[i].bbMax[0],
-				kdNodes[i].bbMax[1],
-				kdNodes[i].bbMax[2],
-				0.0f
-			};
-			node.bbMin = bbMin;
-			node.bbMax = bbMax;
-
-			kdLeaves->push_back( node );
-
-			if( kdNodes[i].faces.size() == 0 ) {
-				Logger::logWarning( "[PathTracer] Converting kd-node data: Leaf node without any faces." );
-			}
-
-			// Faces
-			for( cl_uint j = 0; j < kdNodes[i].faces.size(); j++ ) {
-				kdFaces->push_back( kdNodes[i].faces[j].w );
-			}
-		}
-	}
 }
 
 

@@ -77,12 +77,6 @@ QMenuBar* Window::createMenuBar() {
 	actionBVH->setChecked( false );
 	connect( actionBVH, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewBVH() ) );
 
-	QAction* actionKdTree = new QAction( tr( "Toggle kD-&trees" ), this );
-	actionKdTree->setStatusTip( tr( "Visualize the kD-trees." ) );
-	actionKdTree->setCheckable( true );
-	actionKdTree->setChecked( false );
-	connect( actionKdTree, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewKdTree() ) );
-
 	QAction* actionOverlay = new QAction( tr( "Toggle original &overlay" ), this );
 	actionOverlay->setStatusTip( tr( "Translucent overlay of the model over the traced one." ) );
 	actionOverlay->setCheckable( true );
@@ -97,7 +91,6 @@ QMenuBar* Window::createMenuBar() {
 
 	QMenu* menuView = new QMenu( tr( "&View" ) );
 	menuView->addAction( actionBVH );
-	menuView->addAction( actionKdTree );
 	menuView->addAction( actionOverlay );
 	menuView->addAction( actionTracer );
 
