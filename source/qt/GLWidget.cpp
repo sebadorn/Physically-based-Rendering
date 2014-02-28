@@ -21,7 +21,8 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mViewOverlay = false;
 	mViewTracer = true;
 
-	mPathTracer = new PathTracer();
+	mInfoWindow = NULL;
+	mPathTracer = new PathTracer( this );
 	mCamera = new Camera( this );
 	mTimer = new QTimer( this );
 
@@ -44,6 +45,10 @@ GLWidget::~GLWidget() {
 	delete mTimer;
 	delete mCamera;
 	delete mPathTracer;
+
+	if( mInfoWindow != NULL ) {
+		delete mInfoWindow;
+	}
 }
 
 
@@ -128,6 +133,20 @@ void GLWidget::checkFramebufferForErrors() {
 
 
 /**
+ * Create the kernel info window.
+ * @param {CL*} cl
+ */
+void GLWidget::createKernelWindow( CL* cl ) {
+	if( mInfoWindow == NULL ) {
+		mInfoWindow = new InfoWindow( dynamic_cast<QWidget*>( this->parent() ), cl );
+	}
+	else {
+		Logger::logWarning( "[GLWidget] InfoWindow already exists, won't create a new one. @see GLWidget::createKernelWindow()." );
+	}
+}
+
+
+/**
  * Delete data (buffers, textures) of the old model.
  */
 void GLWidget::deleteOldModel() {
@@ -146,11 +165,14 @@ void GLWidget::deleteOldModel() {
 
 
 /**
- * Get the CL object.
- * @return {CL*} CL object.
+ * Destroy the kernel info window.
  */
-CL* GLWidget::getCLObject() {
-	return mPathTracer->getCLObject();
+void GLWidget::destroyKernelWindow() {
+	if( mInfoWindow != NULL ) {
+		delete mInfoWindow;
+
+		mInfoWindow = NULL;
+	}
 }
 
 
@@ -275,6 +297,7 @@ bool GLWidget::isRendering() {
  * @param {string} filename Name of the file.
  */
 void GLWidget::loadModel( string filepath, string filename ) {
+	this->destroyKernelWindow();
 	this->deleteOldModel();
 
 	ModelLoader* ml = new ModelLoader();
@@ -582,6 +605,21 @@ void GLWidget::setShaderBuffersForTracer() {
 	glBindVertexArray( 0 );
 
 	mVA[VA_TRACER] = vaID;
+}
+
+
+/**
+ * Show the kernel info window.
+ */
+void GLWidget::showKernelWindow() {
+	if( mInfoWindow == NULL ) {
+		Logger::logError( "[GLWidget] InfoWindow has not been created yet. @see GLWidget::createKernelWindow()." );
+		return;
+	}
+
+	if( !mInfoWindow->isVisible() ) {
+		mInfoWindow->show();
+	}
 }
 
 

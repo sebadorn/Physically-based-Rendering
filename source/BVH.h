@@ -20,6 +20,7 @@ struct BVHNode {
 	glm::vec3 bbMin;
 	glm::vec3 bbMax;
 	cl_uint id;
+	cl_uint depth;
 };
 
 
@@ -29,14 +30,20 @@ class BVH {
 		BVH( vector<object3D> sceneObjects, vector<cl_float> vertices );
 		~BVH();
 		vector<BVHNode*> getContainerNodes();
+		cl_uint getDepth();
 		vector<BVHNode*> getLeafNodes();
 		vector<BVHNode*> getNodes();
 		BVHNode* getRoot();
 		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	protected:
-		BVHNode* buildTree( vector<cl_uint4> faces, vector<cl_float4> vertices );
-		vector<BVHNode*> buildTreesFromObjects( vector<object3D> sceneObjects, vector<cl_float> vertices );
+		BVHNode* buildTree(
+			vector<cl_uint4> faces, vector<cl_float4> vertices, cl_uint depth
+		);
+		vector<BVHNode*> buildTreesFromObjects(
+			vector<object3D> sceneObjects, vector<cl_float> vertices
+		);
+		void combineNodes( vector<BVHNode*> subTrees );
 		void divideFaces(
 			vector<cl_uint4> faces, vector<cl_float4> vertices, cl_float midpoint, cl_uint axis,
 			vector<cl_uint4>* leftFaces, vector<cl_uint4>* rightFaces
@@ -52,11 +59,12 @@ class BVH {
 		void getTriangleBB( cl_uint4 face, vector<cl_float4> vertices, glm::vec3* bbMin, glm::vec3* bbMax );
 		glm::vec3 getTriangleCenter( cl_uint4 face, vector<cl_float4> vertices );
 		glm::vec3 getTriangleCentroid( cl_uint4 face, vector<cl_float4> vertices );
-		void groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent );
+		void groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint depth );
 		void logStats( boost::posix_time::ptime timerStart );
 		cl_uint longestAxis( BVHNode* node );
 		BVHNode* makeNode( vector<cl_uint4> faces, vector<cl_float4> vertices );
 		BVHNode* makeContainerNode( vector<BVHNode*> subTrees, bool isRoot );
+		cl_uint setMaxFaces( cl_uint value );
 		void visualizeNextNode( BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	private:

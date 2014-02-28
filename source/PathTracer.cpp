@@ -7,17 +7,14 @@ using std::vector;
 /**
  * Constructor.
  */
-PathTracer::PathTracer() {
+PathTracer::PathTracer( GLWidget* parent ) {
 	srand( (unsigned) time( 0 ) );
 
 	mWidth = Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH );
 	mHeight = Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT );
 
-	mCL = new CL();
-	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
-
-	mKernelRays = mCL->createKernel( "initRays" );
-	mKernelPathTracing = mCL->createKernel( "pathTracing" );
+	mGLWidget = parent;
+	mCL = NULL;
 
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
 	mSampleCount = 0;
@@ -77,15 +74,6 @@ vector<cl_float> PathTracer::generateImage() {
 	mSampleCount++;
 
 	return mTextureOut;
-}
-
-
-/**
- * Get the CL object.
- * @return {CL*} CL object.
- */
-CL* PathTracer::getCLObject() {
-	return mCL;
 }
 
 
@@ -194,9 +182,13 @@ void PathTracer::initOpenCLBuffers(
 	cl_float timeDiff;
 	char msg[64];
 
+	if( mCL != NULL ) {
+		delete mCL;
+	}
+	mCL = new CL();
+
 	Logger::logInfo( "[PathTracer] Initializing OpenCL buffers ..." );
 	Logger::indent( LOG_INDENT );
-	mCL->freeBuffers();
 
 	// Buffer: Faces
 	timerStart = boost::posix_time::microsec_clock::local_time();
@@ -241,6 +233,16 @@ void PathTracer::initOpenCLBuffers(
 	Logger::indent( 0 );
 	Logger::logInfo( "[PathTracer] ... Done." );
 
+
+	snprintf( msg, 64, "%u", bvh->getDepth() );
+	mCL->setReplacement( string( "#BVH_STACKSIZE#" ), string( msg ) );
+	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
+
+	mKernelRays = mCL->createKernel( "initRays" );
+	mKernelPathTracing = mCL->createKernel( "pathTracing" );
+
+	mGLWidget->createKernelWindow( mCL );
+
 	this->initKernelArgs();
 }
 
@@ -260,8 +262,8 @@ void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 		bvhNode_cl sn;
 		sn.bbMin = bbMin;
 		sn.bbMax = bbMax;
-		sn.leftChild = ( stNodes[i]->leftChild == NULL ) ? -1 : stNodes[i]->leftChild->id;
-		sn.rightChild = ( stNodes[i]->rightChild == NULL ) ? -1 : stNodes[i]->rightChild->id;
+		sn.bbMin.w = ( stNodes[i]->leftChild == NULL ) ? -1.0f : (cl_float) stNodes[i]->leftChild->id;
+		sn.bbMax.w = ( stNodes[i]->rightChild == NULL ) ? -1.0f : (cl_float) stNodes[i]->rightChild->id;
 
 		vector<cl_uint4> facesVec = stNodes[i]->faces;
 		cl_int4 faces;

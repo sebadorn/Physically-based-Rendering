@@ -43,7 +43,6 @@ class Window : public QWidget {
 		GLWidget* mGLWidget;
 		QMenuBar* mMenuBar;
 		QStatusBar* mStatusBar;
-		InfoWindow* mInfoWindow;
 
 };
 

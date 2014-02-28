@@ -44,6 +44,7 @@ class CL {
 		void loadProgram( string filepath );
 		void readImageOutput( cl_mem image, size_t width, size_t height, cl_float* outputTarget );
 		void setKernelArg( cl_kernel kernel, cl_uint index, size_t size, void* data );
+		void setReplacement( string before, string after );
 		cl_mem updateBuffer( cl_mem buffer, size_t size, void* data );
 		cl_mem updateImageReadOnly( cl_mem image, size_t width, size_t height, cl_float* data );
 
@@ -78,6 +79,7 @@ class CL {
 
 		map<cl_kernel, string> mKernelNames;
 		map<cl_kernel, double> mKernelTime;
+		map<string, string> mReplaceString;
 
 };
 

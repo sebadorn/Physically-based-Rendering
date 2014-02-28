@@ -20,6 +20,7 @@
 #include "../ModelLoader.h"
 #include "../PathTracer.h"
 #include "../utils.h"
+#include "InfoWindow.h"
 #include "Window.h"
 
 #ifndef GL_MULTISAMPLE
@@ -41,6 +42,7 @@ using std::vector;
 
 
 class Camera;
+class InfoWindow;
 class PathTracer;
 
 
@@ -52,11 +54,13 @@ class GLWidget : public QGLWidget {
 		GLWidget( QWidget* parent );
 		~GLWidget();
 		void cameraUpdate();
-		CL* getCLObject();
+		void createKernelWindow( CL* cl );
+		void destroyKernelWindow();
 		bool isRendering();
 		void loadModel( string filepath, string filename );
 		QSize minimumSizeHint() const;
 		void moveCamera( const int key );
+		void showKernelWindow();
 		QSize sizeHint() const;
 		void startRendering();
 		void stopRendering();
@@ -104,6 +108,7 @@ class GLWidget : public QGLWidget {
 		GLuint mKdTreeNumIndices;
 		GLuint mPreviousTime;
 
+		InfoWindow* mInfoWindow;
 		QTimer* mTimer;
 		PathTracer* mPathTracer;
 

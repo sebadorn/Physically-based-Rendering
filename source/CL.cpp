@@ -117,7 +117,7 @@ string CL::combineParts( string filepath ) {
 
 	while( foundStart != string::npos && foundEnd != string::npos ) {
 		filename = clProgramString.substr( foundStart + 6, foundEnd - foundStart - 6 );
-		Logger::logDebug( "[OpenCL] Merge main file with " + filepath + filename );
+		Logger::logDebugVerbose( "[OpenCL] Merge main file with " + filepath + filename );
 		value = utils::loadFileAsString( ( filepath + filename ).c_str() );
 		clProgramString.replace( foundStart, foundEnd - foundStart + 6, value );
 
@@ -583,6 +583,11 @@ void CL::setKernelArg( cl_kernel kernel, cl_uint index, size_t size, void* data 
 }
 
 
+void CL::setReplacement( string before, string after ) {
+	mReplaceString[before] = after;
+}
+
+
 /**
  * Replace placeholder text in the OpenCL (*.cl) file with the appropiate values
  * set or indicated in the config.
@@ -663,6 +668,19 @@ string CL::setValues( string clProgramString ) {
 		if( foundStrPos != string::npos ) {
 			snprintf( replacement, 16, "%f", configFloat[i] );
 			clProgramString.replace( foundStrPos, search.length(), replacement );
+		}
+	}
+
+
+	// String replacement
+
+	map<string, string>::iterator replIt;
+
+	for( replIt = mReplaceString.begin(); replIt != mReplaceString.end(); replIt++ ) {
+		foundStrPos = clProgramString.find( replIt->first );
+
+		if( foundStrPos != string::npos ) {
+			clProgramString.replace( foundStrPos, replIt->first.length(), replIt->second );
 		}
 	}
 

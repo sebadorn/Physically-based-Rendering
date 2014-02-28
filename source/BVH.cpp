@@ -12,23 +12,14 @@ using std::vector;
 BVH::BVH( vector<object3D> sceneObjects, vector<cl_float> allVertices ) {
 	boost::posix_time::ptime timerStart = boost::posix_time::microsec_clock::local_time();
 
-	mDepthReached = 0; // TODO: Keep track of tree depth
-	mMaxFaces = Cfg::get().value<cl_uint>( Cfg::BVH_MAXFACES );
-	mMaxFaces = ( mMaxFaces < 1 || mMaxFaces > 4 ) ? 4 : mMaxFaces;
+	mDepthReached = 0;
+	this->setMaxFaces( Cfg::get().value<cl_uint>( Cfg::BVH_MAXFACES ) );
 
 	vector<BVHNode*> subTrees = this->buildTreesFromObjects( sceneObjects, allVertices );
 	mRoot = this->makeContainerNode( subTrees, true );
-	this->groupTreesToNodes( subTrees, mRoot );
+	this->groupTreesToNodes( subTrees, mRoot, mDepthReached );
 
-	if( subTrees.size() > 1 ) {
-		mNodes.push_back( mRoot );
-	}
-	mNodes.insert( mNodes.end(), mContainerNodes.begin(), mContainerNodes.end() );
-	mNodes.insert( mNodes.end(), mLeafNodes.begin(), mLeafNodes.end() );
-
-	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
-		mNodes[i]->id = i;
-	}
+	this->combineNodes( subTrees );
 
 	this->logStats( timerStart );
 }
@@ -48,10 +39,13 @@ BVH::~BVH() {
  * Build the sphere tree.
  * @param  {std::vector<cl_uint4>}  faces
  * @param  {std::vector<cl_float4>} allVertices
+ * @param  {cl_uint}                depth       The current depth of the node in the tree. Starts at 1.
  * @return {BVHNode*}
  */
-BVHNode* BVH::buildTree( vector<cl_uint4> faces, vector<cl_float4> allVertices ) {
+BVHNode* BVH::buildTree( vector<cl_uint4> faces, vector<cl_float4> allVertices, cl_uint depth ) {
 	BVHNode* containerNode = this->makeNode( faces, allVertices );
+	containerNode->depth = depth;
+	mDepthReached = ( depth > mDepthReached ) ? depth : mDepthReached;
 
 	// leaf node
 	if( faces.size() <= mMaxFaces ) {
@@ -63,23 +57,24 @@ BVHNode* BVH::buildTree( vector<cl_uint4> faces, vector<cl_float4> allVertices )
 		return containerNode;
 	}
 
-	cl_uint axis = this->longestAxis( containerNode );
-	cl_float midpoint = this->findMidpoint( containerNode, axis );
+	vector<cl_uint4> leftFaces, rightFaces;
+	cl_uint axis;
+	cl_float splitPos;
 
-	vector<cl_uint4> leftFaces;
-	vector<cl_uint4> rightFaces;
-	this->divideFaces( faces, allVertices, midpoint, axis, &leftFaces, &rightFaces );
+	axis = this->longestAxis( containerNode );
+	splitPos = this->findMidpoint( containerNode, axis );
+	this->divideFaces( faces, allVertices, splitPos, axis, &leftFaces, &rightFaces );
 
 	if( leftFaces.size() <= 0 || rightFaces.size() <= 0 ) {
-		cl_float mean = this->findMean( faces, allVertices, axis );
-
+		Logger::logDebug( "[BVH] Splitting faces by midpoint didn't work. Trying again with mean." );
 		leftFaces.clear();
 		rightFaces.clear();
-		this->divideFaces( faces, allVertices, mean, axis, &leftFaces, &rightFaces );
+		splitPos = this->findMean( faces, allVertices, axis );
+		this->divideFaces( faces, allVertices, splitPos, axis, &leftFaces, &rightFaces );
 	}
 
-	containerNode->leftChild = this->buildTree( leftFaces, allVertices );
-	containerNode->rightChild = this->buildTree( rightFaces, allVertices );
+	containerNode->leftChild = this->buildTree( leftFaces, allVertices, depth + 1 );
+	containerNode->rightChild = this->buildTree( rightFaces, allVertices, depth + 1 );
 
 	return containerNode;
 }
@@ -110,13 +105,30 @@ vector<BVHNode*> BVH::buildTreesFromObjects(
 		);
 		Logger::logInfo( msg );
 
-		BVHNode* st = this->buildTree( facesThisObj, allVertices4 );
+		BVHNode* st = this->buildTree( facesThisObj, allVertices4, 1 );
 		subTrees.push_back( st );
 	}
 
 	return subTrees;
 }
 
+
+/**
+ * Combine the container nodes, leaf nodes and the root node into one list.
+ * The root node will be at the very beginning of the list.
+ * @param {std::vector<BVHNode*>} subTrees The generated trees for each object.
+ */
+void BVH::combineNodes( vector<BVHNode*> subTrees ) {
+	if( subTrees.size() > 1 ) {
+		mNodes.push_back( mRoot );
+	}
+	mNodes.insert( mNodes.end(), mContainerNodes.begin(), mContainerNodes.end() );
+	mNodes.insert( mNodes.end(), mLeafNodes.begin(), mLeafNodes.end() );
+
+	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
+		mNodes[i]->id = i;
+	}
+}
 
 /**
  * Divide the faces into two groups using the given midpoint and axis as criterium.
@@ -319,21 +331,47 @@ void BVH::getBoundingBox( vector<cl_float4> vertices, glm::vec3* bbMin, glm::vec
 }
 
 
+/**
+ * Get all container nodes (all nodes that aren't leaves).
+ * @return {std::vector<BVHNode*>} List of all container nodes.
+ */
 vector<BVHNode*> BVH::getContainerNodes() {
 	return mContainerNodes;
 }
 
 
+/**
+ * Get the max reached depth.
+ * @return {cl_uint} The max reached depth.
+ */
+cl_uint BVH::getDepth() {
+	return mDepthReached;
+}
+
+
+/**
+ * Get all leaf nodes.
+ * @return {std::vector<BVHNode*>} List of all leaf nodes.
+ */
 vector<BVHNode*> BVH::getLeafNodes() {
 	return mLeafNodes;
 }
 
 
+/**
+ * Get all nodes (container and leaf nodes).
+ * The first node in the list is the root node.
+ * @return {std::vector<BVHNode*>} List of all nodes.
+ */
 vector<BVHNode*> BVH::getNodes() {
 	return mNodes;
 }
 
 
+/**
+ * Get the root node.
+ * @return {BVHNode*} The root node.
+ */
 BVHNode* BVH::getRoot() {
 	return mRoot;
 }
@@ -391,12 +429,16 @@ glm::vec3 BVH::getTriangleCentroid( cl_uint4 face, vector<cl_float4> vertices ) 
  * Group the sphere nodes into two groups and assign them to the given parent node.
  * @param {std::vector<BVHNode*>} nodes
  * @param {BVHNode*}              parent
+ * @param {cl_uint}               depth
  */
-void BVH::groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent ) {
+void BVH::groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint depth ) {
 	if( nodes.size() == 1 ) {
 		// Implies: parent == nodes[0], nothing to do
 		return;
 	}
+
+	parent->depth = depth;
+	mDepthReached = ( depth > mDepthReached ) ? depth : mDepthReached;
 
 	cl_uint axis = this->longestAxis( parent );
 	cl_float midpoint = this->findMidpoint( parent, axis );
@@ -415,11 +457,11 @@ void BVH::groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent ) {
 
 	BVHNode* leftNode = this->makeContainerNode( leftGroup, false );
 	parent->leftChild = leftNode;
-	this->groupTreesToNodes( leftGroup, parent->leftChild );
+	this->groupTreesToNodes( leftGroup, parent->leftChild, depth + 1 );
 
 	BVHNode* rightNode = this->makeContainerNode( rightGroup, false );
 	parent->rightChild = rightNode;
-	this->groupTreesToNodes( rightGroup, parent->rightChild );
+	this->groupTreesToNodes( rightGroup, parent->rightChild, depth + 1 );
 }
 
 
@@ -431,10 +473,10 @@ void BVH::logStats( boost::posix_time::ptime timerStart ) {
 	boost::posix_time::ptime timerEnd = boost::posix_time::microsec_clock::local_time();
 	cl_float timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 
-	char msg[128];
+	char msg[256];
 	snprintf(
-		msg, 128, "[BVH] Generated in %g ms. Contains %lu nodes (%lu leaves).",
-		timeDiff, mNodes.size(), mLeafNodes.size()
+		msg, 256, "[BVH] Generated in %g ms. Contains %lu nodes (%lu leaves). Max faces of %u. Max depth of %u.",
+		timeDiff, mNodes.size(), mLeafNodes.size(), mMaxFaces, mDepthReached
 	);
 	Logger::logInfo( msg );
 }
@@ -466,6 +508,7 @@ BVHNode* BVH::makeContainerNode( vector<BVHNode*> subTrees, bool isRoot ) {
 
 	node->leftChild = NULL;
 	node->rightChild = NULL;
+	node->depth = 0;
 
 	node->bbMin = glm::vec3( subTrees[0]->bbMin );
 	node->bbMax = glm::vec3( subTrees[0]->bbMax );
@@ -498,6 +541,7 @@ BVHNode* BVH::makeNode( vector<cl_uint4> faces, vector<cl_float4> allVertices ) 
 	BVHNode* node = new BVHNode;
 	node->leftChild = NULL;
 	node->rightChild = NULL;
+	node->depth = 0;
 
 	vector<cl_float4> vertices;
 	for( cl_uint i = 0; i < faces.size(); i++ ) {
@@ -520,6 +564,18 @@ BVHNode* BVH::makeNode( vector<cl_uint4> faces, vector<cl_float4> allVertices ) 
 	}
 
 	return node;
+}
+
+
+/**
+ * Set the number of max faces per (leaf) node.
+ * @param  {cl_uint} value Max faces per (leaf) node.
+ * @return {cl_uint}       The now set number of max faces per (leaf) node.
+ */
+cl_uint BVH::setMaxFaces( cl_uint value ) {
+	mMaxFaces = ( value < 1 || value > 4 ) ? 4 : value;
+
+	return mMaxFaces;
 }
 
 

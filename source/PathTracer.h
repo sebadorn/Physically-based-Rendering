@@ -14,6 +14,7 @@
 #include "CL.h"
 #include "Cfg.h"
 #include "MtlParser.h"
+#include "qt/GLWidget.h"
 #include "BVH.h"
 
 using std::vector;
@@ -36,11 +37,9 @@ struct rayBase {
 };
 
 struct bvhNode_cl {
-	cl_float4 bbMin;
-	cl_float4 bbMax;
+	cl_float4 bbMin; // bbMin.w = leftChild
+	cl_float4 bbMax; // bbMax.w = rightChild
 	cl_int4 faces;
-	cl_int leftChild;
-	cl_int rightChild;
 };
 
 struct material_cl_t {
@@ -55,15 +54,15 @@ struct material_cl_t {
 
 
 class Camera;
+class GLWidget;
 
 
 class PathTracer {
 
 	public:
-		PathTracer();
+		PathTracer( GLWidget* parent );
 		~PathTracer();
 		vector<cl_float> generateImage();
-		CL* getCLObject();
 		void initOpenCLBuffers(
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
 			ModelLoader* ml, BVH* bvh
@@ -113,6 +112,7 @@ class PathTracer {
 		cl_mem mBufTextureIn;
 		cl_mem mBufTextureOut;
 
+		GLWidget* mGLWidget;
 		Camera* mCamera;
 		CL* mCL;
 		boost::posix_time::ptime mTimeSinceStart;

@@ -14,8 +14,6 @@ Window::Window() {
 	mStatusBar = this->createStatusBar();
 	mMenuBar = this->createMenuBar();
 
-	mInfoWindow = new InfoWindow( this, mGLWidget->getCLObject() );
-
 	this->setLayout( this->createLayout() );
 	this->setWindowTitle( tr( PBR_TITLE ) );
 }
@@ -28,7 +26,6 @@ Window::~Window() {
 	delete mGLWidget;
 	delete mStatusBar;
 	delete mMenuBar;
-	delete mInfoWindow;
 }
 
 
@@ -150,6 +147,8 @@ void Window::importFile() {
 		return;
 	}
 
+	Logger::logInfo( "\n* -------------------- New Import --------------------\n*" );
+
 	uint splitHere = filePath.find_last_of( '/' );
 	std::string fileName = filePath.substr( splitHere + 1 );
 	filePath = filePath.substr( 0, splitHere + 1 );
@@ -219,9 +218,7 @@ void Window::mousePressEvent( QMouseEvent* e ) {
  * Open a sub window with informations.
  */
 void Window::openInfo() {
-	if( !mInfoWindow->isVisible() ) {
-		mInfoWindow->show();
-	}
+	mGLWidget->showKernelWindow();
 }
 
 

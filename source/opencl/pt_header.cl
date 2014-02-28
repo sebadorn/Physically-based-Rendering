@@ -1,7 +1,7 @@
 #ANTI_ALIASING#
 #BACKFACE_CULLING#
 #define MAX_DEPTH #MAX_DEPTH#
-#define BVH_STACKSIZE 128 // TODO
+#define BVH_STACKSIZE #BVH_STACKSIZE#
 #define EPSILON 0.00001f
 #define IMG_HEIGHT #IMG_HEIGHT#
 #define IMG_WIDTH #IMG_WIDTH#
@@ -40,11 +40,9 @@ typedef struct {
 } ray4;
 
 typedef struct {
-	float4 bbMin;
-	float4 bbMax;
+	float4 bbMin; // bbMin.w = leftChild
+	float4 bbMax; // bbMax.w = rightChild
 	int4 faces;
-	int leftChild;
-	int rightChild;
 } bvhNode;
 
 typedef struct {

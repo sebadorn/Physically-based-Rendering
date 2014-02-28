@@ -205,8 +205,8 @@ void traverseBVH( const global bvhNode* bvh, ray4* ray, const global face_t* fac
 		addRightToStack = false;
 
 		// Add child nodes to stack, if hit by ray
-		if( node.leftChild > 0 ) {
-			nodeLeft = bvh[node.leftChild];
+		if( node.bbMin.w > 0.0f ) {
+			nodeLeft = bvh[(int) node.bbMin.w];
 
 			if(
 				intersectBox( ray, nodeLeft.bbMin, nodeLeft.bbMax, &tNearL, &tFarL ) &&
@@ -216,8 +216,8 @@ void traverseBVH( const global bvhNode* bvh, ray4* ray, const global face_t* fac
 			}
 		}
 
-		if( node.rightChild > 0 ) {
-			nodeRight = bvh[node.rightChild];
+		if( node.bbMax.w > 0.0f ) {
+			nodeRight = bvh[(int) node.bbMax.w];
 
 			if(
 				intersectBox( ray, nodeRight.bbMin, nodeRight.bbMax, &tNearR, &tFarR ) &&
@@ -232,17 +232,17 @@ void traverseBVH( const global bvhNode* bvh, ray4* ray, const global face_t* fac
 		rightThenLeft = ( tNearR > tNearL );
 
 		if( rightThenLeft && addRightToStack) {
-			bvhStack[++stackIndex] = node.rightChild;
+			bvhStack[++stackIndex] = (int) node.bbMax.w;
 		}
 		if( rightThenLeft && addLeftToStack) {
-			bvhStack[++stackIndex] = node.leftChild;
+			bvhStack[++stackIndex] = (int) node.bbMin.w;
 		}
 
 		if( !rightThenLeft && addLeftToStack) {
-			bvhStack[++stackIndex] = node.leftChild;
+			bvhStack[++stackIndex] = (int) node.bbMin.w;
 		}
 		if( !rightThenLeft && addRightToStack) {
-			bvhStack[++stackIndex] = node.rightChild;
+			bvhStack[++stackIndex] = (int) node.bbMax.w;
 		}
 	}
 

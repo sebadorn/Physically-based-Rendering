@@ -29,6 +29,7 @@ InfoWindow::InfoWindow( QWidget* parent, CL* cl ) : QWidget( parent, Qt::Window 
  * Destructor.
  */
 InfoWindow::~InfoWindow() {
+	mTimer->stop();
 	delete mTimer;
 }
 
