@@ -159,7 +159,7 @@ kernel void pathTracing(
 
 			// New direction of the ray (bouncing of the hit surface)
 			seed += ray.t;
-			newRay = getNewRay( ray, mtl, &seed, &ignoreColor, &addDepth );
+			newRay = getNewRay( ray, &mtl, &seed, &ignoreColor, &addDepth );
 
 			if( !ignoreColor ) {
 				index = mtl.spd * SPEC;
@@ -198,7 +198,7 @@ kernel void pathTracing(
 
 	} // end samples
 
-	for( int i = 0; i < SPEC; i++ ) {
+	for( int i = 0; i < SPEC, SAMPLES > 1; i++ ) {
 		spdTotal[i] = native_divide( spdTotal[i], (float) SAMPLES );
 	}
 

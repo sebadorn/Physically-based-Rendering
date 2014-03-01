@@ -52,7 +52,7 @@ inline float4 getTriangleNormal( const face_t face, const float4 tuv ) {
  * @param  cosa
  * @return
  */
-float4 jitter( float4 d, float phi, float sina, float cosa ) {
+float4 jitter( const float4 d, const float phi, const float sina, const float cosa ) {
 	const float4 u = fast_normalize( cross( d.yzxw, d ) );
 	const float4 v = cross( d, u );
 
@@ -170,8 +170,8 @@ const bool intersectBox(
 const bool intersectSphere(
 	const ray4* ray, const float4 sphereCenter, const float radius, float* tNear, float* tFar
 ) {
-	float3 op = sphereCenter.xyz - ray->origin.xyz;
-	float b = dot( op, ray->dir.xyz );
+	const float3 op = sphereCenter.xyz - ray->origin.xyz;
+	const float b = dot( op, ray->dir.xyz );
 	float det = b * b - dot( op, op ) + radius * radius;
 
 	if( det < 0.0f ) {
@@ -183,30 +183,6 @@ const bool intersectSphere(
 	*tFar = b + det;
 
 	return ( *tNear > EPSILON || *tFar > EPSILON );
-}
-
-
-/**
- * Source: http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
- * Which is based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
- * @param {const float4*} origin
- * @param {const float4*} dir
- * @param {const float*}  bbMin
- * @param {const float*}  bbMax
- * @param {float*}        tFar
- * @param {int*}          exitRope
- */
-void updateEntryDistanceAndExitRope(
-	const ray4* ray, const float4 bbMin, const float4 bbMax, float* tFar, int* exitRope
-) {
-	const float3 invDir = native_recip( ray->dir.xyz );
-	const float3 t1 = native_divide( bbMin.xyz - ray->origin.xyz, ray->dir.xyz );
-	float3 tMax = native_divide( bbMax.xyz - ray->origin.xyz, ray->dir.xyz );
-	tMax = fmax( t1, tMax );
-
-	*tFar = fmin( fmin( tMax.x, tMax.y ), tMax.z );
-	*exitRope = ( *tFar == tMax.y ) ? 3 - signbit( invDir.y ) : 1 - signbit( invDir.x );
-	*exitRope = ( *tFar == tMax.z ) ? 5 - signbit( invDir.z ) : *exitRope;
 }
 
 

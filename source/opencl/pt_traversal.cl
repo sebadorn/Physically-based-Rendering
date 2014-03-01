@@ -40,7 +40,8 @@ void checkFaceIntersection(
 
 	const float3 e1 = face.b.xyz - face.a.xyz;
 	const float3 e2 = face.c.xyz - face.a.xyz;
-	const float3 normal = fast_normalize( cross( e1, e2 ) );
+	// const float3 normal = fast_normalize( cross( e1, e2 ) );
+	const float3 normal = cross( e1, e2 ); // TODO: Why don't I have to normalize ... or do I?
 
 	tuv->x = native_divide(
 		-dot( normal, ( ray->origin.xyz - face.a.xyz ) ),
@@ -56,7 +57,7 @@ void checkFaceIntersection(
 	const float uv = dot( e1, e2 );
 	const float vv = dot( e2, e2 );
 
-	const float3 w = fma( ray->dir.xyz, tuv->x, ray->origin.xyz ) - face.a.xyz;
+	const float3 w = ray->dir.xyz * tuv->x + ray->origin.xyz - face.a.xyz;
 	const float wu = dot( w, e1 );
 	const float wv = dot( w, e2 );
 	const float inverseD = native_recip( uv * uv - uu * vv );
@@ -77,7 +78,7 @@ void checkFaceIntersection(
  * @return {ray4}                       The new ray.
  */
 ray4 getNewRay(
-	const ray4 currentRay, const material mtl, float* seed, bool* ignoreColor, bool* addDepth
+	const ray4 currentRay, const material* mtl, float* seed, bool* ignoreColor, bool* addDepth
 ) {
 	ray4 newRay;
 	newRay.t = -2.0f;
@@ -87,17 +88,17 @@ ray4 getNewRay(
 	*ignoreColor = false;
 
 	// Transparency and refraction
-	if( mtl.d < 1.0f && mtl.d <= rand( seed ) ) {
-		newRay.dir = refract( &currentRay, &mtl, seed );
+	if( mtl->d < 1.0f && mtl->d <= rand( seed ) ) {
+		newRay.dir = refract( &currentRay, mtl, seed );
 
 		*addDepth = true;
 		*ignoreColor = true;
 	}
 	// Specular
-	else if( mtl.illum == 3 ) {
+	else if( mtl->illum == 3 ) {
 		newRay.dir = reflect( currentRay.dir, currentRay.normal );
-		newRay.dir += ( mtl.gloss > 0.0f )
-		            ? uniformlyRandomVector( seed ) * mtl.gloss
+		newRay.dir += ( mtl->gloss > 0.0f )
+		            ? uniformlyRandomVector( seed ) * mtl->gloss
 		            : (float4)( 0.0f );
 		newRay.dir = fast_normalize( newRay.dir );
 
@@ -107,10 +108,9 @@ ray4 getNewRay(
 	// Diffuse
 	else {
 		// newRay.dir = cosineWeightedDirection( seed, currentRay.normal );
-		float rnd1 = rand( seed );
 		float rnd2 = rand( seed );
 		newRay.dir = jitter(
-			currentRay.normal, 2.0f * M_PI * rnd1,
+			currentRay.normal, 2.0f * M_PI * rand( seed ),
 			sqrt( rnd2 ), sqrt( 1.0f - rnd2 )
 		);
 	}
@@ -130,28 +130,25 @@ ray4 getNewRay(
 void intersectFaces(
 	ray4* ray, const bvhNode* node, const global face_t* faces, float tNear, float tFar
 ) {
-	int testFaces[4];
-	testFaces[0] = node->faces.x;
-	testFaces[1] = node->faces.y;
-	testFaces[2] = node->faces.z;
-	testFaces[3] = node->faces.w;
+	const int testFaces[4] = {
+		node->faces.x, node->faces.y, node->faces.z, node->faces.w
+	};
 
-	face_t theFace;
 	float4 tuv;
+	// NOTE: Not having a variable for faces[testFaces[i]] is faster.
 
 	for( uint i = 0; i < 4; i++ ) {
 		if( testFaces[i] == -1 ) {
 			break;
 		}
 
-		theFace = faces[testFaces[i]];
-		checkFaceIntersection( ray, theFace, &tuv, tNear, tFar );
+		checkFaceIntersection( ray, faces[testFaces[i]], &tuv, tNear, tFar );
 
 		if( tuv.x > -1.0f ) {
 			tFar = tuv.x;
 
 			if( ray->t > tuv.x || ray->t < 0.0f ) {
-				ray->normal = getTriangleNormal( theFace, tuv );
+				ray->normal = getTriangleNormal( faces[testFaces[i]], tuv );
 				ray->normal.w = (float) testFaces[i];
 				ray->t = tuv.x;
 			}
@@ -167,8 +164,6 @@ void intersectFaces(
  * @param {const global face_t*}  faces
  */
 void traverseBVH( const global bvhNode* bvh, ray4* ray, const global face_t* faces ) {
-	bvhNode node, nodeLeft, nodeRight;
-
 	bool addLeftToStack, addRightToStack, rightThenLeft;
 	float tFarL, tFarR, tNearL, tNearR;
 
@@ -176,14 +171,14 @@ void traverseBVH( const global bvhNode* bvh, ray4* ray, const global face_t* fac
 	int stackIndex = 0;
 	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
 
+	bvhNode node;
 	ray4 rayBest = *ray;
-	ray4 rayCp = *ray;
-
 
 	while( stackIndex >= 0 ) {
 		node = bvh[bvhStack[stackIndex--]];
 		tNearL = -2.0f;
 		tFarL = FLT_MAX;
+
 
 		// Is a leaf node with faces
 		if( node.faces.x > -1 ) {
@@ -191,41 +186,42 @@ void traverseBVH( const global bvhNode* bvh, ray4* ray, const global face_t* fac
 				intersectBox( ray, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
 				( rayBest.t < -1.0f || rayBest.t > tNearL )
 			) {
-				rayCp = *ray;
-				intersectFaces( &rayCp, &node, faces, tNearL, tFarL );
-				rayBest = ( rayBest.t < 0.0f || ( rayCp.t > -1.0f && rayCp.t < rayBest.t ) ) ? rayCp : rayBest;
+				intersectFaces( ray, &node, faces, tNearL, tFarL );
+				rayBest = ( rayBest.t < 0.0f || ( ray->t > -1.0f && ray->t < rayBest.t ) ) ? *ray : rayBest;
 			}
 
 			continue;
 		}
+
 
 		tNearR = -2.0f;
 		tFarR = FLT_MAX;
 		addLeftToStack = false;
 		addRightToStack = false;
 
+		#define BVH_LEFTCHILD bvh[(int) node.bbMin.w]
+		#define BVH_RIGHTCHILD bvh[(int) node.bbMax.w]
+
 		// Add child nodes to stack, if hit by ray
-		if( node.bbMin.w > 0.0f ) {
-			nodeLeft = bvh[(int) node.bbMin.w];
-
-			if(
-				intersectBox( ray, nodeLeft.bbMin, nodeLeft.bbMax, &tNearL, &tFarL ) &&
-				( rayBest.t < -1.0f || rayBest.t > tNearL )
-			) {
-				addLeftToStack = true;
-			}
+		if(
+			node.bbMin.w > 0.0f &&
+			intersectBox( ray, BVH_LEFTCHILD.bbMin, BVH_LEFTCHILD.bbMax, &tNearL, &tFarL ) &&
+			( rayBest.t < -1.0f || rayBest.t > tNearL )
+		) {
+			addLeftToStack = true;
 		}
 
-		if( node.bbMax.w > 0.0f ) {
-			nodeRight = bvh[(int) node.bbMax.w];
-
-			if(
-				intersectBox( ray, nodeRight.bbMin, nodeRight.bbMax, &tNearR, &tFarR ) &&
-				( rayBest.t < -1.0f || rayBest.t > tNearR )
-			) {
-				addRightToStack = true;
-			}
+		if(
+			node.bbMax.w > 0.0f &&
+			intersectBox( ray, BVH_RIGHTCHILD.bbMin, BVH_RIGHTCHILD.bbMax, &tNearR, &tFarR ) &&
+			( rayBest.t < -1.0f || rayBest.t > tNearR )
+		) {
+			addRightToStack = true;
 		}
+
+		#undef BVH_LEFTCHILD
+		#undef BVH_RIGHTCHILD
+
 
 		// The node that is pushed on the stack first will be evaluated last.
 		// So the nearer one should be pushed last, because it will be popped first then.
