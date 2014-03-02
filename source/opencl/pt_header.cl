@@ -51,6 +51,6 @@ typedef struct {
 	float Ni;
 	float gloss;
 	ushort spd;
-	char illum;
+	char illum; // TODO: remove illum, having gloss is enough information
 	char light
 } material;

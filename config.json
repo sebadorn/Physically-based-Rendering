@@ -64,7 +64,7 @@
 		"program": "source/opencl/pathtracing.cl",
 		// Squares only, so this setting is for width and height together.
 		// Value has to be 2^n for optimization reasons.
-		"workgroupsize": 256
+		"workgroupsize": 128
 	},
 
 	"render": {

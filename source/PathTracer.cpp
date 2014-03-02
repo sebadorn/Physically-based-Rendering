@@ -180,6 +180,9 @@ void PathTracer::initOpenCLBuffers(
 	boost::posix_time::ptime timerStart;
 	boost::posix_time::ptime timerEnd;
 	cl_float timeDiff;
+	size_t bytes;
+	float bytesFloat;
+	string unit;
 	char msg[64];
 
 	if( mCL != NULL ) {
@@ -192,42 +195,47 @@ void PathTracer::initOpenCLBuffers(
 
 	// Buffer: Faces
 	timerStart = boost::posix_time::microsec_clock::local_time();
-	this->initOpenCLBuffers_Faces( ml, vertices, faces, normals );
+	bytes = this->initOpenCLBuffers_Faces( ml, vertices, faces, normals );
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
-	snprintf( msg, 64, "[PathTracer] Created faces buffer in %g ms.", timeDiff );
+	utils::formatBytes( bytes, &bytesFloat, &unit );
+	snprintf( msg, 64, "[PathTracer] Created faces buffer in %g ms -- %.2f %s.", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Bounding Volume Hierarchy
 	timerStart = boost::posix_time::microsec_clock::local_time();
-	this->initOpenCLBuffers_BVH( bvh );
+	bytes = this->initOpenCLBuffers_BVH( bvh );
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
-	snprintf( msg, 64, "[PathTracer] Created BVH buffer in %g ms.", timeDiff );
+	utils::formatBytes( bytes, &bytesFloat, &unit );
+	snprintf( msg, 64, "[PathTracer] Created BVH buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Material(s)
 	timerStart = boost::posix_time::microsec_clock::local_time();
-	this->initOpenCLBuffers_Materials( ml );
+	bytes = this->initOpenCLBuffers_Materials( ml );
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
-	snprintf( msg, 64, "[PathTracer] Created material buffer in %g ms.", timeDiff );
+	utils::formatBytes( bytes, &bytesFloat, &unit );
+	snprintf( msg, 64, "[PathTracer] Created material buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Rays
 	timerStart = boost::posix_time::microsec_clock::local_time();
-	this->initOpenCLBuffers_Rays();
+	bytes = this->initOpenCLBuffers_Rays();
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
-	snprintf( msg, 64, "[PathTracer] Created ray buffer in %g ms.", timeDiff );
+	utils::formatBytes( bytes, &bytesFloat, &unit );
+	snprintf( msg, 64, "[PathTracer] Created ray buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Textures
 	timerStart = boost::posix_time::microsec_clock::local_time();
-	this->initOpenCLBuffers_Textures();
+	bytes = this->initOpenCLBuffers_Textures();
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
-	snprintf( msg, 64, "[PathTracer] Created texture buffer in %g ms.", timeDiff );
+	utils::formatBytes( bytes, &bytesFloat, &unit );
+	snprintf( msg, 64, "[PathTracer] Created texture buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	Logger::indent( 0 );
@@ -251,7 +259,7 @@ void PathTracer::initOpenCLBuffers(
  * Init OpenCL buffers for the BVH.
  * @param {BVH*} bvh The generated Bounding Volume Hierarchy.
  */
-void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
+size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 	vector<BVHNode*> stNodes = bvh->getNodes();
 	vector<bvhNode_cl> sphereNodes;
 
@@ -276,7 +284,10 @@ void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 		sphereNodes.push_back( sn );
 	}
 
-	mBufBVH = mCL->createBuffer( sphereNodes, sizeof( bvhNode_cl ) * sphereNodes.size() );
+	size_t bytes = sizeof( bvhNode_cl ) * sphereNodes.size();
+	mBufBVH = mCL->createBuffer( sphereNodes, bytes );
+
+	return bytes;
 }
 
 
@@ -287,7 +298,7 @@ void PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
  * @param {std::vector<cl_uint>}  faces    Faces of the model.
  * @param {std::vector<cl_float>} normals  Normals of the model.
  */
-void PathTracer::initOpenCLBuffers_Faces(
+size_t PathTracer::initOpenCLBuffers_Faces(
 	ModelLoader* ml, vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
 ) {
 	vector<cl_uint> facesVN = ml->getFacesVN();
@@ -315,7 +326,10 @@ void PathTracer::initOpenCLBuffers_Faces(
 		faceStructs.push_back( face );
 	}
 
-	mBufFaces = mCL->createBuffer( faceStructs, sizeof( face_cl ) * faceStructs.size() );
+	size_t bytes = sizeof( face_cl ) * faceStructs.size();
+	mBufFaces = mCL->createBuffer( faceStructs, bytes );
+
+	return bytes;
 }
 
 
@@ -323,7 +337,7 @@ void PathTracer::initOpenCLBuffers_Faces(
  * Init OpenCL buffers for the materials, including spectral power distributions.
  * @param {ModelLoader*} ml Model loader already holding the needed model data.
  */
-void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
+size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 	vector<material_t> materials = ml->getMaterials();
 	map<string, string> mtl2spd = ml->getMaterialToSPD();
 	map<string, vector<cl_float> > spectra = ml->getSpectralPowerDistributions();
@@ -346,7 +360,8 @@ void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 		}
 	}
 
-	mBufSPDs = mCL->createBuffer( spectraCL, sizeof( cl_float ) * spectraCL.size() );
+	size_t bytesSPD = sizeof( cl_float ) * spectraCL.size();
+	mBufSPDs = mCL->createBuffer( spectraCL, bytesSPD );
 
 
 	// Materials
@@ -369,27 +384,34 @@ void PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 		materialsCL.push_back( mtl );
 	}
 
-	mBufMaterials = mCL->createBuffer( materialsCL, sizeof( material_cl_t ) * materialsCL.size() );
+	size_t bytesMTL = sizeof( material_cl_t ) * materialsCL.size();
+	mBufMaterials = mCL->createBuffer( materialsCL, bytesMTL );
+
+	return bytesSPD + bytesMTL;
 }
 
 
 /**
  * Init OpenCL buffers of the rays.
  */
-void PathTracer::initOpenCLBuffers_Rays() {
+size_t PathTracer::initOpenCLBuffers_Rays() {
 	cl_uint pixels = mWidth * mHeight;
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
 	mBufRays = mCL->createEmptyBuffer( sizeof( rayBase ) * pixels, CL_MEM_READ_WRITE );
+
+	return sizeof( cl_float ) * 12 + sizeof( rayBase ) * pixels;
 }
 
 
 /**
  * Init OpenCL buffers of the textures.
  */
-void PathTracer::initOpenCLBuffers_Textures() {
+size_t PathTracer::initOpenCLBuffers_Textures() {
 	mTextureOut = vector<cl_float>( mWidth * mHeight * 4, 0.0f );
 	mBufTextureIn = mCL->createImage2DReadOnly( mWidth, mHeight, &mTextureOut[0] );
 	mBufTextureOut = mCL->createImage2DWriteOnly( mWidth, mHeight );
+
+	return sizeof( cl_float ) * mTextureOut.size();
 }
 
 

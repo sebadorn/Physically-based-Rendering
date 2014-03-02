@@ -79,15 +79,15 @@ float4 jitter( const float4 d, const float phi, const float sina, const float co
  * @return {float4}                     A new direction for the ray.
  */
 float4 refract( const ray4* currentRay, const material* mtl, float* seed ) {
-	bool into = ( dot( currentRay->normal.xyz, currentRay->dir.xyz ) < 0.0f );
-	float4 nl = into ? currentRay->normal : -currentRay->normal;
+	const bool into = ( dot( currentRay->normal.xyz, currentRay->dir.xyz ) < 0.0f );
+	const float4 nl = into ? currentRay->normal : -currentRay->normal;
 
-	float m1 = into ? NI_AIR : mtl->Ni;
-	float m2 = into ? mtl->Ni : NI_AIR;
-	float m = native_divide( m1, m2 );
+	const float m1 = into ? NI_AIR : mtl->Ni;
+	const float m2 = into ? mtl->Ni : NI_AIR;
+	const float m = native_divide( m1, m2 );
 
-	float cosI = -dot( currentRay->dir.xyz, nl.xyz );
-	float sinSq = m * m * ( 1.0f - cosI * cosI );
+	const float cosI = -dot( currentRay->dir.xyz, nl.xyz );
+	const float sinSq = m * m * ( 1.0f - cosI * cosI );
 
 	// Critical angle. Total internal reflection.
 	if( sinSq > 1.0f ) {
@@ -95,14 +95,14 @@ float4 refract( const ray4* currentRay, const material* mtl, float* seed ) {
 	}
 
 	// No TIR, proceed.
-	float4 tDir = m * currentRay->dir + ( m * cosI - native_sqrt( 1.0f - sinSq ) ) * nl;
+	const float4 tDir = m * currentRay->dir + ( m * cosI - native_sqrt( 1.0f - sinSq ) ) * nl;
 
 	float r0 = native_divide( m1 - m2, m1 + m2 );
 	r0 *= r0;
-	float c = ( m1 > m2 ) ? native_sqrt( 1.0f - sinSq ) : cosI;
-	float x = 1.0f - c;
-	float refl = r0 + ( 1.0f - r0 ) * x * x * x * x * x;
-	// float trans = 1.0f - refl;
+	const float c = ( m1 > m2 ) ? native_sqrt( 1.0f - sinSq ) : cosI;
+	const float x = 1.0f - c;
+	const float refl = r0 + ( 1.0f - r0 ) * x * x * x * x * x;
+	// const float trans = 1.0f - refl;
 
 	return ( refl < rand( seed ) ) ? tDir : reflect( currentRay->dir, nl );
 }
@@ -143,9 +143,8 @@ inline float4 uniformlyRandomDirection( float* seed ) {
  * @return {const bool}          True, if ray intersects box, false otherwise.
  */
 const bool intersectBox(
-	const ray4* ray, const float4 bbMin, const float4 bbMax, float* tNear, float* tFar
+	const ray4* ray, const float3 invDir, const float4 bbMin, const float4 bbMax, float* tNear, float* tFar
 ) {
-	const float3 invDir = native_recip( ray->dir.xyz );
 	const float3 t1 = ( bbMin.xyz - ray->origin.xyz ) * invDir;
 	float3 tMax = ( bbMax.xyz - ray->origin.xyz ) * invDir;
 	const float3 tMin = fmin( t1, tMax );

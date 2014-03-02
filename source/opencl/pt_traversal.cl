@@ -173,21 +173,23 @@ void traverseBVH( const global bvhNode* bvh, ray4* ray, const global face_t* fac
 
 	bvhNode node;
 	ray4 rayBest = *ray;
+	float3 invDir = native_recip( ray->dir.xyz );
+
+	rayBest.t = FLT_MAX;
 
 	while( stackIndex >= 0 ) {
 		node = bvh[bvhStack[stackIndex--]];
 		tNearL = -2.0f;
 		tFarL = FLT_MAX;
 
-
 		// Is a leaf node with faces
 		if( node.faces.x > -1 ) {
 			if(
-				intersectBox( ray, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
-				( rayBest.t < -1.0f || rayBest.t > tNearL )
+				intersectBox( ray, invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
+				rayBest.t > tNearL
 			) {
 				intersectFaces( ray, &node, faces, tNearL, tFarL );
-				rayBest = ( rayBest.t < 0.0f || ( ray->t > -1.0f && ray->t < rayBest.t ) ) ? *ray : rayBest;
+				rayBest = ( ray->t > -1.0f && ray->t < rayBest.t ) ? *ray : rayBest;
 			}
 
 			continue;
@@ -205,16 +207,16 @@ void traverseBVH( const global bvhNode* bvh, ray4* ray, const global face_t* fac
 		// Add child nodes to stack, if hit by ray
 		if(
 			node.bbMin.w > 0.0f &&
-			intersectBox( ray, BVH_LEFTCHILD.bbMin, BVH_LEFTCHILD.bbMax, &tNearL, &tFarL ) &&
-			( rayBest.t < -1.0f || rayBest.t > tNearL )
+			intersectBox( ray, invDir, BVH_LEFTCHILD.bbMin, BVH_LEFTCHILD.bbMax, &tNearL, &tFarL ) &&
+			rayBest.t > tNearL
 		) {
 			addLeftToStack = true;
 		}
 
 		if(
 			node.bbMax.w > 0.0f &&
-			intersectBox( ray, BVH_RIGHTCHILD.bbMin, BVH_RIGHTCHILD.bbMax, &tNearR, &tFarR ) &&
-			( rayBest.t < -1.0f || rayBest.t > tNearR )
+			intersectBox( ray, invDir, BVH_RIGHTCHILD.bbMin, BVH_RIGHTCHILD.bbMax, &tNearR, &tFarR ) &&
+			rayBest.t > tNearR
 		) {
 			addRightToStack = true;
 		}

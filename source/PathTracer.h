@@ -81,14 +81,14 @@ class PathTracer {
 		void initArgsKernelPathTracing();
 		void initArgsKernelRays();
 		void initKernelArgs();
-		void initOpenCLBuffers_BVH( BVH* bvh );
-		void initOpenCLBuffers_Faces(
+		size_t initOpenCLBuffers_BVH( BVH* bvh );
+		size_t initOpenCLBuffers_Faces(
 			ModelLoader* ml,
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
 		);
-		void initOpenCLBuffers_Materials( ModelLoader* ml );
-		void initOpenCLBuffers_Rays();
-		void initOpenCLBuffers_Textures();
+		size_t initOpenCLBuffers_Materials( ModelLoader* ml );
+		size_t initOpenCLBuffers_Rays();
+		size_t initOpenCLBuffers_Textures();
 		void updateEyeBuffer();
 
 	private:
