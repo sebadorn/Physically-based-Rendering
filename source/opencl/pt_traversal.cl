@@ -1,4 +1,55 @@
 /**
+ * Calculate the new ray depending on the current one and the hit surface.
+ * @param  {const ray4}     currentRay  The current ray
+ * @param  {const material} mtl         Material of the hit surface.
+ * @param  {float*}         seed        Seed for the random number generator.
+ * @param  {bool*}          ignoreColor Flag.
+ * @param  {bool*}          addDepth    Flag.
+ * @return {ray4}                       The new ray.
+ */
+ray4 getNewRay(
+	const ray4 currentRay, const material* mtl, float* seed, bool* ignoreColor, bool* addDepth
+) {
+	ray4 newRay;
+	newRay.t = -2.0f;
+	newRay.origin = fma( currentRay.t, currentRay.dir, currentRay.origin );
+
+	*addDepth = false;
+	*ignoreColor = false;
+
+	// Transparency and refraction
+	if( mtl->d < 1.0f && mtl->d <= rand( seed ) ) {
+		newRay.dir = refract( &currentRay, mtl, seed );
+
+		*addDepth = true;
+		*ignoreColor = true;
+	}
+	// Specular
+	else if( mtl->illum == 3 ) {
+		newRay.dir = reflect( currentRay.dir, currentRay.normal );
+		newRay.dir += ( mtl->gloss > 0.0f )
+		            ? uniformlyRandomVector( seed ) * mtl->gloss
+		            : (float4)( 0.0f );
+		newRay.dir = fast_normalize( newRay.dir );
+
+		*addDepth = true;
+		*ignoreColor = true;
+	}
+	// Diffuse
+	else {
+		// newRay.dir = cosineWeightedDirection( seed, currentRay.normal );
+		float rnd2 = rand( seed );
+		newRay.dir = jitter(
+			currentRay.normal, 2.0f * M_PI * rand( seed ),
+			sqrt( rnd2 ), sqrt( 1.0f - rnd2 )
+		);
+	}
+
+	return newRay;
+}
+
+
+/**
  * Face intersection test after Möller and Trumbore.
  * @param  {const ray4*}   ray
  * @param  {const face_t}  face
@@ -69,57 +120,6 @@ void checkFaceIntersection(
 
 
 /**
- * Calculate the new ray depending on the current one and the hit surface.
- * @param  {const ray4}     currentRay  The current ray
- * @param  {const material} mtl         Material of the hit surface.
- * @param  {float*}         seed        Seed for the random number generator.
- * @param  {bool*}          ignoreColor Flag.
- * @param  {bool*}          addDepth    Flag.
- * @return {ray4}                       The new ray.
- */
-ray4 getNewRay(
-	const ray4 currentRay, const material* mtl, float* seed, bool* ignoreColor, bool* addDepth
-) {
-	ray4 newRay;
-	newRay.t = -2.0f;
-	newRay.origin = fma( currentRay.t, currentRay.dir, currentRay.origin );
-
-	*addDepth = false;
-	*ignoreColor = false;
-
-	// Transparency and refraction
-	if( mtl->d < 1.0f && mtl->d <= rand( seed ) ) {
-		newRay.dir = refract( &currentRay, mtl, seed );
-
-		*addDepth = true;
-		*ignoreColor = true;
-	}
-	// Specular
-	else if( mtl->illum == 3 ) {
-		newRay.dir = reflect( currentRay.dir, currentRay.normal );
-		newRay.dir += ( mtl->gloss > 0.0f )
-		            ? uniformlyRandomVector( seed ) * mtl->gloss
-		            : (float4)( 0.0f );
-		newRay.dir = fast_normalize( newRay.dir );
-
-		*addDepth = true;
-		*ignoreColor = true;
-	}
-	// Diffuse
-	else {
-		// newRay.dir = cosineWeightedDirection( seed, currentRay.normal );
-		float rnd2 = rand( seed );
-		newRay.dir = jitter(
-			currentRay.normal, 2.0f * M_PI * rand( seed ),
-			sqrt( rnd2 ), sqrt( 1.0f - rnd2 )
-		);
-	}
-
-	return newRay;
-}
-
-
-/**
  * Test faces of the given node for intersections with the given ray.
  * @param {ray4*}                ray
  * @param {const bvhNode*}       node
@@ -147,7 +147,7 @@ void intersectFaces(
 		if( tuv.x > -1.0f ) {
 			tFar = tuv.x;
 
-			if( ray->t > tuv.x || ray->t < 0.0f ) {
+			if( ray->t > tuv.x || ray->t < -1.0f ) {
 				ray->normal = getTriangleNormal( faces[testFaces[i]], tuv );
 				ray->normal.w = (float) testFaces[i];
 				ray->t = tuv.x;
@@ -244,5 +244,5 @@ void traverseBVH( const global bvhNode* bvh, ray4* ray, const global face_t* fac
 		}
 	}
 
-	*ray = rayBest;
+	*ray = ( rayBest.t != FLT_MAX ) ? rayBest : *ray;
 }

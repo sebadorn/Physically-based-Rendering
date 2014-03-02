@@ -332,11 +332,16 @@ void xyz_to_rgb( const colorSystem cs, float4 xyz, float4* rgb ) {
 	float m21inv = detMrecip * sg * sr * ( Xg * Zr - Xr * Zg );
 	float m22inv = detMrecip * sg * sr * ( Xr - Xg );
 
-	// TODO: Use pre-calculated matrix http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_RGB.html
-
 	rgb->x = m00inv * xyz.x + m01inv * xyz.y + m02inv * xyz.z;
 	rgb->y = m10inv * xyz.x + m11inv * xyz.y + m12inv * xyz.z;
 	rgb->z = m20inv * xyz.x + m21inv * xyz.y + m22inv * xyz.z;
+
+	// // Using a pre-calculated matrix didn't improve performance (less than 1 ms).
+	// // http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_RGB.html
+	// // Also this one isn't quite right, it is too dark.
+	// rgb->x = 2.3706743f * xyz.x + -0.9000405f * xyz.y + -0.4706338f * xyz.z;
+	// rgb->y = -0.513885f * xyz.x + 1.4253036f * xyz.y + 0.0885814f * xyz.z;
+	// rgb->z = 0.0052982f * xyz.x + -0.0146949f * xyz.y + 1.0093968f * xyz.z;
 }
 
 
