@@ -49,8 +49,7 @@ typedef struct {
 	float4 scratch; // scratch.w = p (isotropy factor)
 	float d;
 	float Ni;
-	float gloss;
+	float rough;
 	ushort spd;
-	char illum; // TODO: remove illum, having gloss is enough information
 	char light
 } material;

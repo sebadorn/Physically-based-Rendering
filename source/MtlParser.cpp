@@ -19,7 +19,7 @@ material_t MtlParser::getEmptyMaterial() {
 	mtl.Ns = 100.0f;
 	mtl.Ni = 1.0f;
 	mtl.d = 1.0f;
-	mtl.gloss = 0.0f;
+	mtl.rough = 1.0f;
 	mtl.illum = 2;
 	mtl.light = 0;
 	mtl.p = 1.0f;
@@ -161,12 +161,12 @@ void MtlParser::load( string file ) {
 			mtl.Ns = atof( parts[1].c_str() );
 		}
 		// Glossiness
-		else if( parts[0] == "gloss" ) {
+		else if( parts[0] == "rough" ) {
 			if( parts.size() < 2 ) {
-				Logger::logWarning( "[MtlParser] Not enough paramters for <gloss>. Ignoring attribute." );
+				Logger::logWarning( "[MtlParser] Not enough paramters for <rough>. Ignoring attribute." );
 				continue;
 			}
-			mtl.gloss = atof( parts[1].c_str() );
+			mtl.rough = atof( parts[1].c_str() );
 		}
 		// Light
 		else if( parts[0] == "light" ) {

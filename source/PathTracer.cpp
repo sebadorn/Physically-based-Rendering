@@ -372,8 +372,7 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 		material_cl_t mtl;
 		mtl.d = materials[i].d;
 		mtl.Ni = materials[i].Ni;
-		mtl.gloss = materials[i].gloss;
-		mtl.illum = materials[i].illum;
+		mtl.rough = materials[i].rough;
 		mtl.light = materials[i].light;
 		mtl.scratch = materials[i].scratch;
 		mtl.scratch.w = materials[i].p;

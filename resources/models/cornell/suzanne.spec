@@ -1,15 +1,18 @@
 {
 	"materials": {
 		"Suzanne": "white",
-		"WallLeft": "CIE_A",
+		"WallLeft": "white",
 		"WallRight": "white",
-		"WallBack": "white",
+		"WallBack": "CIE_A",
 		"WallFront": "white",
 		"Bottom": "CIE_A",
 		"Ceiling": "CIE_D65",
-		"Cube_small": "white",
-		"Cube_med": "white",
-		"Cube_big": "white"
+		"Cube_small0": "white",
+		"Cube_med0": "white",
+		"Cube_big0": "white",
+		"Cube_small1": "white",
+		"Cube_med1": "white",
+		"Cube_big1": "white"
 	},
 
 	"spectra": {

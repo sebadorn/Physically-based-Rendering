@@ -14,36 +14,26 @@ ray4 getNewRay(
 	newRay.t = -2.0f;
 	newRay.origin = fma( currentRay.t, currentRay.dir, currentRay.origin );
 
-	*addDepth = false;
-	*ignoreColor = false;
+	// Specular
+	newRay.dir = reflect( currentRay.dir, currentRay.normal ) * ( 1.0f - mtl->rough );
+
+	// Diffuse
+	float rnd2 = rand( seed );
+	newRay.dir += jitter( currentRay.normal, 2.0f * M_PI * rand( seed ), sqrt( rnd2 ), sqrt( 1.0f - rnd2 ) ) * mtl->rough;
+
+	// Directional (surfaces with tiny, oriented scratches; brushed metal)
+	// TODO: not working as intented
+	newRay.dir += mtl->scratch * ( 1.0f - mtl->scratch.w );
+	newRay.dir.w = 0.0f;
 
 	// Transparency and refraction
-	if( mtl->d < 1.0f && mtl->d <= rand( seed ) ) {
-		newRay.dir = refract( &currentRay, mtl, seed );
+	bool doTransRefr = ( mtl->d < 1.0f && mtl->d <= rand( seed ) );
+	newRay.dir = doTransRefr ? refract( &currentRay, mtl, seed ) : newRay.dir;
 
-		*addDepth = true;
-		*ignoreColor = true;
-	}
-	// Specular
-	else if( mtl->illum == 3 ) {
-		newRay.dir = reflect( currentRay.dir, currentRay.normal );
-		newRay.dir += ( mtl->gloss > 0.0f )
-		            ? uniformlyRandomVector( seed ) * mtl->gloss
-		            : (float4)( 0.0f );
-		newRay.dir = fast_normalize( newRay.dir );
+	newRay.dir = fast_normalize( newRay.dir );
 
-		*addDepth = true;
-		*ignoreColor = true;
-	}
-	// Diffuse
-	else {
-		// newRay.dir = cosineWeightedDirection( seed, currentRay.normal );
-		float rnd2 = rand( seed );
-		newRay.dir = jitter(
-			currentRay.normal, 2.0f * M_PI * rand( seed ),
-			sqrt( rnd2 ), sqrt( 1.0f - rnd2 )
-		);
-	}
+	*addDepth = ( mtl->rough < 0.4f || doTransRefr );
+	*ignoreColor = ( mtl->rough == 0.0f || doTransRefr );
 
 	return newRay;
 }

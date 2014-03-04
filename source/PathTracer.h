@@ -46,9 +46,8 @@ struct material_cl_t {
 	cl_float4 scratch; // scratch.w = p (isotropy factor)
 	cl_float d;
 	cl_float Ni;
-	cl_float gloss;
+	cl_float rough;
 	cl_ushort spd;
-	cl_char illum;
 	cl_char light;
 };
 

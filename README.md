@@ -1,12 +1,3 @@
-## ToDo
-
-* `Feature` Dynamic lights (for now: number)
-* `Improve` Normals are only supported per face, but not per vertex
-* `Improve` Surface Area Heuristic (SAH) for kd-tree
-* `Improve` Can currently only handle single mesh models
-* `Improve` Change width and height while application is running
-
-
 ## Optimization notes and ideas
 
 * Trade space for speed

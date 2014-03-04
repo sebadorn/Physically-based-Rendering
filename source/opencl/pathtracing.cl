@@ -119,7 +119,7 @@ kernel void pathTracing(
 	ray4 newRay, ray;
 	material mtl;
 
-	float brdf, cosLaw, focus, maxValSpd;
+	float cosLaw, focus, maxValSpd;
 	int depthAdded, light;
 	uint index;
 	bool addDepth, ignoreColor;
@@ -138,9 +138,7 @@ kernel void pathTracing(
 				break;
 			}
 
-			if( depth == 0 ) {
-				focus = ray.t;
-			}
+			focus = ( depth == 0 ) ? ray.t : focus;
 
 			mtl = materials[(uint) faces[(uint) ray.normal.w].a.w];
 			ray.normal.w = 0.0f;
@@ -153,7 +151,7 @@ kernel void pathTracing(
 
 			// Last round, no need to calculate a new ray.
 			// Unless we hit a material that extends the path.
-			if( mtl.d == 1.0f && mtl.illum != 3 && depth == MAX_DEPTH + depthAdded - 1 ) {
+			if( mtl.d == 1.0f && mtl.rough >= 0.4f && depth == MAX_DEPTH + depthAdded - 1 ) {
 				break;
 			}
 
@@ -170,11 +168,10 @@ kernel void pathTracing(
 				// float r = 1.0f;
 				// getValuesBRDF( newRay.dir, -ray.dir, ray.normal, mtl.scratch, &H, &t, &v, &vIn, &vOut, &w );
 				// float u = fmax( dot( H, -ray.dir ), 0.0f );
-				// brdf = D( t, vOut, vIn, w, r, mtl.scratch.w );
-				brdf = 1.0f;
+				// float brdf = D( t, vOut, vIn, w, r, mtl.scratch.w );
 
 				for( int i = 0; i < SPEC; i++ ) {
-					spd[i] *= specPowerDists[index + i] * brdf * cosLaw;
+					spd[i] *= specPowerDists[index + i] * cosLaw;
 					maxValSpd = fmax( spd[i], maxValSpd );
 				}
 			}
@@ -183,7 +180,7 @@ kernel void pathTracing(
 			depthAdded += ( addDepth && depthAdded < MAX_ADDED_DEPTH );
 
 			// Russian roulette termination
-			if( depth > 2 && maxValSpd < rand( &seed ) ) {
+			if( depth > 2 + depthAdded && maxValSpd < rand( &seed ) ) {
 				break;
 			}
 
@@ -195,13 +192,11 @@ kernel void pathTracing(
 				spdTotal[i] += spd[i] * specPowerDists[light + i];
 			}
 		}
-
 	} // end samples
 
-	for( int i = 0; i < SPEC, SAMPLES > 1; i++ ) {
+	for( int i = 0; SAMPLES > 1 && i < SPEC; i++ ) {
 		spdTotal[i] = native_divide( spdTotal[i], (float) SAMPLES );
 	}
-
 
 	setColors( pos, imageIn, imageOut, pixelWeight, spdTotal, focus );
 }
