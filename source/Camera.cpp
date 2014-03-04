@@ -1,7 +1,6 @@
 #include "Camera.h"
 
 using std::vector;
-using utils::degToRad;
 
 
 /**
@@ -19,9 +18,9 @@ Camera::Camera( GLWidget* parent ) {
  * Move the camera position backward.
  */
 void Camera::cameraMoveBackward() {
-	mCamera.eyeX -= sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mCamera.eyeY += sin( degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mCamera.eyeZ += cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeX -= sin( MathHelp::degToRad( mCamera.rotX ) ) * cos( MathHelp::degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeY += sin( MathHelp::degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeZ += cos( MathHelp::degToRad( mCamera.rotX ) ) * cos( MathHelp::degToRad( mCamera.rotY ) ) * mCameraSpeed;
 	this->updateParent();
 }
 
@@ -39,9 +38,9 @@ void Camera::cameraMoveDown() {
  * Move the camera position forward.
  */
 void Camera::cameraMoveForward() {
-	mCamera.eyeX += sin( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mCamera.eyeY -= sin( degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mCamera.eyeZ -= cos( degToRad( mCamera.rotX ) ) * cos( degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeX += sin( MathHelp::degToRad( mCamera.rotX ) ) * cos( MathHelp::degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeY -= sin( MathHelp::degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eyeZ -= cos( MathHelp::degToRad( mCamera.rotX ) ) * cos( MathHelp::degToRad( mCamera.rotY ) ) * mCameraSpeed;
 	this->updateParent();
 }
 
@@ -50,8 +49,8 @@ void Camera::cameraMoveForward() {
  * Move the camera position to the left.
  */
 void Camera::cameraMoveLeft() {
-	mCamera.eyeX -= cos( degToRad( mCamera.rotX ) ) * mCameraSpeed;
-	mCamera.eyeZ -= sin( degToRad( mCamera.rotX ) ) * mCameraSpeed;
+	mCamera.eyeX -= cos( MathHelp::degToRad( mCamera.rotX ) ) * mCameraSpeed;
+	mCamera.eyeZ -= sin( MathHelp::degToRad( mCamera.rotX ) ) * mCameraSpeed;
 	this->updateParent();
 }
 
@@ -60,8 +59,8 @@ void Camera::cameraMoveLeft() {
  * Move the camera position to the right.
  */
 void Camera::cameraMoveRight() {
-	mCamera.eyeX += cos( degToRad( mCamera.rotX ) ) * mCameraSpeed;
-	mCamera.eyeZ += sin( degToRad( mCamera.rotX ) ) * mCameraSpeed;
+	mCamera.eyeX += cos( MathHelp::degToRad( mCamera.rotX ) ) * mCameraSpeed;
+	mCamera.eyeZ += sin( MathHelp::degToRad( mCamera.rotX ) ) * mCameraSpeed;
 	this->updateParent();
 }
 
@@ -198,19 +197,19 @@ void Camera::updateCameraRot( int moveX, int moveY ) {
 		mCamera.rotY = -90.0f;
 	}
 
-	mCamera.centerX = sin( degToRad( mCamera.rotX ) )
-		- fabs( sin( degToRad( mCamera.rotY ) ) )
-		* sin( degToRad( mCamera.rotX ) );
-	mCamera.centerY = sin( degToRad( mCamera.rotY ) );
-	mCamera.centerZ = cos( degToRad( mCamera.rotX ) )
-		- fabs( sin( degToRad( mCamera.rotY ) ) )
-		* cos( degToRad( mCamera.rotX ) );
+	mCamera.centerX = sin( MathHelp::degToRad( mCamera.rotX ) )
+		- fabs( sin( MathHelp::degToRad( mCamera.rotY ) ) )
+		* sin( MathHelp::degToRad( mCamera.rotX ) );
+	mCamera.centerY = sin( MathHelp::degToRad( mCamera.rotY ) );
+	mCamera.centerZ = cos( MathHelp::degToRad( mCamera.rotX ) )
+		- fabs( sin( MathHelp::degToRad( mCamera.rotY ) ) )
+		* cos( MathHelp::degToRad( mCamera.rotX ) );
 
 	if( mCamera.centerY == 1.0f ) {
-		mCamera.upX = sin( degToRad( mCamera.rotX ) );
+		mCamera.upX = sin( MathHelp::degToRad( mCamera.rotX ) );
 	}
 	else if( mCamera.centerY == -1.0f ) {
-		mCamera.upX = -sin( degToRad( mCamera.rotX ) );
+		mCamera.upX = -sin( MathHelp::degToRad( mCamera.rotX ) );
 	}
 	else {
 		mCamera.upX = 0.0f;
@@ -219,10 +218,10 @@ void Camera::updateCameraRot( int moveX, int moveY ) {
 	mCamera.upY = ( mCamera.centerY == 1.0f || mCamera.centerY == -1.0f ) ? 0.0f : 1.0f;
 
 	if( mCamera.centerY == 1.0f ) {
-		mCamera.upZ = -cos( degToRad( mCamera.rotX ) );
+		mCamera.upZ = -cos( MathHelp::degToRad( mCamera.rotX ) );
 	}
 	else if( mCamera.centerY == -1.0f ) {
-		mCamera.upZ = cos( degToRad( mCamera.rotX ) );
+		mCamera.upZ = cos( MathHelp::degToRad( mCamera.rotX ) );
 	}
 	else {
 		mCamera.upZ = 0.0f;

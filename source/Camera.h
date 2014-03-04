@@ -7,7 +7,7 @@
 
 #include "Cfg.h"
 #include "qt/GLWidget.h"
-#include "utils.h"
+#include "MathHelp.h"
 
 using std::vector;
 

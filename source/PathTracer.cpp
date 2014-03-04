@@ -134,7 +134,7 @@ void PathTracer::initArgsKernelRays() {
 	cl_float wGsw = mWidth / wgs;
 	cl_float hGsh = mHeight / wgs;
 
-	cl_float f = 2.0f * tan( utils::degToRad( mFOV ) / 2.0f );
+	cl_float f = 2.0f * tan( MathHelp::degToRad( mFOV ) / 2.0f );
 	f /= ( mWidth > mHeight ) ? std::min( wGsw, hGsh ) : std::max( wGsw, hGsh );
 
 	cl_float pxWidthAndHeight = f / wgs;

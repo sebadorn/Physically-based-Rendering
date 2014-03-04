@@ -213,103 +213,134 @@ inline void setArray( float* arr, float val ) {
 
 
 /**
- *
- * @param  t
- * @param  r Roughness factor (0: perfect specular, 1: perfect diffuse).
- * @return
+ * Zenith angle.
+ * @param  {const float} t
+ * @param  {const float} r Roughness factor (0: perfect specular, 1: perfect diffuse).
+ * @return {float}
  */
-inline float Z( float t, float r ) {
-	return r / pown( 1.0f + r * t * t - t * t, 2 );
+inline float Z( const float t, const float r ) {
+	const float x = 1.0f + r * t * t - t * t;
+	return native_divide( r, x * x );
 }
 
 
 /**
- *
- * @param  w
- * @param  p Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
- * @return
+ * Azimuth angle.
+ * @param  {const float} w
+ * @param  {const float} p Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
+ * @return {float}
  */
-inline float A( float w, float p ) {
-	return sqrt( p / ( p * p - p * p * w * w + w * w ) );
+inline float A( const float w, const float p ) {
+	const float p2 = p * p;
+	const float w2 = w * w;
+	return native_sqrt( native_divide( p, p2 - p2 * w2 + w2 ) );
 }
 
 
 /**
- *
- * @param  v
- * @param  r Roughness factor (0: perfect specular, 1: perfect diffuse)
- * @return
+ * Smith factor.
+ * @param  {const float} v
+ * @param  {const float} r Roughness factor (0: perfect specular, 1: perfect diffuse)
+ * @return {float}
  */
-inline float G( float v, float r ) {
-	return v / ( r - r * v + v );
-}
-
-
-/**
- *
- * @param  t
- * @param  vOut
- * @param  vIn
- * @param  w
- * @param  r   Roughness factor (0: perfect specular, 1: perfect diffuse)
- * @param  p   Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
- * @return
- */
-inline float B( float t, float vOut, float vIn, float w, float r, float p ) {
-	float gp = G( vOut, r ) * G( vIn, r );
-	float d = 4.0f * M_PI * vOut * vIn;
-	float part1 = gp * Z( t, r ) * A( w, p ) / d;
-	float part2 = ( 1.0f - gp ) / d;
-
-	return part1 + part2;
+inline float G( const float v, const float r ) {
+	return native_divide( v, r - r * v + v );
 }
 
 
 /**
  * Directional factor.
- * @param  t
- * @param  v
- * @param  vIn
- * @param  w
- * @param  r
- * @param  p
- * @return
+ * @param  {const float} t
+ * @param  {const float} v
+ * @param  {const float} vIn
+ * @param  {const float} w
+ * @param  {const float} r
+ * @param  {const float} p
+ * @return {float}
  */
-inline float D( float t, float vOut, float vIn, float w, float r, float p ) {
-	float b = 4.0f * r * ( 1.0f - r );
-	float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
-	float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
+inline float B(
+	const float t, const float vOut, const float vIn, const float w,
+	const float r, const float p
+) {
+	const float drecip = native_recip( 4.0f * M_PI * vOut * vIn );
+	const float gp = G( vOut, r ) * G( vIn, r );
+	const float part1 = gp * Z( t, r ) * A( w, p );
+	const float part2 = ( 1.0f - gp );
 
-	return ( a / M_PI + b / ( 4.0f * M_PI * vOut * vIn ) * B( t, vOut, vIn, w, r, p ) + c / vIn );
+	return ( part1 + part2 ) * drecip;
+}
+
+
+/**
+ * Directional factor.
+ * @param  {const float} t
+ * @param  {const float} v
+ * @param  {const float} vIn
+ * @param  {const float} w
+ * @param  {const float} r
+ * @param  {const float} p
+ * @return {float}
+ */
+inline float D(
+	const float t, const float vOut, const float vIn, const float w,
+	const float r, const float p
+) {
+	const float b = 4.0f * r * ( 1.0f - r );
+	const float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
+	const float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
+
+	return (
+		native_divide( a, M_PI ) +
+		native_divide( b, ( 4.0f * M_PI * vOut * vIn ) ) * B( t, vOut, vIn, w, r, p ) +
+		native_divide( c, vIn )
+	);
 	// TODO: ( c / vIn ) probably not correct
 }
 
 
 /**
- * Spectral factor.
- * @param  u
- * @param  c Reflection factor.
- * @return
+ * Fresnel factor.
+ * @param  {const float} u
+ * @param  {const float} c Reflection factor.
+ * @return {float}
  */
-inline float S( float u, float c ) {
-	return c + ( 1.0f - c ) * pown( 1.0f - u, 5 );
+inline float fresnel( const float u, const float c ) {
+	const float v = 1.0f - u;
+	return c + ( 1.0f - c ) * v * v * v * v * v;
 }
 
 
-inline float4 projection( float4 h, float4 n ) {
-	return dot( h, n ) / pown( fast_length( n ), 2 ) * n;
-}
+/**
+ * MACRO: Projection of h orthogonal n, with n being a unit vector.
+ * @param  {const float3} h
+ * @param  {const float3} n
+ * @return {float3}         Projection of h onto n.
+ */
+#define projection( h, n ) ( dot( ( h ), ( n ) ) * ( n ) )
 
 
+/**
+ * Calculate the values needed for the BRDF.
+ * @param {const float4} V_in
+ * @param {const float4} V_out
+ * @param {const float4} N
+ * @param {const float4} T
+ * @param {float4*}      H
+ * @param {float*}       t
+ * @param {float*}       v
+ * @param {float*}       vIn
+ * @param {float*}       vOut
+ * @param {float*}       w
+ */
 inline void getValuesBRDF(
-	float4 V_in, float4 V_out, float4 N, float4 T,
+	const float4 V_in, const float4 V_out, const float4 N, const float4 T,
 	float4* H, float* t, float* v, float* vIn, float* vOut, float* w
 ) {
 	T.w = 0.0f;
 	*H = fast_normalize( V_out + V_in );
-	*t = fmax( dot( *H, N ), 0.0f );
-	*v = fmax( dot( V_out, N ), 0.0f );
-	*vIn = fmax( dot( V_in, N ), 0.0f );
-	*vOut = fmax( dot( V_out, N ), 0.0f );
-	*w = dot( T, projection( *H, N ) );
+	*t = fmax( dot( H->xyz, N.xyz ), 0.0f );
+	*v = fmax( dot( V_out.xyz, N.xyz ), 0.0f );
+	*vIn = fmax( dot( V_in.xyz, N.xyz ), 0.0f );
+	*vOut = fmax( dot( V_out.xyz, N.xyz ), 0.0f );
+	*w = dot( T.xyz, projection( H->xyz, N.xyz ) );
 }

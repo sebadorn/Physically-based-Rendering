@@ -124,6 +124,10 @@ kernel void pathTracing(
 	uint index;
 	bool addDepth, ignoreColor;
 
+	// BRDF variables
+	float4 H;
+	float brdf, t, u, v, vIn, vOut, w;
+
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
 		setArray( spd, 1.0f );
 		light = -1;
@@ -163,15 +167,13 @@ kernel void pathTracing(
 				index = mtl.spd * SPEC;
 				cosLaw = cosineLaw( ray.normal, newRay.dir );
 
-				// float4 H;
-				// float t, v, vIn, vOut, w;
-				// float r = 1.0f;
-				// getValuesBRDF( newRay.dir, -ray.dir, ray.normal, mtl.scratch, &H, &t, &v, &vIn, &vOut, &w );
-				// float u = fmax( dot( H, -ray.dir ), 0.0f );
-				// float brdf = D( t, vOut, vIn, w, r, mtl.scratch.w );
+				getValuesBRDF( newRay.dir, -ray.dir, ray.normal, mtl.scratch, &H, &t, &v, &vIn, &vOut, &w );
+				u = fmax( dot( H.xyz, -ray.dir.xyz ), 0.0f );
+				brdf = D( t, vOut, vIn, w, mtl.rough, mtl.scratch.w );
+				brdf = 1.0f;
 
 				for( int i = 0; i < SPEC; i++ ) {
-					spd[i] *= specPowerDists[index + i] * cosLaw;
+					spd[i] *= fresnel( u, specPowerDists[index + i] ) * brdf * cosLaw;
 					maxValSpd = fmax( spd[i], maxValSpd );
 				}
 			}

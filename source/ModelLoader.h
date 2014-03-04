@@ -5,6 +5,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <CL/cl.hpp>
+#include <glm/glm.hpp>
 #include <iostream>
 #include <map>
 #include <string>
@@ -24,7 +25,6 @@ class ModelLoader {
 	public:
 		ModelLoader();
 		~ModelLoader();
-		vector<cl_float> getBoundingBox();
 		vector<cl_int> getFacesMtl();
 		vector<cl_uint> getFacesV();
 		vector<cl_uint> getFacesVN();
@@ -46,8 +46,6 @@ class ModelLoader {
 	private:
 		ObjParser* mObjParser;
 		SpecParser* mSpecParser;
-
-		vector<cl_float> mBoundingBox;
 
 };
 

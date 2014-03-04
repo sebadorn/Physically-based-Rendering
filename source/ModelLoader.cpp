@@ -23,15 +23,6 @@ ModelLoader::~ModelLoader() {
 
 
 /**
- * Get the axis-aligned bounding box.
- * @return {std::vector<cl_float>} Axis-aligned bounding box.
- */
-vector<cl_float> ModelLoader::getBoundingBox() {
-	return mBoundingBox;
-}
-
-
-/**
  * Extract the faces and vertices data from an object3D.
  * @param {object3D}                object
  * @param {std::vector<cl_float>}   allVertices
@@ -181,7 +172,6 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 
 	vector<cl_uint> facesV = mObjParser->getFacesV();
 	vector<cl_float> vertices = mObjParser->getVertices();
-	mBoundingBox = utils::computeBoundingBox( vertices );
 
 	snprintf(
 		msg, 256, "[ModelLoader] ... Done. %lu vertices and %lu faces.",

@@ -18,6 +18,7 @@ class Cfg {
 		}
 
 		static const char* BVH_MAXFACES;
+		static const char* BVH_SAHFACESLIMIT;
 		static const char* CAM_CENTER_X;
 		static const char* CAM_CENTER_Y;
 		static const char* CAM_CENTER_Z;
