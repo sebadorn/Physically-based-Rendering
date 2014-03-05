@@ -48,7 +48,10 @@ kernel void initRays(
 	const float4 initRayParts, const global float* eyeIn,
 	global rayBase* rays
 ) {
-	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
+	const int2 pos = {
+		offset.x + get_global_id( 0 ),
+		offset.y + get_global_id( 1 )
+	};
 
 	const float4 eye = { eyeIn[0], eyeIn[1], eyeIn[2], 0.0f };
 	const float4 w = { eyeIn[3], eyeIn[4], eyeIn[5], 0.0f };
