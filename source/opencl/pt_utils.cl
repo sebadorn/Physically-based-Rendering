@@ -24,26 +24,6 @@ inline float fresnel( const float u, const float c ) {
 
 
 /**
- * http://www.rorydriscoll.com/2009/01/07/better-sampling/ (Not 1:1 used here.)
- * @param  {const float}  seed
- * @param  {const float4} normal
- * @return {float4}
- */
-float4 cosineWeightedDirection( float* seed, const float4 normal ) {
-	const float u = rand( seed );
-	const float r = native_sqrt( u );
-	const float angle = PI_X2 * rand( seed );
-
-	const float4 sdir = ( fabs( normal.x ) < 0.5f )
-	                  ? (float4)( 0.0f, normal.z, -normal.y, 0.0f )
-	                  : (float4)( -normal.z, 0.0f, normal.x, 0.0f );
-	const float4 tdir = cross( normal, sdir );
-
-	return r * native_cos( angle ) * sdir + r * native_sin( angle ) * tdir + native_sqrt( 1.0f - u ) * normal;
-}
-
-
-/**
  *
  * @param  {const face_t} face
  * @param  {const float4} tuv

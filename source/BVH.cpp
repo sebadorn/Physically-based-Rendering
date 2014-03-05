@@ -135,6 +135,110 @@ BVHNode* BVH::buildTree( vector<cl_uint4> faces, vector<cl_float4> allVertices, 
 }
 
 
+void BVH::splitBySpatialSplit( BVHNode* node, vector<cl_uint4> faces, vector<cl_float4> allVertices ) {
+	cl_uint splits = 3;
+	cl_uint axis = this->longestAxis( node );
+
+
+	// Find split positions
+
+	vector<cl_float> splitPos( splits );
+	cl_float lenSegment = ( node->bbMax[axis] - node->bbMin[axis] ) / ( (cl_float) splits + 1.0f );
+	splitPos[0] = node->bbMin[axis] + lenSegment;
+	splitPos[1] = splitPos[0] + lenSegment;
+	splitPos[2] = splitPos[1] + lenSegment;
+
+
+	// Create AABBs for bins
+
+	glm::vec3 bbMinBin0 = glm::vec3( node->bbMin );
+	glm::vec3 bbMaxBin0 = glm::vec3( node->bbMax );
+	bbMaxBin0[axis] = splitPos[0];
+
+	glm::vec3 bbMinBin1 = glm::vec3( bbMaxBin0 );
+	glm::vec3 bbMaxBin1 = glm::vec3( bbMaxBin0 );
+	bbMaxBin1[axis] = splitPos[1];
+
+	glm::vec3 bbMinBin2 = glm::vec3( bbMaxBin1 );
+	glm::vec3 bbMaxBin2 = glm::vec3( bbMaxBin1 );
+	bbMaxBin2[axis] = splitPos[2];
+
+	glm::vec3 bbMinBin3 = glm::vec3( bbMaxBin2 );
+	glm::vec3 bbMaxBin3 = glm::vec3( node->bbMax );
+
+
+	// Assign faces
+
+	vector<cl_uint4> binFaces0, binFaces1, binFaces2, binFaces3;
+	cl_float4 v0, v1, v2;
+
+	for( cl_uint i = 0; i < faces.size(); i++ ) {
+		v0 = allVertices[faces[i].x];
+		v1 = allVertices[faces[i].y];
+		v2 = allVertices[faces[i].z];
+		glm::vec3 trMinBB, trMaxBB;
+
+		MathHelp::getTriangleAABB( v0, v1, v2, &trMinBB, &trMaxBB );
+
+		if( trMinBB[axis] <= bbMaxBin0[axis] ) {
+			binFaces0.push_back( faces[i] );
+		}
+		if( trMinBB[axis] <= bbMaxBin1[axis] && trMaxBB[axis] >= bbMinBin1[axis] ) {
+			binFaces1.push_back( faces[i] );
+		}
+		if( trMinBB[axis] <= bbMaxBin2[axis] && trMaxBB[axis] >= bbMinBin2[axis] ) {
+			binFaces2.push_back( faces[i] );
+		}
+		if( trMaxBB[axis] >= bbMinBin3[axis] ) {
+			binFaces3.push_back( faces[i] );
+		}
+	}
+
+
+	// Clip faces and shrink AABB
+
+	vector<cl_float4> vertsForAABB0;
+	glm::vec3 vNewA, vNewB;
+
+	for( cl_uint i = 0; i < binFaces0.size(); i++ ) {
+		v0 = allVertices[faces[i].x];
+		v1 = allVertices[faces[i].y];
+		v2 = allVertices[faces[i].z];
+		glm::vec3 trMinBB, trMaxBB;
+
+		MathHelp::getTriangleAABB( v0, v1, v2, &trMinBB, &trMaxBB );
+
+		// face extends into next bin
+		if( v0[axis] > bbMaxBin0[axis] ) {
+			glm::vec3 u = v1 - v0;
+			glm::vec3 w = v0 - bbMaxBin0;
+			glm::vec3 plNorm = glm::vec3( 0.0f, 0.0f, 0.0f );
+			plNorm[axis] = 1.0f;
+			cl_float d = glm::dot( plNorm, u );
+
+			if( glm::abs( d ) > 0.0001f ) {
+				cl_float fac = -glm::dot( plNorm, w ) / d;
+				u *= fac;
+				vNewA = bbMaxBin0 + u;
+				cl_float4 v0New = { vNewA[0], vNewA[1], vNewA[2], 0.0f };
+				vertsForAABB0.push_back( v0New );
+			}
+			else {
+				// parallel, what now?
+			}
+
+			vertsForAABB0.push_back( vNewA );
+			vertsForAABB0.push_back( vNewB );
+		}
+		else {
+			vertsForAABB0.push_back( v0 );
+		}
+	}
+
+	MathHelp::getAABB( vertsForAABB0, &bbMinBin0, &bbMaxBin0 );
+}
+
+
 /**
  * Build sphere trees for all given scene objects.
  * @param  {std::vector<object3D>} sceneObjects

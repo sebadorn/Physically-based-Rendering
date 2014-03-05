@@ -19,7 +19,7 @@ ray4 getNewRay(
 
 	// Diffuse
 	float rnd2 = rand( seed );
-	newRay.dir += jitter( currentRay.normal, 2.0f * M_PI * rand( seed ), sqrt( rnd2 ), sqrt( 1.0f - rnd2 ) ) * mtl->rough;
+	newRay.dir += jitter( currentRay.normal, PI_X2 * rand( seed ), sqrt( rnd2 ), sqrt( 1.0f - rnd2 ) ) * mtl->rough;
 
 	// Directional (surfaces with tiny, oriented scratches; brushed metal)
 	// TODO: not working as intented
@@ -119,42 +119,80 @@ void checkFaceIntersection(
 void intersectFaces(
 	ray4* ray, const bvhNode* node, const global face_t* faces, float tNear, float tFar
 ) {
-	const int testFaces[4] = {
-		node->faces.x, node->faces.y, node->faces.z, node->faces.w
-	};
-
 	float4 tuv;
 
-	// At least 1 face in a node, so we can unroll the
-	// first face test and omit the -1 check.
-	checkFaceIntersection( ray, faces[testFaces[0]], &tuv, tNear, tFar );
+	// At most 4 faces in a leaf node.
+	// Unrolled the loop as optimization.
+
+
+	// Face 1
+
+	checkFaceIntersection( ray, faces[node->faces.x], &tuv, tNear, tFar );
 
 	if( tuv.x > -1.0f ) {
 		tFar = tuv.x;
 
 		if( ray->t > tuv.x || ray->t < -1.0f ) {
-			ray->normal = getTriangleNormal( faces[testFaces[0]], tuv );
-			ray->normal.w = (float) testFaces[0];
+			ray->normal = getTriangleNormal( faces[node->faces.x], tuv );
+			ray->normal.w = (float) node->faces.x;
 			ray->t = tuv.x;
 		}
 	}
 
-	// Test the rest of the faces, it existant.
-	for( uint i = 1; i < 4; i++ ) {
-		if( testFaces[i] == -1 ) {
-			break;
+
+	// Face 2
+
+	if( node->faces.y == -1 ) {
+		return;
+	}
+
+	checkFaceIntersection( ray, faces[node->faces.y], &tuv, tNear, tFar );
+
+	if( tuv.x > -1.0f ) {
+		tFar = tuv.x;
+
+		if( ray->t > tuv.x || ray->t < -1.0f ) {
+			ray->normal = getTriangleNormal( faces[node->faces.y], tuv );
+			ray->normal.w = (float) node->faces.y;
+			ray->t = tuv.x;
 		}
+	}
 
-		checkFaceIntersection( ray, faces[testFaces[i]], &tuv, tNear, tFar );
 
-		if( tuv.x > -1.0f ) {
-			tFar = tuv.x;
+	// Face 3
 
-			if( ray->t > tuv.x || ray->t < -1.0f ) {
-				ray->normal = getTriangleNormal( faces[testFaces[i]], tuv );
-				ray->normal.w = (float) testFaces[i];
-				ray->t = tuv.x;
-			}
+	if( node->faces.z == -1 ) {
+		return;
+	}
+
+	checkFaceIntersection( ray, faces[node->faces.z], &tuv, tNear, tFar );
+
+	if( tuv.x > -1.0f ) {
+		tFar = tuv.x;
+
+		if( ray->t > tuv.x || ray->t < -1.0f ) {
+			ray->normal = getTriangleNormal( faces[node->faces.z], tuv );
+			ray->normal.w = (float) node->faces.z;
+			ray->t = tuv.x;
+		}
+	}
+
+
+	// Face 4
+
+	if( node->faces.w == -1 ) {
+		return;
+	}
+
+	checkFaceIntersection( ray, faces[node->faces.w], &tuv, tNear, tFar );
+
+	if( tuv.x > -1.0f ) {
+		tFar = tuv.x;
+
+		if( ray->t > tuv.x || ray->t < -1.0f ) {
+			ray->normal = getTriangleNormal( faces[node->faces.w], tuv );
+			ray->normal.w = (float) node->faces.w;
+			ray->t = tuv.x;
 		}
 	}
 }
@@ -197,7 +235,6 @@ void traverseBVH( const global bvhNode* bvh, ray4* ray, const global face_t* fac
 
 			continue;
 		}
-
 
 		tNearR = -2.0f;
 		tFarR = FLT_MAX;
