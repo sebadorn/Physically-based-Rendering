@@ -601,15 +601,11 @@ string CL::setValues( string clProgramString ) {
 	char replacement[16];
 
 
-	// Define or don't define
+	// Define or don't define (bool in config)
 
 	valueReplace.clear();
-	valueReplace.push_back( "ANTI_ALIASING" );
-	valueReplace.push_back( "BACKFACE_CULLING" );
 
 	vector<bool> configValue;
-	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_ANTIALIAS ) );
-	configValue.push_back( Cfg::get().value<bool>( Cfg::RENDER_BACKFACECULLING ) );
 
 	for( int i = 0; i < valueReplace.size(); i++ ) {
 		search = "#" + valueReplace[i] + "#";
@@ -631,6 +627,7 @@ string CL::setValues( string clProgramString ) {
 	valueReplace.push_back( "MAX_ADDED_DEPTH" );
 	valueReplace.push_back( "SAMPLES" );
 	valueReplace.push_back( "SPECTRAL_COLORSYSTEM" );
+	valueReplace.push_back( "WORKGROUPSIZE" );
 
 	vector<cl_uint> configInt;
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_MAXDEPTH ) );
@@ -638,7 +635,8 @@ string CL::setValues( string clProgramString ) {
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_MAXADDEDDEPTH ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SAMPLES ) );
-	configInt.push_back( Cfg::get().value<cl_int>( Cfg::SPECTRAL_COLORSYSTEM ) );
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::SPECTRAL_COLORSYSTEM ) );
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::OPENCL_WORKGROUPSIZE ) );
 
 	for( int i = 0; i < valueReplace.size(); i++ ) {
 		search = "#" + valueReplace[i] + "#";
@@ -654,11 +652,11 @@ string CL::setValues( string clProgramString ) {
 	// Float replacement
 
 	valueReplace.clear();
-	valueReplace.push_back( "WORKGROUPSIZE" );
+	valueReplace.push_back( "ANTI_ALIASING" );
 	valueReplace.push_back( "WORKGROUPSIZE_HALF" );
 
 	vector<cl_float> configFloat;
-	configFloat.push_back( Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE ) );
+	configFloat.push_back( Cfg::get().value<cl_float>( Cfg::RENDER_ANTIALIAS ) );
 	configFloat.push_back( Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE ) / 2.0f );
 
 	for( int i = 0; i < valueReplace.size(); i++ ) {
@@ -666,7 +664,7 @@ string CL::setValues( string clProgramString ) {
 		foundStrPos = clProgramString.find( search );
 
 		if( foundStrPos != string::npos ) {
-			snprintf( replacement, 16, "%f", configFloat[i] );
+			snprintf( replacement, 16, "%ff", configFloat[i] );
 			clProgramString.replace( foundStrPos, search.length(), replacement );
 		}
 	}

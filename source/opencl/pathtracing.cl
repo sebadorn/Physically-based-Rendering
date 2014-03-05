@@ -50,14 +50,10 @@ kernel void initRays(
 ) {
 	const int2 pos = { offset.x + get_global_id( 0 ), offset.y + get_global_id( 1 ) };
 
-	float4 eye = { eyeIn[0], eyeIn[1], eyeIn[2], 0.0f };
+	const float4 eye = { eyeIn[0], eyeIn[1], eyeIn[2], 0.0f };
 	const float4 w = { eyeIn[3], eyeIn[4], eyeIn[5], 0.0f };
 	const float4 u = { eyeIn[6], eyeIn[7], eyeIn[8], 0.0f };
 	const float4 v = { eyeIn[9], eyeIn[10], eyeIn[11], 0.0f };
-
-	#ifdef ANTI_ALIASING
-		eye += uniformlyRandomVector( &seed ) * 0.005f;
-	#endif
 
 	#define pxWidthAndHeight initRayParts.x
 	#define adjustW initRayParts.y
@@ -113,7 +109,7 @@ kernel void pathTracing(
 
 	ray4 firstRay;
 	firstRay.origin = initRays[workIndex].origin;
-	firstRay.dir = initRays[workIndex].dir;
+	firstRay.dir = fast_normalize( initRays[workIndex].dir + uniformlyRandomVector( &seed ) * ANTI_ALIASING );
 	firstRay.t = -2.0f;
 
 	ray4 newRay, ray;

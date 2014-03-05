@@ -12,6 +12,18 @@ inline float rand( float* seed ) {
 
 
 /**
+ * Fresnel factor.
+ * @param  {const float} u
+ * @param  {const float} c Reflection factor.
+ * @return {float}
+ */
+inline float fresnel( const float u, const float c ) {
+	const float v = 1.0f - u;
+	return c + ( 1.0f - c ) * v * v * v * v * v;
+}
+
+
+/**
  * http://www.rorydriscoll.com/2009/01/07/better-sampling/ (Not 1:1 used here.)
  * @param  {const float}  seed
  * @param  {const float4} normal
@@ -87,24 +99,26 @@ float4 refract( const ray4* currentRay, const material* mtl, float* seed ) {
 	const float m = native_divide( m1, m2 );
 
 	const float cosI = -dot( currentRay->dir.xyz, nl.xyz );
-	const float sinSq = m * m * ( 1.0f - cosI * cosI );
+	const float sinT2 = m * m * ( 1.0f - cosI * cosI );
 
 	// Critical angle. Total internal reflection.
-	if( sinSq > 1.0f ) {
+	if( sinT2 > 1.0f ) {
 		return reflect( currentRay->dir, nl );
 	}
 
-	// No TIR, proceed.
-	const float4 tDir = m * currentRay->dir + ( m * cosI - native_sqrt( 1.0f - sinSq ) ) * nl;
+	const float cosT = native_sqrt( 1.0f - sinT2 );
+	const float4 tDir = m * currentRay->dir + ( m * cosI - cosT ) * nl;
+
+
+	// Reflectance and transmission
 
 	float r0 = native_divide( m1 - m2, m1 + m2 );
 	r0 *= r0;
-	const float c = ( m1 > m2 ) ? native_sqrt( 1.0f - sinSq ) : cosI;
-	const float x = 1.0f - c;
-	const float refl = r0 + ( 1.0f - r0 ) * x * x * x * x * x;
-	// const float trans = 1.0f - refl;
+	const float c = ( m1 > m2 ) ? native_sqrt( 1.0f - sinT2 ) : cosI;
+	const float reflectance = fresnel( c, r0 );
+	// transmission = 1.0f - reflectance
 
-	return ( refl < rand( seed ) ) ? tDir : reflect( currentRay->dir, nl );
+	return ( reflectance < rand( seed ) ) ? tDir : reflect( currentRay->dir, nl );
 }
 
 
@@ -295,18 +309,6 @@ inline float D(
 		native_divide( c, vIn )
 	);
 	// TODO: ( c / vIn ) probably not correct
-}
-
-
-/**
- * Fresnel factor.
- * @param  {const float} u
- * @param  {const float} c Reflection factor.
- * @return {float}
- */
-inline float fresnel( const float u, const float c ) {
-	const float v = 1.0f - u;
-	return c + ( 1.0f - c ) * v * v * v * v * v;
 }
 
 

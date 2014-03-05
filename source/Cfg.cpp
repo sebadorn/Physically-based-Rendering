@@ -14,7 +14,6 @@ const char* Cfg::IMPORT_PATH = "import_path";
 const char* Cfg::INFO_KERNELTIMES = "info.kernel_times";
 const char* Cfg::LOG_LEVEL = "logging.level";
 const char* Cfg::RENDER_ANTIALIAS = "render.antialiasing";
-const char* Cfg::RENDER_BACKFACECULLING = "render.backface_culling";
 const char* Cfg::RENDER_INTERVAL = "render.interval";
 const char* Cfg::RENDER_MAXADDEDDEPTH = "render.max_added_depth";
 const char* Cfg::RENDER_MAXDEPTH = "render.max_depth";
