@@ -4,6 +4,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <CL/cl.hpp>
 #include <glm/glm.hpp>
+#include <set>
 #include <vector>
 
 #include "Cfg.h"
@@ -11,6 +12,7 @@
 #include "MathHelp.h"
 #include "ModelLoader.h"
 
+using std::set;
 using std::vector;
 
 
@@ -39,10 +41,19 @@ class BVH {
 
 	protected:
 		BVHNode* buildTree(
-			vector<cl_uint4> faces, vector<cl_float4> vertices, cl_uint depth
+			vector<cl_uint4> faces, vector<cl_float4> vertices, cl_uint depth,
+			glm::vec3 bbMin, glm::vec3 bbMax, bool useGivenBB
 		);
 		vector<BVHNode*> buildTreesFromObjects(
 			vector<object3D> sceneObjects, vector<cl_float> vertices
+		);
+		cl_float calcSAH(
+			cl_float nodeSA_recip, cl_float leftSA, cl_float leftNumFaces,
+			cl_float rightSA, cl_float rightNumFaces
+		);
+		void clippedFacesAABB(
+			vector<cl_uint4> faces, vector<cl_float4> allVertices, cl_uint axis,
+			glm::vec3* bbMin, glm::vec3* bbMax
 		);
 		void combineNodes( vector<BVHNode*> subTrees );
 		cl_float findMean( vector<cl_uint4> faces, vector<cl_float4> allVertices, cl_uint axis );
@@ -58,6 +69,11 @@ class BVH {
 			cl_float nodeSA, cl_float* bestSAH, cl_uint axis, vector<cl_uint4> faces, vector<cl_float4> allVertices,
 			vector<cl_uint4>* leftFaces, vector<cl_uint4>* rightFaces
 		);
+		void splitBySpatialSplit(
+			BVHNode* node, cl_uint axis, cl_float* sahBest, vector<cl_uint4> faces, vector<cl_float4> allVertices,
+			vector<cl_uint4>* leftFaces, vector<cl_uint4>* rightFaces,
+			glm::vec3* bbMinLeft, glm::vec3* bbMaxLeft, glm::vec3* bbMinRight, glm::vec3* bbMaxRight
+		);
 		void splitFaces(
 			vector<cl_uint4> faces, vector<cl_float4> vertices, cl_float midpoint, cl_uint axis,
 			vector<cl_uint4>* leftFaces, vector<cl_uint4>* rightFaces
@@ -66,6 +82,7 @@ class BVH {
 			vector<BVHNode*> nodes, cl_float midpoint, cl_uint axis,
 			vector<BVHNode*>* leftGroup, vector<BVHNode*>* rightGroup
 		);
+		vector<cl_uint4> uniqueFaces( vector<cl_uint4> faces );
 		void visualizeNextNode( BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	private:

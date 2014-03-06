@@ -4,6 +4,22 @@ using std::vector;
 
 
 /**
+ * Struct to use as comparator in std::find_if() for the faces (cl_uint4).
+ */
+struct findFace : std::unary_function<cl_uint4, bool> {
+
+	cl_uint4 fc;
+
+	findFace( cl_uint4 fc ) : fc( fc ) {};
+
+	bool operator()( cl_uint4 const& f ) const {
+		return ( fc.x == f.x && fc.y == f.y && fc.z == f.z );
+	};
+
+};
+
+
+/**
  * Struct to use as comparator in std::sort() for the faces (cl_uint4).
  */
 struct sortFacesCmp {
@@ -83,9 +99,16 @@ BVH::~BVH() {
  * @param  {cl_uint}                depth       The current depth of the node in the tree. Starts at 1.
  * @return {BVHNode*}
  */
-BVHNode* BVH::buildTree( vector<cl_uint4> faces, vector<cl_float4> allVertices, cl_uint depth ) {
+BVHNode* BVH::buildTree(
+	vector<cl_uint4> faces, vector<cl_float4> allVertices, cl_uint depth,
+	glm::vec3 bbMin, glm::vec3 bbMax, bool useGivenBB
+) {
 	BVHNode* containerNode = this->makeNode( faces, allVertices );
 	containerNode->depth = depth;
+	if( useGivenBB ) {
+		containerNode->bbMin = bbMin;
+		containerNode->bbMax = bbMax;
+	}
 	mDepthReached = ( depth > mDepthReached ) ? depth : mDepthReached;
 
 	// leaf node
@@ -99,15 +122,29 @@ BVHNode* BVH::buildTree( vector<cl_uint4> faces, vector<cl_float4> allVertices, 
 	}
 
 	vector<cl_uint4> leftFaces, rightFaces;
+	useGivenBB = false;
+	glm::vec3 bbMinLeft, bbMaxLeft, bbMinRight, bbMaxRight;
 
 	// SAH takes some time. Don't do it if there are too many faces.
 	if( faces.size() <= Cfg::get().value<cl_uint>( Cfg::BVH_SAHFACESLIMIT ) ) {
-		cl_float bestSAH = FLT_MAX;
+		cl_float bestSAH_object = FLT_MAX;
 		cl_float nodeSA = 1.0f / MathHelp::getSurfaceArea( containerNode->bbMin, containerNode->bbMax );
 
 		for( cl_uint axis = 0; axis <= 2; axis++ ) {
-			this->splitBySAH( nodeSA, &bestSAH, axis, faces, allVertices, &leftFaces, &rightFaces );
+			this->splitBySAH( nodeSA, &bestSAH_object, axis, faces, allVertices, &leftFaces, &rightFaces );
 		}
+
+		cl_float bestSAH_spatial = bestSAH_object;
+
+		for( cl_uint axis = 0; axis <= 2; axis++ ) {
+			this->splitBySpatialSplit(
+				containerNode, axis, &bestSAH_spatial, faces, allVertices, &leftFaces, &rightFaces,
+				&bbMinLeft, &bbMaxLeft, &bbMinRight, &bbMaxRight
+			);
+		}
+
+		useGivenBB = ( bestSAH_spatial < bestSAH_object );
+		printf( "Final SAH: %g | Winner: %d | leftFaces: %lu | rightFaces: %lu\n", bestSAH_spatial, useGivenBB, leftFaces.size(), rightFaces.size() );
 	}
 	// Faster to build: Splitting at the midpoint of the longest axis.
 	else {
@@ -128,25 +165,41 @@ BVHNode* BVH::buildTree( vector<cl_uint4> faces, vector<cl_float4> allVertices, 
 		}
 	}
 
-	containerNode->leftChild = this->buildTree( leftFaces, allVertices, depth + 1 );
-	containerNode->rightChild = this->buildTree( rightFaces, allVertices, depth + 1 );
+	containerNode->leftChild = this->buildTree( leftFaces, allVertices, depth + 1, bbMinLeft, bbMaxLeft, useGivenBB );
+	containerNode->rightChild = this->buildTree( rightFaces, allVertices, depth + 1, bbMinRight, bbMaxRight, useGivenBB );
 
 	return containerNode;
 }
 
 
-void BVH::splitBySpatialSplit( BVHNode* node, vector<cl_uint4> faces, vector<cl_float4> allVertices ) {
+cl_float BVH::calcSAH(
+	cl_float nodeSA_recip,
+	cl_float leftSA, cl_float leftNumFaces,
+	cl_float rightSA, cl_float rightNumFaces
+) {
+	return nodeSA_recip * ( leftSA * leftNumFaces + rightSA * rightNumFaces );
+}
+
+
+void BVH::splitBySpatialSplit(
+	BVHNode* node, cl_uint axis, cl_float* sahBest, vector<cl_uint4> faces, vector<cl_float4> allVertices,
+	vector<cl_uint4>* leftFaces, vector<cl_uint4>* rightFaces,
+	glm::vec3* bbMinLeft, glm::vec3* bbMaxLeft, glm::vec3* bbMinRight, glm::vec3* bbMaxRight
+) {
 	cl_uint splits = 3;
-	cl_uint axis = this->longestAxis( node );
+	// printf( " -----\nAxis: %u\n", axis );
 
 
 	// Find split positions
 
 	vector<cl_float> splitPos( splits );
 	cl_float lenSegment = ( node->bbMax[axis] - node->bbMin[axis] ) / ( (cl_float) splits + 1.0f );
+	// printf( "bbMin: %g | bbMax: %g | lenSegment: %g\n", node->bbMin[axis], node->bbMax[axis], lenSegment );
+
 	splitPos[0] = node->bbMin[axis] + lenSegment;
 	splitPos[1] = splitPos[0] + lenSegment;
 	splitPos[2] = splitPos[1] + lenSegment;
+	// printf( "Split positions: %g | %g | %g\n", splitPos[0], splitPos[1], splitPos[2] );
 
 
 	// Create AABBs for bins
@@ -196,46 +249,207 @@ void BVH::splitBySpatialSplit( BVHNode* node, vector<cl_uint4> faces, vector<cl_
 
 
 	// Clip faces and shrink AABB
+	this->clippedFacesAABB( binFaces0, allVertices, axis, &bbMinBin0, &bbMaxBin0 );
+	this->clippedFacesAABB( binFaces1, allVertices, axis, &bbMinBin1, &bbMaxBin1 );
+	this->clippedFacesAABB( binFaces2, allVertices, axis, &bbMinBin2, &bbMaxBin2 );
+	this->clippedFacesAABB( binFaces3, allVertices, axis, &bbMinBin3, &bbMaxBin3 );
 
-	vector<cl_float4> vertsForAABB0;
-	glm::vec3 vNewA, vNewB;
 
-	for( cl_uint i = 0; i < binFaces0.size(); i++ ) {
-		v0 = allVertices[faces[i].x];
-		v1 = allVertices[faces[i].y];
-		v2 = allVertices[faces[i].z];
-		glm::vec3 trMinBB, trMaxBB;
+	// SAH
 
-		MathHelp::getTriangleAABB( v0, v1, v2, &trMinBB, &trMaxBB );
+	vector<cl_uint4> faces0_1, faces0_2, faces1_3, faces2_3;
 
-		// face extends into next bin
-		if( v0[axis] > bbMaxBin0[axis] ) {
-			glm::vec3 u = v1 - v0;
-			glm::vec3 w = v0 - bbMaxBin0;
-			glm::vec3 plNorm = glm::vec3( 0.0f, 0.0f, 0.0f );
-			plNorm[axis] = 1.0f;
-			cl_float d = glm::dot( plNorm, u );
+	faces0_1.insert( faces0_1.end(), binFaces0.begin(), binFaces0.end() );
+	faces0_1.insert( faces0_1.end(), binFaces1.begin(), binFaces1.end() );
+	faces0_1 = this->uniqueFaces( faces0_1 );
 
-			if( glm::abs( d ) > 0.0001f ) {
-				cl_float fac = -glm::dot( plNorm, w ) / d;
-				u *= fac;
-				vNewA = bbMaxBin0 + u;
-				cl_float4 v0New = { vNewA[0], vNewA[1], vNewA[2], 0.0f };
-				vertsForAABB0.push_back( v0New );
-			}
-			else {
-				// parallel, what now?
-			}
+	faces0_2.insert( faces0_2.end(), binFaces0.begin(), binFaces0.end() );
+	faces0_2.insert( faces0_2.end(), binFaces1.begin(), binFaces1.end() );
+	faces0_2.insert( faces0_2.end(), binFaces2.begin(), binFaces2.end() );
+	faces0_2 = this->uniqueFaces( faces0_2 );
 
-			vertsForAABB0.push_back( vNewA );
-			vertsForAABB0.push_back( vNewB );
-		}
-		else {
-			vertsForAABB0.push_back( v0 );
+	faces1_3.insert( faces1_3.end(), binFaces1.begin(), binFaces1.end() );
+	faces1_3.insert( faces1_3.end(), binFaces2.begin(), binFaces2.end() );
+	faces1_3.insert( faces1_3.end(), binFaces3.begin(), binFaces3.end() );
+	faces1_3 = this->uniqueFaces( faces1_3 );
+
+	faces2_3.insert( faces2_3.end(), binFaces2.begin(), binFaces2.end() );
+	faces2_3.insert( faces2_3.end(), binFaces3.begin(), binFaces3.end() );
+	faces2_3 = this->uniqueFaces( faces2_3 );
+
+
+	vector<glm::vec3> bbMins1_3, bbMaxs1_3;
+	bbMins1_3.push_back( bbMinBin1 ); bbMaxs1_3.push_back( bbMaxBin1 );
+	bbMins1_3.push_back( bbMinBin2 ); bbMaxs1_3.push_back( bbMaxBin2 );
+	bbMins1_3.push_back( bbMinBin3 ); bbMaxs1_3.push_back( bbMaxBin3 );
+	glm::vec3 bbMin1_3, bbMax1_3;
+	MathHelp::getAABB( bbMins1_3, bbMaxs1_3, &bbMin1_3, &bbMax1_3 );
+
+	vector<glm::vec3> bbMins0_1, bbMaxs0_1;
+	bbMins0_1.push_back( bbMinBin0 ); bbMaxs0_1.push_back( bbMaxBin0 );
+	bbMins0_1.push_back( bbMinBin1 ); bbMaxs0_1.push_back( bbMaxBin1 );
+	glm::vec3 bbMin0_1, bbMax0_1;
+	MathHelp::getAABB( bbMins0_1, bbMaxs0_1, &bbMin0_1, &bbMax0_1 );
+
+	vector<glm::vec3> bbMins2_3, bbMaxs2_3;
+	bbMins2_3.push_back( bbMinBin2 ); bbMaxs2_3.push_back( bbMaxBin2 );
+	bbMins2_3.push_back( bbMinBin3 ); bbMaxs2_3.push_back( bbMaxBin3 );
+	glm::vec3 bbMin2_3, bbMax2_3;
+	MathHelp::getAABB( bbMins2_3, bbMaxs2_3, &bbMin2_3, &bbMax2_3 );
+
+	vector<glm::vec3> bbMins0_2, bbMaxs0_2;
+	bbMins0_2.push_back( bbMinBin0 ); bbMaxs0_2.push_back( bbMaxBin0 );
+	bbMins0_2.push_back( bbMinBin1 ); bbMaxs0_2.push_back( bbMaxBin1 );
+	bbMins0_2.push_back( bbMinBin2 ); bbMaxs0_2.push_back( bbMaxBin2 );
+	glm::vec3 bbMin0_2, bbMax0_2;
+	MathHelp::getAABB( bbMins0_2, bbMaxs0_2, &bbMin0_2, &bbMax0_2 );
+
+	cl_float sahNode_recip = 1.0f / MathHelp::getSurfaceArea( node->bbMin, node->bbMax );
+	cl_float saBin0 = MathHelp::getSurfaceArea( bbMinBin0, bbMaxBin0 );
+	cl_float saBin0_1 = MathHelp::getSurfaceArea( bbMin0_1, bbMax0_1 );
+	cl_float saBin0_2 = MathHelp::getSurfaceArea( bbMin0_2, bbMax0_2 );
+	cl_float saBin1_3 = MathHelp::getSurfaceArea( bbMin1_3, bbMax1_3 );
+	cl_float saBin2_3 = MathHelp::getSurfaceArea( bbMin2_3, bbMax2_3 );
+	cl_float saBin3 = MathHelp::getSurfaceArea( bbMinBin3, bbMaxBin3 );
+
+
+	cl_float sahSplit0 = this->calcSAH(
+		sahNode_recip, saBin0, binFaces0.size(), saBin1_3, faces1_3.size()
+	);
+	cl_float sahSplit1 = this->calcSAH(
+		sahNode_recip, saBin0_1, faces0_1.size(), saBin2_3, faces2_3.size()
+	);
+	cl_float sahSplit2 = this->calcSAH(
+		sahNode_recip, saBin0_2, faces0_2.size(), saBin3, binFaces3.size()
+	);
+
+	// printf( "SAH splits: %g | %g | %g\n", sahSplit0, sahSplit1, sahSplit2 );
+
+	*sahBest = glm::min( glm::min( *sahBest, sahSplit0 ), glm::min( sahSplit1, sahSplit2 ) );
+
+	if( *sahBest == sahSplit0 ) {
+		leftFaces->assign( binFaces0.begin(), binFaces0.end() );
+		rightFaces->assign( faces1_3.begin(), faces1_3.end() );
+
+		*bbMinLeft = bbMinBin0;
+		*bbMaxLeft = bbMaxBin0;
+
+		*bbMinRight = bbMin1_3;
+		*bbMaxRight = bbMax1_3;
+	}
+	else if( *sahBest == sahSplit1 ) {
+		leftFaces->assign( faces0_1.begin(), faces0_1.end() );
+		rightFaces->assign( faces2_3.begin(), faces2_3.end() );
+
+		*bbMinLeft = bbMin0_1;
+		*bbMaxLeft = bbMax0_1;
+
+		*bbMinRight = bbMin2_3;
+		*bbMaxRight = bbMax2_3;
+	}
+	else if( *sahBest == sahSplit2 ) {
+		leftFaces->assign( faces0_2.begin(), faces0_2.end() );
+		rightFaces->assign( binFaces3.begin(), binFaces3.end() );
+
+		*bbMinLeft = bbMin0_2;
+		*bbMaxLeft = bbMax0_2;
+
+		*bbMinRight = bbMinBin3;
+		*bbMaxRight = bbMaxBin3;
+	}
+}
+
+
+vector<cl_uint4> BVH::uniqueFaces( vector<cl_uint4> faces ) {
+	vector<cl_uint4> uniqueFaces;
+
+	for( cl_uint i = 0; i < faces.size(); i++ ) {
+		if( find_if( uniqueFaces.begin(), uniqueFaces.end(), findFace( faces[i] ) ) == uniqueFaces.end() ) {
+			uniqueFaces.push_back( faces[i] );
 		}
 	}
 
-	MathHelp::getAABB( vertsForAABB0, &bbMinBin0, &bbMaxBin0 );
+	return uniqueFaces;
+}
+
+
+void BVH::clippedFacesAABB(
+	vector<cl_uint4> faces, vector<cl_float4> allVertices, cl_uint axis,
+	glm::vec3* bbMin, glm::vec3* bbMax
+) {
+	glm::vec3 nl = glm::vec3( 0.0f, 0.0f, 0.0f );
+	nl[axis] = 1.0f;
+
+	vector<cl_float4> vertsForAABB;
+	cl_float4 v0, v1, v2;
+	glm::vec3 v0glm, v1glm, v2glm;
+	glm::vec3 trMinBB, trMaxBB;
+	glm::vec3 vClipped1, vClipped2;
+	bool bad, isInNext, isInPrev;
+
+	for( cl_uint i = 0; i < faces.size(); i++ ) {
+		v0 = allVertices[faces[i].x];
+		v1 = allVertices[faces[i].y];
+		v2 = allVertices[faces[i].z];
+		v0glm = FLOAT4_TO_VEC3( v0 );
+		v1glm = FLOAT4_TO_VEC3( v1 );
+		v2glm = FLOAT4_TO_VEC3( v2 );
+
+		MathHelp::getTriangleAABB( v0, v1, v2, &trMinBB, &trMaxBB );
+
+
+		// Face extends into previous or next bin
+
+		isInPrev = ( v0glm[axis] < (*bbMin)[axis] );
+		isInNext = ( v0glm[axis] > (*bbMax)[axis] );
+
+		if( isInPrev || isInNext ) {
+			vClipped1 = MathHelp::intersectLinePlane( v0glm, v1glm, ( isInPrev ? *bbMin : *bbMax ), nl, &bad );
+			cl_float4 clipped1 = { vClipped1[0], vClipped1[1], vClipped1[2], 0.0f };
+			vertsForAABB.push_back( clipped1 );
+
+			vClipped2 = MathHelp::intersectLinePlane( v0glm, v2glm, ( isInPrev ? *bbMin : *bbMax ), nl, &bad );
+			cl_float4 clipped2 = { vClipped2[0], vClipped2[1], vClipped2[2], 0.0f };
+			vertsForAABB.push_back( clipped2 );
+		}
+		else {
+			vertsForAABB.push_back( v0 );
+		}
+
+		isInPrev = ( v1glm[axis] < (*bbMin)[axis] );
+		isInNext = ( v1glm[axis] > (*bbMax)[axis] );
+
+		if( isInPrev || isInNext ) {
+			vClipped1 = MathHelp::intersectLinePlane( v1glm, v0glm, ( isInPrev ? *bbMin : *bbMax ), nl, &bad );
+			cl_float4 clipped1 = { vClipped1[0], vClipped1[1], vClipped1[2], 0.0f };
+			vertsForAABB.push_back( clipped1 );
+
+			vClipped2 = MathHelp::intersectLinePlane( v1glm, v2glm, ( isInPrev ? *bbMin : *bbMax ), nl, &bad );
+			cl_float4 clipped2 = { vClipped2[0], vClipped2[1], vClipped2[2], 0.0f };
+			vertsForAABB.push_back( clipped2 );
+		}
+		else {
+			vertsForAABB.push_back( v1 );
+		}
+
+		isInPrev = ( v2glm[axis] < (*bbMin)[axis] );
+		isInNext = ( v2glm[axis] > (*bbMax)[axis] );
+
+		if( isInPrev || isInNext ) {
+			vClipped1 = MathHelp::intersectLinePlane( v2glm, v0glm, ( isInPrev ? *bbMin : *bbMax ), nl, &bad );
+			cl_float4 clipped1 = { vClipped1[0], vClipped1[1], vClipped1[2], 0.0f };
+			vertsForAABB.push_back( clipped1 );
+
+			vClipped2 = MathHelp::intersectLinePlane( v2glm, v1glm, ( isInPrev ? *bbMin : *bbMax ), nl, &bad );
+			cl_float4 clipped2 = { vClipped2[0], vClipped2[1], vClipped2[2], 0.0f };
+			vertsForAABB.push_back( clipped2 );
+		}
+		else {
+			vertsForAABB.push_back( v2 );
+		}
+	}
+
+	MathHelp::getAABB( vertsForAABB, bbMin, bbMax );
 }
 
 
@@ -264,7 +478,8 @@ vector<BVHNode*> BVH::buildTreesFromObjects(
 		);
 		Logger::logInfo( msg );
 
-		BVHNode* st = this->buildTree( facesThisObj, allVertices4, 1 );
+		glm::vec3 bbMin, bbMax;
+		BVHNode* st = this->buildTree( facesThisObj, allVertices4, 1, bbMin, bbMax, false );
 		subTrees.push_back( st );
 	}
 
@@ -610,9 +825,10 @@ void BVH::splitBySAH(
 	cl_float newSAH, numFacesLeft, numFacesRight;
 
 	for( cl_uint i = 0; i < numFaces - 1; i++ ) {
-		numFacesLeft = (cl_float) ( i + 1 );
-		numFacesRight = (cl_float) ( numFaces - i - 1 );
-		newSAH = nodeSA * ( leftSA[i] * numFacesLeft + rightSA[i] * numFacesRight );
+		newSAH = this->calcSAH(
+			nodeSA, leftSA[i], (cl_float) ( i + 1 ),
+			rightSA[i], (cl_float) ( numFaces - i - 1 )
+		);
 
 		// Better split position found
 		if( newSAH < *bestSAH ) {
