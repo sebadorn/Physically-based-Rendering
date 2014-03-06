@@ -42,7 +42,9 @@ void MathHelp::getAABB( vector<cl_float4> vertices, glm::vec3* bbMin, glm::vec3*
  * @param {glm::vec3*}             bbMin
  * @param {glm::vec3*}             bbMax
  */
-void MathHelp::getAABB( vector<glm::vec3> bbMins, vector<glm::vec3> bbMaxs, glm::vec3* bbMin, glm::vec3* bbMax ) {
+void MathHelp::getAABB(
+	vector<glm::vec3> bbMins, vector<glm::vec3> bbMaxs, glm::vec3* bbMin, glm::vec3* bbMax
+) {
 	(*bbMin)[0] = bbMins[0][0];
 	(*bbMin)[1] = bbMins[0][1];
 	(*bbMin)[2] = bbMins[0][2];
@@ -56,9 +58,9 @@ void MathHelp::getAABB( vector<glm::vec3> bbMins, vector<glm::vec3> bbMaxs, glm:
 		(*bbMin)[1] = glm::min( bbMins[i][1], (*bbMin)[1] );
 		(*bbMin)[2] = glm::min( bbMins[i][2], (*bbMin)[2] );
 
-		(*bbMax)[0] = glm::min( bbMaxs[i][0], (*bbMax)[0] );
-		(*bbMax)[1] = glm::min( bbMaxs[i][1], (*bbMax)[1] );
-		(*bbMax)[2] = glm::min( bbMaxs[i][2], (*bbMax)[2] );
+		(*bbMax)[0] = glm::max( bbMaxs[i][0], (*bbMax)[0] );
+		(*bbMax)[1] = glm::max( bbMaxs[i][1], (*bbMax)[1] );
+		(*bbMax)[2] = glm::max( bbMaxs[i][2], (*bbMax)[2] );
 	}
 }
 
@@ -134,13 +136,13 @@ glm::vec3 MathHelp::intersectLinePlane( glm::vec3 p, glm::vec3 q, glm::vec3 x, g
 	glm::vec3 w = p - x;
 	cl_float d = glm::dot( nl, u );
 
-	if( glm::abs( d ) > 0.0001f ) {
+	if( glm::abs( d ) < 0.000001f ) {
+		*isParallel = true;
+	}
+	else {
 		cl_float t = -glm::dot( nl, w ) / d;
 		hit = p + u * t;
 		*isParallel = false;
-	}
-	else {
-		*isParallel = true;
 	}
 
 	return hit;

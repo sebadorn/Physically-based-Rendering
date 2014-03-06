@@ -40,6 +40,10 @@ class BVH {
 		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	protected:
+		void assignFacesToBins(
+			vector< vector<cl_uint4> > binFaces, cl_uint splits,
+			vector< vector<cl_uint4> >* leftBinFaces, vector< vector<cl_uint4> >* rightBinFaces
+		);
 		BVHNode* buildTree(
 			vector<cl_uint4> faces, vector<cl_float4> vertices, cl_uint depth,
 			glm::vec3 bbMin, glm::vec3 bbMax, bool useGivenBB
@@ -51,15 +55,31 @@ class BVH {
 			cl_float nodeSA_recip, cl_float leftSA, cl_float leftNumFaces,
 			cl_float rightSA, cl_float rightNumFaces
 		);
+		void clipLine(
+			glm::vec3 p, glm::vec3 q, glm::vec3 s, glm::vec3 nl,
+			vector<cl_float4>* vertices
+		);
 		void clippedFacesAABB(
-			vector<cl_uint4> faces, vector<cl_float4> allVertices, cl_uint axis,
-			glm::vec3* bbMin, glm::vec3* bbMax
+			vector<cl_uint4> faces, vector<cl_float4> allVertices,
+			cl_uint axis, vector<glm::vec3>* binAABB
 		);
 		void combineNodes( vector<BVHNode*> subTrees );
 		cl_float findMean( vector<cl_uint4> faces, vector<cl_float4> allVertices, cl_uint axis );
 		cl_float findMeanOfNodes( vector<BVHNode*> nodes, cl_uint axis );
 		cl_float findMidpoint( BVHNode* container, cl_uint axis );
+		vector< vector<glm::vec3> > getBinAABBs(
+			BVHNode* node, vector<cl_float> splitPos, cl_uint axis
+		);
+		vector< vector<cl_uint4> > getBinFaces(
+			vector<cl_uint4> faces, vector<cl_float4> allVertices,
+			vector< vector<glm::vec3> > bins, cl_uint axis
+		);
+		vector<cl_float> getBinSplits( BVHNode* node, cl_uint splits, cl_uint axis );
 		void groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint depth );
+		void growBinAABBs(
+			vector< vector<glm::vec3> > binBBs, cl_uint splits,
+			vector< vector<glm::vec3> >* leftBB, vector< vector<glm::vec3> >* rightBB
+		);
 		void logStats( boost::posix_time::ptime timerStart );
 		cl_uint longestAxis( BVHNode* node );
 		BVHNode* makeNode( vector<cl_uint4> faces, vector<cl_float4> vertices );

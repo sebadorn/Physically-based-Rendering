@@ -3,6 +3,7 @@
 
 const char* Cfg::BVH_MAXFACES = "bvh.max_faces";
 const char* Cfg::BVH_SAHFACESLIMIT = "bvh.sah_faces_limit";
+const char* Cfg::BVH_SPATIALSPLITS = "bvh.spatial_splits";
 const char* Cfg::CAM_CENTER_X = "camera.center.x";
 const char* Cfg::CAM_CENTER_Y = "camera.center.y";
 const char* Cfg::CAM_CENTER_Z = "camera.center.z";

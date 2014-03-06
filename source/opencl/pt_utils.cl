@@ -71,13 +71,12 @@ float4 jitter( const float4 d, const float phi, const float sina, const float co
  * @return {float4}                     A new direction for the ray.
  */
 float4 refract( const ray4* currentRay, const material* mtl, float* seed ) {
-	#define INTO ( dot( currentRay->normal.xyz, currentRay->dir.xyz ) < 0.0f )
-	const float4 nl = INTO ? currentRay->normal : -currentRay->normal;
-	#undef INTO
+	const bool into = ( dot( currentRay->normal.xyz, currentRay->dir.xyz ) < 0.0f );
+	const float4 nl = into ? currentRay->normal : -currentRay->normal;
 
 	const float m1 = NI_AIR;
 	const float m2 = mtl->Ni;
-	const float m = native_divide( m1, m2 );
+	const float m = into ? native_divide( m1, m2 ) : native_divide( m2, m1 );
 
 	const float cosI = -dot( currentRay->dir.xyz, nl.xyz );
 	const float sinT2 = m * m * ( 1.0f - cosI * cosI );
