@@ -74,9 +74,9 @@ float4 refract( const ray4* currentRay, const material* mtl, float* seed ) {
 	const bool into = ( dot( currentRay->normal.xyz, currentRay->dir.xyz ) < 0.0f );
 	const float4 nl = into ? currentRay->normal : -currentRay->normal;
 
-	const float m1 = NI_AIR;
-	const float m2 = mtl->Ni;
-	const float m = into ? native_divide( m1, m2 ) : native_divide( m2, m1 );
+	const float m1 = into ? NI_AIR : mtl->Ni;
+	const float m2 = into ? mtl->Ni : NI_AIR;
+	const float m = native_divide( m1, m2 );
 
 	const float cosI = -dot( currentRay->dir.xyz, nl.xyz );
 	const float sinT2 = m * m * ( 1.0f - cosI * cosI );
@@ -298,7 +298,7 @@ inline float D(
  * @param  {const float3} n
  * @return {float3}         Projection of h onto n.
  */
-#define projection( h, n ) ( dot( ( h ), ( n ) ) * ( n ) )
+#define projection( h, n ) ( dot( ( h ).xyz, ( n ).xyz ) * ( n ) )
 
 
 /**

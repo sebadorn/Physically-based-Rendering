@@ -23,6 +23,7 @@ ray4 getNewRay(
 
 	// Directional (surfaces with tiny, oriented scratches; brushed metal)
 	// TODO: not working as intented
+	float4 anisotropicRay = projection( mtl->scratch, -currentRay.dir );
 	newRay.dir += mtl->scratch * ( 1.0f - mtl->scratch.w );
 	newRay.dir.w = 0.0f;
 
@@ -214,7 +215,7 @@ void traverseBVH( const global bvhNode* bvh, ray4* ray, const global face_t* fac
 
 	bvhNode node;
 	ray4 rayBest = *ray;
-	float3 invDir = native_recip( ray->dir.xyz );
+	const float3 invDir = native_recip( ray->dir.xyz );
 
 	rayBest.t = FLT_MAX;
 

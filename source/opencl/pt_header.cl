@@ -5,7 +5,7 @@
 #define IMG_WIDTH #IMG_WIDTH#
 #define MAX_ADDED_DEPTH #MAX_ADDED_DEPTH#
 #define MAX_DEPTH #MAX_DEPTH#
-#define NI_AIR 1.0f
+#define NI_AIR 1.00028f
 #define PI_X2 6.28318530718f
 #define SAMPLES #SAMPLES#
 #define SPEC 40

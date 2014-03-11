@@ -46,7 +46,7 @@ class BVH {
 		);
 		BVHNode* buildTree(
 			vector<cl_uint4> faces, vector<cl_float4> vertices, cl_uint depth,
-			glm::vec3 bbMin, glm::vec3 bbMax, bool useGivenBB
+			glm::vec3 bbMin, glm::vec3 bbMax, bool useGivenBB, cl_float rootSA
 		);
 		vector<BVHNode*> buildTreesFromObjects(
 			vector<object3D> sceneObjects, vector<cl_float> vertices
@@ -77,7 +77,8 @@ class BVH {
 		vector<cl_float> getBinSplits( BVHNode* node, cl_uint splits, cl_uint axis );
 		void groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint depth );
 		void growBinAABBs(
-			vector< vector<glm::vec3> > binBBs, cl_uint splits,
+			vector< vector<glm::vec3> > binBBs, vector< vector<cl_uint4> > binFaces,
+			cl_uint splits,
 			vector< vector<glm::vec3> >* leftBB, vector< vector<glm::vec3> >* rightBB
 		);
 		void logStats( boost::posix_time::ptime timerStart );
@@ -87,7 +88,7 @@ class BVH {
 		cl_uint setMaxFaces( cl_uint value );
 		void splitBySAH(
 			cl_float nodeSA, cl_float* bestSAH, cl_uint axis, vector<cl_uint4> faces, vector<cl_float4> allVertices,
-			vector<cl_uint4>* leftFaces, vector<cl_uint4>* rightFaces
+			vector<cl_uint4>* leftFaces, vector<cl_uint4>* rightFaces, cl_float* lambda
 		);
 		void splitBySpatialSplit(
 			BVHNode* node, cl_uint axis, cl_float* sahBest, vector<cl_uint4> faces, vector<cl_float4> allVertices,

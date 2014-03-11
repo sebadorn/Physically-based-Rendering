@@ -42,8 +42,10 @@
 		// some time. To speed it up only use SAH for nodes with
 		// a number of faces less or equal to this setting.
 		"sah_faces_limit": 1000,
+		// FIXME: SBVH produces aweful results and endless loops.
+		// DO NOT USE!
 		// Disable: 0
-		"spatial_splits": 10
+		"spatial_splits": 5
 	},
 
 	"logging": {
