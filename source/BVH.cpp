@@ -145,8 +145,8 @@ BVHNode* BVH::buildTree(
 ) {
 	BVHNode* containerNode = this->makeNode( faces, allVertices );
 	if( useGivenBB ) {
-		containerNode->bbMin = bbMin;
-		containerNode->bbMax = bbMax;
+		containerNode->bbMin = glm::vec3( bbMin );
+		containerNode->bbMax = glm::vec3( bbMax );
 	}
 	containerNode->depth = depth;
 	mDepthReached = ( depth > mDepthReached ) ? depth : mDepthReached;
@@ -181,7 +181,7 @@ BVHNode* BVH::buildTree(
 
 		lambda /= rootSA;
 
-		printf( "Object SAH: %g\n", bestSAH_object );
+		// printf( "Object SAH: %g\n", bestSAH_object );
 		// printf(
 		// 	"Node | min %g %g %g | max %g %g %g\n",
 		// 	containerNode->bbMin[0], containerNode->bbMin[1], containerNode->bbMin[2],
@@ -961,7 +961,7 @@ void BVH::splitBySpatialSplit(
 	vector<cl_uint4>* leftFaces, vector<cl_uint4>* rightFaces,
 	glm::vec3* bbMinLeft, glm::vec3* bbMaxLeft, glm::vec3* bbMinRight, glm::vec3* bbMaxRight
 ) {
-	if( node->bbMax[axis] - node->bbMin[axis] == 0.0f ) {
+	if( node->bbMax[axis] - node->bbMin[axis] < 0.0001f ) {
 		return;
 	}
 
@@ -1023,11 +1023,13 @@ void BVH::splitBySpatialSplit(
 
 	printf( "-> Axis: %u | Spatial SAH: %g\n", axis, currentBestSAH );
 
-	#undef DBG
-
 
 	// Choose best split
 	if( currentBestSAH == sah[index] && currentBestSAH < *sahBest ) {
+		if( leftBinFaces[index].size() == faces.size() || rightBinFaces[index].size() == faces.size() ) {
+			return;
+		}
+
 		leftFaces->assign( leftBinFaces[index].begin(), leftBinFaces[index].end() );
 		rightFaces->assign( rightBinFaces[index].begin(), rightBinFaces[index].end() );
 
@@ -1035,14 +1037,6 @@ void BVH::splitBySpatialSplit(
 		*bbMaxLeft = leftBB[index][1];
 		*bbMinRight = rightBB[index][0];
 		*bbMaxRight = rightBB[index][1];
-
-		printf(
-			"left | %g %g %g | %g %g %g\nright | %g %g %g | %g %g %g\n",
-			leftBB[index][0][0], leftBB[index][0][1], leftBB[index][0][2],
-			leftBB[index][1][0], leftBB[index][1][1], leftBB[index][1][2],
-			rightBB[index][0][0], rightBB[index][0][1], rightBB[index][0][2],
-			rightBB[index][1][0], rightBB[index][1][1], rightBB[index][1][2]
-		);
 
 		*sahBest = currentBestSAH;
 	}

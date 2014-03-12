@@ -21,11 +21,19 @@ ray4 getNewRay(
 	float rnd2 = rand( seed );
 	newRay.dir += jitter( currentRay.normal, PI_X2 * rand( seed ), sqrt( rnd2 ), sqrt( 1.0f - rnd2 ) ) * mtl->rough;
 
+
 	// Directional (surfaces with tiny, oriented scratches; brushed metal)
-	// TODO: not working as intented
-	float4 anisotropicRay = projection( mtl->scratch, -currentRay.dir );
-	newRay.dir += mtl->scratch * ( 1.0f - mtl->scratch.w );
-	newRay.dir.w = 0.0f;
+	float p = mtl->scratch.w;
+	float4 ani = anisotropy( mtl->scratch, currentRay.normal );
+	ani = ( rand( seed ) < 0.5f ) ? ani : -ani;
+
+	float4 H;
+	float t, v, vIn, vOut, w;
+	getValuesBRDF( -currentRay.dir, fast_normalize( newRay.dir ), currentRay.normal, ani, &H, &t, &v, &vIn, &vOut, &w );
+	float aw = A( w, p );
+
+	newRay.dir = newRay.dir * aw + ( 1.0f - aw ) * fast_normalize( ani );
+
 
 	// Transparency and refraction
 	bool doTransRefr = ( mtl->d < 1.0f && mtl->d <= rand( seed ) );

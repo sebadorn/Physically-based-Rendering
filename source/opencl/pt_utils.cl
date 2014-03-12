@@ -191,6 +191,14 @@ inline void setArray( float* arr, float val ) {
 }
 
 
+float4 anisotropy( const float4 scratch, const float4 n ) {
+	float4 s = cross( n, scratch );
+	s = cross( n, s );
+
+	return s;
+}
+
+
 /**
  * MACRO: Apply the cosine law for light sources.
  * @param  {float4} n Normal of the surface the light hits.
@@ -318,7 +326,6 @@ inline void getValuesBRDF(
 	const float4 V_in, const float4 V_out, const float4 N, const float4 T,
 	float4* H, float* t, float* v, float* vIn, float* vOut, float* w
 ) {
-	T.w = 0.0f;
 	*H = fast_normalize( V_out + V_in );
 	*t = fmax( dot( H->xyz, N.xyz ), 0.0f );
 	*v = fmax( dot( V_out.xyz, N.xyz ), 0.0f );

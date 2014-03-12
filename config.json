@@ -45,7 +45,7 @@
 		// FIXME: SBVH produces aweful results and endless loops.
 		// DO NOT USE!
 		// Disable: 0
-		"spatial_splits": 5
+		"spatial_splits": 0
 	},
 
 	"logging": {
@@ -105,8 +105,8 @@
 	},
 
 	"window": {
-		"height": 600,
-		"width": 800
+		"height": 512,
+		"width": 512
 	}
 
 }
