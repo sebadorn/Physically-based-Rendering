@@ -11,26 +11,18 @@
 #define SAMPLES #SAMPLES#
 #define SPEC 40
 #define SPECTRAL_COLORSYSTEM #SPECTRAL_COLORSYSTEM#
-#define WORKGROUPSIZE #WORKGROUPSIZE#
-#define WORKGROUPSIZE_HALF #WORKGROUPSIZE_HALF#
 
-constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
 typedef struct {
 	// vertices
-	float4 a; // a.w = material index
-	float4 b;
-	float4 c;
+	global float4 a; // a.w = material index
+	global float4 b;
+	global float4 c;
 	// vertex normals
-	float4 an;
-	float4 bn;
-	float4 cn;
-} face_t;
-
-typedef struct {
-	float4 origin;
-	float4 dir;
-} rayBase;
+	global float4 an;
+	global float4 bn;
+	global float4 cn;
+} face_t __attribute__((aligned));
 
 typedef struct {
 	float4 origin;
@@ -40,16 +32,16 @@ typedef struct {
 } ray4;
 
 typedef struct {
-	float4 bbMin; // bbMin.w = leftChild
-	float4 bbMax; // bbMax.w = rightChild
-	int4 faces;
-} bvhNode;
+	global float4 bbMin; // bbMin.w = leftChild
+	global float4 bbMax; // bbMax.w = rightChild
+	global int4 faces;
+} bvhNode __attribute__((aligned));
 
 typedef struct {
-	float4 scratch; // scratch.w = p (isotropy factor)
-	float d;
-	float Ni;
-	float rough;
-	ushort spd;
-	char light
-} material;
+	constant float4 scratch; // scratch.w = p (isotropy factor)
+	constant float d;
+	constant float Ni;
+	constant float rough;
+	constant ushort spd;
+	constant char light
+} material __attribute__((aligned));

@@ -16,7 +16,7 @@
 		},
 		// Perspective
 		"perspective": {
-			"fov": 50.0,
+			"fov": 60.0,
 			"zfar": 100.0,
 			"znear": 0.1
 		},
@@ -70,9 +70,10 @@
 		"check_errors": true,
 		// Path to the main CL source file.
 		"program": "source/opencl/pathtracing.cl",
-		// Squares only, so this setting is for width and height together.
-		// Value has to be 2^n for optimization reasons.
-		"workgroupsize": 128
+		// Local workgroup size.
+		// Has to be 2^n and image width and height have to dividable by it.
+		// Good value from experience: 8
+		"localgroupsize": 8
 	},
 
 	"render": {
@@ -109,7 +110,9 @@
 	},
 
 	"window": {
+		// Has to be a mutliple of localgroupsize
 		"height": 600,
+		// Has to be a mutliple of localgroupsize
 		"width": 800
 	}
 

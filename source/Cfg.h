@@ -36,10 +36,10 @@ class Cfg {
 		static const char* RENDER_MAXADDEDDEPTH;
 		static const char* RENDER_MAXDEPTH;
 		static const char* RENDER_SAMPLES;
-		static const char* OPENCL_BUILDOPTIONS;
 		static const char* OPENCL_CHECKERRORS;
+		static const char* OPENCL_BUILDOPTIONS;
+		static const char* OPENCL_LOCALGROUPSIZE;
 		static const char* OPENCL_PROGRAM;
-		static const char* OPENCL_WORKGROUPSIZE;
 		static const char* PERS_FOV;
 		static const char* PERS_ZFAR;
 		static const char* PERS_ZNEAR;

@@ -1,4 +1,5 @@
-float4 groove3D( const float4 scr, const float4 n ) {
+float4 groove3D( float4 scr, const float4 n ) {
+	scr = (float4)( scr.x, 0.0f, scr.y, 0.0f );
 	const float4 n2D = { 0.0f, 0.0f, 1.0f, 0.0f };
 
 	const float4 r = cross( n2D, n );
@@ -36,9 +37,7 @@ float4 jitter(
 	const float4 u = fast_normalize( cross( nl.yzxw, nl ) );
 	const float4 v = fast_normalize( cross( nl, u ) );
 
-	return fast_normalize(
-		( u * native_cos( phi ) + v * native_sin( phi ) ) * sina + nl * cosa
-	);
+	return ( u * native_cos( phi ) + v * native_sin( phi ) ) * sina + nl * cosa;
 }
 
 
@@ -107,9 +106,9 @@ ray4 getNewRay(
 	newRay.origin = fma( currentRay.t, currentRay.dir, currentRay.origin );
 
 	#define DIR ( currentRay.dir )
+	#define ISOTROPY ( mtl->scratch.w )
 	#define NORMAL ( currentRay.normal )
 	#define ROUGHNESS ( mtl->rough )
-	#define ISOTROPY ( mtl->scratch.w )
 
 
 	// BRDF: Not much of any. Supports specular, diffuse, and glossy surfaces.
@@ -117,7 +116,7 @@ ray4 getNewRay(
 
 		float rnd2 = rand( seed );
 		newRay.dir = reflect( DIR, NORMAL ) * ( 1.0f - ROUGHNESS ) +
-		             jitter( NORMAL, PI_X2 * rand( seed ), sqrt( rnd2 ), sqrt( 1.0f - rnd2 ) ) * ROUGHNESS;
+		             jitter( NORMAL, PI_X2 * rand( seed ), native_sqrt( rnd2 ), native_sqrt( 1.0f - rnd2 ) ) * ROUGHNESS;
 
 	// BRDF: Schlick. Supports specular, diffuse, glossy, and anisotropic surfaces.
 	// Downside: Really dark images.
@@ -165,14 +164,15 @@ ray4 getNewRay(
 
 	newRay.dir = fast_normalize( newRay.dir );
 
-	*addDepth = ( ROUGHNESS < 0.4f || doTransRefr );
-	*ignoreColor = ( ROUGHNESS == 0.0f || doTransRefr );
+	*addDepth = ( ROUGHNESS < rand( seed ) || doTransRefr );
+	*ignoreColor = ( ROUGHNESS < rand( seed ) || doTransRefr );
 
 	return newRay;
 
+	#undef DIR
+	#undef ISOTROPY
 	#undef NORMAL
 	#undef ROUGHNESS
-	#undef ISOTROPY
 }
 
 
@@ -185,63 +185,25 @@ ray4 getNewRay(
  * @param  {const float}   tFar
  */
 void checkFaceIntersection(
-	const ray4* ray, const face_t face, float4* tuv, const float tNear, const float tFar
+	const ray4* ray, const face_t face, float3* tuv, const float tNear, const float tFar
 ) {
 	const float3 edge1 = face.b.xyz - face.a.xyz;
 	const float3 edge2 = face.c.xyz - face.a.xyz;
 	const float3 tVec = ray->origin.xyz - face.a.xyz;
 	const float3 pVec = cross( ray->dir.xyz, edge2 );
 	const float3 qVec = cross( tVec, edge1 );
-
-	const float det = dot( edge1, pVec );
-	const float invDet = native_recip( det );
+	const float invDet = native_recip( dot( edge1, pVec ) );
 
 	tuv->x = dot( edge2, qVec ) * invDet;
 
-	#define T_TEST tuv->x < EPSILON || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON
+	if( tuv->x < EPSILON || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON ) {
+		tuv->x = -2.0f;
+		return;
+	}
 
-	#ifdef BACKFACE_CULLING
-		tuv->y = dot( tVec, pVec );
-		tuv->z = dot( ray->dir.xyz, qVec );
-		tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > det || tuv->y + tuv->z > det || T_TEST )
-		       ? -2.0f : tuv->x;
-	#else
-		tuv->y = dot( tVec, pVec ) * invDet;
-		tuv->z = dot( ray->dir.xyz, qVec ) * invDet;
-		tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > 1.0f || tuv->y + tuv->z > 1.0f || T_TEST )
-		       ? -2.0f : tuv->x;
-	#endif
-
-	#undef T_TEST
-
-
-	// const float3 e1 = face.b.xyz - face.a.xyz;
-	// const float3 e2 = face.c.xyz - face.a.xyz;
-	// // const float3 normal = fast_normalize( cross( e1, e2 ) );
-	// const float3 normal = cross( e1, e2 ); // TODO: Why don't I have to normalize ... or do I?
-
-	// tuv->x = native_divide(
-	// 	-dot( normal, ( ray->origin.xyz - face.a.xyz ) ),
-	// 	dot( normal, ray->dir.xyz )
-	// );
-
-	// if( tuv->x < EPSILON || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON ) {
-	// 	tuv->x = -2.0f;
-	// 	return;
-	// }
-
-	// const float uu = dot( e1, e1 );
-	// const float uv = dot( e1, e2 );
-	// const float vv = dot( e2, e2 );
-
-	// const float3 w = ray->dir.xyz * tuv->x + ray->origin.xyz - face.a.xyz;
-	// const float wu = dot( w, e1 );
-	// const float wv = dot( w, e2 );
-	// const float inverseD = native_recip( uv * uv - uu * vv );
-
-	// tuv->y = ( uv * wv - vv * wu ) * inverseD;
-	// tuv->z = ( uv * wu - uu * wv ) * inverseD;
-	// tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > 1.0f || tuv->y + tuv->z > 1.0f ) ? -2.0f : tuv->x;
+	tuv->y = dot( tVec, pVec ) * invDet;
+	tuv->z = dot( ray->dir.xyz, qVec ) * invDet;
+	tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > 1.0f || tuv->y + tuv->z > 1.0f ) ? -2.0f : tuv->x;
 }
 
 
@@ -256,7 +218,7 @@ void checkFaceIntersection(
 void intersectFaces(
 	ray4* ray, const bvhNode* node, const global face_t* faces, float tNear, float tFar
 ) {
-	float4 tuv;
+	float3 tuv;
 
 	// At most 4 faces in a leaf node.
 	// Unrolled the loop as optimization.
@@ -349,14 +311,13 @@ void traverseBVH( const global bvhNode* bvh, ray4* ray, const global face_t* fac
 	int stackIndex = 0;
 	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
 
-	bvhNode node;
 	ray4 rayBest = *ray;
 	const float3 invDir = native_recip( ray->dir.xyz );
 
 	rayBest.t = FLT_MAX;
 
 	while( stackIndex >= 0 ) {
-		node = bvh[bvhStack[stackIndex--]];
+		bvhNode node = bvh[bvhStack[stackIndex--]];
 		tNearL = -2.0f;
 		tFarL = FLT_MAX;
 

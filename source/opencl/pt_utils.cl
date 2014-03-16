@@ -12,6 +12,15 @@ inline float rand( float* seed ) {
 
 
 /**
+ * MACRO: Apply the cosine law for light sources.
+ * @param  {float4} n Normal of the surface the light hits.
+ * @param  {float4} l Normalized direction to the light source.
+ * @return {float}
+ */
+#define cosineLaw( n, l ) ( fmax( dot( ( n ).xyz, ( l ).xyz ), 0.0f ) )
+
+
+/**
  * Fresnel factor.
  * @param  {const float} u
  * @param  {const float} c Reflection factor.
@@ -26,38 +35,14 @@ inline float fresnel( const float u, const float c ) {
 /**
  *
  * @param  {const face_t} face
- * @param  {const float4} tuv
+ * @param  {const float3} tuv
  * @return {float4}
  */
-inline float4 getTriangleNormal( const face_t face, const float4 tuv ) {
+inline float4 getTriangleNormal( const face_t face, const float3 tuv ) {
 	const float w = 1.0f - tuv.y - tuv.z;
 
 	return fast_normalize( w * face.an + tuv.y * face.bn + tuv.z * face.cn );
 }
-
-
-/**
- * Get a vector in a random direction.
- * @param  {const float} seed Seed for the random value.
- * @return {float4}           Random vector.
- */
-inline float4 uniformlyRandomDirection( float* seed ) {
-	const float v = rand( seed );
-	const float u = rand( seed );
-	const float z = 1.0f - 2.0f * u;
-	const float r = native_sqrt( 1.0f - z * z );
-	const float angle = PI_X2 * v;
-
-	return (float4)( r * native_cos( angle ), r * native_sin( angle ), z, 0.0f );
-}
-
-
-/**
- * MACRO: Get a vector in a random direction.
- * @param  {float*} seed Seed for the random value.
- * @return {float4}      Random vector.
- */
-#define uniformlyRandomVector( seed ) ( uniformlyRandomDirection( ( seed ) ) * native_sqrt( rand( ( seed ) ) ) )
 
 
 /**
@@ -109,7 +94,7 @@ const bool intersectSphere(
 	*tNear = b - det;
 	*tFar = b + det;
 
-	return ( *tNear > EPSILON || *tFar > EPSILON );
+	return ( fmax( *tNear, *tFar ) > EPSILON );
 }
 
 
@@ -123,15 +108,6 @@ inline void setArray( float* arr, float val ) {
 		arr[i] = val;
 	}
 }
-
-
-/**
- * MACRO: Apply the cosine law for light sources.
- * @param  {float4} n Normal of the surface the light hits.
- * @param  {float4} l Normalized direction to the light source.
- * @return {float}
- */
-#define cosineLaw( n, l ) ( fmax( dot( ( n ).xyz, ( l ).xyz ), 0.0f ) )
 
 
 
@@ -186,7 +162,27 @@ inline float G( const float v, const float r ) {
  * @param  {const float} p
  * @return {float}
  */
-inline float B(
+inline float B1(
+	const float t, const float vOut, const float vIn, const float w,
+	const float r, const float p, const float d
+) {
+	const float drecip = native_recip( d );
+
+	return Z( t, r ) * A( w, p ) * drecip;
+}
+
+
+/**
+ * Directional factor.
+ * @param  {const float} t
+ * @param  {const float} v
+ * @param  {const float} vIn
+ * @param  {const float} w
+ * @param  {const float} r
+ * @param  {const float} p
+ * @return {float}
+ */
+inline float B2(
 	const float t, const float vOut, const float vIn, const float w,
 	const float r, const float p, const float d
 ) {
@@ -220,7 +216,7 @@ inline float D(
 	const float d = 4.0f * M_PI * vOut * vIn;
 
 	const float p0 = native_divide( a, M_PI );
-	const float p1 = ( b == 0.0f ) ? 0.0f : native_divide( b, d ) * B( t, vOut, vIn, w, r, p, d );
+	const float p1 = ( b == 0.0f ) ? 0.0f : native_divide( b, d ) * B2( t, vOut, vIn, w, r, p, d );
 	const float p2 = ( vIn == 0.0f ) ? 0.0f : native_divide( c, vIn );
 
 	return p0 + p1 + p2;

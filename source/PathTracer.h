@@ -31,11 +31,6 @@ struct face_cl {
 	cl_float4 cn;
 };
 
-struct rayBase {
-	cl_float4 origin;
-	cl_float4 dir;
-};
-
 struct bvhNode_cl {
 	cl_float4 bbMin; // bbMin.w = leftChild
 	cl_float4 bbMax; // bbMax.w = rightChild
@@ -72,13 +67,10 @@ class PathTracer {
 		void setWidthAndHeight( cl_uint width, cl_uint height );
 
 	protected:
-		void clInitRays( cl_float timeSinceStart );
 		void clPathTracing( cl_float timeSinceStart );
 		void clSetColors( cl_float timeSinceStart );
-		glm::vec3 getJitter();
 		cl_float getTimeSinceStart();
 		void initArgsKernelPathTracing();
-		void initArgsKernelRays();
 		void initKernelArgs();
 		size_t initOpenCLBuffers_BVH( BVH* bvh );
 		size_t initOpenCLBuffers_Faces(
@@ -107,7 +99,6 @@ class PathTracer {
 		cl_mem mBufSPDs;
 
 		cl_mem mBufEye;
-		cl_mem mBufRays;
 		cl_mem mBufTextureIn;
 		cl_mem mBufTextureOut;
 

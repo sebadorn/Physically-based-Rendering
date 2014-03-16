@@ -17,7 +17,6 @@ CL::CL() {
 	mDoCheckErrors = Cfg::get().value<bool>( Cfg::OPENCL_CHECKERRORS );
 	mWorkWidth = Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH );
 	mWorkHeight = Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT );
-	mWorkGroupSize = Cfg::get().value<cl_uint>( Cfg::OPENCL_WORKGROUPSIZE );
 
 	this->getDefaultPlatform();
 	this->getDefaultDevice();
@@ -288,37 +287,15 @@ void CL::execute( cl_kernel kernel ) {
 	cl_int err;
 	cl_event event;
 
-	cl_uint2 offset = { 0, 0 }; // width, height
-	double avgKernelTime = 0.0;
+	size_t globalWorkSize[2] = { mWorkWidth, mWorkHeight };
+	size_t localWorkSize[2] = {
+		Cfg::get().value<size_t>( Cfg::OPENCL_LOCALGROUPSIZE ),
+		Cfg::get().value<size_t>( Cfg::OPENCL_LOCALGROUPSIZE )
+	};
+	err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, mEvents.size(), &mEvents[0], &event );
+	this->checkError( err, "clEnqueueNDRangeKernel" );
 
-	// Workaround to set a local work size, even if it doesn't divide the
-	// global work size without rest. Compared to the "normal" way of just
-	// letting OpenCL do its thing and not choosing a local work size, no
-	// performance drawback could be observed.
-
-	while( offset.x < mWorkWidth ) {
-		offset.y = 0;
-
-		while( offset.y < mWorkHeight ) {
-			this->setKernelArg( kernel, 0, sizeof( cl_uint2 ), &offset );
-
-			size_t globalWorkSize[3] = {
-				std::min( mWorkWidth - offset.x, mWorkGroupSize ),
-				std::min( mWorkHeight - offset.y, mWorkGroupSize ),
-				1
-			};
-			err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 3, NULL, globalWorkSize, NULL, mEvents.size(), &mEvents[0], &event );
-			this->checkError( err, "clEnqueueNDRangeKernel" );
-
-			avgKernelTime += this->getKernelExecutionTime( event );
-
-			offset.y += mWorkGroupSize;
-		}
-
-		offset.x += mWorkGroupSize;
-	}
-
-	mKernelTime[kernel] = avgKernelTime;
+	mKernelTime[kernel] = this->getKernelExecutionTime( event );
 }
 
 
@@ -628,7 +605,6 @@ string CL::setValues( string clProgramString ) {
 	valueReplace.push_back( "MAX_ADDED_DEPTH" );
 	valueReplace.push_back( "SAMPLES" );
 	valueReplace.push_back( "SPECTRAL_COLORSYSTEM" );
-	valueReplace.push_back( "WORKGROUPSIZE" );
 
 	vector<cl_uint> configInt;
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_BRDF ) );
@@ -638,7 +614,6 @@ string CL::setValues( string clProgramString ) {
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_MAXADDEDDEPTH ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SAMPLES ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::SPECTRAL_COLORSYSTEM ) );
-	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::OPENCL_WORKGROUPSIZE ) );
 
 	for( int i = 0; i < valueReplace.size(); i++ ) {
 		search = "#" + valueReplace[i] + "#";
@@ -655,11 +630,9 @@ string CL::setValues( string clProgramString ) {
 
 	valueReplace.clear();
 	valueReplace.push_back( "ANTI_ALIASING" );
-	valueReplace.push_back( "WORKGROUPSIZE_HALF" );
 
 	vector<cl_float> configFloat;
 	configFloat.push_back( Cfg::get().value<cl_float>( Cfg::RENDER_ANTIALIAS ) );
-	configFloat.push_back( Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE ) / 2.0f );
 
 	for( int i = 0; i < valueReplace.size(); i++ ) {
 		search = "#" + valueReplace[i] + "#";

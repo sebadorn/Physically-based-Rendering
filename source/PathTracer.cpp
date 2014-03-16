@@ -31,26 +31,14 @@ PathTracer::~PathTracer() {
 
 
 /**
- * OpenCL: Compute the initial rays into the scene.
- * @param {cl_float} timeSinceStart Time since start of the program in seconds.
- */
-void PathTracer::clInitRays( cl_float timeSinceStart ) {
-	mCL->setKernelArg( mKernelRays, 1, sizeof( cl_float ), &timeSinceStart );
-
-	mCL->execute( mKernelRays );
-	mCL->finish();
-}
-
-
-/**
  * OpenCL: Find the paths in the scene and accumulate the colors of hit surfaces.
  * @param {cl_float} timeSinceStart Time since start of the program in seconds.
  */
 void PathTracer::clPathTracing( cl_float timeSinceStart ) {
 	cl_float pixelWeight = mSampleCount / (cl_float) ( mSampleCount + 1 );
 
-	mCL->setKernelArg( mKernelPathTracing, 1, sizeof( cl_float ), &timeSinceStart );
-	mCL->setKernelArg( mKernelPathTracing, 2, sizeof( cl_float ), &pixelWeight );
+	mCL->setKernelArg( mKernelPathTracing, 0, sizeof( cl_float ), &timeSinceStart );
+	mCL->setKernelArg( mKernelPathTracing, 1, sizeof( cl_float ), &pixelWeight );
 
 	mCL->execute( mKernelPathTracing );
 	mCL->finish();
@@ -66,33 +54,12 @@ vector<cl_float> PathTracer::generateImage() {
 	mCL->updateImageReadOnly( mBufTextureIn, mWidth, mHeight, &mTextureOut[0] );
 
 	cl_float timeSinceStart = this->getTimeSinceStart();
-
-	this->clInitRays( timeSinceStart );
 	this->clPathTracing( timeSinceStart );
 
 	mCL->readImageOutput( mBufTextureOut, mWidth, mHeight, &mTextureOut[0] );
 	mSampleCount++;
 
 	return mTextureOut;
-}
-
-
-/**
- * Get a jitter vector in order to slightly alter the eye ray.
- * This results in anti-aliasing.
- * @return {glm::vec3} Jitter.
- */
-glm::vec3 PathTracer::getJitter() {
-	glm::vec3 v = glm::vec3(
-		rand() / (float) RAND_MAX * 1.0f - 1.0f,
-		rand() / (float) RAND_MAX * 1.0f - 1.0f,
-		0.0f
-	);
-
-	v[0] *= ( 1.0f / (float) mWidth );
-	v[1] *= ( 1.0f / (float) mHeight );
-
-	return v;
 }
 
 
@@ -112,47 +79,27 @@ cl_float PathTracer::getTimeSinceStart() {
  * (find intersections and accumulate the color).
  */
 void PathTracer::initArgsKernelPathTracing() {
-	cl_uint i = 0;
-
-	++i; // 1: timeSinceStart
-	++i; // 2: pixelWeight
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufFaces );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufBVH );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufRays );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufMaterials );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufSPDs );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufTextureIn );
-	mCL->setKernelArg( mKernelPathTracing, ++i, sizeof( cl_mem ), &mBufTextureOut );
-}
-
-
-/**
- * Init the kernel arguments for the OpenCL kernel to initialize the rays into the scene.
- */
-void PathTracer::initArgsKernelRays() {
-	cl_float wgs = Cfg::get().value<cl_float>( Cfg::OPENCL_WORKGROUPSIZE );
-	cl_float wGsw = mWidth / wgs;
-	cl_float hGsh = mHeight / wgs;
-
 	cl_float f = 2.0f * tan( MathHelp::degToRad( mFOV ) / 2.0f );
-	f /= ( mWidth > mHeight ) ? std::min( wGsw, hGsh ) : std::max( wGsw, hGsh );
 
-	cl_float pxWidthAndHeight = f / wgs;
-	cl_float adjustW = ( mWidth - wgs ) / 2.0f;
-	cl_float adjustH = ( mHeight - wgs ) / 2.0f;
+	cl_float pxWidth = f / mWidth;
+	cl_float pxHeight = f / mHeight;
 
-	cl_float4 initRayParts;
-	initRayParts.x = pxWidthAndHeight;
-	initRayParts.y = adjustW;
-	initRayParts.z = adjustH;
-	initRayParts.w = pxWidthAndHeight / 2.0f;
+	cl_float2 initRayParts;
+	initRayParts.x = pxWidth;
+	initRayParts.y = pxHeight;
+
 
 	cl_uint i = 0;
-
-	++i; // 1: timeSinceStart
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_float4 ), &initRayParts );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufEye );
-	mCL->setKernelArg( mKernelRays, ++i, sizeof( cl_mem ), &mBufRays );
+	i++; // 0: timeSinceStart
+	i++; // 1: pixelWeight
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_float2 ), &initRayParts );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufEye );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufFaces );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVH );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufMaterials );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufSPDs );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufTextureIn );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufTextureOut );
 }
 
 
@@ -160,7 +107,6 @@ void PathTracer::initArgsKernelRays() {
  * Set the OpenCL kernel arguments that either don't change or point to a CL buffer.
  */
 void PathTracer::initKernelArgs() {
-	this->initArgsKernelRays();
 	this->initArgsKernelPathTracing();
 }
 
@@ -246,9 +192,7 @@ void PathTracer::initOpenCLBuffers(
 	mCL->setReplacement( string( "#BVH_STACKSIZE#" ), string( msg ) );
 	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
 
-	mKernelRays = mCL->createKernel( "initRays" );
 	mKernelPathTracing = mCL->createKernel( "pathTracing" );
-
 	mGLWidget->createKernelWindow( mCL );
 
 	this->initKernelArgs();
@@ -260,20 +204,20 @@ void PathTracer::initOpenCLBuffers(
  * @param {BVH*} bvh The generated Bounding Volume Hierarchy.
  */
 size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
-	vector<BVHNode*> stNodes = bvh->getNodes();
-	vector<bvhNode_cl> sphereNodes;
+	vector<BVHNode*> bvhNodes = bvh->getNodes();
+	vector<bvhNode_cl> bvhNodesCL;
 
-	for( cl_uint i = 0; i < stNodes.size(); i++ ) {
-		cl_float4 bbMin = { stNodes[i]->bbMin[0], stNodes[i]->bbMin[1], stNodes[i]->bbMin[2], 0.0f };
-		cl_float4 bbMax = { stNodes[i]->bbMax[0], stNodes[i]->bbMax[1], stNodes[i]->bbMax[2], 0.0f };
+	for( cl_uint i = 0; i < bvhNodes.size(); i++ ) {
+		cl_float4 bbMin = { bvhNodes[i]->bbMin[0], bvhNodes[i]->bbMin[1], bvhNodes[i]->bbMin[2], 0.0f };
+		cl_float4 bbMax = { bvhNodes[i]->bbMax[0], bvhNodes[i]->bbMax[1], bvhNodes[i]->bbMax[2], 0.0f };
 
 		bvhNode_cl sn;
 		sn.bbMin = bbMin;
 		sn.bbMax = bbMax;
-		sn.bbMin.w = ( stNodes[i]->leftChild == NULL ) ? -1.0f : (cl_float) stNodes[i]->leftChild->id;
-		sn.bbMax.w = ( stNodes[i]->rightChild == NULL ) ? -1.0f : (cl_float) stNodes[i]->rightChild->id;
+		sn.bbMin.w = ( bvhNodes[i]->leftChild == NULL ) ? -1.0f : (cl_float) bvhNodes[i]->leftChild->id;
+		sn.bbMax.w = ( bvhNodes[i]->rightChild == NULL ) ? -1.0f : (cl_float) bvhNodes[i]->rightChild->id;
 
-		vector<cl_uint4> facesVec = stNodes[i]->faces;
+		vector<cl_uint4> facesVec = bvhNodes[i]->faces;
 		cl_int4 faces;
 		faces.x = ( facesVec.size() >= 1 ) ? facesVec[0].w : -1;
 		faces.y = ( facesVec.size() >= 2 ) ? facesVec[1].w : -1;
@@ -281,11 +225,11 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 		faces.w = ( facesVec.size() >= 4 ) ? facesVec[3].w : -1;
 		sn.faces = faces;
 
-		sphereNodes.push_back( sn );
+		bvhNodesCL.push_back( sn );
 	}
 
-	size_t bytes = sizeof( bvhNode_cl ) * sphereNodes.size();
-	mBufBVH = mCL->createBuffer( sphereNodes, bytes );
+	size_t bytes = sizeof( bvhNode_cl ) * bvhNodesCL.size();
+	mBufBVH = mCL->createBuffer( bvhNodesCL, bytes );
 
 	return bytes;
 }
@@ -396,9 +340,8 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 size_t PathTracer::initOpenCLBuffers_Rays() {
 	cl_uint pixels = mWidth * mHeight;
 	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
-	mBufRays = mCL->createEmptyBuffer( sizeof( rayBase ) * pixels, CL_MEM_READ_WRITE );
 
-	return sizeof( cl_float ) * 12 + sizeof( rayBase ) * pixels;
+	return sizeof( cl_float ) * 12;
 }
 
 
