@@ -166,10 +166,22 @@ kernel void pathTracing(
 				index = mtl.spd * SPEC;
 				cosLaw = cosineLaw( ray.normal, newRay.dir );
 
-				getValuesBRDF( newRay.dir, -ray.dir, ray.normal, mtl.scratch, &H, &t, &v, &vIn, &vOut, &w );
-				u = fmax( dot( H.xyz, -ray.dir.xyz ), 0.0f );
-				brdf = D( t, vOut, vIn, w, mtl.rough, mtl.scratch.w );
-				brdf = 1.0f;
+				// BRDF: none
+				#if BRDF == 0
+
+					u = 1.0f;
+					brdf = 1.0f;
+
+				// BRDF: Schlick
+				#elif BRDF == 1
+
+					// float4 groove = groove3D( mtl.scratch, ray.normal );
+					// getValuesBRDF( newRay.dir, -ray.dir, ray.normal, groove, &H, &t, &v, &vIn, &vOut, &w );
+					// u = fmax( dot( H.xyz, -ray.dir.xyz ), 0.0f );
+					// brdf = D( t, vOut, vIn, w, mtl.rough, mtl.scratch.w );
+					u = 1.0f;
+					brdf = 1.0f;
+				#endif
 
 				for( int i = 0; i < SPEC; i++ ) {
 					spd[i] *= fresnel( u, specPowerDists[index + i] ) * brdf * cosLaw;

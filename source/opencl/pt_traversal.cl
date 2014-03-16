@@ -1,3 +1,95 @@
+float4 groove3D( const float4 scr, const float4 n ) {
+	const float4 n2D = { 0.0f, 0.0f, 1.0f, 0.0f };
+
+	const float4 r = cross( n2D, n );
+	const float c = dot( n2D.xyz, n.xyz );
+	const float s = native_sqrt( 1.0f - c * c );
+	const float ci = 1.0f - c;
+
+	float4 T;
+	T.x = ( r.x * r.x * ci + c ) * scr.x +
+	      ( r.x * r.y * ci - r.z * s ) * scr.y +
+	      ( r.x * r.z * ci + r.y * s ) * scr.z;
+	T.y = ( r.y * r.x * ci + r.z * s ) * scr.x +
+	      ( r.y * r.y * ci + c ) * scr.y +
+	      ( r.y * r.z * ci - r.x * s ) * scr.z;
+	T.z = ( r.z * r.x * ci - r.y * s ) * scr.x +
+	      ( r.z * r.y * ci + r.x * s ) * scr.y +
+	      ( r.z * r.z * ci + c ) * scr.z;
+
+	return fast_normalize( T );
+}
+
+
+/**
+ * New direction for (perfectly) diffuse surfaces.
+ * (Well, depening on the given parameters.)
+ * @param  nl   Normal (unit vector).
+ * @param  phi
+ * @param  sina
+ * @param  cosa
+ * @return
+ */
+float4 jitter(
+	const float4 nl, const float phi, const float sina, const float cosa
+) {
+	const float4 u = fast_normalize( cross( nl.yzxw, nl ) );
+	const float4 v = fast_normalize( cross( nl, u ) );
+
+	return fast_normalize(
+		( u * native_cos( phi ) + v * native_sin( phi ) ) * sina + nl * cosa
+	);
+}
+
+
+/**
+ * MACRO: Reflect a ray.
+ * @param  {float4} dir    Direction of ray.
+ * @param  {float4} normal Normal of surface.
+ * @return {float4}        Reflected ray.
+ */
+#define reflect( dir, normal ) ( ( dir ) - 2.0f * dot( ( normal ).xyz, ( dir ).xyz ) * ( normal ) )
+
+
+/**
+ * Get the a new direction for a ray hitting a transparent surface (glass etc.).
+ * @param  {const ray4*}     currentRay The current ray.
+ * @param  {const material*} mtl        Material of the hit surface.
+ * @param  {float*}          seed       Seed for the random number generator.
+ * @return {float4}                     A new direction for the ray.
+ */
+float4 refract( const ray4* currentRay, const material* mtl, float* seed ) {
+	const bool into = ( dot( currentRay->normal.xyz, currentRay->dir.xyz ) < 0.0f );
+	const float4 nl = into ? currentRay->normal : -currentRay->normal;
+
+	const float m1 = into ? NI_AIR : mtl->Ni;
+	const float m2 = into ? mtl->Ni : NI_AIR;
+	const float m = native_divide( m1, m2 );
+
+	const float cosI = -dot( currentRay->dir.xyz, nl.xyz );
+	const float sinT2 = m * m * ( 1.0f - cosI * cosI );
+
+	// Critical angle. Total internal reflection.
+	if( sinT2 > 1.0f ) {
+		return reflect( currentRay->dir, nl );
+	}
+
+	const float cosT = native_sqrt( 1.0f - sinT2 );
+	const float4 tDir = m * currentRay->dir + ( m * cosI - cosT ) * nl;
+
+
+	// Reflectance and transmission
+
+	float r0 = native_divide( m1 - m2, m1 + m2 );
+	r0 *= r0;
+	const float c = ( m1 > m2 ) ? native_sqrt( 1.0f - sinT2 ) : cosI;
+	const float reflectance = fresnel( c, r0 );
+	// transmission = 1.0f - reflectance
+
+	return ( reflectance < rand( seed ) ) ? tDir : reflect( currentRay->dir, nl );
+}
+
+
 /**
  * Calculate the new ray depending on the current one and the hit surface.
  * @param  {const ray4}     currentRay  The current ray
@@ -14,37 +106,73 @@ ray4 getNewRay(
 	newRay.t = -2.0f;
 	newRay.origin = fma( currentRay.t, currentRay.dir, currentRay.origin );
 
-	// Specular
-	newRay.dir = reflect( currentRay.dir, currentRay.normal ) * ( 1.0f - mtl->rough );
-
-	// Diffuse
-	float rnd2 = rand( seed );
-	newRay.dir += jitter( currentRay.normal, PI_X2 * rand( seed ), sqrt( rnd2 ), sqrt( 1.0f - rnd2 ) ) * mtl->rough;
+	#define DIR ( currentRay.dir )
+	#define NORMAL ( currentRay.normal )
+	#define ROUGHNESS ( mtl->rough )
+	#define ISOTROPY ( mtl->scratch.w )
 
 
-	// Directional (surfaces with tiny, oriented scratches; brushed metal)
-	float p = mtl->scratch.w;
-	float4 ani = anisotropy( mtl->scratch, currentRay.normal );
-	ani = ( rand( seed ) < 0.5f ) ? ani : -ani;
+	// BRDF: Not much of any. Supports specular, diffuse, and glossy surfaces.
+	#if BRDF == 0
 
-	float4 H;
-	float t, v, vIn, vOut, w;
-	getValuesBRDF( -currentRay.dir, fast_normalize( newRay.dir ), currentRay.normal, ani, &H, &t, &v, &vIn, &vOut, &w );
-	float aw = A( w, p );
+		float rnd2 = rand( seed );
+		newRay.dir = reflect( DIR, NORMAL ) * ( 1.0f - ROUGHNESS ) +
+		             jitter( NORMAL, PI_X2 * rand( seed ), sqrt( rnd2 ), sqrt( 1.0f - rnd2 ) ) * ROUGHNESS;
 
-	newRay.dir = newRay.dir * aw + ( 1.0f - aw ) * fast_normalize( ani );
+	// BRDF: Schlick. Supports specular, diffuse, glossy, and anisotropic surfaces.
+	// Downside: Really dark images.
+	#elif BRDF == 1
+
+		const float a = rand( seed );
+		const float b = rand( seed );
+		const float alpha = acos( native_sqrt( native_divide( a, ROUGHNESS - a * ROUGHNESS + a ) ) );
+		const float phi = PI_X2 * native_sqrt( native_divide(
+			ISOTROPY * ISOTROPY * b * b,
+			1.0f - b * b + b * b * ISOTROPY * ISOTROPY
+		) );
+
+		// We could just use the jitter instead of NORMAL for perfect specular materials,
+		// but this way we get a little better/smoother result for perfect mirrors.
+		const float4 rn = ( ROUGHNESS == 0.0f )
+		                ? NORMAL
+		                : jitter( NORMAL, phi, native_sin( alpha ), native_cos( alpha ) );
+
+		newRay.dir = reflect( DIR, rn );
+
+	#endif
+
+
+	// float pc = native_cos( phi );
+	// float pcm = 1.0f - pc;
+	// float ps = native_sin( phi );
+	// float rm[3][3] = {
+	// 	{ pc + NORMAL.x * NORMAL.x * pcm, NORMAL.x * NORMAL.y * pcm - NORMAL.z * ps, NORMAL.x * NORMAL.z * pcm + NORMAL.y * ps },
+	// 	{ NORMAL.x * NORMAL.y * pcm + NORMAL.z * ps, pc + NORMAL.y * NORMAL.y * pcm, NORMAL.y * NORMAL.z * pcm - NORMAL.x * ps },
+	// 	{ NORMAL.z * NORMAL.x * pcm - NORMAL.y * ps, NORMAL.z * NORMAL.y * pcm + NORMAL.x * ps, pc + NORMAL.z * NORMAL.z * pcm }
+	// };
+	// float4 Hp = {
+	// 	rm[0][0] * groove.x + rm[0][1] * groove.y + rm[0][2] * groove.z,
+	// 	rm[1][0] * groove.x + rm[1][1] * groove.y + rm[1][2] * groove.z,
+	// 	rm[2][0] * groove.x + rm[2][1] * groove.y + rm[2][2] * groove.z,
+	// 	0.0f
+	// };
 
 
 	// Transparency and refraction
 	bool doTransRefr = ( mtl->d < 1.0f && mtl->d <= rand( seed ) );
 	newRay.dir = doTransRefr ? refract( &currentRay, mtl, seed ) : newRay.dir;
 
+
 	newRay.dir = fast_normalize( newRay.dir );
 
-	*addDepth = ( mtl->rough < 0.4f || doTransRefr );
-	*ignoreColor = ( mtl->rough == 0.0f || doTransRefr );
+	*addDepth = ( ROUGHNESS < 0.4f || doTransRefr );
+	*ignoreColor = ( ROUGHNESS == 0.0f || doTransRefr );
 
 	return newRay;
+
+	#undef NORMAL
+	#undef ROUGHNESS
+	#undef ISOTROPY
 }
 
 

@@ -24,6 +24,9 @@ material_t MtlParser::getEmptyMaterial() {
 	mtl.light = 0;
 	mtl.p = 1.0f;
 	mtl.scratch = zeros;
+	mtl.scratch.x = 1.0f;
+	mtl.scratch.y = 1.0f;
+	mtl.scratch.z = 1.0f;
 
 	return mtl;
 }

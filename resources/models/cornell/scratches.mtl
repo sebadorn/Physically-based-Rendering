@@ -1,5 +1,5 @@
 # Blender MTL File: 'scratches.blend'
-# Material Count: 6
+# Material Count: 7
 
 newmtl Ceiling
 Ns 96.078431
@@ -31,6 +31,17 @@ d 1.000000
 illum 2
 light 1
 
+newmtl Cylinder
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ni 1.000000
+d 1.000000
+illum 2
+scr 1.0 0.0 0.0
+p 0.1
+
 newmtl Test0
 Ns 96.078431
 Ka 0.000000 0.000000 0.000000
@@ -39,9 +50,9 @@ Ks 0.500000 0.500000 0.500000
 Ni 1.000000
 d 1.000000
 illum 2
-rough 0.0
 scr 1.0 0.0 0.0
-p 0.2
+p 0.1
+rough 0.2
 
 newmtl Test1
 Ns 96.078431
@@ -51,9 +62,9 @@ Ks 0.500000 0.500000 0.500000
 Ni 1.000000
 d 1.000000
 illum 2
-rough 0.0
-scr 0.0 0.0 1.0
-p 0.2
+scr 0.0 1.0 0.0
+p 0.1
+rough 0.2
 
 newmtl Walls
 Ns 96.078431

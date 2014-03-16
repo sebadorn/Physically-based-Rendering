@@ -37,72 +37,6 @@ inline float4 getTriangleNormal( const face_t face, const float4 tuv ) {
 
 
 /**
- * New direction for (perfectly) diffuse surfaces.
- * @param  d    Normal (unit vector).
- * @param  phi
- * @param  sina
- * @param  cosa
- * @return
- */
-float4 jitter( const float4 d, const float phi, const float sina, const float cosa ) {
-	const float4 u = fast_normalize( cross( d.yzxw, d ) );
-	const float4 v = cross( d, u );
-
-	return fast_normalize(
-		( u * native_cos( phi ) + v * native_sin( phi ) ) * sina + d * cosa
-	);
-}
-
-
-/**
- * MACRO: Reflect a ray.
- * @param  {float4} dir    Direction of ray.
- * @param  {float4} normal Normal of surface.
- * @return {float4}        Reflected ray.
- */
-#define reflect( dir, normal ) ( ( dir ) - 2.0f * dot( ( normal ).xyz, ( dir ).xyz ) * ( normal ) )
-
-
-/**
- * Get the a new direction for a ray hitting a transparent surface (glass etc.).
- * @param  {const ray4*}     currentRay The current ray.
- * @param  {const material*} mtl        Material of the hit surface.
- * @param  {float*}          seed       Seed for the random number generator.
- * @return {float4}                     A new direction for the ray.
- */
-float4 refract( const ray4* currentRay, const material* mtl, float* seed ) {
-	const bool into = ( dot( currentRay->normal.xyz, currentRay->dir.xyz ) < 0.0f );
-	const float4 nl = into ? currentRay->normal : -currentRay->normal;
-
-	const float m1 = into ? NI_AIR : mtl->Ni;
-	const float m2 = into ? mtl->Ni : NI_AIR;
-	const float m = native_divide( m1, m2 );
-
-	const float cosI = -dot( currentRay->dir.xyz, nl.xyz );
-	const float sinT2 = m * m * ( 1.0f - cosI * cosI );
-
-	// Critical angle. Total internal reflection.
-	if( sinT2 > 1.0f ) {
-		return reflect( currentRay->dir, nl );
-	}
-
-	const float cosT = native_sqrt( 1.0f - sinT2 );
-	const float4 tDir = m * currentRay->dir + ( m * cosI - cosT ) * nl;
-
-
-	// Reflectance and transmission
-
-	float r0 = native_divide( m1 - m2, m1 + m2 );
-	r0 *= r0;
-	const float c = ( m1 > m2 ) ? native_sqrt( 1.0f - sinT2 ) : cosI;
-	const float reflectance = fresnel( c, r0 );
-	// transmission = 1.0f - reflectance
-
-	return ( reflectance < rand( seed ) ) ? tDir : reflect( currentRay->dir, nl );
-}
-
-
-/**
  * Get a vector in a random direction.
  * @param  {const float} seed Seed for the random value.
  * @return {float4}           Random vector.
@@ -191,14 +125,6 @@ inline void setArray( float* arr, float val ) {
 }
 
 
-float4 anisotropy( const float4 scratch, const float4 n ) {
-	float4 s = cross( n, scratch );
-	s = cross( n, s );
-
-	return s;
-}
-
-
 /**
  * MACRO: Apply the cosine law for light sources.
  * @param  {float4} n Normal of the surface the light hits.
@@ -262,9 +188,9 @@ inline float G( const float v, const float r ) {
  */
 inline float B(
 	const float t, const float vOut, const float vIn, const float w,
-	const float r, const float p
+	const float r, const float p, const float d
 ) {
-	const float drecip = native_recip( 4.0f * M_PI * vOut * vIn );
+	const float drecip = native_recip( d );
 	const float gp = G( vOut, r ) * G( vIn, r );
 	const float part1 = gp * Z( t, r ) * A( w, p );
 	const float part2 = ( 1.0f - gp );
@@ -291,12 +217,13 @@ inline float D(
 	const float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
 	const float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
 
-	return (
-		native_divide( a, M_PI ) +
-		native_divide( b, ( 4.0f * M_PI * vOut * vIn ) ) * B( t, vOut, vIn, w, r, p ) +
-		native_divide( c, vIn )
-	);
-	// TODO: ( c / vIn ) probably not correct
+	const float d = 4.0f * M_PI * vOut * vIn;
+
+	const float p0 = native_divide( a, M_PI );
+	const float p1 = ( b == 0.0f ) ? 0.0f : native_divide( b, d ) * B( t, vOut, vIn, w, r, p, d );
+	const float p2 = ( vIn == 0.0f ) ? 0.0f : native_divide( c, vIn );
+
+	return p0 + p1 + p2;
 }
 
 
@@ -327,9 +254,9 @@ inline void getValuesBRDF(
 	float4* H, float* t, float* v, float* vIn, float* vOut, float* w
 ) {
 	*H = fast_normalize( V_out + V_in );
-	*t = fmax( dot( H->xyz, N.xyz ), 0.0f );
-	*v = fmax( dot( V_out.xyz, N.xyz ), 0.0f );
-	*vIn = fmax( dot( V_in.xyz, N.xyz ), 0.0f );
-	*vOut = fmax( dot( V_out.xyz, N.xyz ), 0.0f );
+	*t = dot( H->xyz, N.xyz );
+	*v = dot( V_out.xyz, N.xyz );
+	*vIn = dot( V_in.xyz, N.xyz );
+	*vOut = dot( V_out.xyz, N.xyz );
 	*w = dot( T.xyz, projection( H->xyz, N.xyz ) );
 }

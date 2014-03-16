@@ -2,10 +2,11 @@
 	"materials": {
 		"Walls": "pure_white",
 		"Ceiling": "CIE_D65",
-		"Test0": "gray",
-		"Test1": "gray",
-		"Cube0": "CIE_D65",
-		"Cube1": "CIE_D65"
+		"Test0": "pure_white",
+		"Test1": "pure_white",
+		"Cube0": "pure_white",
+		"Cube1": "pure_white",
+		"Cylinder": "pure_white"
 	},
 
 	"spectra": {

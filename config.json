@@ -79,6 +79,10 @@
 		// AA through jittering.
 		// Disable: Set to "0.0"
 		"antialiasing": 0.001,
+		// BRDF.
+		// 0: none (specular, diffuse, glossy)
+		// 1: Schlick (+anisotropic, but overall a much too dark image)
+		"brdf": 1,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 100.0,
 		// Extend the path if a reflective or transparent surface is hit
@@ -105,8 +109,8 @@
 	},
 
 	"window": {
-		"height": 512,
-		"width": 512
+		"height": 600,
+		"width": 800
 	}
 
 }

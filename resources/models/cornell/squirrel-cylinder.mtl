@@ -28,7 +28,7 @@ Ni 1.000000
 d 1.000000
 illum 2
 scr 1.0 0.0 0.0
-p 0.0
+p 0.2
 
 newmtl WallLeft
 Ns 96.078431

@@ -31,6 +31,7 @@ class Cfg {
 		static const char* INFO_KERNELTIMES;
 		static const char* LOG_LEVEL;
 		static const char* RENDER_ANTIALIAS;
+		static const char* RENDER_BRDF;
 		static const char* RENDER_INTERVAL;
 		static const char* RENDER_MAXADDEDDEPTH;
 		static const char* RENDER_MAXDEPTH;
