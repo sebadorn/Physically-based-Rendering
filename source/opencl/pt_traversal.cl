@@ -141,22 +141,6 @@ ray4 getNewRay(
 	#endif
 
 
-	// float pc = native_cos( phi );
-	// float pcm = 1.0f - pc;
-	// float ps = native_sin( phi );
-	// float rm[3][3] = {
-	// 	{ pc + NORMAL.x * NORMAL.x * pcm, NORMAL.x * NORMAL.y * pcm - NORMAL.z * ps, NORMAL.x * NORMAL.z * pcm + NORMAL.y * ps },
-	// 	{ NORMAL.x * NORMAL.y * pcm + NORMAL.z * ps, pc + NORMAL.y * NORMAL.y * pcm, NORMAL.y * NORMAL.z * pcm - NORMAL.x * ps },
-	// 	{ NORMAL.z * NORMAL.x * pcm - NORMAL.y * ps, NORMAL.z * NORMAL.y * pcm + NORMAL.x * ps, pc + NORMAL.z * NORMAL.z * pcm }
-	// };
-	// float4 Hp = {
-	// 	rm[0][0] * groove.x + rm[0][1] * groove.y + rm[0][2] * groove.z,
-	// 	rm[1][0] * groove.x + rm[1][1] * groove.y + rm[1][2] * groove.z,
-	// 	rm[2][0] * groove.x + rm[2][1] * groove.y + rm[2][2] * groove.z,
-	// 	0.0f
-	// };
-
-
 	// Transparency and refraction
 	bool doTransRefr = ( mtl->d < 1.0f && mtl->d <= rand( seed ) );
 	newRay.dir = doTransRefr ? refract( &currentRay, mtl, seed ) : newRay.dir;
@@ -165,7 +149,7 @@ ray4 getNewRay(
 	newRay.dir = fast_normalize( newRay.dir );
 
 	*addDepth = ( ROUGHNESS < rand( seed ) || doTransRefr );
-	*ignoreColor = ( ROUGHNESS < rand( seed ) || doTransRefr );
+	*ignoreColor = doTransRefr;
 
 	return newRay;
 
@@ -294,6 +278,58 @@ void intersectFaces(
 			ray->t = tuv.x;
 		}
 	}
+}
+
+
+/**
+ * Based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
+ * @param  {const ray4*}   ray
+ * @param  {const float*}  bbMin
+ * @param  {const float*}  bbMax
+ * @param  {float*}        tNear
+ * @param  {float*}        tFar
+ * @return {const bool}          True, if ray intersects box, false otherwise.
+ */
+const bool intersectBox(
+	const ray4* ray, const float3 invDir, const float4 bbMin, const float4 bbMax, float* tNear, float* tFar
+) {
+	const float3 t1 = ( bbMin.xyz - ray->origin.xyz ) * invDir;
+	float3 tMax = ( bbMax.xyz - ray->origin.xyz ) * invDir;
+	const float3 tMin = fmin( t1, tMax );
+	tMax = fmax( t1, tMax );
+
+	*tNear = fmax( fmax( tMin.x, tMin.y ), tMin.z );
+	*tFar = fmin( fmin( tMax.x, tMax.y ), fmin( tMax.z, *tFar ) );
+
+	return ( *tNear <= *tFar );
+}
+
+
+/**
+ * Calculate intersection of a ray with a sphere.
+ * @param  {const ray4*}  ray          The ray.
+ * @param  {const float4} sphereCenter Center of the sphere.
+ * @param  {const float}  radius       Radius of the sphere.
+ * @param  {float*}       tNear        <t> near of the intersection (ray entering the sphere).
+ * @param  {float*}       tFar         <t> far of the intersection (ray leaving the sphere).
+ * @return {const bool}                True, if ray intersects sphere, false otherwise.
+ */
+const bool intersectSphere(
+	const ray4* ray, const float4 sphereCenter, const float radius, float* tNear, float* tFar
+) {
+	const float3 op = sphereCenter.xyz - ray->origin.xyz;
+	const float b = dot( op, ray->dir.xyz );
+	float det = b * b - dot( op, op ) + radius * radius;
+
+	if( det < 0.0f ) {
+		return false;
+	}
+
+	det = native_sqrt( det );
+	*tNear = b - det;
+	*tFar = b + det;
+
+	return ( fmax( *tNear, *tFar ) > EPSILON );
 }
 
 

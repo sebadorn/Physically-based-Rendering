@@ -16,6 +16,7 @@ const char* Cfg::INFO_KERNELTIMES = "info.kernel_times";
 const char* Cfg::LOG_LEVEL = "logging.level";
 const char* Cfg::RENDER_ANTIALIAS = "render.antialiasing";
 const char* Cfg::RENDER_BRDF = "render.brdf";
+const char* Cfg::RENDER_IMPLICIT = "render.implicit";
 const char* Cfg::RENDER_INTERVAL = "render.interval";
 const char* Cfg::RENDER_MAXADDEDDEPTH = "render.max_added_depth";
 const char* Cfg::RENDER_MAXDEPTH = "render.max_depth";

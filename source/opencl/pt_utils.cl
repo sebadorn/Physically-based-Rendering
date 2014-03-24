@@ -3,7 +3,7 @@
  * @param  {float*} seed
  * @return {float}
  */
-inline float rand( float* seed ) {
+inline const float rand( float* seed ) {
 	float i;
 	*seed += 1.0f;
 
@@ -11,13 +11,26 @@ inline float rand( float* seed ) {
 }
 
 
+// #define RAND_A 16807.0f
+// #define RAND_M 2147483647.0f
+// #define RAND_MRECIP 4.656612875245797e-10
+
+// // Park-Miller RNG
+// inline const float rand( int* seed ) {
+// 	const float temp = (*seed) * RAND_A;
+// 	*seed = (int)( temp - RAND_M * floor( temp * RAND_MRECIP ) );
+
+// 	return (*seed) * RAND_MRECIP;
+// }
+
+
 /**
- * MACRO: Apply the cosine law for light sources.
+ * MACRO: Apply Lambert's cosine law for light sources.
  * @param  {float4} n Normal of the surface the light hits.
  * @param  {float4} l Normalized direction to the light source.
  * @return {float}
  */
-#define cosineLaw( n, l ) ( fmax( dot( ( n ).xyz, ( l ).xyz ), 0.0f ) )
+#define lambert( n, l ) ( fmax( dot( ( n ).xyz, ( l ).xyz ), 0.0f ) )
 
 
 /**
@@ -42,59 +55,6 @@ inline float4 getTriangleNormal( const face_t face, const float3 tuv ) {
 	const float w = 1.0f - tuv.y - tuv.z;
 
 	return fast_normalize( w * face.an + tuv.y * face.bn + tuv.z * face.cn );
-}
-
-
-/**
- * Source: http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
- * Which is based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
- * @param  {const ray4*}   ray
- * @param  {const float*}  bbMin
- * @param  {const float*}  bbMax
- * @param  {float*}        tNear
- * @param  {float*}        tFar
- * @return {const bool}          True, if ray intersects box, false otherwise.
- */
-const bool intersectBox(
-	const ray4* ray, const float3 invDir, const float4 bbMin, const float4 bbMax, float* tNear, float* tFar
-) {
-	const float3 t1 = ( bbMin.xyz - ray->origin.xyz ) * invDir;
-	float3 tMax = ( bbMax.xyz - ray->origin.xyz ) * invDir;
-	const float3 tMin = fmin( t1, tMax );
-	tMax = fmax( t1, tMax );
-
-	*tNear = fmax( fmax( tMin.x, tMin.y ), tMin.z );
-	*tFar = fmin( fmin( tMax.x, tMax.y ), fmin( tMax.z, *tFar ) );
-
-	return ( *tNear <= *tFar );
-}
-
-
-/**
- * Calculate intersection of a ray with a sphere.
- * @param  {const ray4*}  ray          The ray.
- * @param  {const float4} sphereCenter Center of the sphere.
- * @param  {const float}  radius       Radius of the sphere.
- * @param  {float*}       tNear        <t> near of the intersection (ray entering the sphere).
- * @param  {float*}       tFar         <t> far of the intersection (ray leaving the sphere).
- * @return {const bool}                True, if ray intersects sphere, false otherwise.
- */
-const bool intersectSphere(
-	const ray4* ray, const float4 sphereCenter, const float radius, float* tNear, float* tFar
-) {
-	const float3 op = sphereCenter.xyz - ray->origin.xyz;
-	const float b = dot( op, ray->dir.xyz );
-	float det = b * b - dot( op, op ) + radius * radius;
-
-	if( det < 0.0f ) {
-		return false;
-	}
-
-	det = native_sqrt( det );
-	*tNear = b - det;
-	*tFar = b + det;
-
-	return ( fmax( *tNear, *tFar ) > EPSILON );
 }
 
 

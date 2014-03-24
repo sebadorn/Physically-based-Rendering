@@ -382,6 +382,12 @@ void CL::getDefaultDevice() {
 	Logger::logDebug( msg );
 
 	// Get the local memory size
+	cl_ulong constantMemSize;
+	clGetDeviceInfo( devices[0], CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof( cl_ulong ), &constantMemSize, NULL );
+	snprintf( msg, 64, "[OpenCL] Constant memory size is %lu KB.", constantMemSize / 1024 );
+	Logger::logDebug( msg );
+
+	// Get the local memory size
 	cl_ulong localMemSize;
 	clGetDeviceInfo( devices[0], CL_DEVICE_LOCAL_MEM_SIZE, sizeof( cl_ulong ), &localMemSize, NULL );
 	snprintf( msg, 64, "[OpenCL] Local memory size is %lu KB.", localMemSize / 1024 );
@@ -578,29 +584,13 @@ string CL::setValues( string clProgramString ) {
 	char replacement[16];
 
 
-	// Define or don't define (bool in config)
-
-	valueReplace.clear();
-
-	vector<bool> configValue;
-
-	for( int i = 0; i < valueReplace.size(); i++ ) {
-		search = "#" + valueReplace[i] + "#";
-		foundStrPos = clProgramString.find( search );
-
-		if( foundStrPos != string::npos ) {
-			value = configValue[i] ? "#define " + valueReplace[i] + " 1" : "";
-			clProgramString.replace( foundStrPos, search.length(), value );
-		}
-	}
-
-
 	// Integer replacement
 
 	valueReplace.clear();
 	valueReplace.push_back( "BRDF" );
 	valueReplace.push_back( "IMG_HEIGHT" );
 	valueReplace.push_back( "IMG_WIDTH" );
+	valueReplace.push_back( "IMPLICIT" );
 	valueReplace.push_back( "MAX_DEPTH" );
 	valueReplace.push_back( "MAX_ADDED_DEPTH" );
 	valueReplace.push_back( "SAMPLES" );
@@ -610,6 +600,7 @@ string CL::setValues( string clProgramString ) {
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_BRDF ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH ) );
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_IMPLICIT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_MAXDEPTH ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_MAXADDEDDEPTH ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SAMPLES ) );

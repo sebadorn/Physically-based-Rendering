@@ -79,10 +79,10 @@ cl_float PathTracer::getTimeSinceStart() {
  * (find intersections and accumulate the color).
  */
 void PathTracer::initArgsKernelPathTracing() {
-	cl_float f = 2.0f * tan( MathHelp::degToRad( mFOV ) / 2.0f );
-
-	cl_float pxWidth = f / mWidth;
-	cl_float pxHeight = f / mHeight;
+	cl_float aspect = (cl_float) mWidth / (cl_float) mHeight;
+	cl_float f = 2.0f * tan( aspect / 2.0f );
+	cl_float pxWidth = f / (cl_float) mWidth;
+	cl_float pxHeight = f / (cl_float) mHeight;
 
 	cl_float2 initRayParts;
 	initRayParts.x = pxWidth;
@@ -402,9 +402,9 @@ void PathTracer::updateEyeBuffer() {
 	glm::vec3 eye = mCamera->getEye_glmVec3();
 	glm::vec3 up = mCamera->getUp_glmVec3();
 
-	glm::vec3 w = glm::normalize( glm::vec3( c[0] - eye[0], c[1] - eye[1], c[2] - eye[2] ) );
-	glm::vec3 u = glm::normalize( glm::cross( w, up ) );
-	glm::vec3 v = glm::normalize( glm::cross( u, w ) );
+	glm::vec3 w = glm::normalize( c - eye );
+	glm::vec3 u = glm::normalize( glm::cross( w, up ) ) * MathHelp::degToRad( mFOV );
+	glm::vec3 v = glm::normalize( glm::cross( u, w ) ) * MathHelp::degToRad( mFOV );
 
 	cl_float eyeBuffer[12] = {
 		eye[0], eye[1], eye[2],

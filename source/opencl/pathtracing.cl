@@ -73,19 +73,35 @@ void setColors(
 }
 
 
+/**
+ *
+ * @param ray
+ * @param newRay
+ * @param mtl
+ * @param lightRay
+ * @param lightMTL
+ * @param specPowerDists
+ * @param spd
+ * @param spdTotal
+ * @param maxValSpd
+ */
 void updateSPD(
 	const ray4 ray, const ray4 newRay, const material mtl,
 	const ray4 lightRay, const material lightMTL,
 	constant const float* specPowerDists, float* spd, float* spdTotal, float* maxValSpd
 ) {
 	const uint index = mtl.spd * SPEC;
-	const float cosLaw = cosineLaw( ray.normal, newRay.dir );
+	const float cosLaw = lambert( ray.normal, newRay.dir );
 
 	// BRDF: none
 	#if BRDF == 0
 
 		const float u = 1.0f;
-		const float brdf = 1.0f * cosLaw;
+		const float brdf = cosLaw;
+
+		#if IMPLICIT == 1
+			const float brdfLight = lambert( ray.normal, lightRay.dir );
+		#endif
 
 	// BRDF: Schlick
 	#elif BRDF == 1
@@ -98,16 +114,24 @@ void updateSPD(
 		const float u = fmax( dot( H.xyz, -ray.dir.xyz ), 0.0f );
 		const float brdf = D( t, vOut, vIn, w, mtl.rough, mtl.scratch.w ) * cosLaw;
 
+		#if IMPLICIT == 1
+			getValuesBRDF( lightRay.dir, -ray.dir, ray.normal, (float4)( 0.0f ), &H, &t, &v, &vIn, &vOut, &w );
+			const float uLight = fmax( dot( H.xyz, -ray.dir.xyz ), 0.0f );
+			const float brdfLight = D( t, vOut, vIn, w, mtl.rough, mtl.scratch.w ) * lambert( ray.normal, lightRay.dir );
+		#endif
+
 	#endif
 
-	if( lightMTL.light == 1 ) {
-		int indexLight = lightMTL.spd * SPEC;
-		float clLight = cosineLaw( ray.normal, lightRay.dir );
+	#if IMPLICIT == 1
+		if( lightRay.t > -1.0f && lightMTL.light == 1 ) {
+			int indexLight = lightMTL.spd * SPEC;
 
-		for( int i = 0; i < SPEC; i++ ) {
-			spdTotal[i] += spd[i] * specPowerDists[indexLight + i] * specPowerDists[index + i] * clLight;
+			for( int i = 0; i < SPEC; i++ ) {
+				spdTotal[i] += spd[i] * specPowerDists[indexLight + i] *
+				               fresnel( uLight, specPowerDists[index + i] ) * brdfLight;
+			}
 		}
-	}
+	#endif
 
 	for( int i = 0; i < SPEC; i++ ) {
 		spd[i] *= fresnel( u, specPowerDists[index + i] ) * brdf;
@@ -140,16 +164,14 @@ kernel void pathTracing(
 	constant const material* materials, constant const float* specPowerDists,
 	read_only image2d_t imageIn, write_only image2d_t imageOut
 ) {
-	const int2 pos = {
-		get_global_id( 0 ),
-		get_global_id( 1 )
-	};
+	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 
 	float spd[SPEC], spdTotal[SPEC];
 	setArray( spdTotal, 0.0f );
 
 	float focus;
 	bool addDepth, ignoreColor;
+
 
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
 		setArray( spd, 1.0f );
@@ -186,11 +208,21 @@ kernel void pathTracing(
 
 			ray4 lightRay;
 			lightRay.t = -2.0f;
-			lightRay.origin = fma( ray.t, ray.dir, ray.origin );
-			lightRay.dir = fast_normalize( (float4)( 1.5f - 3.0f * rand( &seed ), 2.0f, 4.0f - 5.0f * rand( &seed ), 0.0f ) - lightRay.origin );
-			traverseBVH( bvh, &lightRay, faces );
-			material lightMTL = materials[(uint) faces[(uint) lightRay.normal.w].a.w];
-			lightRay.normal.w = 0.0f;
+			material lightMTL;
+
+			#if IMPLICIT == 1
+				if( mtl.rough > 0.01f ) {
+					lightRay.origin = fma( ray.t, ray.dir, ray.origin );
+					lightRay.dir = fast_normalize( (float4)( 1.5f - 3.0f * rand( &seed ), 2.0f, 4.0f - 5.0f * rand( &seed ), 0.0f ) - lightRay.origin );
+
+					traverseBVH( bvh, &lightRay, faces );
+
+					if( lightRay.t > -1.0f ) {
+						lightMTL = materials[(uint) faces[(uint) lightRay.normal.w].a.w];
+						lightRay.normal.w = 0.0f;
+					}
+				}
+			#endif
 
 			// New direction of the ray (bouncing of the hit surface)
 			ray4 newRay = getNewRay( ray, &mtl, &seed, &ignoreColor, &addDepth );

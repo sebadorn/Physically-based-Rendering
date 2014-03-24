@@ -509,9 +509,8 @@ void GLWidget::paintScene() {
 void GLWidget::resizeGL( int width, int height ) {
 	glViewport( 0, 0, width, height );
 
-	mProjectionMatrix = glm::perspective(
-		mFOV,
-		width / (GLfloat) height,
+	mProjectionMatrix = glm::perspectiveFov(
+		mFOV, (GLfloat) width, (GLfloat) height,
 		Cfg::get().value<GLfloat>( Cfg::PERS_ZNEAR ),
 		Cfg::get().value<GLfloat>( Cfg::PERS_ZFAR )
 	);

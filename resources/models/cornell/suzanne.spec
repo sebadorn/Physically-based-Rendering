@@ -1,11 +1,11 @@
 {
 	"materials": {
 		"Suzanne": "white",
-		"WallLeft": "white",
+		"WallLeft": "red",
 		"WallRight": "white",
-		"WallBack": "CIE_D65",
+		"WallBack": "blue",
 		"WallFront": "white",
-		"Bottom": "CIE_D65",
+		"Bottom": "white",
 		"Ceiling": "CIE_D65",
 		"Cube_small0": "white",
 		"Cube_med0": "white",
