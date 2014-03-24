@@ -97,9 +97,10 @@ void updateSPD(
 	#if BRDF == 0
 
 		const float u = 1.0f;
-		const float brdf = cosLaw;
+		const float brdf = cosLaw * mtl.rough + ( 1.0f - mtl.rough );
 
 		#if IMPLICIT == 1
+			const float uLight = 1.0f;
 			const float brdfLight = lambert( ray.normal, lightRay.dir );
 		#endif
 
@@ -184,6 +185,7 @@ kernel void pathTracing(
 			traverseBVH( bvh, &ray, faces );
 
 			if( ray.t < 0.0f ) {
+				light = SKY_LIGHT * SPEC;
 				break;
 			}
 
@@ -211,9 +213,10 @@ kernel void pathTracing(
 			material lightMTL;
 
 			#if IMPLICIT == 1
-				if( mtl.rough > 0.01f ) {
+				if( mtl.rough > 0.0f && mtl.d > 0.0f ) {
 					lightRay.origin = fma( ray.t, ray.dir, ray.origin );
-					lightRay.dir = fast_normalize( (float4)( 1.5f - 3.0f * rand( &seed ), 2.0f, 4.0f - 5.0f * rand( &seed ), 0.0f ) - lightRay.origin );
+					const float rnd2 = rand( &seed );
+					lightRay.dir = jitter( ray.normal, PI_X2 * rand( &seed ), native_sqrt( rnd2 ), native_sqrt( 1.0f - rnd2 ) );
 
 					traverseBVH( bvh, &lightRay, faces );
 

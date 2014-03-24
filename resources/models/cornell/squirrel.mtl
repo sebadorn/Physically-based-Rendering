@@ -1,7 +1,16 @@
 # Blender MTL File: 'cornell-squirrel.blend'
 # Material Count: 5
 
-newmtl Ceiling
+newmtl Squirrel
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.800000 0.000000 0.000000
+Ks 0.500000 0.500000 0.500000
+Ni 2.000000
+d 1.000000
+illum 2
+
+newmtl Squirrel_lowpoly
 Ns 96.078431
 Ka 0.000000 0.000000 0.000000
 Kd 0.800000 0.800000 0.800000
@@ -9,16 +18,7 @@ Ks 0.500000 0.500000 0.500000
 Ni 1.000000
 d 1.000000
 illum 2
-light 1
-
-newmtl Squirrel
-Ns 96.078431
-Ka 0.000000 0.000000 0.000000
-Kd 0.800000 0.000000 0.000000
-Ks 0.500000 0.500000 0.500000
-Ni 1.500000
-d 1.000000
-illum 2
+rough 0.5
 
 newmtl WallLeft
 Ns 96.078431
@@ -28,7 +28,6 @@ Ks 0.500000 0.500000 0.500000
 Ni 1.000000
 d 1.000000
 illum 2
-light 0
 
 newmtl WallRight
 Ns 96.078431
@@ -38,7 +37,6 @@ Ks 0.500000 0.500000 0.500000
 Ni 1.000000
 d 1.000000
 illum 2
-light 0
 
 newmtl Walls
 Ns 96.078431

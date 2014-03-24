@@ -285,6 +285,7 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 	vector<material_t> materials = ml->getMaterials();
 	map<string, string> mtl2spd = ml->getMaterialToSPD();
 	map<string, vector<cl_float> > spectra = ml->getSpectralPowerDistributions();
+	string sky = ml->getSkySPDName();
 
 
 	// Spectral Power Distributions
@@ -301,6 +302,12 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 		// Spectral power distribution has wavelength steps of 5nm, but we use only 10nm steps
 		for( int i = 0; i < spd.size(); i += 2 ) {
 			spectraCL.push_back( spd[i] );
+		}
+
+		if( sky == it->first ) {
+			char msg[16];
+			snprintf( msg, 16, "%u", specCounter );
+			mCL->setReplacement( string( "#SKY_LIGHT#" ), string( msg ) );
 		}
 	}
 

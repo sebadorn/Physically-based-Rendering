@@ -33,6 +33,7 @@ class ModelLoader {
 		map<string, string> getMaterialToSPD();
 		vector<cl_float> getNormals();
 		vector<object3D> getObjects();
+		string getSkySPDName();
 		map<string, vector<cl_float> > getSpectralPowerDistributions();
 		vector<cl_float> getTextureCoordinates();
 		vector<cl_float> getVertices();

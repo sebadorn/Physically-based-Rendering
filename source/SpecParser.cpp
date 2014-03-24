@@ -15,6 +15,15 @@ map<string, string> SpecParser::getMaterialToSPD() {
 
 
 /**
+ * Get the SPD name of the sky (environment).
+ * @return {std::string}
+ */
+string SpecParser::getSkySPDName() {
+	return mSky;
+}
+
+
+/**
  * Get the spectral power distributions.
  * @return {std::map<std::string, std::vector<cl_float>>}
  */
@@ -65,6 +74,7 @@ void SpecParser::loadMaterialToSPD( boost::property_tree::ptree propTree ) {
 void SpecParser::loadSpectralPowerDistributions( boost::property_tree::ptree propTree ) {
 	boost::property_tree::ptree::const_iterator it, itSPD;
 	boost::property_tree::ptree specTree = propTree.get_child( "spectra" );
+	mSky = propTree.get<string>( "sky" );
 
 	for( it = specTree.begin(); it != specTree.end(); ++it ) {
 		vector<cl_float> spd;

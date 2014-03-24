@@ -128,6 +128,11 @@ vector<object3D> ModelLoader::getObjects() {
 }
 
 
+string ModelLoader::getSkySPDName() {
+	return mSpecParser->getSkySPDName();
+}
+
+
 /**
  * Get the spectral power distributions.
  * @return {std::map<std::string, std::vector<cl_float>>}

@@ -21,7 +21,7 @@
 			"znear": 0.1
 		},
 		// Step distance
-		"speed": 0.25
+		"speed": 0.2
 	},
 
 	// Default model import path for the Qt File Dialog

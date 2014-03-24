@@ -8,13 +8,13 @@ using std::vector;
  */
 struct findFace : std::unary_function<cl_uint4, bool> {
 
-	cl_uint4 fc;
+	cl_uint4* fc;
 
 	/**
 	 * Constructor.
-	 * @param {cl_uint4} fc Face to compare other faces with.
+	 * @param {cl_uint4*} fc Face to compare other faces with.
 	 */
-	findFace( cl_uint4 fc ) : fc( fc ) {};
+	findFace( cl_uint4* fc ) : fc( fc ) {};
 
 	/**
 	 * Compare two faces.
@@ -22,7 +22,7 @@ struct findFace : std::unary_function<cl_uint4, bool> {
 	 * @return {bool}              True, if they are identical, false otherwise.
 	 */
 	bool operator()( cl_uint4 const& f ) const {
-		return ( fc.x == f.x && fc.y == f.y && fc.z == f.z );
+		return ( fc->x == f.x && fc->y == f.y && fc->z == f.z );
 	};
 
 };
@@ -53,15 +53,12 @@ struct sortFacesCmp {
 	 * @return {bool}       a < b
 	 */
 	bool operator()( cl_uint4 a, cl_uint4 b ) {
-		cl_float4 v0_a = ( *this->v )[a.x];
-		cl_float4 v1_a = ( *this->v )[a.y];
-		cl_float4 v2_a = ( *this->v )[a.z];
-		cl_float4 v0_b = ( *this->v )[b.x];
-		cl_float4 v1_b = ( *this->v )[b.y];
-		cl_float4 v2_b = ( *this->v )[b.z];
-
-		glm::vec3 cenA = MathHelp::getTriangleCentroid( v0_a, v1_a, v2_a );
-		glm::vec3 cenB = MathHelp::getTriangleCentroid( v0_b, v1_b, v2_b );
+		glm::vec3 cenA = MathHelp::getTriangleCentroid(
+			( *this->v )[a.x], ( *this->v )[a.y], ( *this->v )[a.z]
+		);
+		glm::vec3 cenB = MathHelp::getTriangleCentroid(
+			( *this->v )[b.x], ( *this->v )[b.y], ( *this->v )[b.z]
+		);
 
 		return cenA[this->axis] < cenB[this->axis];
 	};
@@ -1189,7 +1186,7 @@ vector<cl_uint4> BVH::uniqueFaces( vector<cl_uint4> faces ) {
 	vector<cl_uint4> uniqueFaces;
 
 	for( cl_uint i = 0; i < faces.size(); i++ ) {
-		if( find_if( uniqueFaces.begin(), uniqueFaces.end(), findFace( faces[i] ) ) == uniqueFaces.end() ) {
+		if( find_if( uniqueFaces.begin(), uniqueFaces.end(), findFace( &(faces[i]) ) ) == uniqueFaces.end() ) {
 			uniqueFaces.push_back( faces[i] );
 		}
 	}

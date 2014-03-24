@@ -125,7 +125,7 @@ ray4 getNewRay(
 		const float a = rand( seed );
 		const float b = rand( seed );
 		const float alpha = acos( native_sqrt( native_divide( a, ROUGHNESS - a * ROUGHNESS + a ) ) );
-		const float phi = PI_X2 * native_sqrt( native_divide(
+		const float phi = 2.0f * M_PI * native_sqrt( native_divide(
 			ISOTROPY * ISOTROPY * b * b,
 			1.0f - b * b + b * b * ISOTROPY * ISOTROPY
 		) );
@@ -136,7 +136,7 @@ ray4 getNewRay(
 		                ? NORMAL
 		                : jitter( NORMAL, phi, native_sin( alpha ), native_cos( alpha ) );
 
-		newRay.dir = reflect( DIR, rn );
+		newRay.dir = reflect( DIR, rn ) * ( 1.0f - ROUGHNESS ) + rn * ROUGHNESS;
 
 	#endif
 

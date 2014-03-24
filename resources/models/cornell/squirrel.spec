@@ -1,11 +1,13 @@
 {
 	"materials": {
 		"Walls": "pure_white",
-		"Ceiling": "CIE_D65",
 		"WallLeft": "red",
 		"WallRight": "blue",
-		"Squirrel": "pure_white"
+		"Squirrel": "pure_white",
+		"Squirrel_lowpoly": "pure_white"
 	},
+
+	"sky": "CIE_D65",
 
 	"spectra": {
 		"CIE_D65": {

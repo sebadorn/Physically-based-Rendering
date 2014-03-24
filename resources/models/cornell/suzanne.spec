@@ -3,10 +3,9 @@
 		"Suzanne": "white",
 		"WallLeft": "red",
 		"WallRight": "white",
-		"WallBack": "blue",
+		"WallBack": "white",
 		"WallFront": "white",
 		"Bottom": "white",
-		"Ceiling": "CIE_D65",
 		"Cube_small0": "white",
 		"Cube_med0": "white",
 		"Cube_big0": "white",
@@ -14,6 +13,8 @@
 		"Cube_med1": "white",
 		"Cube_big1": "white"
 	},
+
+	"sky": "CIE_D65",
 
 	"spectra": {
 		"CIE_D65": {
