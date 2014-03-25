@@ -18,7 +18,7 @@ Ks 0.500000 0.500000 0.500000
 Ni 1.000000
 d 1.000000
 illum 2
-light 1
+rough 0.5
 
 newmtl blue
 Ns 0.000000
@@ -28,8 +28,6 @@ Ks 0.500000 0.500000 0.500000
 Ni 1.000000
 d 1.000000
 illum 2
-gloss 0.1
-light 1
 
 newmtl red
 Ns 0.000000

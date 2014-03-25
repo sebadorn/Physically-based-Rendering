@@ -37,7 +37,7 @@ float4 jitter(
 	const float4 u = fast_normalize( cross( nl.yzxw, nl ) );
 	const float4 v = fast_normalize( cross( nl, u ) );
 
-	return ( u * native_cos( phi ) + v * native_sin( phi ) ) * sina + nl * cosa;
+	return fast_normalize( fast_normalize( u * native_cos( phi ) + v * native_sin( phi ) ) * sina + nl * cosa );
 }
 
 
@@ -132,11 +132,18 @@ ray4 getNewRay(
 
 		// We could just use the jitter instead of NORMAL for perfect specular materials,
 		// but this way we get a little better/smoother result for perfect mirrors.
-		const float4 rn = ( ROUGHNESS == 0.0f )
-		                ? NORMAL
-		                : jitter( NORMAL, phi, native_sin( alpha ), native_cos( alpha ) );
+		// const float4 rn = ( ROUGHNESS == 0.0f )
+		//                 ? NORMAL
+		//                 : jitter( NORMAL, phi, native_sin( alpha ), native_cos( alpha ) );
 
-		newRay.dir = reflect( DIR, rn ) * ( 1.0f - ROUGHNESS ) + rn * ROUGHNESS;
+		// newRay.dir = reflect( DIR, rn );
+
+		if( ROUGHNESS < 0.5f ) {
+			newRay.dir = jitter( reflect( DIR, NORMAL ), phi, native_sin( alpha ), native_cos( alpha ) );
+		}
+		else {
+			newRay.dir = jitter( NORMAL, phi, native_sin( alpha ), native_cos( alpha ) );
+		}
 
 	#endif
 

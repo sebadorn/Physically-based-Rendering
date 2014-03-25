@@ -13,26 +13,17 @@
  * @param  {float*}              seed         Seed for the random number generator.
  * @return {ray4}
  */
-ray4 initRay( const int2 pos, const float2 initRayParts, const global float* eyeIn, float* seed ) {
+ray4 initRay( const int2 pos, const float pxDim, const global float* eyeIn, float* seed ) {
 	const float4 eye = { eyeIn[0], eyeIn[1], eyeIn[2], 0.0f };
 	const float4 w = { eyeIn[3], eyeIn[4], eyeIn[5], 0.0f };
 	const float4 u = { eyeIn[6], eyeIn[7], eyeIn[8], 0.0f };
 	const float4 v = { eyeIn[9], eyeIn[10], eyeIn[11], 0.0f };
 
-	#define pxWidth initRayParts.x
-	// #define pxHeight initRayParts.y
-	#define pxHeight initRayParts.x
-
-	const float4 initialRay = w
-			- native_divide( IMG_WIDTH, 2.0f ) * pxWidth * u
-			- native_divide( IMG_HEIGHT, 2.0f ) * pxHeight * v
-			+ native_divide( pxWidth, 2.0f ) * u
-			+ native_divide( pxHeight, 2.0f ) * v
-			+ pos.x * pxWidth * u
-			+ pos.y * pxHeight * v;
-
-	#undef pxWidth
-	#undef pxHeight
+	const float4 initialRay = w + pxDim * 0.5f *
+			(
+				u - IMG_WIDTH * u + 2.0f * pos.x * u +
+				v - IMG_HEIGHT * v + 2.0f * pos.y * v
+			);
 
 	ray4 ray;
 	ray.t = -2.0f;
@@ -108,15 +99,15 @@ void updateSPD(
 	#elif BRDF == 1
 
 		float4 H;
-		float t, v, vIn, vOut, w;
+		float t, vIn, vOut, w;
 
 		const float4 groove = groove3D( mtl.scratch, ray.normal );
-		getValuesBRDF( newRay.dir, -ray.dir, ray.normal, groove, &H, &t, &v, &vIn, &vOut, &w );
+		getValuesBRDF( newRay.dir, -ray.dir, ray.normal, groove, &H, &t, &vIn, &vOut, &w );
 		const float u = fmax( dot( H.xyz, -ray.dir.xyz ), 0.0f );
 		const float brdf = D( t, vOut, vIn, w, mtl.rough, mtl.scratch.w ) * cosLaw;
 
 		#if IMPLICIT == 1
-			getValuesBRDF( lightRay.dir, -ray.dir, ray.normal, (float4)( 0.0f ), &H, &t, &v, &vIn, &vOut, &w );
+			getValuesBRDF( lightRay.dir, -ray.dir, ray.normal, (float4)( 0.0f ), &H, &t, &vIn, &vOut, &w );
 			const float uLight = fmax( dot( H.xyz, -ray.dir.xyz ), 0.0f );
 			const float brdfLight = D( t, vOut, vIn, w, mtl.rough, mtl.scratch.w ) * lambert( ray.normal, lightRay.dir );
 		#endif
@@ -160,7 +151,7 @@ void updateSPD(
  * @param {write_only image2d_t}   imageOut
  */
 kernel void pathTracing(
-	float seed, float pixelWeight, const float2 initRayParts,
+	float seed, float pixelWeight, const float pxDim,
 	global const float* eyeIn, global const face_t* faces, global const bvhNode* bvh,
 	constant const material* materials, constant const float* specPowerDists,
 	read_only image2d_t imageIn, write_only image2d_t imageOut
@@ -177,7 +168,7 @@ kernel void pathTracing(
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
 		setArray( spd, 1.0f );
 		int light = -1;
-		ray4 ray = initRay( pos, initRayParts, eyeIn, &seed );
+		ray4 ray = initRay( pos, pxDim, eyeIn, &seed );
 		float maxValSpd = 0.0f;
 		int depthAdded = 0;
 

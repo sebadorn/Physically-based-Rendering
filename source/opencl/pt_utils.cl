@@ -71,9 +71,9 @@ inline void setArray( float* arr, float val ) {
 
 
 
-// ---- //
-// BRDF //
-// ---- //
+// ------------- //
+// BRDF: Schlick //
+// ------------- //
 
 
 /**
@@ -176,8 +176,12 @@ inline float D(
 	const float d = 4.0f * M_PI * vOut * vIn;
 
 	const float p0 = native_divide( a, M_PI );
-	const float p1 = ( b == 0.0f ) ? 0.0f : native_divide( b, d ) * B2( t, vOut, vIn, w, r, p, d );
-	const float p2 = ( vIn == 0.0f ) ? 0.0f : native_divide( c, vIn );
+	const float p1 = ( b == 0.0f || d == 0.0f )
+	               ? 0.0f
+	               : native_divide( b, d ) * B2( t, vOut, vIn, w, r, p, d );
+	const float p2 = ( vIn == 0.0f )
+	               ? 0.0f
+	               : native_divide( c, vIn );
 
 	return p0 + p1 + p2;
 }
@@ -207,11 +211,10 @@ inline float D(
  */
 inline void getValuesBRDF(
 	const float4 V_in, const float4 V_out, const float4 N, const float4 T,
-	float4* H, float* t, float* v, float* vIn, float* vOut, float* w
+	float4* H, float* t, float* vIn, float* vOut, float* w
 ) {
 	*H = fast_normalize( V_out + V_in );
 	*t = dot( H->xyz, N.xyz );
-	*v = dot( V_out.xyz, N.xyz );
 	*vIn = dot( V_in.xyz, N.xyz );
 	*vOut = dot( V_out.xyz, N.xyz );
 	*w = dot( T.xyz, projection( H->xyz, N.xyz ) );

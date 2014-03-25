@@ -80,19 +80,13 @@ cl_float PathTracer::getTimeSinceStart() {
  */
 void PathTracer::initArgsKernelPathTracing() {
 	cl_float aspect = (cl_float) mWidth / (cl_float) mHeight;
-	cl_float f = 2.0f * tan( aspect / 2.0f );
-	cl_float pxWidth = f / (cl_float) mWidth;
-	cl_float pxHeight = f / (cl_float) mHeight;
-
-	cl_float2 initRayParts;
-	initRayParts.x = pxWidth;
-	initRayParts.y = pxHeight;
-
+	cl_float f = aspect * 2.0f * tan( MathHelp::degToRad( mFOV ) / 2.0f );
+	cl_float pxDim = f / (cl_float) mWidth;
 
 	cl_uint i = 0;
 	i++; // 0: timeSinceStart
 	i++; // 1: pixelWeight
-	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_float2 ), &initRayParts );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_float ), &pxDim );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufEye );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufFaces );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVH );
@@ -410,8 +404,8 @@ void PathTracer::updateEyeBuffer() {
 	glm::vec3 up = mCamera->getUp_glmVec3();
 
 	glm::vec3 w = glm::normalize( c - eye );
-	glm::vec3 u = glm::normalize( glm::cross( w, up ) ) * MathHelp::degToRad( mFOV );
-	glm::vec3 v = glm::normalize( glm::cross( u, w ) ) * MathHelp::degToRad( mFOV );
+	glm::vec3 u = glm::normalize( glm::cross( w, up ) );
+	glm::vec3 v = glm::normalize( glm::cross( u, w ) );
 
 	cl_float eyeBuffer[12] = {
 		eye[0], eye[1], eye[2],
