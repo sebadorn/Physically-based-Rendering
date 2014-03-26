@@ -115,9 +115,9 @@
 
 	"window": {
 		// Has to be a mutliple of localgroupsize
-		"height": 600,
+		"height": 512,
 		// Has to be a mutliple of localgroupsize
-		"width": 800
+		"width": 512
 	}
 
 }

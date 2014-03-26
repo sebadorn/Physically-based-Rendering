@@ -105,6 +105,7 @@ void updateSPD(
 		getValuesBRDF( newRay.dir, -ray.dir, ray.normal, groove, &H, &t, &vIn, &vOut, &w );
 		const float u = fmax( dot( H.xyz, -ray.dir.xyz ), 0.0f );
 		const float brdf = D( t, vOut, vIn, w, mtl.rough, mtl.scratch.w ) * cosLaw;
+		// const float brdf = 1.0f;
 
 		#if IMPLICIT == 1
 			getValuesBRDF( lightRay.dir, -ray.dir, ray.normal, (float4)( 0.0f ), &H, &t, &vIn, &vOut, &w );

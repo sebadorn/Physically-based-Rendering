@@ -124,11 +124,10 @@ ray4 getNewRay(
 
 		const float a = rand( seed );
 		const float b = rand( seed );
+		const float b2 = b * b;
+		const float iso2 = ISOTROPY * ISOTROPY;
 		const float alpha = acos( native_sqrt( native_divide( a, ROUGHNESS - a * ROUGHNESS + a ) ) );
-		const float phi = 2.0f * M_PI * native_sqrt( native_divide(
-			ISOTROPY * ISOTROPY * b * b,
-			1.0f - b * b + b * b * ISOTROPY * ISOTROPY
-		) );
+		const float phi = 2.0f * M_PI * native_sqrt( native_divide( iso2 * b2, 1.0f - b2 + b2 * iso2 ) );
 
 		// We could just use the jitter instead of NORMAL for perfect specular materials,
 		// but this way we get a little better/smoother result for perfect mirrors.
@@ -138,11 +137,22 @@ ray4 getNewRay(
 
 		// newRay.dir = reflect( DIR, rn );
 
-		if( ROUGHNESS < 0.5f ) {
-			newRay.dir = jitter( reflect( DIR, NORMAL ), phi, native_sin( alpha ), native_cos( alpha ) );
-		}
-		else {
-			newRay.dir = jitter( NORMAL, phi, native_sin( alpha ), native_cos( alpha ) );
+		// const float4 specDir = jitter( reflect( DIR, NORMAL ), phi, native_sin( alpha ), native_cos( alpha ) );
+		// const float4 diffDir = jitter( NORMAL, phi, native_sin( alpha ), native_cos( alpha ) );
+		// const float4 specDir = reflect( DIR, NORMAL );
+		// const float4 diffDir = jitter( NORMAL, 2.0f * M_PI * a, native_sqrt( b ), native_sqrt( 1.0f - b ) );
+
+		const float4 h = jitter( NORMAL, phi, native_sin( alpha ), native_cos( alpha ) );
+		newRay.dir = reflect( DIR, h );
+
+		float t = dot( h.xyz, NORMAL.xyz );
+		float vOut = dot( -DIR.xyz, NORMAL.xyz );
+		float vIn = fmax( dot( newRay.dir.xyz, NORMAL.xyz ), 0.0f );
+		const float u = fmax( dot( h.xyz, -DIR.xyz ), 0.0f );
+		const float brdf = D( t, vOut, vIn, 0.0f, ROUGHNESS, ISOTROPY ) * lambert( NORMAL, newRay.dir );
+
+		if( vIn == 0.0f || brdf <= 0.0f ) {
+			// what now?
 		}
 
 	#endif
