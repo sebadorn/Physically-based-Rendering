@@ -105,7 +105,7 @@ vector<material_t> ModelLoader::getMaterials() {
  * Get the association of material names to spectral power distribution.
  * @return {std::map<std::string, std::string>}
  */
-map<string, string> ModelLoader::getMaterialToSPD() {
+map< string, map<string, string> > ModelLoader::getMaterialToSPD() {
 	return mSpecParser->getMaterialToSPD();
 }
 

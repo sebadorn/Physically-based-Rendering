@@ -19,14 +19,21 @@ material_t MtlParser::getEmptyMaterial() {
 	mtl.Ns = 100.0f;
 	mtl.Ni = 1.0f;
 	mtl.d = 1.0f;
-	mtl.rough = 1.0f;
 	mtl.illum = 2;
+	// Additions
 	mtl.light = 0;
+	// BRDF: Schlick
+	mtl.rough = 1.0f;
 	mtl.p = 1.0f;
 	mtl.scratch = zeros;
 	mtl.scratch.x = 1.0f;
 	mtl.scratch.y = 1.0f;
 	mtl.scratch.z = 1.0f;
+	// BRDF: Shirley-Ashikhmin
+	mtl.nu = 0.0f;
+	mtl.nv = 0.0f;
+	mtl.Rs = 0.0f;
+	mtl.Rd = 1.0f;
 
 	return mtl;
 }
@@ -163,14 +170,6 @@ void MtlParser::load( string file ) {
 			}
 			mtl.Ns = atof( parts[1].c_str() );
 		}
-		// Glossiness
-		else if( parts[0] == "rough" ) {
-			if( parts.size() < 2 ) {
-				Logger::logWarning( "[MtlParser] Not enough paramters for <rough>. Ignoring attribute." );
-				continue;
-			}
-			mtl.rough = atof( parts[1].c_str() );
-		}
 		// Light
 		else if( parts[0] == "light" ) {
 			if( parts.size() < 2 ) {
@@ -179,7 +178,15 @@ void MtlParser::load( string file ) {
 			}
 			mtl.light = atoi( parts[1].c_str() );
 		}
-		// Anisotropy/isotropy
+		// Glossiness (BRDF: Schlick)
+		else if( parts[0] == "rough" ) {
+			if( parts.size() < 2 ) {
+				Logger::logWarning( "[MtlParser] Not enough paramters for <rough>. Ignoring attribute." );
+				continue;
+			}
+			mtl.rough = atof( parts[1].c_str() );
+		}
+		// Anisotropy/isotropy (BRDF: Schlick)
 		else if( parts[0] == "p" ) {
 			if( parts.size() < 2 ) {
 				Logger::logWarning( "[MtlParser] Not enough parameters for <p>. Ignoring attribute." );
@@ -187,7 +194,7 @@ void MtlParser::load( string file ) {
 			}
 			mtl.p = atof( parts[1].c_str() );
 		}
-		// Scratch orientation (anisotropy)
+		// Scratch orientation (anisotropy) (BRDF: Schlick)
 		else if( parts[0] == "scr" ) {
 			if( parts.size() < 4 ) {
 				Logger::logWarning( "[MtlParser] Not enough parameters for <scr>. Ignoring attribute." );
@@ -196,6 +203,38 @@ void MtlParser::load( string file ) {
 			mtl.scratch.x = atof( parts[1].c_str() );
 			mtl.scratch.y = atof( parts[2].c_str() );
 			mtl.scratch.z = atof( parts[3].c_str() );
+		}
+		// Specular lobe (BRDF: Shirley-Ashikhmin)
+		else if( parts[0] == "nu" ) {
+			if( parts.size() < 2 ) {
+				Logger::logWarning( "[MtlParser] Not enough parameters for <nu>. Ignoring attribute." );
+				continue;
+			}
+			mtl.nu = atof( parts[1].c_str() );
+		}
+		// Specular lobe (BRDF: Shirley-Ashikhmin)
+		else if( parts[0] == "nv" ) {
+			if( parts.size() < 2 ) {
+				Logger::logWarning( "[MtlParser] Not enough parameters for <nv>. Ignoring attribute." );
+				continue;
+			}
+			mtl.nv = atof( parts[1].c_str() );
+		}
+		// Specular lobe (BRDF: Shirley-Ashikhmin)
+		else if( parts[0] == "Rs" ) {
+			if( parts.size() < 2 ) {
+				Logger::logWarning( "[MtlParser] Not enough parameters for <Rs>. Ignoring attribute." );
+				continue;
+			}
+			mtl.Rs = atof( parts[1].c_str() );
+		}
+		// Specular lobe (BRDF: Shirley-Ashikhmin)
+		else if( parts[0] == "Rd" ) {
+			if( parts.size() < 2 ) {
+				Logger::logWarning( "[MtlParser] Not enough parameters for <Rd>. Ignoring attribute." );
+				continue;
+			}
+			mtl.Rd = atof( parts[1].c_str() );
 		}
 	}
 

@@ -277,8 +277,8 @@ size_t PathTracer::initOpenCLBuffers_Faces(
  */
 size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 	vector<material_t> materials = ml->getMaterials();
-	map<string, string> mtl2spd = ml->getMaterialToSPD();
-	map<string, vector<cl_float> > spectra = ml->getSpectralPowerDistributions();
+	map< string, map<string, string> > mtl2spd = ml->getMaterialToSPD();
+	map< string, vector<cl_float> > spectra = ml->getSpectralPowerDistributions();
 	string sky = ml->getSkySPDName();
 
 
@@ -311,25 +311,61 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 
 	// Materials
 
-	vector<material_cl_t> materialsCL;
+	int brdf = Cfg::get().value<int>( Cfg::RENDER_BRDF );
+	size_t bytesMTL;
+	string spdName;
 
-	for( int i = 0; i < materials.size(); i++ ) {
-		material_cl_t mtl;
-		mtl.d = materials[i].d;
-		mtl.Ni = materials[i].Ni;
-		mtl.rough = materials[i].rough;
-		mtl.light = materials[i].light;
-		mtl.scratch = materials[i].scratch;
-		mtl.scratch.w = materials[i].p;
+	if( brdf == 0 || brdf == 1 ) {
+		vector<material_schlick> materialsCL;
 
-		string spdName = mtl2spd[materials[i].mtlName];
-		mtl.spd = specID[spdName];
+		for( int i = 0; i < materials.size(); i++ ) {
+			material_schlick mtl;
+			mtl.d = materials[i].d;
+			mtl.Ni = materials[i].Ni;
+			mtl.rough = materials[i].rough;
+			mtl.light = materials[i].light;
+			mtl.scratch = materials[i].scratch;
+			mtl.scratch.w = materials[i].p;
 
-		materialsCL.push_back( mtl );
+			spdName = mtl2spd[materials[i].mtlName]["diff"];
+			mtl.spd.x = specID[spdName];
+			spdName = mtl2spd[materials[i].mtlName]["spec"];
+			mtl.spd.y = specID[spdName];
+
+			materialsCL.push_back( mtl );
+		}
+
+		bytesMTL = sizeof( material_schlick ) * materialsCL.size();
+		mBufMaterials = mCL->createBuffer( materialsCL, bytesMTL );
 	}
+	else if( brdf == 2 ) {
+		vector<material_shirley_ashikhmin> materialsCL;
 
-	size_t bytesMTL = sizeof( material_cl_t ) * materialsCL.size();
-	mBufMaterials = mCL->createBuffer( materialsCL, bytesMTL );
+		for( int i = 0; i < materials.size(); i++ ) {
+			material_shirley_ashikhmin mtl;
+			mtl.d = materials[i].d;
+			mtl.Ni = materials[i].Ni;
+			mtl.light = materials[i].light;
+			mtl.nu = materials[i].nu;
+			mtl.nv = materials[i].nv;
+			mtl.Rs = materials[i].Rs;
+			mtl.Rd = materials[i].Rd;
+
+			spdName = mtl2spd[materials[i].mtlName]["diff"];
+			mtl.spd.x = specID[spdName];
+			spdName = mtl2spd[materials[i].mtlName]["spec"];
+			mtl.spd.y = specID[spdName];
+
+			materialsCL.push_back( mtl );
+		}
+
+		bytesMTL = sizeof( material_shirley_ashikhmin ) * materialsCL.size();
+		mBufMaterials = mCL->createBuffer( materialsCL, bytesMTL );
+	}
+	else {
+		Logger::logError( "[PathTracer] Unknown BRDF selected." );
+		exit( EXIT_FAILURE );
+	}
 
 	return bytesSPD + bytesMTL;
 }

@@ -1,15 +1,15 @@
 {
 	"materials": {
-		"Ground": "blue",
-		"Cube00": "white",
-		"Cube01": "white",
-		"Cube02": "white",
-		"Cube10": "white",
-		"Cube11": "white",
-		"Cube12": "white",
-		"Cube20": "white",
-		"Cube21": "white",
-		"Cube22": "white"
+		"Ground":{ "diff": "CIE_D65", "spec": "white" },
+		"Cube00": { "diff": "white", "spec": "white" },
+		"Cube01": { "diff": "white", "spec": "white" },
+		"Cube02": { "diff": "white", "spec": "white" },
+		"Cube10": { "diff": "white", "spec": "white" },
+		"Cube11": { "diff": "white", "spec": "white" },
+		"Cube12": { "diff": "white", "spec": "white" },
+		"Cube20": { "diff": "white", "spec": "white" },
+		"Cube21": { "diff": "white", "spec": "white" },
+		"Cube22": { "diff": "white", "spec": "white" }
 	},
 
 	"sky": "CIE_D65",

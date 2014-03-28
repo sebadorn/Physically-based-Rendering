@@ -77,59 +77,85 @@ void setColors(
  * @param maxValSpd
  */
 void updateSPD(
-	const ray4 ray, const ray4 newRay, const material mtl,
-	const ray4 lightRay, const material lightMTL,
+	const ray4* ray, const ray4* newRay, const material* mtl,
+	const ray4* lightRay, const material* lightMTL,
 	constant const float* specPowerDists, float* spd, float* spdTotal, float* maxValSpd
 ) {
-	const uint index = mtl.spd * SPEC;
-	const float cosLaw = lambert( ray.normal, newRay.dir );
+	#define COLOR_DIFF specPowerDists[index0 + i]
+	#define COLOR_SPEC specPowerDists[index1 + i]
 
-	// BRDF: none
+	const uint index0 = mtl->spd.x * SPEC;
+	const uint index1 = mtl->spd.y * SPEC;
+
+	// BRDF: Self-made something to account for some basic effects
 	#if BRDF == 0
 
 		const float u = 1.0f;
-		const float brdf = cosLaw * mtl.rough + ( 1.0f - mtl.rough );
+		float brdf = lambert( ray->normal, newRay->dir ) * mtl->rough + ( 1.0f - mtl->rough );
+		brdf = brdf * mtl->d + ( 1.0f - mtl->d );
 
-		#if IMPLICIT == 1
-			const float uLight = 1.0f;
-			const float brdfLight = lambert( ray.normal, lightRay.dir );
-		#endif
+		// #if IMPLICIT == 1
+		// 	const float uLight = 1.0f;
+		// 	const float brdfLight = lambert( ray->normal, lightRay->dir );
+		// #endif
+
+		for( int i = 0; i < SPEC; i++ ) {
+			spd[i] *= clamp( fresnel( u, COLOR_DIFF ) * brdf, 0.0f, 1.0f );
+			*maxValSpd = fmax( spd[i], *maxValSpd );
+		}
 
 	// BRDF: Schlick
 	#elif BRDF == 1
 
-		float4 H;
-		float t, vIn, vOut, w;
+		float u;
+		float brdf = brdfSchlick( mtl, ray, newRay, &( ray->normal ), &u );
+		brdf = lambert( ray->normal, newRay->dir ) * brdf * mtl->d + ( 1.0f - mtl->d );
 
-		const float4 groove = groove3D( mtl.scratch, ray.normal );
-		getValuesBRDF( newRay.dir, -ray.dir, ray.normal, groove, &H, &t, &vIn, &vOut, &w );
-		const float u = fmax( dot( H.xyz, -ray.dir.xyz ), 0.0f );
-		const float brdf = D( t, vOut, vIn, w, mtl.rough, mtl.scratch.w ) * cosLaw;
-		// const float brdf = 1.0f;
+		// #if IMPLICIT == 1
+		// 	float uLight;
+		// 	const float brdfLight = brdfSchlick( mtl, ray, lightRay, &( ray->normal ), &uLight ) * lambert( ray->normal, lightRay->dir );
+		// #endif
 
-		#if IMPLICIT == 1
-			getValuesBRDF( lightRay.dir, -ray.dir, ray.normal, (float4)( 0.0f ), &H, &t, &vIn, &vOut, &w );
-			const float uLight = fmax( dot( H.xyz, -ray.dir.xyz ), 0.0f );
-			const float brdfLight = D( t, vOut, vIn, w, mtl.rough, mtl.scratch.w ) * lambert( ray.normal, lightRay.dir );
-		#endif
-
-	#endif
-
-	#if IMPLICIT == 1
-		if( lightRay.t > -1.0f && lightMTL.light == 1 ) {
-			int indexLight = lightMTL.spd * SPEC;
-
-			for( int i = 0; i < SPEC; i++ ) {
-				spdTotal[i] += spd[i] * specPowerDists[indexLight + i] *
-				               fresnel( uLight, specPowerDists[index + i] ) * brdfLight;
-			}
+		for( int i = 0; i < SPEC; i++ ) {
+			spd[i] *= clamp( fresnel( u, COLOR_DIFF ) * brdf, 0.0f, 1.0f );
+			*maxValSpd = fmax( spd[i], *maxValSpd );
 		}
+
+	// BRDF: Shirley/Ashikhmin
+	#elif BRDF == 2
+
+		float brdfSpec;
+		float brdfDiff;
+		float dotHK1;
+		brdfShirleyAshikhmin(
+			mtl->nu, mtl->nv, mtl->Rs, mtl->Rd,
+			ray, newRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1
+		);
+
+		// #if IMPLICIT == 1
+		// 	// TODO
+		// 	const float brdfLight = brdfShirleyAshikhmin( nu, nv, Rs, Rd, &ray, &lightRay, &( ray.normal ) );
+		// #endif
+
+		for( int i = 0; i < SPEC; i++ ) {
+			spd[i] *= clamp( brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC ) + COLOR_DIFF * ( 1.0f - mtl->Rs * COLOR_SPEC ) * brdfDiff, 0.0f, 1.0f );
+			*maxValSpd = fmax( spd[i], *maxValSpd );
+		}
+
 	#endif
 
-	for( int i = 0; i < SPEC; i++ ) {
-		spd[i] *= fresnel( u, specPowerDists[index + i] ) * brdf;
-		*maxValSpd = fmax( spd[i], *maxValSpd );
-	}
+	// #if IMPLICIT == 1
+	// 	if( lightRay.t > -1.0f && lightMTL.light == 1 ) {
+	// 		int indexLight = lightMTL->spd * SPEC;
+
+	// 		for( int i = 0; i < SPEC; i++ ) {
+	// 			spdTotal[i] += spd[i] * specPowerDists[indexLight + i] *
+	// 			               fresnel( uLight, specPowerDists[index + i] ) * brdfLight; // TODO
+	// 		}
+	// 	}
+	// #endif
+
+	#undef COLOR
 }
 
 
@@ -163,7 +189,7 @@ kernel void pathTracing(
 	setArray( spdTotal, 0.0f );
 
 	float focus;
-	bool addDepth, ignoreColor;
+	bool addDepth;
 
 
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
@@ -188,13 +214,15 @@ kernel void pathTracing(
 
 			// Implicit connection to a light found
 			if( mtl.light == 1 ) {
-				light = mtl.spd * SPEC;
+				light = mtl.spd.x * SPEC;
 				break;
 			}
 
 			// Last round, no need to calculate a new ray.
 			// Unless we hit a material that extends the path.
-			if( mtl.d == 1.0f && mtl.rough >= 0.4f && depth == MAX_DEPTH + depthAdded - 1 ) {
+			addDepth = extendDepth( &mtl, &seed );
+
+			if( mtl.d == 1.0f && !addDepth && depth == MAX_DEPTH + depthAdded - 1 ) {
 				break;
 			}
 
@@ -220,11 +248,9 @@ kernel void pathTracing(
 			#endif
 
 			// New direction of the ray (bouncing of the hit surface)
-			ray4 newRay = getNewRay( ray, &mtl, &seed, &ignoreColor, &addDepth );
+			ray4 newRay = getNewRay( ray, &mtl, &seed, &addDepth );
 
-			if( !ignoreColor ) {
-				updateSPD( ray, newRay, mtl, lightRay, lightMTL, specPowerDists, spd, spdTotal, &maxValSpd );
-			}
+			updateSPD( &ray, &newRay, &mtl, &lightRay, &lightMTL, specPowerDists, spd, spdTotal, &maxValSpd );
 
 			// Extend max path depth
 			depthAdded += ( addDepth && depthAdded < MAX_ADDED_DEPTH );

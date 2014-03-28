@@ -30,7 +30,7 @@ class ModelLoader {
 		vector<cl_uint> getFacesVN();
 		vector<cl_uint> getFacesVT();
 		vector<material_t> getMaterials();
-		map<string, string> getMaterialToSPD();
+		map< string, map<string, string> > getMaterialToSPD();
 		vector<cl_float> getNormals();
 		vector<object3D> getObjects();
 		string getSkySPDName();

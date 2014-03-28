@@ -1,15 +1,15 @@
 {
 	"materials": {
-		"Sphere0": "white",
-		"Sphere1": "white",
-		"Sphere2": "white",
-		"Wall": "white",
-		"LeftWall": "blue",
-		"RightWall": "green",
-		"Bottom": "white"
+		"Sphere0": { "diff": "green", "spec": "green" },
+		"Sphere1": { "diff": "green", "spec": "green" },
+		"Sphere2": { "diff": "white", "spec": "white" },
+		"Wall": { "diff": "white", "spec": "white" },
+		"LeftWall": { "diff": "white", "spec": "white" },
+		"RightWall": { "diff": "white", "spec": "white" },
+		"Bottom": { "diff": "blue", "spec": "white" }
 	},
 
-	"sky": "dark",
+	"sky": "CIE_D65",
 
 	"spectra": {
 		"CIE_D65": {

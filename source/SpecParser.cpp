@@ -7,9 +7,9 @@ using std::vector;
 
 /**
  * Get the associations of material names to spectrum.
- * @return {std::map<std::string, std::string>}
+ * @return {std::map<std::string, std::map<std::string, std::string>>}
  */
-map<string, string> SpecParser::getMaterialToSPD() {
+map<string, map<string, string> > SpecParser::getMaterialToSPD() {
 	return mMaterialToSPD;
 }
 
@@ -62,7 +62,10 @@ void SpecParser::loadMaterialToSPD( boost::property_tree::ptree propTree ) {
 	boost::property_tree::ptree mtlTree = propTree.get_child( "materials" );
 
 	for( it = mtlTree.begin(); it != mtlTree.end(); ++it ) {
-		mMaterialToSPD[it->first] = it->second.data();
+		map<string, string> spds;
+		spds["diff"] = it->second.get<string>( "diff" );
+		spds["spec"] = it->second.get<string>( "spec" );
+		mMaterialToSPD[it->first] = spds;
 	}
 }
 

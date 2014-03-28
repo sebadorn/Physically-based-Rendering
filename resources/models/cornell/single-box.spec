@@ -1,9 +1,9 @@
 {
 	"materials": {
-		"Material": "white",
-		"box": "white",
-		"blue": "blue",
-		"red": "red"
+		"Material": { "diff": "white", "spec": "white" },
+		"box": { "diff": "white", "spec": "white" },
+		"blue": { "diff": "blue", "spec": "white" },
+		"red": { "diff": "red", "spec": "white" }
 	},
 
 	"sky": "CIE_D65",

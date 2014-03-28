@@ -81,9 +81,10 @@
 		// Disable: Set to "0.0"
 		"antialiasing": 0.001,
 		// BRDF.
-		// 0: none (specular, diffuse, glossy)
+		// 0: none (specular, diffuse, glossy, refraction)
 		// 1: Schlick (+anisotropic, but overall a much too dark image)
-		"brdf": 1,
+		// 2: Shirley-Ashikhmin
+		"brdf": 2,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 100.0,
 		// Shoot shadow rays to generate implicit paths.
@@ -115,9 +116,9 @@
 
 	"window": {
 		// Has to be a mutliple of localgroupsize
-		"height": 512,
+		"height": 600,
 		// Has to be a mutliple of localgroupsize
-		"width": 512
+		"width": 800
 	}
 
 }

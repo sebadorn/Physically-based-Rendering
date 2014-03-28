@@ -1,10 +1,10 @@
 {
 	"materials": {
-		"Walls": "pure_white",
-		"WallLeft": "red",
-		"WallRight": "blue",
-		"Squirrel": "pure_white",
-		"Squirrel_lowpoly": "pure_white"
+		"Walls": { "diff": "white", "spec": "white" },
+		"WallLeft": { "diff": "red", "spec": "white" },
+		"WallRight": { "diff": "blue", "spec": "white" },
+		"Squirrel": { "diff": "white", "spec": "white" },
+		"Squirrel_lowpoly": { "diff": "white", "spec": "white" }
 	},
 
 	"sky": "CIE_D65",
@@ -52,7 +52,7 @@
 			"760": 0.480526601704, "765": 0.567050894646,
 			"770": 0.552525209656, "775": 0.537999524666
 		},
-		"pure_white": {
+		"white": {
 			"380": 1.0, "385": 1.0, "390": 1.0, "395": 1.0,
 			"400": 1.0, "405": 1.0, "410": 1.0, "415": 1.0,
 			"420": 1.0, "425": 1.0, "430": 1.0, "435": 1.0,

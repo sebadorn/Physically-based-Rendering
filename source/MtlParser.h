@@ -15,7 +15,7 @@ using std::vector;
 
 
 /**
- * Material:
+ * # Material:
  * d     - Transparency (dissolve), sometimes the identifier is "Tr".
  * illum - Illumination model.
  * Ka    - Ambient color (rgb).
@@ -27,25 +27,40 @@ using std::vector;
  * Ns    - Specular exponent between [0.0, 1000.0].
  *         A value of 0.0 will be interpreted as disabled specular highlights. (Implementation dependent.)
  *
- * Custom additions:
+ * # Custom additions:
  * light   - Is this a light [0, 1].
+ *
+ * # BRDF: Schlick
  * p       - Isotropy/anisotropy factor [0.0, 1.0] with 1.0 having perfect isotropy.
  * rough   - Roughness factor [0.0, 1.0]. 0 – perfectly specular; 1 - perfectly diffuse.
  * scratch - Direction of scratches on the surface for anisotropy/isotropy [unit vector].
+ *
+ * # BRDF: Shirley-Ashikhmin
+ * nu - Phong-like exponent to control the shape of the specular lobe.
+ * nv - Phong-like exponent to control the shape of the specular lobe.
+ * Rs - Specular color reflectance.
+ * Rd - Diffuse color reflectance.
  */
 struct material_t {
 	string mtlName;
 	cl_float4 Ka;
 	cl_float4 Kd;
 	cl_float4 Ks;
-	cl_float4 scratch;
 	cl_float d;
 	cl_float Ni;
 	cl_float Ns;
+	cl_char illum;
+	// Light source yes/no
+	cl_char light;
+	// BRDF: Schlick
+	cl_float4 scratch;
 	cl_float rough;
 	cl_float p;
-	cl_char illum;
-	cl_char light;
+	// BRDF: Shirley-Ashikhmin
+	cl_float nu;
+	cl_float nv;
+	cl_float Rs;
+	cl_float Rd;
 };
 
 

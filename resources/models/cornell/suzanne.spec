@@ -1,17 +1,17 @@
 {
 	"materials": {
-		"Suzanne": "white",
-		"WallLeft": "red",
-		"WallRight": "white",
-		"WallBack": "white",
-		"WallFront": "white",
-		"Bottom": "white",
-		"Cube_small0": "white",
-		"Cube_med0": "white",
-		"Cube_big0": "white",
-		"Cube_small1": "white",
-		"Cube_med1": "white",
-		"Cube_big1": "white"
+		"Suzanne": { "diff": "white", "spec": "white" },
+		"WallLeft": { "diff": "red", "spec": "white" },
+		"WallRight": { "diff": "white", "spec": "white" },
+		"WallBack": { "diff": "white", "spec": "white" },
+		"WallFront": { "diff": "white", "spec": "white" },
+		"Bottom": { "diff": "white", "spec": "white" },
+		"Cube_small0": { "diff": "white", "spec": "white" },
+		"Cube_med0": { "diff": "white", "spec": "white" },
+		"Cube_big0": { "diff": "white", "spec": "white" },
+		"Cube_small1": { "diff": "white", "spec": "white" },
+		"Cube_med1": { "diff": "white", "spec": "white" },
+		"Cube_big1": { "diff": "white", "spec": "white" }
 	},
 
 	"sky": "CIE_D65",

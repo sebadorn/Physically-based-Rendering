@@ -18,9 +18,9 @@ using std::vector;
 class SpecParser {
 
 	public:
-		map<string, string> getMaterialToSPD();
+		map< string, map<string, string> > getMaterialToSPD();
 		string getSkySPDName();
-		map<string, vector<cl_float> > getSpectralPowerDistributions();
+		map< string, vector<cl_float> > getSpectralPowerDistributions();
 		void load( string filepath, string filename );
 
 	protected:
@@ -28,8 +28,8 @@ class SpecParser {
 		void loadSpectralPowerDistributions( boost::property_tree::ptree propTree );
 
 	private:
-		map<string, string> mMaterialToSPD;
-		map<string, vector<cl_float> > mSPDs;
+		map< string, map<string, string> > mMaterialToSPD;
+		map< string, vector<cl_float> > mSPDs;
 		string mSky;
 
 };

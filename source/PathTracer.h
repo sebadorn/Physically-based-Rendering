@@ -37,12 +37,23 @@ struct bvhNode_cl {
 	cl_int4 faces;
 };
 
-struct material_cl_t {
+struct material_schlick {
 	cl_float4 scratch; // scratch.w = p (isotropy factor)
 	cl_float d;
 	cl_float Ni;
 	cl_float rough;
-	cl_ushort spd;
+	cl_ushort2 spd;
+	cl_char light;
+};
+
+struct material_shirley_ashikhmin {
+	cl_float nu;
+	cl_float nv;
+	cl_float Rs;
+	cl_float Rd;
+	cl_float d;
+	cl_float Ni;
+	cl_ushort2 spd;
 	cl_char light;
 };
 
