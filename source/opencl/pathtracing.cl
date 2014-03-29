@@ -1,6 +1,7 @@
 #FILE:pt_header.cl:FILE#
 #FILE:pt_utils.cl:FILE#
 #FILE:pt_spectral.cl:FILE#
+#FILE:pt_brdf.cl:FILE#
 #FILE:pt_traversal.cl:FILE#
 
 
@@ -81,8 +82,8 @@ void updateSPD(
 	const ray4* lightRay, const material* lightMTL,
 	constant const float* specPowerDists, float* spd, float* spdTotal, float* maxValSpd
 ) {
-	#define COLOR_DIFF specPowerDists[index0 + i]
-	#define COLOR_SPEC specPowerDists[index1 + i]
+	#define COLOR_DIFF ( specPowerDists[index0 + i] )
+	#define COLOR_SPEC ( specPowerDists[index1 + i] )
 
 	const uint index0 = mtl->spd.x * SPEC;
 	const uint index1 = mtl->spd.y * SPEC;
@@ -90,14 +91,14 @@ void updateSPD(
 	// BRDF: Self-made something to account for some basic effects
 	#if BRDF == 0
 
-		const float u = 1.0f;
-		float brdf = lambert( ray->normal, newRay->dir ) * mtl->rough + ( 1.0f - mtl->rough );
-		brdf = brdf * mtl->d + ( 1.0f - mtl->d );
-
 		// #if IMPLICIT == 1
 		// 	const float uLight = 1.0f;
 		// 	const float brdfLight = lambert( ray->normal, lightRay->dir );
 		// #endif
+
+		const float u = 1.0f;
+		float brdf = lambert( ray->normal, newRay->dir ) * mtl->rough + ( 1.0f - mtl->rough );
+		brdf = brdf * mtl->d + ( 1.0f - mtl->d );
 
 		for( int i = 0; i < SPEC; i++ ) {
 			spd[i] *= clamp( fresnel( u, COLOR_DIFF ) * brdf, 0.0f, 1.0f );
@@ -107,38 +108,42 @@ void updateSPD(
 	// BRDF: Schlick
 	#elif BRDF == 1
 
-		float u;
-		float brdf = brdfSchlick( mtl, ray, newRay, &( ray->normal ), &u );
-		brdf = lambert( ray->normal, newRay->dir ) * brdf * mtl->d + ( 1.0f - mtl->d );
-
 		// #if IMPLICIT == 1
 		// 	float uLight;
 		// 	const float brdfLight = brdfSchlick( mtl, ray, lightRay, &( ray->normal ), &uLight ) * lambert( ray->normal, lightRay->dir );
 		// #endif
 
+		float u;
+		float brdf = brdfSchlick( mtl, ray, newRay, &( ray->normal ), &u );
+		brdf = lambert( ray->normal, newRay->dir ) * brdf * mtl->d + ( 1.0f - mtl->d );
+
 		for( int i = 0; i < SPEC; i++ ) {
-			spd[i] *= clamp( fresnel( u, COLOR_DIFF ) * brdf, 0.0f, 1.0f );
+			spd[i] *= COLOR_DIFF * clamp( fresnel( u, COLOR_SPEC ) * brdf, 0.0f, 1.0f );
 			*maxValSpd = fmax( spd[i], *maxValSpd );
 		}
 
 	// BRDF: Shirley/Ashikhmin
 	#elif BRDF == 2
 
-		float brdfSpec;
-		float brdfDiff;
-		float dotHK1;
-		brdfShirleyAshikhmin(
-			mtl->nu, mtl->nv, mtl->Rs, mtl->Rd,
-			ray, newRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1
-		);
-
 		// #if IMPLICIT == 1
 		// 	// TODO
 		// 	const float brdfLight = brdfShirleyAshikhmin( nu, nv, Rs, Rd, &ray, &lightRay, &( ray.normal ) );
 		// #endif
 
+		float brdfSpec;
+		float brdfDiff;
+		float dotHK1;
+		float brdf;
+		brdfShirleyAshikhmin(
+			mtl->nu, mtl->nv, mtl->Rs, mtl->Rd,
+			ray, newRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1
+		);
+
 		for( int i = 0; i < SPEC; i++ ) {
-			spd[i] *= clamp( brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC ) + COLOR_DIFF * ( 1.0f - mtl->Rs * COLOR_SPEC ) * brdfDiff, 0.0f, 1.0f );
+			brdf = brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC );
+			brdf += brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs * COLOR_SPEC );
+
+			spd[i] *= clamp( brdf, 0.0f, 1.0f ) * mtl->d + ( 1.0f - mtl->d );
 			*maxValSpd = fmax( spd[i], *maxValSpd );
 		}
 
@@ -200,7 +205,7 @@ kernel void pathTracing(
 		int depthAdded = 0;
 
 		for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
-			traverseBVH( bvh, &ray, faces );
+			traverseBVH( bvh, &ray, faces, materials );
 
 			if( ray.t < 0.0f ) {
 				light = SKY_LIGHT * SPEC;
@@ -238,7 +243,7 @@ kernel void pathTracing(
 					const float rnd2 = rand( &seed );
 					lightRay.dir = jitter( ray.normal, PI_X2 * rand( &seed ), native_sqrt( rnd2 ), native_sqrt( 1.0f - rnd2 ) );
 
-					traverseBVH( bvh, &lightRay, faces );
+					traverseBVH( bvh, &lightRay, faces, materials );
 
 					if( lightRay.t > -1.0f ) {
 						lightMTL = materials[(uint) faces[(uint) lightRay.normal.w].a.w];
@@ -248,7 +253,7 @@ kernel void pathTracing(
 			#endif
 
 			// New direction of the ray (bouncing of the hit surface)
-			ray4 newRay = getNewRay( ray, &mtl, &seed, &addDepth );
+			ray4 newRay = getNewRay( &ray, &mtl, &seed, &addDepth );
 
 			updateSPD( &ray, &newRay, &mtl, &lightRay, &lightMTL, specPowerDists, spd, spdTotal, &maxValSpd );
 

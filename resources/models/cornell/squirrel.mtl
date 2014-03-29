@@ -5,15 +5,15 @@ newmtl Squirrel
 Ni 2.0
 d 1.0
 rough 0.0
-nu 100000.0
-nv 100000.0
+nu 1000.0
+nv 10.0
 Rs 1.0
 Rd 0.0
 
 newmtl Squirrel_lowpoly
-Ni 1.0
-d 1.0
-rough 0.5
+Ni 1.5
+d 0.0
+rough 0.125
 nu 100.0
 nv 100.0
 Rs 1.0

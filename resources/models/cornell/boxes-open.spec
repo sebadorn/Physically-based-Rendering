@@ -1,7 +1,7 @@
 {
 	"materials": {
 		"Material": { "diff": "white", "spec": "white" },
-		"Wall_ceiling": { "diff": "white", "spec": "white" },
+		"Wall_ceiling": { "diff": "CIE_D65", "spec": "white" },
 		"box_small": { "diff": "red", "spec": "white" },
 		"box_tall": { "diff": "white", "spec": "white" },
 		"blue": { "diff": "white", "spec": "white" },

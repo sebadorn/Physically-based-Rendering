@@ -19,15 +19,15 @@ d 1.0
 rough 0.0
 nu 10000.0
 nv 10000.0
-Rs 0.9
+Rs 1.0
 Rd 0.0
 
 newmtl Sphere1
 Ni 1.5
 d 0.0
 rough 0.0
-Rs 1.0
-Rd 0.0
+Rs 0.0
+Rd 1.0
 
 newmtl Sphere2
 Ni 1.5

@@ -116,7 +116,6 @@ string CL::combineParts( string filepath ) {
 
 	while( foundStart != string::npos && foundEnd != string::npos ) {
 		filename = clProgramString.substr( foundStart + 6, foundEnd - foundStart - 6 );
-		Logger::logDebugVerbose( "[OpenCL] Merge main file with " + filepath + filename );
 		value = utils::loadFileAsString( ( filepath + filename ).c_str() );
 		clProgramString.replace( foundStart, foundEnd - foundStart + 6, value );
 

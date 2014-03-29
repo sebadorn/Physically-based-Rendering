@@ -1,36 +1,10 @@
 /**
- *
- * @param  {float*} seed
- * @return {float}
+ * MACRO: Get half-vector.
+ * @param  {const float3} v
+ * @param  {const float3} w
+ * @return {float3}         Half-vector of v and w.
  */
-inline const float rand( float* seed ) {
-	float i;
-	*seed += 1.0f;
-
-	return fract( native_sin( *seed ) * 43758.5453123f, &i );
-}
-
-
-// #define RAND_A 16807.0f
-// #define RAND_M 2147483647.0f
-// #define RAND_MRECIP 4.656612875245797e-10
-
-// // Park-Miller RNG
-// inline const float rand( int* seed ) {
-// 	const float temp = (*seed) * RAND_A;
-// 	*seed = (int)( temp - RAND_M * floor( temp * RAND_MRECIP ) );
-
-// 	return (*seed) * RAND_MRECIP;
-// }
-
-
-/**
- * MACRO: Apply Lambert's cosine law for light sources.
- * @param  {float4} n Normal of the surface the light hits.
- * @param  {float4} l Normalized direction to the light source.
- * @return {float}
- */
-#define lambert( n, l ) ( fmax( dot( ( n ).xyz, ( l ).xyz ), 0.0f ) )
+#define bisect( v, w ) ( fast_normalize( ( v ) + ( w ) ) )
 
 
 /**
@@ -58,6 +32,12 @@ inline float4 getTriangleNormal( const face_t face, const float3 tuv ) {
 }
 
 
+/**
+ *
+ * @param  {float4}       scr
+ * @param  {const float4} n
+ * @return {float4}
+ */
 float4 groove3D( float4 scr, const float4 n ) {
 	scr = (float4)( scr.x, 0.0f, scr.y, 0.0f );
 	const float4 n2D = { 0.0f, 0.0f, 1.0f, 0.0f };
@@ -83,132 +63,36 @@ float4 groove3D( float4 scr, const float4 n ) {
 
 
 /**
- * Initialize a float array with a default value.
- * @param {float*} arr  The array to initialize.
- * @param {float}  val  The default value to set.
+ * New direction for (perfectly) diffuse surfaces.
+ * (Well, depening on the given parameters.)
+ * @param  nl   Normal (unit vector).
+ * @param  phi
+ * @param  sina
+ * @param  cosa
+ * @return
  */
-inline void setArray( float* arr, float val ) {
-	for( int i = 0; i < SPEC; i++ ) {
-		arr[i] = val;
-	}
-}
-
-
-
-// ------------- //
-// BRDF: Schlick //
-// ------------- //
-
-
-/**
- * Zenith angle.
- * @param  {const float} t
- * @param  {const float} r Roughness factor (0: perfect specular, 1: perfect diffuse).
- * @return {float}
- */
-inline float Z( const float t, const float r ) {
-	const float x = 1.0f + r * t * t - t * t;
-	return native_divide( r, x * x );
-}
-
-
-/**
- * Azimuth angle.
- * @param  {const float} w
- * @param  {const float} p Isotropy factor (0: perfect anisotropic, 1: perfect isotropic).
- * @return {float}
- */
-inline float A( const float w, const float p ) {
-	const float p2 = p * p;
-	const float w2 = w * w;
-	return native_sqrt( native_divide( p, p2 - p2 * w2 + w2 ) );
-}
-
-
-/**
- * Smith factor.
- * @param  {const float} v
- * @param  {const float} r Roughness factor (0: perfect specular, 1: perfect diffuse)
- * @return {float}
- */
-inline float G( const float v, const float r ) {
-	return native_divide( v, r - r * v + v );
-}
-
-
-/**
- * Directional factor.
- * @param  {const float} t
- * @param  {const float} v
- * @param  {const float} vIn
- * @param  {const float} w
- * @param  {const float} r
- * @param  {const float} p
- * @return {float}
- */
-inline float B1(
-	const float t, const float vOut, const float vIn, const float w,
-	const float r, const float p, const float d
+float4 jitter(
+	const float4 nl, const float phi, const float sina, const float cosa
 ) {
-	const float drecip = native_recip( d );
+	const float4 u = fast_normalize( cross( nl.yzxw, nl ) );
+	const float4 v = fast_normalize( cross( nl, u ) );
 
-	return Z( t, r ) * A( w, p ) * drecip;
+	return fast_normalize(
+		fast_normalize(
+			u * native_cos( phi ) +
+			v * native_sin( phi )
+		) * sina + nl * cosa
+	);
 }
 
 
 /**
- * Directional factor.
- * @param  {const float} t
- * @param  {const float} v
- * @param  {const float} vIn
- * @param  {const float} w
- * @param  {const float} r
- * @param  {const float} p
+ * MACRO: Apply Lambert's cosine law for light sources.
+ * @param  {float4} n Normal of the surface the light hits.
+ * @param  {float4} l Normalized direction to the light source.
  * @return {float}
  */
-inline float B2(
-	const float t, const float vOut, const float vIn, const float w,
-	const float r, const float p, const float d
-) {
-	const float drecip = native_recip( d );
-	const float gp = G( vOut, r ) * G( vIn, r );
-	const float part1 = gp * Z( t, r ) * A( w, p );
-	const float part2 = ( 1.0f - gp );
-
-	return ( part1 + part2 ) * drecip;
-}
-
-
-/**
- * Directional factor.
- * @param  {const float} t
- * @param  {const float} v
- * @param  {const float} vIn
- * @param  {const float} w
- * @param  {const float} r
- * @param  {const float} p
- * @return {float}
- */
-inline float D(
-	const float t, const float vOut, const float vIn, const float w,
-	const float r, const float p
-) {
-	const float b = 4.0f * r * ( 1.0f - r );
-	const float a = ( r < 0.5f ) ? 0.0f : 1.0f - b;
-	const float c = ( r < 0.5f ) ? 1.0f - b : 0.0f;
-
-	const float d = 4.0f * M_PI * vOut * vIn;
-
-	const float p0 = native_divide( a, M_PI );
-	const float p1 = ( b == 0.0f || d == 0.0f )
-	               ? 0.0f
-	               : native_divide( b, d ) * B2( t, vOut, vIn, w, r, p, d );
-	const float p2 = ( vIn == 0.0f )
-	               ? 0.0f
-	               : native_divide( c, vIn );
-
-	return p0 + p1 + p2;
-}
+#define lambert( n, l ) ( fmax( dot( ( n ).xyz, ( l ).xyz ), 0.0f ) )
 
 
 /**
@@ -220,93 +104,109 @@ inline float D(
 #define projection( h, n ) ( dot( ( h ).xyz, ( n ).xyz ) * ( n ) )
 
 
-#define bisect( v, w ) ( fast_normalize( ( v ) + ( w ) ) )
-
-
 /**
- * Calculate the values needed for the BRDF.
- * @param {const float4} V_in
- * @param {const float4} V_out
- * @param {const float4} N
- * @param {const float4} T
- * @param {float4*}      H
- * @param {float*}       t
- * @param {float*}       v
- * @param {float*}       vIn
- * @param {float*}       vOut
- * @param {float*}       w
+ *
+ * @param  {float*} seed
+ * @return {float}
  */
-inline void getValuesBRDF(
-	const float4 V_in, const float4 V_out, const float4 N, const float4 T,
-	float4* H, float* t, float* vIn, float* vOut, float* w
-) {
-	*H = bisect( V_out, V_in );
-	*t = dot( H->xyz, N.xyz );
-	*vIn = dot( V_in.xyz, N.xyz );
-	*vOut = dot( V_out.xyz, N.xyz );
-	*w = dot( T.xyz, projection( H->xyz, N.xyz ) );
+inline const float rand( float* seed ) {
+	float i;
+	*seed += 1.0f;
+
+	return fract( native_sin( *seed ) * 43758.5453123f, &i );
 }
 
 
-#if BRDF == 1
+// #define RAND_A 16807.0f
+// #define RAND_M 2147483647.0f
+// #define RAND_MRECIP 4.656612875245797e-10
 
-	float brdfSchlick(
-		const material* mtl, const ray4* rayLightOut, const ray4* rayLightIn,
-		const float4* normal, float* u
-	) {
-		#define ISOTROPY mtl->scratch.w
+// // Park-Miller RNG
+// inline const float rand( int* seed ) {
+// 	const float temp = (*seed) * RAND_A;
+// 	*seed = (int)( temp - RAND_M * floor( temp * RAND_MRECIP ) );
 
-		float4 H;
-		float t, vIn, vOut, w;
+// 	return (*seed) * RAND_MRECIP;
+// }
 
-		const float4 groove = groove3D( mtl->scratch, *normal );
-		getValuesBRDF( rayLightIn->dir, -rayLightOut->dir, *normal, groove, &H, &t, &vIn, &vOut, &w );
 
-		*u = fmax( dot( H.xyz, -rayLightOut->dir.xyz ), 0.0f );
-		return D( t, vOut, vIn, w, mtl->rough, ISOTROPY ) * fresnel( *u, 1.0f );
+/**
+ * MACRO: Reflect a ray.
+ * @param  {float4} dir    Direction of ray.
+ * @param  {float4} normal Normal of surface.
+ * @return {float4}        Reflected ray.
+ */
+#define reflect( dir, normal ) ( ( dir ) - 2.0f * dot( ( normal ).xyz, ( dir ).xyz ) * ( normal ) )
 
-		#undef ISOTROPY
+
+/**
+ * Get the a new direction for a ray hitting a transparent surface (glass etc.).
+ * @param  {const ray4*}     currentRay The current ray.
+ * @param  {const material*} mtl        Material of the hit surface.
+ * @param  {float*}          seed       Seed for the random number generator.
+ * @return {float4}                     A new direction for the ray.
+ */
+float4 refract( const ray4* ray, const material* mtl, float* seed ) {
+	#define DIR ( ray->dir )
+	#define N ( ray->normal )
+
+	const bool into = ( dot( N.xyz, DIR.xyz ) < 0.0f );
+	const float4 nl = into ? N : -N;
+
+	const float m1 = into ? NI_AIR : mtl->Ni;
+	const float m2 = into ? mtl->Ni : NI_AIR;
+	const float m = native_divide( m1, m2 );
+
+	const float cosI = -dot( DIR.xyz, nl.xyz );
+	const float sinT2 = m * m * ( 1.0f - cosI * cosI );
+
+	float4 newRay;
+
+	// Critical angle. Total internal reflection.
+	if( sinT2 > 1.0f ) {
+		newRay = reflect( DIR, nl );
+
+		if( dot( newRay.xyz, N.xyz ) <= 0.0f ) {
+			newRay = ray->dir;
+		}
+
+		return newRay;
 	}
 
-#elif BRDF == 2
+	const float cosT = native_sqrt( 1.0f - sinT2 );
+	const float4 tDir = m * DIR + ( m * cosI - cosT ) * nl;
 
-	float brdfShirleyAshikhmin(
-		const float nu, const float nv, const float Rs, const float Rd,
-		const ray4* rayLightOut, const ray4* rayLightIn, const float4* normal,
-		float* brdfSpec, float* brdfDiff, float* dotHK1
-	) {
-		// Surface tangent vectors orthonormal to the surface normal
-		float4 un = fast_normalize( cross( normal->yzxw, *normal ) );
-		float4 vn = fast_normalize( cross( *normal, un ) );
 
-		float4 k1 = rayLightIn->dir;   // to light
-		float4 k2 = -rayLightOut->dir; // to viewer
-		float4 h = bisect( k1, k2 );
+	// Reflectance and transmission
 
-		// Pre-compute
-		float dotHU = dot( h.xyz, un.xyz );
-		float dotHV = dot( h.xyz, vn.xyz );
-		float dotHN = dot( h.xyz, normal->xyz );
-		*dotHK1 = dot( h.xyz, k1.xyz );
-		float dotHK2 = dot( h.xyz, k2.xyz );
-		float dotNK1 = dot( normal->xyz, k1.xyz );
-		float dotNK2 = dot( normal->xyz, k2.xyz );
+	float r0 = native_divide( m1 - m2, m1 + m2 );
+	r0 *= r0;
+	const float c = ( m1 > m2 ) ? native_sqrt( 1.0f - sinT2 ) : cosI;
+	const float reflectance = fresnel( c, r0 );
+	// transmission = 1.0f - reflectance
 
-		// Specular
-		float ps_e = native_divide( nu * dotHU * dotHU + nv * dotHV * dotHV, 1.0f - dotHN * dotHN );
-		float ps = native_sqrt( ( nu + 1.0f ) * ( nv + 1.0f ) * 0.125f * M_1_PI );
-		ps *= native_divide( pow( dotHN, ps_e ), (*dotHK1) * fmax( dotNK1, dotNK2 ) );
-		// ps *= fresnel( dotHK1, Rs );
+	const bool doRefract = ( reflectance < rand( seed ) );
+	newRay = doRefract ? tDir : reflect( DIR, nl );
+	newRay = fast_normalize( newRay );
 
-		// Diffuse
-		float pd = native_divide( 28.0f, 23.0f ) * M_1_PI * Rd;// * ( 1.0f - Rs );
-		float a = 1.0f - dotNK1 * 0.5f;
-		float b = 1.0f - dotNK2 * 0.5f;
-		pd *= 1.0f - a * a * a * a * a;
-		pd *= 1.0f - b * b * b * b * b;
-
-		*brdfSpec = ps;
-		*brdfDiff = pd;
+	if( !doRefract && dot( newRay.xyz, N.xyz ) <= 0.0f ) {
+		newRay = ray->dir;
 	}
 
-#endif
+	return newRay;
+
+	#undef DIR
+	#undef N
+}
+
+
+/**
+ * Initialize a float array with a default value.
+ * @param {float*} arr  The array to initialize.
+ * @param {float}  val  The default value to set.
+ */
+inline void setArray( float* arr, float val ) {
+	for( int i = 0; i < SPEC; i++ ) {
+		arr[i] = val;
+	}
+}
