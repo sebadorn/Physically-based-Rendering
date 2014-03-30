@@ -33,36 +33,6 @@ inline float4 getTriangleNormal( const face_t face, const float3 tuv ) {
 
 
 /**
- *
- * @param  {float4}       scr
- * @param  {const float4} n
- * @return {float4}
- */
-float4 groove3D( float4 scr, const float4 n ) {
-	scr = (float4)( scr.x, 0.0f, scr.y, 0.0f );
-	const float4 n2D = { 0.0f, 0.0f, 1.0f, 0.0f };
-
-	const float4 r = cross( n2D, n );
-	const float c = dot( n2D.xyz, n.xyz );
-	const float s = native_sqrt( 1.0f - c * c );
-	const float ci = 1.0f - c;
-
-	float4 T;
-	T.x = ( r.x * r.x * ci + c ) * scr.x +
-	      ( r.x * r.y * ci - r.z * s ) * scr.y +
-	      ( r.x * r.z * ci + r.y * s ) * scr.z;
-	T.y = ( r.y * r.x * ci + r.z * s ) * scr.x +
-	      ( r.y * r.y * ci + c ) * scr.y +
-	      ( r.y * r.z * ci - r.x * s ) * scr.z;
-	T.z = ( r.z * r.x * ci - r.y * s ) * scr.x +
-	      ( r.z * r.y * ci + r.x * s ) * scr.y +
-	      ( r.z * r.z * ci + c ) * scr.z;
-
-	return fast_normalize( T );
-}
-
-
-/**
  * New direction for (perfectly) diffuse surfaces.
  * (Well, depening on the given parameters.)
  * @param  nl   Normal (unit vector).

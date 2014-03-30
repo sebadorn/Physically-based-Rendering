@@ -1,12 +1,12 @@
 {
 	"materials": {
-		"Walls": "pure_white",
-		"Ceiling": "CIE_D65",
-		"Test0": "pure_white",
-		"Test1": "pure_white",
-		"Cube0": "pure_white",
-		"Cube1": "pure_white",
-		"Cylinder": "pure_white"
+		"Walls": { "diff": "pure_white", "spec": "pure_white" },
+		"Ceiling": { "diff": "CIE_D65", "spec": "pure_white" },
+		"Test0": { "diff": "pure_white", "spec": "pure_white" },
+		"Test1": { "diff": "pure_white", "spec": "pure_white" },
+		"Cube0": { "diff": "pure_white", "spec": "pure_white" },
+		"Cube1": { "diff": "pure_white", "spec": "pure_white" },
+		"Cylinder": { "diff": "pure_white", "spec": "pure_white" }
 	},
 
 	"sky": "CIE_D65",

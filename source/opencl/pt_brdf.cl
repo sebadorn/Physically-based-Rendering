@@ -1,10 +1,16 @@
 #define DIR ( ray->dir )
 #define N ( ray->normal )
-#define ISOTROPY ( mtl->scratch.w )
 
 #if BRDF == 0
 
 
+	/**
+	 *
+	 * @param  {const ray4*}     ray
+	 * @param  {const material*} mtl
+	 * @param  {float*}          seed
+	 * @return {float}
+	 */
 	float4 newRayNoBRDF( const ray4* ray, const material* mtl, float* seed ) {
 		const float a = rand( seed );
 
@@ -131,12 +137,13 @@
 
 	/**
 	 *
-	 * @param  mtl
-	 * @param  rayLightOut
-	 * @param  rayLightIn
-	 * @param  normal
-	 * @param  u
-	 * @return
+	 * @param  {const material*} mtl
+	 * @param  {const ray4*}     rayLightOut
+	 * @param  {const ray4*}     rayLightIn
+	 * @param  {const float4*}   normal
+	 * @param  {float*}          u
+	 * @param  {float*}          pdf
+	 * @return {float}
 	 */
 	float brdfSchlick(
 		const material* mtl, const ray4* rayLightOut, const ray4* rayLightIn,
@@ -145,30 +152,31 @@
 		#define V_IN ( rayLightIn->dir )
 		#define V_OUT ( -rayLightOut->dir )
 
-		// const float4 un = groove3D( mtl->scratch, *normal );
 		const float3 un = fast_normalize( cross( normal->yzx, normal->xyz ) );
 
-		const float3 H = bisect( V_OUT.xyz, V_IN.xyz );
-		const float t = dot( H, normal->xyz );
+		const float3 h = bisect( V_OUT.xyz, V_IN.xyz );
+		const float t = dot( h, normal->xyz );
 		const float vIn = dot( V_IN.xyz, normal->xyz );
 		const float vOut = dot( V_OUT.xyz, normal->xyz );
-		const float w = dot( un.xyz, projection( H, normal->xyz ) );
+		const float w = dot( un.xyz, projection( h, normal->xyz ) );
 
-		*u = dot( H, V_OUT.xyz );
-		float d = D( t, vOut, vIn, w, mtl->rough, ISOTROPY );
+		*u = dot( h, V_OUT.xyz );
+		*pdf = native_divide( t, 4.0f * M_PI * dot( V_OUT.xyz, h ) );
 
-		*pdf = native_divide(
-			B2( t, vOut, vIn, w, mtl->rough, ISOTROPY ) * t,
-			8.0f * M_PI * dot( V_OUT.xyz, H )
-		);
-
-		return d;
+		return D( t, vOut, vIn, w, mtl->rough, mtl->p );
 
 		#undef V_IN
 		#undef V_OUT
 	}
 
 
+	/**
+	 *
+	 * @param  {const ray4*}     ray
+	 * @param  {const material*} mtl
+	 * @param  {float*}          seed
+	 * @return {float4}
+	 */
 	float4 newRaySchlick( const ray4* ray, const material* mtl, float* seed ) {
 		float4 newRay;
 
@@ -178,7 +186,7 @@
 
 		float a = rand( seed );
 		float b = rand( seed );
-		float iso2 = ISOTROPY * ISOTROPY;
+		float iso2 = mtl->p * mtl->p;
 		float alpha = acos( native_sqrt( native_divide( a, mtl->rough - a * mtl->rough + a ) ) );
 		float phi;
 
@@ -206,7 +214,7 @@
 			phi = 2.0f * M_PI - phi;
 		}
 
-		if( ISOTROPY < 1.0f ) {
+		if( mtl->p < 1.0f ) {
 			phi += M_PI_2;
 		}
 
@@ -224,53 +232,71 @@
 #elif BRDF == 2
 
 
+	/**
+	 *
+	 * @param  {const float}   nu
+	 * @param  {const float}   nv
+	 * @param  {const float}   Rs
+	 * @param  {const float}   Rd
+	 * @param  {const ray4*}   rayLightOut
+	 * @param  {const ray4*}   rayLightIn
+	 * @param  {const float4*} normal
+	 * @param  {float*}        brdfSpec
+	 * @param  {float*}        brdfDiff
+	 * @param  {float*}        dotHK1
+	 * @param  {float*}        pdf
+	 * @return {float}
+	 */
 	float brdfShirleyAshikhmin(
 		const float nu, const float nv, const float Rs, const float Rd,
 		const ray4* rayLightOut, const ray4* rayLightIn, const float4* normal,
 		float* brdfSpec, float* brdfDiff, float* dotHK1, float* pdf
 	) {
 		// Surface tangent vectors orthonormal to the surface normal
-		float3 un = fast_normalize( cross( normal->yzx, normal->xyz ) );
-		float3 vn = fast_normalize( cross( normal->xyz, un ) );
+		const float3 un = fast_normalize( cross( normal->yzx, normal->xyz ) );
+		const float3 vn = fast_normalize( cross( normal->xyz, un ) );
 
-		float3 k1 = rayLightIn->dir.xyz;   // to light
-		float3 k2 = -rayLightOut->dir.xyz; // to viewer
-		float3 h = bisect( k1, k2 );
+		const float3 k1 = rayLightIn->dir.xyz;   // to light
+		const float3 k2 = -rayLightOut->dir.xyz; // to viewer
+		const float3 h = bisect( k1, k2 );
 
-		// Pre-compute
-		float dotHU = dot( h, un );
-		float dotHV = dot( h, vn );
-		float dotHN = dot( h, normal->xyz );
-		float dotNK1 = dot( normal->xyz, k1 );
-		float dotNK2 = dot( normal->xyz, k2 );
-		*dotHK1 = dot( h, k1 );
+		const float dotHU = dot( h, un );
+		const float dotHV = dot( h, vn );
+		const float dotHN = dot( h, normal->xyz );
+		const float dotNK1 = dot( normal->xyz, k1 );
+		const float dotNK2 = dot( normal->xyz, k2 );
+		*dotHK1 = dot( h, k1 ); // Needed for the Fresnel term later
 
 		// Specular
 		float ps_e = nu * dotHU * dotHU + nv * dotHV * dotHV;
 		ps_e = ( dotHN == 1.0f ) ? 0.0f : native_divide( ps_e, 1.0f - dotHN * dotHN );
-		float ps = native_sqrt( ( nu + 1.0f ) * ( nv + 1.0f ) ) * 0.125f * M_1_PI;
-		ps *= native_divide(
-			pow( dotHN, ps_e ),
-			(*dotHK1) * fmax( dotNK1, dotNK2 )
-		);
-		// ps *= fresnel( dotHK1, Rs );
+		const float ps0 = native_sqrt( ( nu + 1.0f ) * ( nv + 1.0f ) ) * 0.125f * M_1_PI;
+		const float ps1_num = pow( dotHN, ps_e );
+		const float ps1 = native_divide( ps1_num, (*dotHK1) * fmax( dotNK1, dotNK2 ) );
 
 		// Diffuse
-		float pd = Rd * M_1_PI * native_divide( 28.0f, 23.0f );// * ( 1.0f - Rs );
-		float a = 1.0f - dotNK1 * 0.5f;
-		float b = 1.0f - dotNK2 * 0.5f;
+		float pd = Rd * 0.38750768752f; // M_1_PI * native_divide( 28.0f, 23.0f );
+		const float a = 1.0f - dotNK1 * 0.5f;
+		const float b = 1.0f - dotNK2 * 0.5f;
 		pd *= 1.0f - a * a * a * a * a;
 		pd *= 1.0f - b * b * b * b * b;
 
-		*brdfSpec = ps;
+		*brdfSpec = ps0 * ps1;
 		*brdfDiff = pd;
 
-		float ph = native_sqrt( ( nu + 1.0f ) * ( nv + 1.0f ) ) * 0.5f * M_1_PI;
-		ph *= pow( dotHN, ps_e );
-		*pdf = ph * native_recip( 4.0f * (*dotHK1) );
+		// Probability Distribution Function
+		const float ph = ps0 * 4.0f * ps1_num;
+		*pdf = native_divide( ph, 4.0f * (*dotHK1) );
 	}
 
 
+	/**
+	 *
+	 * @param  {const ray4*}     ray
+	 * @param  {const material*} mtl
+	 * @param  {float*}          seed
+	 * @return {float4}
+	 */
 	float4 newRayShirleyAshikhmin( const ray4* ray, const material* mtl, float* seed ) {
 		float4 newRay;
 
@@ -324,10 +350,6 @@
 		// use a cosine-weighted sample instead.
 		newRay = ( dot( spec.xyz, N.xyz ) <= 0.0f ) ? diff : spec;
 
-		// float ph = native_sqrt( ( mtl->nu + 1.0f ) * ( mtl->nv + 1.0f ) ) * 0.5f * M_1_PI;
-		// ph *= pow( dot( N.xyz, h.xyz ), mtl->nu * cosphi * cosphi + mtl->nv * sinphi * sinphi );
-		// float pk2 = ph * native_recip( 4.0f * dot( spec.xyz, h.xyz ) );
-
 		return newRay;
 	}
 
@@ -336,4 +358,3 @@
 
 #undef DIR
 #undef N
-#undef ISOTROPY

@@ -322,10 +322,9 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 			material_schlick mtl;
 			mtl.d = materials[i].d;
 			mtl.Ni = materials[i].Ni;
+			mtl.p = materials[i].p;
 			mtl.rough = materials[i].rough;
 			mtl.light = materials[i].light;
-			mtl.scratch = materials[i].scratch;
-			mtl.scratch.w = materials[i].p;
 
 			spdName = mtl2spd[materials[i].mtlName]["diff"];
 			mtl.spd.x = specID[spdName];

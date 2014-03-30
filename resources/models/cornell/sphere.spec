@@ -1,6 +1,6 @@
 {
 	"materials": {
-		"Sphere0": { "diff": "green", "spec": "green" },
+		"Sphere0": { "diff": "white", "spec": "green" },
 		"Sphere1": { "diff": "white", "spec": "white" },
 		"Sphere2": { "diff": "white", "spec": "white" },
 		"Wall": { "diff": "white", "spec": "white" },
@@ -9,7 +9,7 @@
 		"Bottom": { "diff": "red", "spec": "white" }
 	},
 
-	"sky": "dark",
+	"sky": "CIE_D65",
 
 	"spectra": {
 		"CIE_D65": {

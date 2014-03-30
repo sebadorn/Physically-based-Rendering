@@ -33,7 +33,6 @@ using std::vector;
  * # BRDF: Schlick
  * p       - Isotropy/anisotropy factor [0.0, 1.0] with 1.0 having perfect isotropy.
  * rough   - Roughness factor [0.0, 1.0]. 0 – perfectly specular; 1 - perfectly diffuse.
- * scratch - Direction of scratches on the surface for anisotropy/isotropy [unit vector].
  *
  * # BRDF: Shirley-Ashikhmin
  * nu - Phong-like exponent to control the shape of the specular lobe.
@@ -53,7 +52,6 @@ struct material_t {
 	// Light source yes/no
 	cl_char light;
 	// BRDF: Schlick
-	cl_float4 scratch;
 	cl_float rough;
 	cl_float p;
 	// BRDF: Shirley-Ashikhmin

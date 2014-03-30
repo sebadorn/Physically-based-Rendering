@@ -56,9 +56,9 @@ typedef struct {
 #else
 
 	typedef struct {
-		constant float4 scratch; // scratch.w = p (isotropy factor)
 		constant float d;
 		constant float Ni;
+		constant float p;
 		constant float rough;
 		constant ushort2 spd;
 		constant char light

@@ -25,10 +25,6 @@ material_t MtlParser::getEmptyMaterial() {
 	// BRDF: Schlick
 	mtl.rough = 1.0f;
 	mtl.p = 1.0f;
-	mtl.scratch = zeros;
-	mtl.scratch.x = 1.0f;
-	mtl.scratch.y = 1.0f;
-	mtl.scratch.z = 1.0f;
 	// BRDF: Shirley-Ashikhmin
 	mtl.nu = 0.0f;
 	mtl.nv = 0.0f;
@@ -193,16 +189,6 @@ void MtlParser::load( string file ) {
 				continue;
 			}
 			mtl.p = atof( parts[1].c_str() );
-		}
-		// Scratch orientation (anisotropy) (BRDF: Schlick)
-		else if( parts[0] == "scr" ) {
-			if( parts.size() < 4 ) {
-				Logger::logWarning( "[MtlParser] Not enough parameters for <scr>. Ignoring attribute." );
-				continue;
-			}
-			mtl.scratch.x = atof( parts[1].c_str() );
-			mtl.scratch.y = atof( parts[2].c_str() );
-			mtl.scratch.z = atof( parts[3].c_str() );
 		}
 		// Specular lobe (BRDF: Shirley-Ashikhmin)
 		else if( parts[0] == "nu" ) {
