@@ -140,7 +140,7 @@
 	 */
 	float brdfSchlick(
 		const material* mtl, const ray4* rayLightOut, const ray4* rayLightIn,
-		const float4* normal, float* u
+		const float4* normal, float* u, float* pdf
 	) {
 		#define V_IN ( rayLightIn->dir )
 		#define V_OUT ( -rayLightOut->dir )
@@ -155,7 +155,14 @@
 		const float w = dot( un.xyz, projection( H, normal->xyz ) );
 
 		*u = dot( H, V_OUT.xyz );
-		return D( t, vOut, vIn, w, mtl->rough, ISOTROPY );
+		float d = D( t, vOut, vIn, w, mtl->rough, ISOTROPY );
+
+		*pdf = native_divide(
+			B2( t, vOut, vIn, w, mtl->rough, ISOTROPY ) * t,
+			8.0f * M_PI * dot( V_OUT.xyz, H )
+		);
+
+		return d;
 
 		#undef V_IN
 		#undef V_OUT
@@ -220,7 +227,7 @@
 	float brdfShirleyAshikhmin(
 		const float nu, const float nv, const float Rs, const float Rd,
 		const ray4* rayLightOut, const ray4* rayLightIn, const float4* normal,
-		float* brdfSpec, float* brdfDiff, float* dotHK1
+		float* brdfSpec, float* brdfDiff, float* dotHK1, float* pdf
 	) {
 		// Surface tangent vectors orthonormal to the surface normal
 		float3 un = fast_normalize( cross( normal->yzx, normal->xyz ) );
@@ -239,10 +246,8 @@
 		*dotHK1 = dot( h, k1 );
 
 		// Specular
-		float ps_e = native_divide(
-			nu * dotHU * dotHU + nv * dotHV * dotHV,
-			1.0f - dotHN * dotHN
-		);
+		float ps_e = nu * dotHU * dotHU + nv * dotHV * dotHV;
+		ps_e = ( dotHN == 1.0f ) ? 0.0f : native_divide( ps_e, 1.0f - dotHN * dotHN );
 		float ps = native_sqrt( ( nu + 1.0f ) * ( nv + 1.0f ) ) * 0.125f * M_1_PI;
 		ps *= native_divide(
 			pow( dotHN, ps_e ),
@@ -259,6 +264,10 @@
 
 		*brdfSpec = ps;
 		*brdfDiff = pd;
+
+		float ph = native_sqrt( ( nu + 1.0f ) * ( nv + 1.0f ) ) * 0.5f * M_1_PI;
+		ph *= pow( dotHN, ps_e );
+		*pdf = ph * native_recip( 4.0f * (*dotHK1) );
 	}
 
 

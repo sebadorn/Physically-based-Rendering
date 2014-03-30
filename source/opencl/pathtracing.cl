@@ -114,8 +114,10 @@ void updateSPD(
 		// #endif
 
 		float u;
-		float brdf = brdfSchlick( mtl, ray, newRay, &( ray->normal ), &u );
+		float pdf;
+		float brdf = brdfSchlick( mtl, ray, newRay, &( ray->normal ), &u, &pdf );
 		brdf = lambert( ray->normal, newRay->dir ) * brdf * mtl->d + ( 1.0f - mtl->d );
+		brdf = native_divide( brdf, pdf );
 
 		for( int i = 0; i < SPEC; i++ ) {
 			spd[i] *= COLOR_DIFF * clamp( fresnel( u, COLOR_SPEC ) * brdf, 0.0f, 1.0f );
@@ -134,14 +136,18 @@ void updateSPD(
 		float brdfDiff;
 		float dotHK1;
 		float brdf;
+		float pdf;
 		brdfShirleyAshikhmin(
 			mtl->nu, mtl->nv, mtl->Rs, mtl->Rd,
-			ray, newRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1
+			ray, newRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1, &pdf
 		);
 
+		float brdf_s, brdf_d;
+
 		for( int i = 0; i < SPEC; i++ ) {
-			brdf = brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC );
-			brdf += brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs * COLOR_SPEC );
+			brdf_s = brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC );
+			brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs * COLOR_SPEC );
+			brdf = native_divide( ( brdf_s + brdf_d ) * lambert( ray->normal, newRay->dir ), pdf );
 
 			spd[i] *= clamp( brdf, 0.0f, 1.0f ) * mtl->d + ( 1.0f - mtl->d );
 			*maxValSpd = fmax( spd[i], *maxValSpd );

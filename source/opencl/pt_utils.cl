@@ -164,13 +164,7 @@ float4 refract( const ray4* ray, const material* mtl, float* seed ) {
 
 	// Critical angle. Total internal reflection.
 	if( sinT2 > 1.0f ) {
-		newRay = reflect( DIR, nl );
-
-		if( dot( newRay.xyz, N.xyz ) <= 0.0f ) {
-			newRay = ray->dir;
-		}
-
-		return newRay;
+		return reflect( DIR, nl );
 	}
 
 	const float cosT = native_sqrt( 1.0f - sinT2 );
@@ -188,10 +182,6 @@ float4 refract( const ray4* ray, const material* mtl, float* seed ) {
 	const bool doRefract = ( reflectance < rand( seed ) );
 	newRay = doRefract ? tDir : reflect( DIR, nl );
 	newRay = fast_normalize( newRay );
-
-	if( !doRefract && dot( newRay.xyz, N.xyz ) <= 0.0f ) {
-		newRay = ray->dir;
-	}
 
 	return newRay;
 

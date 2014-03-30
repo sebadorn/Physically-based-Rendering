@@ -28,6 +28,7 @@ d 0.0
 rough 0.0
 Rs 0.0
 Rd 1.0
+light 1
 
 newmtl Sphere2
 Ni 1.5

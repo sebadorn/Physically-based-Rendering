@@ -82,9 +82,9 @@
 		"antialiasing": 0.001,
 		// BRDF.
 		// 0: none (specular, diffuse, glossy, refraction)
-		// 1: Schlick (+anisotropic, but overall a much too dark image)
+		// 1: Schlick (+anisotropic)
 		// 2: Shirley-Ashikhmin
-		"brdf": 2,
+		"brdf": 1,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 100.0,
 		// Shoot shadow rays to generate implicit paths.
