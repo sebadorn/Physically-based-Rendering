@@ -1,0 +1,31 @@
+# Blender MTL File: 'cornell-boxes-open.blend'
+# Material Count: 6
+
+newmtl Material
+Ni 1.0
+d 1.0
+
+newmtl Wall_ceiling
+Ni 1.0
+d 1.0
+light 1
+
+newmtl blue
+Ni 1.0
+d 1.0
+
+newmtl box_small
+Ni 1.0
+d 1.0
+nu 1.0
+nv 1.0
+Rs 0.0
+Rd 1.0
+
+newmtl box_tall
+Ni 1.0
+d 1.0
+
+newmtl red
+Ni 1.0
+d 1.0

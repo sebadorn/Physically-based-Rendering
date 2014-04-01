@@ -331,7 +331,7 @@ void CL::getDefaultDevice() {
 	size_t valueSize;
 	cl_uint deviceCount;
 	cl_device_id* devices;
-	char msg[64];
+	char msg[128];
 
 	clGetDeviceIDs( mPlatform, CL_DEVICE_TYPE_ALL, 0, NULL, &deviceCount );
 
@@ -365,39 +365,44 @@ void CL::getDefaultDevice() {
 	// Get the global memory size
 	cl_ulong globalMemSize;
 	clGetDeviceInfo( devices[0], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof( cl_ulong ), &globalMemSize, NULL );
-	snprintf( msg, 64, "[OpenCL] Global memory size is %lu MB.", globalMemSize / 1024 / 1024 );
+	snprintf( msg, 128, "[OpenCL] Global memory size is %lu MB.", globalMemSize / 1024 / 1024 );
 	Logger::logDebug( msg );
 
 	// Get the global memory cache size
 	cl_ulong globalCacheSize;
 	clGetDeviceInfo( devices[0], CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, sizeof( cl_ulong ), &globalCacheSize, NULL );
-	snprintf( msg, 64, "[OpenCL] Global cache size is %lu KB.", globalCacheSize / 1024 );
+	snprintf( msg, 128, "[OpenCL] Global cache size is %lu KB.", globalCacheSize / 1024 );
 	Logger::logDebug( msg );
 
 	// Get the global memory cache line size
 	cl_uint globalCacheLineSize;
 	clGetDeviceInfo( devices[0], CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, sizeof( cl_uint ), &globalCacheLineSize, NULL );
-	snprintf( msg, 64, "[OpenCL] Global cache line size is %u B.", globalCacheLineSize );
+	snprintf( msg, 128, "[OpenCL] Global cache line size is %u B.", globalCacheLineSize );
 	Logger::logDebug( msg );
 
 	// Get the local memory size
 	cl_ulong constantMemSize;
 	clGetDeviceInfo( devices[0], CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof( cl_ulong ), &constantMemSize, NULL );
-	snprintf( msg, 64, "[OpenCL] Constant memory size is %lu KB.", constantMemSize / 1024 );
+	snprintf( msg, 128, "[OpenCL] Constant memory size is %lu KB.", constantMemSize / 1024 );
 	Logger::logDebug( msg );
 
 	// Get the local memory size
 	cl_ulong localMemSize;
 	clGetDeviceInfo( devices[0], CL_DEVICE_LOCAL_MEM_SIZE, sizeof( cl_ulong ), &localMemSize, NULL );
-	snprintf( msg, 64, "[OpenCL] Local memory size is %lu KB.", localMemSize / 1024 );
+	snprintf( msg, 128, "[OpenCL] Local memory size is %lu KB.", localMemSize / 1024 );
 	Logger::logDebug( msg );
 
 	// Get the maximum work group size
 	size_t maxWorkGroupSize;
 	clGetDeviceInfo( devices[0], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof( size_t ), &maxWorkGroupSize, NULL );
-	snprintf( msg, 64, "[OpenCL] Max work group size is %lu.", maxWorkGroupSize );
+	snprintf( msg, 128, "[OpenCL] Max work group size is %lu.", maxWorkGroupSize );
 	Logger::logDebug( msg );
 
+	// Get the maximum work group size
+	size_t maxWorkItemSizes[3];
+	clGetDeviceInfo( devices[0], CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof( size_t ) * 3, &maxWorkItemSizes, NULL );
+	snprintf( msg, 128, "[OpenCL] Max work item sizes are (%lu, %lu, %lu).", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2] );
+	Logger::logDebug( msg );
 
 	this->initContext( devices );
 	delete [] devices;

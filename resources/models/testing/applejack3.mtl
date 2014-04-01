@@ -1,0 +1,43 @@
+# Blender MTL File: 'applejack2.blend'
+# Material Count: 9
+
+newmtl Applejack
+Ni 1.0
+d 1.0
+
+newmtl Band
+Ni 1.0
+d 1.0
+
+newmtl Eye
+Ni 1.0
+d 1.0
+
+newmtl Eye-Iris
+Ni 1.0
+d 1.0
+
+newmtl Eye-lashes
+Ni 1.0
+d 1.0
+
+newmtl Eye-white
+Ni 1.0
+d 1.0
+
+newmtl Ground
+Ni 1.0
+d 1.0
+light 1
+
+newmtl Hair
+Ni 1.0
+d 1.0
+nu 10.0
+nv 1.0
+Rs 0.1
+Rd 0.9
+
+newmtl Hat
+Ni 1.0
+d 1.0

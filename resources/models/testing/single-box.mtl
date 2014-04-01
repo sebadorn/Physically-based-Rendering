@@ -1,0 +1,23 @@
+# Blender MTL File: 'cornell-single-box.blend'
+# Material Count: 4
+
+newmtl Material
+Ni 1.0
+d 1.0
+
+newmtl box
+Ni 1.0
+d 1.0
+rough 0.5
+nu 100.0
+nv 100.0
+Rs 0.0
+Rd 1.0
+
+newmtl blue
+Ni 1.0
+d 1.0
+
+newmtl red
+Ni 1.0
+d 1.0

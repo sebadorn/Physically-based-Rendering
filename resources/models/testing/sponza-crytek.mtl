@@ -1,0 +1,106 @@
+# Blender MTL File: 'None'
+# Material Count: 26
+
+newmtl 16___Default
+Ni 1.0
+d 1.0
+
+newmtl Material__25
+Ni 1.0
+d 1.0
+
+newmtl Material__298
+Ni 1.0
+d 1.0
+
+newmtl Material__47
+Ni 1.0
+d 1.0
+
+newmtl Material__57
+Ni 1.0
+d 1.0
+
+newmtl arch
+Ni 1.0
+d 1.0
+
+newmtl bricks
+Ni 1.0
+d 1.0
+
+newmtl ceiling
+Ni 1.0
+d 1.0
+
+newmtl chain
+Ni 1.0
+d 1.0
+
+newmtl column_a
+Ni 1.0
+d 1.0
+
+newmtl column_b
+Ni 1.0
+d 1.0
+
+newmtl column_c
+Ni 1.0
+d 1.0
+
+newmtl details
+Ni 1.0
+d 1.0
+
+newmtl fabric_a
+Ni 1.0
+d 1.0
+
+newmtl fabric_c
+Ni 1.0
+d 1.0
+
+newmtl fabric_d
+Ni 1.0
+d 1.0
+
+newmtl fabric_e
+Ni 1.0
+d 1.0
+
+newmtl fabric_f
+Ni 1.0
+d 1.0
+
+newmtl fabric_g
+Ni 1.0
+d 1.0
+
+newmtl flagpole
+Ni 1.0
+d 1.0
+
+newmtl floor
+Ni 1.0
+d 1.0
+
+newmtl leaf
+Ni 1.0
+d 1.0
+
+newmtl roof
+Ni 1.0
+d 1.0
+
+newmtl vase
+Ni 1.0
+d 1.0
+
+newmtl vase_hanging
+Ni 1.0
+d 1.0
+
+newmtl vase_round
+Ni 1.0
+d 1.0

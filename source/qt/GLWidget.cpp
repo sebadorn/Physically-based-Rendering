@@ -636,8 +636,14 @@ void GLWidget::showFPS() {
 		mPreviousTime = currentTime;
 		mFrameCount = 0;
 
-		char statusText[40];
-		snprintf( statusText, 40, "%.2f FPS (%d\u00D7%dpx)", fps, width(), height() );
+		glm::vec3 e = mCamera->getEye_glmVec3();
+
+		char statusText[64];
+		snprintf(
+			statusText, 64,
+			"%.2f FPS (%d\u00D7%dpx) (X: %.2f, Y: %.2f, Z: %.2f)",
+			fps, width(), height(), e[0], e[1], e[2]
+		);
 		( (Window*) parentWidget() )->updateStatus( statusText );
 	}
 }

@@ -1,0 +1,65 @@
+# Blender MTL File: 'squirrel-podest.blend'
+# Material Count: 9
+
+newmtl Eyes
+Ni 1.0
+d 1.0
+nu 10.0
+nv 10.0
+Rs 0.05
+Rd 1.0
+
+newmtl Eyes-black
+Ni 1.0
+d 1.0
+nu 10.0
+nv 10.0
+Rs 0.05
+Rd 1.0
+
+newmtl Light0
+Ni 1.0
+d 1.0
+light 1
+
+newmtl Light1
+Ni 1.0
+d 1.0
+light 1
+
+newmtl Light2
+Ni 1.0
+d 1.0
+light 1
+
+newmtl Nut
+Ni 1.0
+d 1.0
+nu 1.0
+nv 1.0
+Rs 0.0
+Rd 1.0
+
+newmtl Podest
+Ni 1.0
+d 1.0
+nu 1.0
+nv 1.0
+Rs 0.0
+Rd 1.0
+
+newmtl Spots
+Ni 1.0
+d 1.0
+nu 5.0
+nv 1.0
+Rs 0.01
+Rd 1.0
+
+newmtl Squirrel
+Ni 1.0
+d 1.0
+nu 5.0
+nv 1.0
+Rs 0.01
+Rd 1.0
