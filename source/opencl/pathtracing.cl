@@ -14,7 +14,9 @@
  * @param  {float*}              seed         Seed for the random number generator.
  * @return {ray4}
  */
-ray4 initRay( const int2 pos, const float pxDim, const global float* eyeIn, float* seed ) {
+ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
+	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
+
 	const float4 eye = { eyeIn[0], eyeIn[1], eyeIn[2], 0.0f };
 	const float4 w = { eyeIn[3], eyeIn[4], eyeIn[5], 0.0f };
 	const float4 u = { eyeIn[6], eyeIn[7], eyeIn[8], 0.0f };
@@ -49,9 +51,10 @@ ray4 initRay( const int2 pos, const float pxDim, const global float* eyeIn, floa
  * @param {float}                focus       Value <t> of the ray.
  */
 void setColors(
-	const int2 pos, read_only image2d_t imageIn, write_only image2d_t imageOut,
+	read_only image2d_t imageIn, write_only image2d_t imageOut,
 	const float pixelWeight, float spdLight[40], float focus
 ) {
+	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 	const float4 imagePixel = read_imagef( imageIn, sampler, pos );
 	const float4 accumulatedColor = spectrumToRGB( spdLight );
@@ -219,8 +222,6 @@ kernel void pathTracing(
 	constant const material* materials, constant const float* specPowerDists,
 	read_only image2d_t imageIn, write_only image2d_t imageOut
 ) {
-	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
-
 	float spd[SPEC], spdTotal[SPEC];
 	setArray( spdTotal, 0.0f );
 
@@ -231,7 +232,7 @@ kernel void pathTracing(
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
 		setArray( spd, 1.0f );
 		int light = -1;
-		ray4 ray = initRay( pos, pxDim, eyeIn, &seed );
+		ray4 ray = initRay( pxDim, eyeIn, &seed );
 		float maxValSpd = 0.0f;
 		int depthAdded = 0;
 
@@ -291,7 +292,10 @@ kernel void pathTracing(
 			// New direction of the ray (bouncing of the hit surface)
 			ray4 newRay = getNewRay( &ray, &mtl, &seed, &addDepth );
 
-			updateSPD( &ray, &newRay, &mtl, &lightRay, lightRaySource, specPowerDists, spd, spdTotal, &maxValSpd );
+			updateSPD(
+				&ray, &newRay, &mtl, &lightRay, lightRaySource,
+				specPowerDists, spd, spdTotal, &maxValSpd
+			);
 
 			// Extend max path depth
 			depthAdded += ( addDepth && depthAdded < MAX_ADDED_DEPTH );
@@ -315,5 +319,5 @@ kernel void pathTracing(
 		spdTotal[i] = native_divide( spdTotal[i], (float) SAMPLES );
 	}
 
-	setColors( pos, imageIn, imageOut, pixelWeight, spdTotal, focus );
+	setColors( imageIn, imageOut, pixelWeight, spdTotal, focus );
 }

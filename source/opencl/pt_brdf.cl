@@ -285,8 +285,8 @@
 		*brdfDiff = pd;
 
 		// Probability Distribution Function
-		const float ph = ps0 * 4.0f * ps1_num;
-		*pdf = native_divide( ph, 4.0f * (*dotHK1) );
+		const float ph = ps0 * ps1_num;
+		*pdf = native_divide( ph, (*dotHK1) );
 	}
 
 
@@ -298,57 +298,53 @@
 	 * @return {float4}
 	 */
 	float4 newRayShirleyAshikhmin( const ray4* ray, const material* mtl, float* seed ) {
-		float4 newRay;
-
 		// Just do it perfectly specular at such high and identical lobe values
 		if( mtl->nu == mtl->nv && mtl->nu >= 100000.0f ) {
 			return reflect( DIR, N );
 		}
 
 		float a = rand( seed );
-		float b = rand( seed );
-		float phi_flip;
-		float phi_flipf;
+		const float b = rand( seed );
+		float phi_flip = M_PI;
+		float phi_flipf = 1.0f;
+		float aMax = 1.0f;
 
 		if( a < 0.25f ) {
-			a = 1.0f - 4.0f * ( 0.25f - a );
+			aMax = 0.25f;
 			phi_flip = 0.0f;
-			phi_flipf = 1.0f;
 		}
 		else if( a < 0.5f ) {
-			a = 1.0f - 4.0f * ( 0.5f - a );
-			phi_flip = M_PI;
+			aMax = 0.5f;
 			phi_flipf = -1.0f;
 		}
 		else if( a < 0.75f ) {
-			a = 1.0f - 4.0f * ( 0.75f - a );
-			phi_flip = M_PI;
-			phi_flipf = 1.0f;
+			aMax = 0.75f;
 		}
 		else {
-			a = 1.0f - 4.0f * ( 1.0f - a );
 			phi_flip = 2.0f * M_PI;
 			phi_flipf = -1.0f;
 		}
 
-		float phi = atan(
+		a = 1.0f - 4.0f * ( aMax - a );
+
+		const float phi = atan(
 			native_sqrt( native_divide( mtl->nu + 1.0f, mtl->nv + 1.0f ) ) *
-			native_tan( M_PI * a * 0.5f )
+			native_tan( M_PI_2 * a )
 		);
-		float phi_full = phi_flip + phi_flipf * phi;
+		const float phi_full = phi_flip + phi_flipf * phi;
 
-		float cosphi = native_cos( phi );
-		float sinphi = native_sin( phi );
-		float theta_e = native_recip( mtl->nu * cosphi * cosphi + mtl->nv * sinphi * sinphi + 1.0f );
-		float theta = acos( pow( 1.0f - b, theta_e ) );
+		const float cosphi = native_cos( phi );
+		const float sinphi = native_sin( phi );
+		const float theta_e = native_recip( mtl->nu * cosphi * cosphi + mtl->nv * sinphi * sinphi + 1.0f );
+		const float theta = acos( pow( 1.0f - b, theta_e ) );
 
-		float4 h = jitter( N, phi_full, native_sin( theta ), native_cos( theta ) );
-		float4 spec = reflect( DIR, h );
-		float4 diff = jitter( N, 2.0f * M_PI * rand( seed ), native_sqrt( b ), native_sqrt( 1.0f - b ) );
+		const float4 h = jitter( N, phi_full, native_sin( theta ), native_cos( theta ) );
+		const float4 spec = reflect( DIR, h );
+		const float4 diff = jitter( N, 2.0f * M_PI * rand( seed ), native_sqrt( b ), native_sqrt( 1.0f - b ) );
 
 		// If new ray direction points under the hemisphere,
 		// use a cosine-weighted sample instead.
-		newRay = ( dot( spec.xyz, N.xyz ) <= 0.0f ) ? diff : spec;
+		const float4 newRay = ( dot( spec.xyz, N.xyz ) <= 0.0f ) ? diff : spec;
 
 		return newRay;
 	}

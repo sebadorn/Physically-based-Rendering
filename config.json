@@ -64,7 +64,7 @@
 		// -cl-single-precision-constant
 		// -cl-strict-aliasing
 		// -cl-unsafe-math-optimizations
-		"build_options": "",
+		"build_options": "-cl-fast-relaxed-math",
 		// Check each executed OpenCL function for encountered errors.
 		// (Disabling doesn't show any performance improvements.)
 		"check_errors": true,
@@ -116,9 +116,9 @@
 
 	"window": {
 		// Has to be a mutliple of localgroupsize
-		"height": 600,
+		"height": 480,
 		// Has to be a mutliple of localgroupsize
-		"width": 800
+		"width": 600
 	}
 
 }

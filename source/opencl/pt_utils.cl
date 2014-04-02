@@ -130,33 +130,32 @@ float4 refract( const ray4* ray, const material* mtl, float* seed ) {
 	const float cosI = -dot( DIR.xyz, nl.xyz );
 	const float sinT2 = m * m * ( 1.0f - cosI * cosI );
 
-	float4 newRay;
-
 	// Critical angle. Total internal reflection.
 	if( sinT2 > 1.0f ) {
 		return reflect( DIR, nl );
 	}
 
-	const float cosT = native_sqrt( 1.0f - sinT2 );
-	const float4 tDir = m * DIR + ( m * cosI - cosT ) * nl;
-
 
 	// Reflectance and transmission
 
-	float r0 = native_divide( m1 - m2, m1 + m2 );
-	r0 *= r0;
+	const float r0 = native_divide( m1 - m2, m1 + m2 );
 	const float c = ( m1 > m2 ) ? native_sqrt( 1.0f - sinT2 ) : cosI;
-	const float reflectance = fresnel( c, r0 );
+	const float reflectance = fresnel( c, r0 * r0 );
 	// transmission = 1.0f - reflectance
 
-	const bool doRefract = ( reflectance < rand( seed ) );
-	newRay = doRefract ? tDir : reflect( DIR, nl );
-	newRay = fast_normalize( newRay );
+	#define COS_T ( native_sqrt( 1.0f - sinT2 ) )
+	#define DO_REFRACT ( reflectance < rand( seed ) )
 
-	return newRay;
+	const float4 newRay = DO_REFRACT
+	                    ? m * DIR + ( m * cosI - COS_T ) * nl
+	                    : reflect( DIR, nl );
+
+	return fast_normalize( newRay );
 
 	#undef DIR
 	#undef N
+	#undef COS_T
+	#undef DO_REFRACT
 }
 
 

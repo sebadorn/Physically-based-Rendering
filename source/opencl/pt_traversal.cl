@@ -101,15 +101,15 @@ void checkFaceIntersection(
  * @param {ray4*}                ray
  * @param {const bvhNode*}       node
  * @param {const global face_t*} faces
- * @param {float tNear}          tNear
+ * @param {const float tNear}    tNear
  * @param {float tFar}           tFar
  */
 void intersectFaces(
-	ray4* ray, const bvhNode* node, const global face_t* faces, float tNear, float tFar,
+	ray4* ray, const bvhNode* node, const global face_t* faces, const float tNear, float tFar,
 	constant const material* materials
 ) {
 	#define IS_SAME_SIDE ( dot( normal.xyz, -ray->dir.xyz ) >= 0.0f )
-	#define IS_TRANSPARENT ( materials[(uint) f.a.w].d < 1.0f )
+	#define IS_TRANSPARENT( INDEX ) ( materials[(uint) faces[node->faces.INDEX].a.w].d < 1.0f )
 
 	float3 tuv;
 	float tFar_reset = tFar;
@@ -126,14 +126,12 @@ void intersectFaces(
 		tFar = tuv.x;
 
 		if( ray->t > tuv.x || ray->t < -1.0f ) {
-			face_t f = faces[node->faces.x];
-			float4 normal = getTriangleNormal( f, tuv );
+			const float4 normal = getTriangleNormal( faces[node->faces.x], tuv );
 
-			if( IS_SAME_SIDE || IS_TRANSPARENT ) {
+			if( IS_SAME_SIDE || IS_TRANSPARENT( x ) ) {
 				ray->normal = normal;
 				ray->normal.w = (float) node->faces.x;
 				ray->t = tuv.x;
-				tFar_reset = tFar;
 			}
 			else {
 				tFar = tFar_reset;
@@ -148,20 +146,19 @@ void intersectFaces(
 		return;
 	}
 
+	tFar_reset = tFar;
 	checkFaceIntersection( ray, faces[node->faces.y], &tuv, tNear, tFar );
 
 	if( tuv.x > -1.0f ) {
 		tFar = tuv.x;
 
 		if( ray->t > tuv.x || ray->t < -1.0f ) {
-			face_t f = faces[node->faces.y];
-			float4 normal = getTriangleNormal( f, tuv );
+			const float4 normal = getTriangleNormal( faces[node->faces.y], tuv );
 
-			if( IS_SAME_SIDE || IS_TRANSPARENT ) {
+			if( IS_SAME_SIDE || IS_TRANSPARENT( y ) ) {
 				ray->normal = normal;
 				ray->normal.w = (float) node->faces.y;
 				ray->t = tuv.x;
-				tFar_reset = tFar;
 			}
 			else {
 				tFar = tFar_reset;
@@ -176,20 +173,19 @@ void intersectFaces(
 		return;
 	}
 
+	tFar_reset = tFar;
 	checkFaceIntersection( ray, faces[node->faces.z], &tuv, tNear, tFar );
 
 	if( tuv.x > -1.0f ) {
 		tFar = tuv.x;
 
 		if( ray->t > tuv.x || ray->t < -1.0f ) {
-			face_t f = faces[node->faces.z];
-			float4 normal = getTriangleNormal( f, tuv );
+			const float4 normal = getTriangleNormal( faces[node->faces.z], tuv );
 
-			if( IS_SAME_SIDE || IS_TRANSPARENT ) {
+			if( IS_SAME_SIDE || IS_TRANSPARENT( z ) ) {
 				ray->normal = normal;
 				ray->normal.w = (float) node->faces.z;
 				ray->t = tuv.x;
-				tFar_reset = tFar;
 			}
 			else {
 				tFar = tFar_reset;
@@ -206,22 +202,13 @@ void intersectFaces(
 
 	checkFaceIntersection( ray, faces[node->faces.w], &tuv, tNear, tFar );
 
-	if( tuv.x > -1.0f ) {
-		tFar = tuv.x;
+	if( tuv.x > -1.0f && ( ray->t > tuv.x || ray->t < -1.0f ) ) {
+		const float4 normal = getTriangleNormal( faces[node->faces.w], tuv );
 
-		if( ray->t > tuv.x || ray->t < -1.0f ) {
-			face_t f = faces[node->faces.w];
-			float4 normal = getTriangleNormal( f, tuv );
-
-			if( IS_SAME_SIDE || IS_TRANSPARENT ) {
-				ray->normal = normal;
-				ray->normal.w = (float) node->faces.w;
-				ray->t = tuv.x;
-				tFar_reset = tFar;
-			}
-			else {
-				tFar = tFar_reset;
-			}
+		if( IS_SAME_SIDE || IS_TRANSPARENT( w ) ) {
+			ray->normal = normal;
+			ray->normal.w = (float) node->faces.w;
+			ray->t = tuv.x;
 		}
 	}
 

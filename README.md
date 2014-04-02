@@ -1,17 +1,3 @@
-## Optimization notes and ideas
-
-* Trade space for speed
-* Trade accuracy/error rate for speed
-* OpenCL code is just a string that can be changed and recompiled
-* OpenGL shaders are just strings that can be changed and recompiled
-* Are some tasks in OpenCL better done on CPU than GPU?
-* Is clFinish() always necessary where I used it?
-* Access array elements in order
-* OpenCL: local memory is much much faster than global memory
-* OpenCL: texture memory is much faster than global memory
-* OpenCL: constant memory is faster than global memory, but also much smaller
-
-
 ## Libraries/headers
 
 * freeglut3-dev
@@ -30,11 +16,6 @@
     cmake -DCMAKE_BUILD_TYPE=Release CMakeLists.txt
     make
     ./PBR
-
-
-## Observations
-
-* For a 512x512 image a workgroupsize of 256 is infinitesimal better than 512, while a workgroupsize of 128 is worse than 512.
 
 
 ## Annoyances
