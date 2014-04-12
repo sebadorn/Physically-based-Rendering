@@ -28,13 +28,13 @@ d 1.0
 newmtl Ground
 Ni 1.0
 d 1.0
-light 1
+light 0
 
 newmtl Hair
 Ni 1.0
 d 1.0
-nu 10.0
-nv 1.0
+nu 2.0
+nv 5.0
 Rs 0.1
 Rd 0.9
 

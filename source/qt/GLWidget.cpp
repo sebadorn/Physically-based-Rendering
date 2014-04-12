@@ -75,6 +75,7 @@ void GLWidget::calculateMatrices() {
 void GLWidget::cameraUpdate() {
 	this->calculateMatrices();
 	mPathTracer->resetSampleCount();
+	mRenderStartTime = glutGet( GLUT_ELAPSED_TIME );
 }
 
 
@@ -637,12 +638,15 @@ void GLWidget::showFPS() {
 		mFrameCount = 0;
 
 		glm::vec3 e = mCamera->getEye_glmVec3();
+		glm::vec3 c = mCamera->getCenter_glmVec3();
 
-		char statusText[64];
+		GLuint elapsedTime = ( currentTime - mRenderStartTime ) / 1000;
+
+		char statusText[256];
 		snprintf(
-			statusText, 64,
-			"%.2f FPS (%d\u00D7%dpx) (X: %.2f, Y: %.2f, Z: %.2f)",
-			fps, width(), height(), e[0], e[1], e[2]
+			statusText, 256,
+			"%02u:%02u - %.2f FPS (%d\u00D7%dpx) (eye: %.2f/%.2f/%.2f) (center: %.2f/%.2f/%.2f)",
+			elapsedTime / 60, elapsedTime % 60, fps, width(), height(), e[0], e[1], e[2], c[0], c[1], c[2]
 		);
 		( (Window*) parentWidget() )->updateStatus( statusText );
 	}
@@ -668,6 +672,7 @@ void GLWidget::startRendering() {
 	if( !mDoRendering ) {
 		mPathTracer->resetSampleCount();
 		mDoRendering = true;
+		mRenderStartTime = glutGet( GLUT_ELAPSED_TIME );
 		mTimer->start( Cfg::get().value<float>( Cfg::RENDER_INTERVAL ) );
 	}
 }

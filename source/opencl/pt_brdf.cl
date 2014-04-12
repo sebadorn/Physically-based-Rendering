@@ -158,10 +158,13 @@
 		const float t = dot( h, normal->xyz );
 		const float vIn = dot( V_IN.xyz, normal->xyz );
 		const float vOut = dot( V_OUT.xyz, normal->xyz );
-		const float w = dot( un.xyz, projection( h, normal->xyz ) );
+		// const float w = dot( un.xyz, projection( h, normal->xyz ) );
+		const float3 hp = fast_normalize( cross( cross( h, normal->xyz ), normal->xyz ) );
+		const float w = dot( un.xyz, hp );
 
 		*u = dot( h, V_OUT.xyz );
 		*pdf = native_divide( t, 4.0f * M_PI * dot( V_OUT.xyz, h ) );
+		*pdf *= Z( t, mtl->rough ) * A( w, mtl->p );
 
 		return D( t, vOut, vIn, w, mtl->rough, mtl->p );
 

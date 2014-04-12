@@ -7,13 +7,9 @@ d 1.0
 light 1
 
 newmtl Glass
-Ni 1.5
+Ni 1.9
 d 1.0
 rough 0.6
-nu 400.0
-nv 400.0
-Rs 1.0
-Rd 0.0
 
 newmtl LeftWall
 Ni 1.0

@@ -2,17 +2,14 @@
 
 	"camera": {
 		"eye": {
-			"x": 0.0,
-			"y": 1.0,
-			"z": 3.0
+			"x": 0.22,
+			"y": 1.52,
+			"z": 1.38
 		},
-		// Doesn't really mean anything, since it gets
-		// overwritten with the first mouse movement
-		// so ... TODO
 		"center": {
 			"x": 0.0,
 			"y": 0.0,
-			"z": 0.0
+			"z": 1.0
 		},
 		// Perspective
 		"perspective": {
@@ -84,7 +81,7 @@
 		// 0: none (specular, diffuse, glossy, refraction)
 		// 1: Schlick (+anisotropic)
 		// 2: Shirley-Ashikhmin
-		"brdf": 2,
+		"brdf": 1,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 100.0,
 		// Shoot shadow rays to generate implicit paths.
@@ -116,9 +113,9 @@
 
 	"window": {
 		// Has to be a mutliple of localgroupsize
-		"height": 480,
+		"height": 600,
 		// Has to be a mutliple of localgroupsize
-		"width": 600
+		"width": 800
 	}
 
 }

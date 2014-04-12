@@ -105,8 +105,8 @@ class GLWidget : public QGLWidget {
 		GLuint mGLProgramTracer;
 		GLuint mGLProgramSimple;
 		GLuint mIndexBuffer;
-		GLuint mKdTreeNumIndices;
 		GLuint mPreviousTime;
+		GLuint mRenderStartTime;
 
 		InfoWindow* mInfoWindow;
 		QTimer* mTimer;

@@ -81,15 +81,15 @@ void Camera::cameraReset() {
 	mCamera.eyeX = Cfg::get().value<float>( Cfg::CAM_EYE_X );
 	mCamera.eyeY = Cfg::get().value<float>( Cfg::CAM_EYE_Y );
 	mCamera.eyeZ = Cfg::get().value<float>( Cfg::CAM_EYE_Z );
-	mCamera.centerX = Cfg::get().value<float>( Cfg::CAM_CENTER_X );
-	mCamera.centerY = Cfg::get().value<float>( Cfg::CAM_CENTER_Y );
-	mCamera.centerZ = Cfg::get().value<float>( Cfg::CAM_CENTER_Z );
 	mCamera.upX = 0.0f;
 	mCamera.upY = 1.0f;
 	mCamera.upZ = 0.0f;
 	mCamera.rotX = 0.0f;
 	mCamera.rotY = 0.0f;
 	this->updateCameraRot( 0, 0 );
+	mCamera.centerX = Cfg::get().value<float>( Cfg::CAM_CENTER_X );
+	mCamera.centerY = Cfg::get().value<float>( Cfg::CAM_CENTER_Y );
+	mCamera.centerZ = Cfg::get().value<float>( Cfg::CAM_CENTER_Z );
 }
 
 

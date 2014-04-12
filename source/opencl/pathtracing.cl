@@ -142,7 +142,7 @@ void updateSPD(
 		brdf = native_divide( brdf, pdf );
 
 		for( int i = 0; i < SPEC; i++ ) {
-			spd[i] *= COLOR_DIFF * ( fresnel( u, COLOR_SPEC ) * brdf * mtl->d + ( 1.0f - mtl->d ) );
+			spd[i] *= COLOR_DIFF * ( clamp( fresnel( u, COLOR_SPEC ) * brdf, 0.0f, 1.0f ) * mtl->d + ( 1.0f - mtl->d ) );
 			*maxValSpd = fmax( spd[i], *maxValSpd );
 		}
 

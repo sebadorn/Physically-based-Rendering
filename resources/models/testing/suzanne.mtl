@@ -4,6 +4,10 @@
 newmtl Bottom
 Ni 1.0
 d 1.0
+nu 100.0
+nv 100.0
+Rs 0.6
+Rd 1.0
 
 newmtl Cube_big0
 Ni 1.0
@@ -30,7 +34,7 @@ light 1
 newmtl Cube_small0
 Ni 1.0
 d 1.0
-light 1
+light 0
 
 newmtl Cube_small1
 Ni 1.0
@@ -40,10 +44,10 @@ light 1
 newmtl Suzanne
 Ni 1.5
 d 1.0
-nu 100000.0
-nv 100000.0
-Rs 1.0
-Rd 0.0
+nu 0.0
+nv 0.0
+Rs 0.0
+Rd 1.0
 
 newmtl WallBack
 Ni 1.0
@@ -52,6 +56,7 @@ d 1.0
 newmtl WallFront
 Ni 1.0
 d 1.0
+light 1
 
 newmtl WallLeft
 Ni 1.0
