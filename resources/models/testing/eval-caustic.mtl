@@ -1,0 +1,40 @@
+# Blender MTL File: 'eval-caustic.blend'
+# Material Count: 4
+
+newmtl Cylinder
+Ni 1.0
+d 1.0
+rough 0.0
+nu 100000.0
+nv 100000.0
+Rs 1.0
+Rd 1.0
+
+newmtl WallLeft
+Ni 1.0
+d 1.0
+
+newmtl WallRight
+Ni 1.0
+d 1.0
+
+newmtl Walls
+Ni 1.0
+d 1.0
+
+newmtl Lightball
+Ni 1.0
+d 1.0
+light 1
+
+newmtl Bottom
+Ni 1.0
+d 1.0
+
+newmtl Ceiling
+Ni 1.0
+d 1.0
+
+newmtl WallFront
+Ni 1.0
+d 1.0
