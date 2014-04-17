@@ -150,7 +150,7 @@ void updateSPD(
 	#elif BRDF == 2
 
 		float brdf_d, brdf_s, brdfDiff, brdfSpec, pdf;
-		float cosLaw, dotHK1;
+		float dotHK1;
 
 		#if IMPLICIT == 1
 			if( lightRaySource >= 0 ) {
@@ -159,9 +159,8 @@ void updateSPD(
 					ray, lightRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1, &pdf
 				);
 
-				cosLaw = lambert( ray->normal, lightRay->dir );
-				brdfSpec = native_divide( brdfSpec, pdf ) * cosLaw;
-				brdfDiff = native_divide( brdfDiff, pdf ) * cosLaw;
+				brdfSpec = native_divide( brdfSpec, pdf );
+				brdfDiff = native_divide( brdfDiff, pdf );
 
 				for( int i = 0; i < SPEC; i++ ) {
 					brdf_s = brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC );
@@ -179,9 +178,8 @@ void updateSPD(
 			ray, newRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1, &pdf
 		);
 
-		cosLaw = lambert( ray->normal, newRay->dir );
-		brdfSpec = native_divide( brdfSpec, pdf ) * cosLaw;
-		brdfDiff = native_divide( brdfDiff, pdf ) * cosLaw;
+		brdfSpec = native_divide( brdfSpec, pdf );
+		brdfDiff = native_divide( brdfDiff, pdf );
 
 		for( int i = 0; i < SPEC; i++ ) {
 			brdf_s = brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC );

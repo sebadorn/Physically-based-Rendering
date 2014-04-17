@@ -2,14 +2,14 @@
 
 	"camera": {
 		"eye": {
-			"x": 0.00,
-			"y": 0.80,
-			"z": 3.00
+			"x": 0.22,
+			"y": 1.52,
+			"z": 1.38
 		},
 		"center": {
-			"x": 0.0,
-			"y": 0.0,
-			"z": 1.0
+			"x": -0.04,
+			"y": 0.41,
+			"z": 0.59
 		},
 		// Perspective
 		"perspective": {
@@ -51,7 +51,7 @@
 		// 2 - also info
 		// 3 - also debug
 		// 4 - extra verbose (additional debug messages)
-		"level": 3
+		"level": 4
 	},
 
 	"opencl": {
@@ -91,7 +91,7 @@
 		// Extend the path if a reflective or transparent surface is hit
 		"max_added_depth": 3,
 		// Maximum path length
-		"max_depth": 5,
+		"max_depth": 3,
 		// Samples of paths per frame
 		"samples": 1
 	},

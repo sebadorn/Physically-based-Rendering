@@ -83,6 +83,10 @@ void PathTracer::initArgsKernelPathTracing() {
 	cl_float f = aspect * 2.0f * tan( MathHelp::degToRad( mFOV ) / 2.0f );
 	cl_float pxDim = f / (cl_float) mWidth;
 
+	char msg[128];
+	snprintf( msg, 128, "[PathTracer] Aspect ratio: %g. Pixel size: %g", aspect, pxDim );
+	Logger::logDebugVerbose( msg );
+
 	cl_uint i = 0;
 	i++; // 0: timeSinceStart
 	i++; // 1: pixelWeight
