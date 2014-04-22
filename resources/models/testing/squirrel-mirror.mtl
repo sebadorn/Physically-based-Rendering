@@ -1,0 +1,30 @@
+# Blender MTL File: 'squirrel-mirror.blend'
+# Material Count: 5
+
+newmtl Mirror
+Ni 1.0
+d 1.0
+nu 0.0
+nv 0.0
+Rs 0.0
+Rd 1.0
+
+newmtl Squirrel
+Ni 1.0
+d 1.0
+nu 0.0
+nv 0.0
+Rs 1.0
+Rd 1.0
+
+newmtl WallLeft
+Ni 1.0
+d 1.0
+
+newmtl WallRight
+Ni 1.0
+d 1.0
+
+newmtl Walls
+Ni 1.0
+d 1.0

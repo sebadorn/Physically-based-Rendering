@@ -2,11 +2,11 @@
 # Material Count: 4
 
 newmtl Squirrel_lowpoly
-Ni 1.5
-d 0.0
-nu 1000.0
-nv 1000.0
-Rs 1.0
+Ni 1.7
+d 1.0
+nu 0.0
+nv 0.0
+Rs 0.0
 Rd 1.0
 
 newmtl WallLeft
@@ -16,7 +16,6 @@ d 1.0
 newmtl WallRight
 Ni 1.0
 d 1.0
-light 1
 
 newmtl Walls
 Ni 1.0

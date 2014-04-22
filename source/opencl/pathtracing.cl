@@ -35,7 +35,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 
 	const float rnd = rand( seed );
 	const float4 aaDir = jitter( ray.dir, PI_X2 * rand( seed ), native_sqrt( rnd ), native_sqrt( 1.0f - rnd ) );
-	ray.dir = fast_normalize( ray.dir +	aaDir * ANTI_ALIASING );
+	ray.dir = fast_normalize( ray.dir +	aaDir * pxDim * ANTI_ALIASING );
 
 	return ray;
 }

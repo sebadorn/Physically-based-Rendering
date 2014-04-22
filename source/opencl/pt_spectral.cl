@@ -433,12 +433,10 @@ float spectrum_to_xyz( float spd[SPEC], float4* xyz ) {
 	float X = 0.0f,
 	      Y = 0.0f,
 	      Z = 0.0f;
-	float lambda = 380.0f;
 	float4 maxPossible = (float4)( 0.0f );
-	float stepLambda = 400.0f / SPEC;
 	int stepI = 80 / SPEC;
 
-	for( int i = 0, j = 0; lambda < 780.0f; i += stepI, j++, lambda += stepLambda ) {
+	for( int i = 0, j = 0; j < SPEC; i += stepI, j++ ) {
 		me = spd[j];
 		X += me * cie_colour_match[i][0];
 		Y += me * cie_colour_match[i][1];

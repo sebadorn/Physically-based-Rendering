@@ -164,7 +164,6 @@
 
 		*u = dot( h, V_OUT.xyz );
 		*pdf = native_divide( t, 4.0f * M_PI * dot( V_OUT.xyz, h ) );
-		*pdf *= Z( t, mtl->rough ) * A( w, mtl->p );
 
 		return D( t, vOut, vIn, w, mtl->rough, mtl->p );
 
@@ -301,10 +300,10 @@
 	 * @return {float4}
 	 */
 	float4 newRayShirleyAshikhmin( const ray4* ray, const material* mtl, float* seed ) {
-		// Just do it perfectly specular at such high and identical lobe values
-		if( mtl->nu == mtl->nv && mtl->nu >= 100000.0f ) {
-			return reflect( DIR, N );
-		}
+		// // Just do it perfectly specular at such high and identical lobe values
+		// if( mtl->nu == mtl->nv && mtl->nu >= 100000.0f ) {
+		// 	return reflect( DIR, N );
+		// }
 
 		float a = rand( seed );
 		const float b = rand( seed );

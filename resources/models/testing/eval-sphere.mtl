@@ -26,6 +26,8 @@ Rd 1.0
 newmtl Balken
 Ni 1.0
 d 1.0
+Rs 0.0
+Rd 1.0
 
 newmtl Wall
 Ni 1.0

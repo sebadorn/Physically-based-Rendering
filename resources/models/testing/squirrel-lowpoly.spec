@@ -7,7 +7,7 @@
 		"Squirrel_lowpoly": { "diff": "white", "spec": "white" }
 	},
 
-	"sky": "dark",
+	"sky": "CIE_D65",
 
 	"spectra": {
 		"CIE_D65": {

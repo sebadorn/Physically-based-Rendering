@@ -15,7 +15,7 @@ d 1.0
 
 newmtl Sphere0
 Ni 1.50
-d 1.0
+d 0.0
 p 0.0
 rough 1.0
 nu 10.0
@@ -31,10 +31,11 @@ nu 10.0
 nv 10.0
 Rs 1.0
 Rd 1.0
+light 1
 
 newmtl Sphere2
 Ni 1.5
-d 1.0
+d 0.0
 rough 0.0
 nu 10.0
 nv 10.0

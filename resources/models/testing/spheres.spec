@@ -9,7 +9,7 @@
 		"Bottom": { "diff": "red", "spec": "white" }
 	},
 
-	"sky": "CIE_D65",
+	"sky": "dark",
 
 	"spectra": {
 		"CIE_D65": {
