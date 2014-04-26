@@ -17,8 +17,8 @@ d 1.0
 newmtl box_small
 Ni 1.0
 d 1.0
-nu 1.0
-nv 1.0
+nu 0.0
+nv 0.0
 Rs 0.0
 Rd 1.0
 

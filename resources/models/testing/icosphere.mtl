@@ -1,12 +1,12 @@
-# Blender MTL File: 'cornell-icosphere-glass.blend'
-# Material Count: 5
+# Blender MTL File: 'icosphere.blend'
+# Material Count: 6
 
 newmtl Ceiling
 Ni 1.0
 d 1.0
 light 1
 
-newmtl Glass
+newmtl Ico
 Ni 1.9
 d 1.0
 nu 0.0
@@ -30,6 +30,10 @@ nv 0.0
 Rs 0.0
 Rd 1.0
 
-newmtl Walls
+newmtl BackWall
+Ni 1.0
+d 1.0
+
+newmtl Ground
 Ni 1.0
 d 1.0

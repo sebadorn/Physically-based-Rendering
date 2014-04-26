@@ -3,11 +3,11 @@
 
 newmtl Squirrel
 Ni 1.5
-d 1.0
+d 0.0
 rough 0.0
-nu 1000.0
-nv 1.0
-Rs 1.0
+nu 0.0
+nv 0.0
+Rs 0.0
 Rd 1.0
 
 newmtl Squirrel_lowpoly
@@ -16,12 +16,16 @@ d 1.0
 rough 0.125
 nu 0.0
 nv 0.0
-Rs 0.0
+Rs 1.0
 Rd 1.0
 
 newmtl WallLeft
 Ni 1.0
 d 1.0
+nu 80000.0
+nv 80000.0
+Rs 0.9
+Rd 1.0
 
 newmtl WallRight
 Ni 1.0
@@ -30,3 +34,11 @@ d 1.0
 newmtl Walls
 Ni 1.0
 d 1.0
+
+newmtl Bottom
+Ni 1.0
+d 1.0
+nu 0.0
+nv 0.0
+Rs 0.0
+Rd 1.0

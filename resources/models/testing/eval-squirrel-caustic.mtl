@@ -1,0 +1,27 @@
+# Blender MTL File: 'squirrel-caustic.blend'
+# Material Count: 6
+
+newmtl Bottom
+Ni 1.0
+d 1.0
+
+newmtl LeftWall
+Ni 1.0
+d 1.0
+
+newmtl RightWall
+Ni 1.0
+d 1.0
+
+newmtl Sphere1
+Ni 1.0
+d 1.0
+light 1
+
+newmtl Squirrel
+Ni 1.5
+d 0.0
+
+newmtl Wall
+Ni 1.0
+d 1.0

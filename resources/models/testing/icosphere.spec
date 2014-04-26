@@ -1,10 +1,11 @@
 {
 	"materials": {
-		"Walls": { "diff": "white", "spec": "white" },
+		"BackWall": { "diff": "white", "spec": "white" },
 		"LeftWall": { "diff": "orange", "spec": "white" },
 		"RightWall": { "diff": "blue", "spec": "white" },
-		"Ceiling": { "diff": "CIE_D65", "spec": "white" },
-		"Glass": { "diff": "white", "spec": "white" }
+		"Ground": { "diff": "white", "spec": "white" },
+		"Ceiling": { "diff": "white", "spec": "white" },
+		"Ico": { "diff": "white", "spec": "white" }
 	},
 
 	"sky": "CIE_D65",

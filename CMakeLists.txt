@@ -44,10 +44,10 @@ qt4_wrap_cpp( SOURCES_MOC ${HEADERS_QT} )
 set( LIBRARIES ${LIBRARIES} ${QT_LIBRARIES} ${QT_QTOPENGL_LIBRARIES} )
 
 
-# DEVIL
-find_package( DEVIL REQUIRED )
-include_directories( ${IL_INCLUDE_DIR} )
-set( LIBRARIES ${LIBRARIES} ${IL_LIBRARIES} )
+# # DEVIL
+# find_package( DEVIL REQUIRED )
+# include_directories( ${IL_INCLUDE_DIR} )
+# set( LIBRARIES ${LIBRARIES} ${IL_LIBRARIES} )
 
 
 add_executable( ${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/main.cpp ${SOURCES_CPP} ${SOURCES_MOC} )

@@ -1,15 +1,7 @@
-# Blender MTL File: 'eval-sphere-anisotropy.blend'
-# Material Count: 7
+# Blender MTL File: 'eval-sphere_anisotropy-2.blend'
+# Material Count: 6
 
 newmtl Bottom
-Ni 1.0
-d 1.0
-
-newmtl LeftWall
-Ni 1.0
-d 1.0
-
-newmtl RightWall
 Ni 1.0
 d 1.0
 
@@ -17,21 +9,24 @@ newmtl Sphere
 Ni 1.0
 d 1.0
 rough 0.1
-p 0.01
-nu 100000.0
-nv 10.0
+p 0.25
+nu 10.0
+nv 100.0
 Rs 1.0
 Rd 1.0
 
-newmtl Lightball
-Ni 1.0
-d 1.0
-light 0
-
-newmtl Balken
+newmtl WallBack
 Ni 1.0
 d 1.0
 
-newmtl Wall
+newmtl WallFront
+Ni 1.0
+d 1.0
+
+newmtl WallLeft
+Ni 1.0
+d 1.0
+
+newmtl WallRight
 Ni 1.0
 d 1.0

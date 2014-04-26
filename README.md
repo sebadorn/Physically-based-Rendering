@@ -2,13 +2,13 @@
 
 * freeglut3-dev
 * libboost-dev
-* libdevil-dev
 * libglew-dev
 * libglm-dev
 * libqt4-dev
 * libxi-dev
 * libxmu-dev
 * opencl-headers
+* libdevil-dev (currently not needed, maybe in the future for texture support)
 
 
 ## Build and execute
