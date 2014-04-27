@@ -1,7 +1,6 @@
 #include "ModelLoader.h"
 
 using namespace std;
-using namespace boost::property_tree;
 
 
 /**
@@ -57,106 +56,20 @@ void ModelLoader::getFacesAndVertices(
 
 
 /**
- * Get the material of each face.
- * @return {std::vector<cl_int>} The material index of each face.
+ * Get the used instance of the ObjParser.
+ * @return {ObjParser*}
  */
-vector<cl_int> ModelLoader::getFacesMtl() {
-	return mObjParser->getFacesMtl();
+ObjParser* ModelLoader::getObjParser() {
+	return mObjParser;
 }
 
 
 /**
- * Get the faces.
- * @return {std::vector<cl_uint>} Faces.
+ * Get the used instance of the SpecParser.
+ * @return {SpecParser*}
  */
-vector<cl_uint> ModelLoader::getFacesV() {
-	return mObjParser->getFacesV();
-}
-
-
-/**
- * Get the loaded association of vertices to normals for each face.
- * @return {std::vector<cl_uint>} The vertex normal indices of the faces.
- */
-vector<cl_uint> ModelLoader::getFacesVN() {
-	return mObjParser->getFacesVN();
-}
-
-
-/**
- * Get the loaded association of vertices to texture coordinates for each face.
- * @return {std::vector<cl_uint>} The vertex texture indices of the faces.
- */
-vector<cl_uint> ModelLoader::getFacesVT() {
-	return mObjParser->getFacesVT();
-}
-
-
-/**
- * Get the loaded materials of the MTL file.
- * @return {std::vector<material_t>} The materials.
- */
-vector<material_t> ModelLoader::getMaterials() {
-	return mObjParser->getMaterials();
-}
-
-
-/**
- * Get the association of material names to spectral power distribution.
- * @return {std::map<std::string, std::string>}
- */
-map< string, map<string, string> > ModelLoader::getMaterialToSPD() {
-	return mSpecParser->getMaterialToSPD();
-}
-
-
-/**
- * Get the vertex normals.
- * @return {std::vector<cl_float>} Normals.
- */
-vector<cl_float> ModelLoader::getNormals() {
-	return mObjParser->getNormals();
-}
-
-
-/**
- * Get the loaded 3D objects (groups of faces that describe an object in the scene).
- * @return {std::vector<object3D>} The 3D objects.
- */
-vector<object3D> ModelLoader::getObjects() {
-	return mObjParser->getObjects();
-}
-
-
-string ModelLoader::getSkySPDName() {
-	return mSpecParser->getSkySPDName();
-}
-
-
-/**
- * Get the spectral power distributions.
- * @return {std::map<std::string, std::vector<cl_float>>}
- */
-map<string, vector<cl_float> > ModelLoader::getSpectralPowerDistributions() {
-	return mSpecParser->getSpectralPowerDistributions();
-}
-
-
-/**
- * Get the loaded vertex texture coordinates.
- * @return {std::vector<cl_float>} The texture coordinates.
- */
-vector<cl_float> ModelLoader::getTextureCoordinates() {
-	return mObjParser->getTextureCoordinates();
-}
-
-
-/**
- * Get the vertices.
- * @return {std::vector<cl_float>} Vertices.
- */
-vector<cl_float> ModelLoader::getVertices() {
-	return mObjParser->getVertices();
+SpecParser* ModelLoader::getSpecParser() {
+	return mSpecParser;
 }
 
 

@@ -14,8 +14,8 @@ cl_float MathHelp::degToRad( cl_float deg ) {
 /**
  * Calculate the bounding box from the given vertices.
  * @param {std::vector<cl_float4>} vertices
- * @param {glm::vec3}              bbMin
- * @param {glm::vec3}              bbMax
+ * @param {glm::vec3*}             bbMin
+ * @param {glm::vec3*}             bbMax
  */
 void MathHelp::getAABB( vector<cl_float4> vertices, glm::vec3* bbMin, glm::vec3* bbMax ) {
 	*bbMin = glm::vec3( vertices[0].x, vertices[0].y, vertices[0].z );
@@ -84,8 +84,8 @@ cl_float MathHelp::getSurfaceArea( glm::vec3 bbMin, glm::vec3 bbMax ) {
  * Get the bounding box a face (triangle).
  * @param {cl_uint4}               face
  * @param {std::vector<cl_float4>} vertices
- * @param {glm::vec3}              bbMin
- * @param {glm::vec3}              bbMax
+ * @param {glm::vec3*}             bbMin
+ * @param {glm::vec3*}             bbMax
  */
 void MathHelp::getTriangleAABB( cl_float4 v0, cl_float4 v1, cl_float4 v2, glm::vec3* bbMin, glm::vec3* bbMax ) {
 	vector<cl_float4> vertices;
@@ -130,6 +130,15 @@ glm::vec3 MathHelp::getTriangleCentroid( cl_float4 v0, cl_float4 v1, cl_float4 v
 }
 
 
+/**
+ * Find the intersection of a line with a plane (3D).
+ * @param  {glm::vec3} p          A point p on the line.
+ * @param  {glm::vec3} q          A point q on the line.
+ * @param  {glm::vec3} x          A point x on the plane.
+ * @param  {glm::vec3} nl         Normal of the plane.
+ * @param  {bool*}     isParallel Flag, that will be set to signalise if the line is parallel to the plane (= no intersection).
+ * @return {glm::vec3}            The point of intersection.
+ */
 glm::vec3 MathHelp::intersectLinePlane( glm::vec3 p, glm::vec3 q, glm::vec3 x, glm::vec3 nl, bool* isParallel ) {
 	glm::vec3 hit;
 	glm::vec3 u = q - p;

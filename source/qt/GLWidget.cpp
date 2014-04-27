@@ -304,11 +304,11 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	ModelLoader* ml = new ModelLoader();
 	ml->loadModel( filepath, filename );
 
-    mFaces = ml->getFacesV();
-	mNormals = ml->getNormals();
-	mVertices = ml->getVertices();
+    mFaces = ml->getObjParser()->getFacesV();
+	mNormals = ml->getObjParser()->getNormals();
+	mVertices = ml->getObjParser()->getVertices();
 
-	BVH* bvh = new BVH( ml->getObjects(), mVertices );
+	BVH* bvh = new BVH( ml->getObjParser()->getObjects(), mVertices );
 
 	// Visualization of BVH
 	vector<GLfloat> verticesBVH;

@@ -243,10 +243,11 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 size_t PathTracer::initOpenCLBuffers_Faces(
 	ModelLoader* ml, vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
 ) {
-	vector<cl_uint> facesVN = ml->getFacesVN();
-	vector<cl_int> facesMtl = ml->getFacesMtl();
+	vector<cl_uint> facesVN = ml->getObjParser()->getFacesVN();
+	vector<cl_int> facesMtl = ml->getObjParser()->getFacesMtl();
 	vector<face_cl> faceStructs;
 
+	// Convert array of face indices to own face struct.
 	for( int i = 0; i < faces.size(); i += 3 ) {
 		face_cl face;
 
@@ -280,10 +281,10 @@ size_t PathTracer::initOpenCLBuffers_Faces(
  * @param {ModelLoader*} ml Model loader already holding the needed model data.
  */
 size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
-	vector<material_t> materials = ml->getMaterials();
-	map< string, map<string, string> > mtl2spd = ml->getMaterialToSPD();
-	map< string, vector<cl_float> > spectra = ml->getSpectralPowerDistributions();
-	string sky = ml->getSkySPDName();
+	vector<material_t> materials = ml->getObjParser()->getMaterials();
+	map< string, map<string, string> > mtl2spd = ml->getSpecParser()->getMaterialToSPD();
+	map< string, vector<cl_float> > spectra = ml->getSpecParser()->getSpectralPowerDistributions();
+	string sky = ml->getSpecParser()->getSkySPDName();
 
 
 	// Spectral Power Distributions
