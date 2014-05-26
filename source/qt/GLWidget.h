@@ -1,6 +1,8 @@
 #ifndef GLWIDGET_H
 #define GLWIDGET_H
 
+#define GLM_FORCE_RADIANS
+
 #include <algorithm>
 #include <ctime>
 #include <GL/glew.h>

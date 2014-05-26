@@ -1,14 +1,14 @@
 {
 	"materials": {
 		"Walls": { "diff": "white", "spec": "white" },
-		"WallLeft": { "diff": "white", "spec": "white" },
-		"WallRight": { "diff": "white", "spec": "white" },
-		"Bottom": { "diff": "green", "spec": "white" },
+		"WallLeft": { "diff": "red", "spec": "white" },
+		"WallRight": { "diff": "red", "spec": "white" },
+		"Bottom": { "diff": "red", "spec": "white" },
 		"Squirrel": { "diff": "white", "spec": "white" },
 		"Squirrel_lowpoly": { "diff": "white", "spec": "white" }
 	},
 
-	"sky": "CIE_D65",
+	"sky": "white",
 
 	"spectra": {
 		"CIE_D65": {

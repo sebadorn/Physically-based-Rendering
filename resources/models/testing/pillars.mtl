@@ -1,0 +1,22 @@
+# Blender MTL File: 'pillars.blend'
+# Material Count: 5
+
+newmtl BackWall
+Ni 1.0
+d 1.0
+
+newmtl Ground
+Ni 1.0
+d 1.0
+
+newmtl LeftWall
+Ni 1.0
+d 1.0
+
+newmtl Pillar
+Ni 1.0
+d 1.0
+
+newmtl RightWall
+Ni 1.0
+d 1.0

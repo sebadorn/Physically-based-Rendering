@@ -167,7 +167,7 @@ void updateSPD(
 					brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs * COLOR_SPEC );
 
 					spdTotal[i] += spd[i] * specPowerDists[lightRaySource + i] *
-					               clamp( brdf_s + brdf_d, 0.0f, 1.0f ) *
+					               ( brdf_s + brdf_d ) *
 					               mtl->d + ( 1.0f - mtl->d );
 				}
 			}
@@ -185,7 +185,7 @@ void updateSPD(
 			brdf_s = brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC );
 			brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs * COLOR_SPEC );
 
-			spd[i] *= clamp( brdf_s + brdf_d, 0.0f, 1.0f ) * mtl->d + ( 1.0f - mtl->d );
+			spd[i] *= ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
 			*maxValSpd = fmax( spd[i], *maxValSpd );
 		}
 

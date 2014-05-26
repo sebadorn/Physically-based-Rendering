@@ -10,7 +10,7 @@ using std::vector;
  * @param {QWidget*} parent Parent QWidget this QWidget is contained in.
  */
 GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
-	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
+	mFOV = glm::radians( Cfg::get().value<cl_float>( Cfg::PERS_FOV ) );
 	mModelMatrix = glm::mat4( 1.0f );
 
 	mDoRendering = false;

@@ -1,0 +1,4 @@
+## Changes since completing my Master Thesis
+
+* **BRDF: Shirley-Ashikhmin** – Fixed colors losing saturation.
+* **Phong Tessellation** – not yet working

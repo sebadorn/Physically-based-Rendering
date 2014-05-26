@@ -1,6 +1,8 @@
 #ifndef MATHHELP_H
 #define MATHHELP_H
 
+#define GLM_FORCE_RADIANS
+
 #include <CL/cl.hpp>
 #include <glm/glm.hpp>
 #include <vector>

@@ -460,6 +460,27 @@ float spectrum_to_xyz( float spd[SPEC], float4* xyz ) {
 
 
 /**
+ * Scale the SPD values between 0.0 and 1.0, but only
+ * if a value is greater than 1.0.
+ * @param {float*} spd The SPD to scale.
+ */
+void scaleSPD( float spd[SPEC] ) {
+	float maxVal = 0.0f;
+	for( int i = 0; i < SPEC; i++ ) {
+		maxVal = fmax( maxVal, spd[i] );
+	}
+
+	if( maxVal <= 1.0f ) {
+		return;
+	}
+
+	for( int j = 0; j < SPEC; j++ ) {
+		spd[j] /= maxVal;
+	}
+}
+
+
+/**
  * Convert a given spectrum into RGB.
  * @param  {float*} spd Spectral power distribution.
  * @return {float4}     RGB.
@@ -468,6 +489,7 @@ float4 spectrumToRGB( float spd[SPEC] ) {
 	float4 rgb = (float4)( 0.0f );
 	float4 xyz = (float4)( 0.0f );
 
+	scaleSPD( spd );
 	float intensity = spectrum_to_xyz( spd, &xyz );
 	xyz_to_rgb( CS, xyz, &rgb );
 	rgb *= intensity;

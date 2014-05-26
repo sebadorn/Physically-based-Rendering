@@ -44,8 +44,8 @@ light 1
 newmtl Suzanne
 Ni 1.5
 d 1.0
-nu 10000.0
-nv 10.0
+nu 100000.0
+nv 100000.0
 Rs 1.0
 Rd 1.0
 

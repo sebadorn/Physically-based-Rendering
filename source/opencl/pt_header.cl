@@ -30,6 +30,7 @@ typedef struct {
 	float4 origin;
 	float4 dir;
 	float4 normal;
+	float4 hit;
 	float t;
 } ray4;
 

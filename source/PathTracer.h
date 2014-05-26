@@ -1,6 +1,8 @@
 #ifndef PATH_TRACER_H
 #define PATH_TRACER_H
 
+#define GLM_FORCE_RADIANS
+
 #include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <ctime>

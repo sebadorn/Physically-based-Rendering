@@ -5,7 +5,7 @@ resources/*
 resources/models/ignore/*
 
 # files
-moc_*.cxx
+moc_*.cxx*
 *.sublime-*
 CMakeCache.txt
 cmake_install.cmake

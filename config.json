@@ -2,9 +2,9 @@
 
 	"camera": {
 		"eye": {
-			"x": 0.00,
-			"y": 1.00,
-			"z": 3.00
+			"x": -0.15,
+			"y": 0.75,
+			"z": 2.95
 		},
 		"center": {
 			"x": 0.00,
@@ -113,7 +113,7 @@
 
 	"window": {
 		// Has to be a mutliple of localgroupsize
-		"height": 640,
+		"height": 600,
 		// Has to be a mutliple of localgroupsize
 		"width": 800
 	}

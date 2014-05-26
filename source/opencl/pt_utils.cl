@@ -19,6 +19,79 @@ inline float fresnel( const float u, const float c ) {
 }
 
 
+// float pq( float a, float b, float c, float d, float e, float f, float u, bool getFirst ) {
+// 	float pq_p = native_divide( d*u + f, b );
+// 	float pq_q = native_divide( a*u*u + c + e*u, b );
+
+// 	float pq_p_half = 0.5f * pq_p;
+// 	float pq_sqrt = native_sqrt( pq_p_half*pq_p_half - pq_q );
+// 	pq_sqrt *= getFirst ? 1.0f : -1.0f;
+
+// 	return -pq_p_half + pq_sqrt;
+// }
+
+
+void solveQuadratic( float c0, float c1, float c2, float* x0, float* x1 ) {
+	float p = native_divide( c1, c2 );
+	float q = native_divide( c0, c2 );
+	float p_half = 0.5f * p;
+	float tmp = native_sqrt( p_half * p_half - q );
+
+	*x0 = p_half + tmp;
+	*x1 = p_half - tmp;
+}
+
+
+int solveCubic( float a, float b, float c, float d, float x[3] ) {
+	b /= a;
+	c /= a;
+	d /= a;
+	float q = native_divide( 3.0f*c - b*b, 9.0f );
+	float r = native_divide( 9.0f*b*c - 27.0f*d - 2.0f*b*b*b, 54.0f );
+	float discr = q*q*q + r*r;
+	float term1 = native_divide( b, 3.0f );
+
+	int results_real = 0;
+
+	if( discr > 0.0f ) {
+		float s = r + native_sqrt( discr );
+		s = ( s < 0.0f ) ? -cbrt( -s ) : cbrt( s );
+		float t = r - native_sqrt( discr );
+		t = ( t < 0.0f ) ? -cbrt( -t ) : cbrt( t );
+		x[0] = -term1 + s + t;
+		// term1 += ( s + t ) * 0.5f;
+		// x[1] = -term1;
+		// x[2] = x[1];
+		// term1 = native_sqrt( 3.0f ) * ( s - t ) * 0.5f;
+		// x2_im = term1;
+		// x3_im = -term1;
+
+		results_real = 1;
+	}
+	else if( fabs( discr ) < 0.0000001f ) {
+		float r13 = ( r < 0.0f ) ? -cbrt( -r ) : cbrt( r );
+		x[0] = -term1 + 2.0f*r13;
+		x[1] = -term1 - r13;
+		// x[2] = x[1];
+
+		results_real = 2;
+	}
+	else {
+		q = -q;
+		float tmp1 = q*q*q;
+		tmp1 = acos( native_divide( r, native_sqrt( tmp1 ) ) );
+		float r13 = 2.0f * native_sqrt( q );
+		x[0] = -term1 + r13 * native_cos( native_divide( tmp1, 3.0f ) );
+		x[1] = -term1 + r13 * native_cos( native_divide( tmp1 + 2.0f*M_PI, 3.0f ) );
+		x[2] = -term1 + r13 * native_cos( native_divide( tmp1 + 4.0f*M_PI, 3.0f ) );
+
+		results_real = 3;
+	}
+
+	return results_real;
+}
+
+
 /**
  *
  * @param  {const face_t} face
@@ -26,20 +99,18 @@ inline float fresnel( const float u, const float c ) {
  * @return {float4}
  */
 inline float4 getTriangleNormal( const face_t face, const float3 tuv ) {
-	const float w = 1.0f - tuv.y - tuv.z;
-
-	return fast_normalize( w * face.an + tuv.y * face.bn + tuv.z * face.cn );
+	return fast_normalize( face.an + tuv.y * ( face.bn - face.an ) + tuv.z * ( face.cn - face.an ) );
 }
 
 
 /**
  * New direction for (perfectly) diffuse surfaces.
  * (Well, depening on the given parameters.)
- * @param  nl   Normal (unit vector).
- * @param  phi
- * @param  sina
- * @param  cosa
- * @return
+ * @param  {const float4} nl   Normal (unit vector).
+ * @param  {const float}  phi
+ * @param  {const float}  sina
+ * @param  {const float}  cosa
+ * @return {float4}
  */
 float4 jitter(
 	const float4 nl, const float phi, const float sina, const float cosa
@@ -54,6 +125,16 @@ float4 jitter(
 		) * sina + nl * cosa
 	);
 }
+
+
+/**
+ * Project a point on a plane.
+ * @param  {float3} q Point to project.
+ * @param  {float3} p Point of plane.
+ * @param  {float3} n Normal of plane.
+ * @return {float3}   Projected point.
+ */
+#define projectOnPlane( q, p, n ) ( ( q ) - cross( dot( ( ( q ) - ( p ) ), ( n ) ), ( n ) ) )
 
 
 /**

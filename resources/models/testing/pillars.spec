@@ -1,10 +1,10 @@
 {
 	"materials": {
-		"Walls": { "diff": "white", "spec": "white" },
-		"WallLeft": { "diff": "orange", "spec": "white" },
-		"WallRight": { "diff": "green", "spec": "white" },
-		"Squirrel": { "diff": "blue", "spec": "white" },
-		"Mirror": { "diff": "white", "spec": "white" }
+		"Ground": { "diff": "white", "spec": "white" },
+		"RightWall": { "diff": "blue", "spec": "white" },
+		"LeftWall": { "diff": "orange", "spec": "white" },
+		"BackWall": { "diff": "white", "spec": "white" },
+		"Pillar": { "diff": "white", "spec": "white" }
 	},
 
 	"sky": "CIE_D65",
