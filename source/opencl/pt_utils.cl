@@ -19,74 +19,81 @@ inline float fresnel( const float u, const float c ) {
 }
 
 
-// float pq( float a, float b, float c, float d, float e, float f, float u, bool getFirst ) {
-// 	float pq_p = native_divide( d*u + f, b );
-// 	float pq_q = native_divide( a*u*u + c + e*u, b );
-
-// 	float pq_p_half = 0.5f * pq_p;
-// 	float pq_sqrt = native_sqrt( pq_p_half*pq_p_half - pq_q );
-// 	pq_sqrt *= getFirst ? 1.0f : -1.0f;
-
-// 	return -pq_p_half + pq_sqrt;
-// }
-
-
 void solveQuadratic( float c0, float c1, float c2, float* x0, float* x1 ) {
-	float p = native_divide( c1, c2 );
-	float q = native_divide( c0, c2 );
+	float p = native_divide( c1, c0 );
+	float q = native_divide( c2, c0 );
 	float p_half = 0.5f * p;
 	float tmp = native_sqrt( p_half * p_half - q );
 
-	*x0 = p_half + tmp;
-	*x1 = p_half - tmp;
+	*x0 = -p_half + tmp;
+	*x1 = -p_half - tmp;
 }
 
 
-int solveCubic( float a, float b, float c, float d, float x[3] ) {
-	b /= a;
-	c /= a;
-	d /= a;
-	float q = native_divide( 3.0f*c - b*b, 9.0f );
-	float r = native_divide( 9.0f*b*c - 27.0f*d - 2.0f*b*b*b, 54.0f );
-	float discr = q*q*q + r*r;
-	float term1 = native_divide( b, 3.0f );
-
+int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
+	// Source: http://van-der-waals.pc.uni-koeln.de/quartic/quartic.html
+	const float third = native_divide( 1.0f, 3.0f );
+	float u[3], w, p, q, dis, phi;
 	int results_real = 0;
 
-	if( discr > 0.0f ) {
-		float s = r + native_sqrt( discr );
-		s = ( s < 0.0f ) ? -cbrt( -s ) : cbrt( s );
-		float t = r - native_sqrt( discr );
-		t = ( t < 0.0f ) ? -cbrt( -t ) : cbrt( t );
-		x[0] = -term1 + s + t;
-		// term1 += ( s + t ) * 0.5f;
-		// x[1] = -term1;
-		// x[2] = x[1];
-		// term1 = native_sqrt( 3.0f ) * ( s - t ) * 0.5f;
-		// x2_im = term1;
-		// x3_im = -term1;
+	// determine the degree of the polynomial
+	if( a0 != 0.0f ) {
+		// cubic problem
+		w = native_divide( a1, a0 ) * third;
+		p = native_divide( a2, a0 ) * third - w * w;
+		p = p*p*p;
+		q = -0.5f * ( 2.0f * w*w*w - native_divide( a2*w - a3, a0 ) );
+		dis = q*q + p;
 
+		if( dis < 0.0f ) {
+			// three real solutions
+			// confine the argument of ACOS to the interval [-1;1]
+			phi = acos( fmin( 1.0f, fmax( -1.0f, native_divide( q, native_sqrt( -p ) ) ) ) );
+			p = 2.0f * pow( -p, 0.5f * third );
+
+			for( int i = 0; i < 3; i++ ) {
+				u[i] = p * native_cos( ( phi + 2.0f * ( (float) i ) * M_PI ) * third ) - w;
+			}
+
+			x[0] = fmin( u[0], fmin( u[1], u[2] ) );
+			x[1] = fmax( fmin( u[0], u[1] ), fmax( fmin( u[0], u[2] ), fmin( u[1], u[2] ) ) );
+			x[2] = fmax( u[0], fmax( u[1], u[2] ) );
+
+			results_real = 3;
+		}
+		else {
+			// only one real solution!
+			dis = native_sqrt( dis );
+			x[0] = cbrt( q + dis ) + cbrt( q - dis ) - w;
+
+			results_real = 1;
+		}
+	}
+	else if( a1 != 0.0f ) {
+		// quadratic problem
+		p = 0.5f * native_divide( a2, a1 );
+		dis = p*p - native_divide( a3, a1 );
+
+		if( dis > 0.0f ) {
+			// 2 real solutions
+			x[0] = -p - native_sqrt( dis );
+			x[1] = -p + native_sqrt( dis );
+			results_real = 2;
+		}
+	}
+	else if( a2 != 0.0f ) {
+		//linear equation
+		x[0] = native_divide( a3, a2 );
 		results_real = 1;
 	}
-	else if( fabs( discr ) < 0.0000001f ) {
-		float r13 = ( r < 0.0f ) ? -cbrt( -r ) : cbrt( r );
-		x[0] = -term1 + 2.0f*r13;
-		x[1] = -term1 - r13;
-		// x[2] = x[1];
 
-		results_real = 2;
-	}
-	else {
-		q = -q;
-		float tmp1 = q*q*q;
-		tmp1 = acos( native_divide( r, native_sqrt( tmp1 ) ) );
-		float r13 = 2.0f * native_sqrt( q );
-		x[0] = -term1 + r13 * native_cos( native_divide( tmp1, 3.0f ) );
-		x[1] = -term1 + r13 * native_cos( native_divide( tmp1 + 2.0f*M_PI, 3.0f ) );
-		x[2] = -term1 + r13 * native_cos( native_divide( tmp1 + 4.0f*M_PI, 3.0f ) );
-
-		results_real = 3;
-	}
+	// // perform one step of a newton iteration in order to minimize round-off errors
+	// for( int i = 0; i < results_real; i++ ) {
+	// 	x[i] = x[i] - native_divide(
+	// 		a3 + x[i] * ( a2 + x[i] * ( a1 + x[i] * a0 ) ),
+	// 		a2 + x[i] * ( 2.0f * a1 + x[i] * 3.0f * a0 )
+	// 	);
+	// }
 
 	return results_real;
 }
@@ -99,7 +106,24 @@ int solveCubic( float a, float b, float c, float d, float x[3] ) {
  * @return {float4}
  */
 inline float4 getTriangleNormal( const face_t face, const float3 tuv ) {
-	return fast_normalize( face.an + tuv.y * ( face.bn - face.an ) + tuv.z * ( face.cn - face.an ) );
+	const float w = 1.0f - tuv.y - tuv.z;
+
+	return fast_normalize( face.an * w + face.bn * tuv.y + face.cn * tuv.z );
+}
+
+
+inline float3 getTriangleNormalS(
+	const float u, const float v, const float w,
+	const float3 C12, const float3 C23, const float3 C31, const float3 E23, const float3 E31
+) {
+	const float3 du = ( w - u ) * C31 + v * ( C12 - C23 ) + E31;
+	const float3 dv = ( w - v ) * C23 + u * ( C12 - C31 ) - E23;
+
+	return fast_normalize( cross( du, dv ) );
+}
+
+inline float3 getTriangleReflectionVec( const float3 view, const float3 np ) {
+	return view - 2.0f * np * dot( view, np );
 }
 
 

@@ -36,10 +36,6 @@ newmtl Sphere2
 Ni 1.5
 d 0.0
 rough 0.0
-nu 10.0
-nv 10.0
-Rs 1.0
-Rd 1.0
 
 newmtl Wall
 Ni 1.0
