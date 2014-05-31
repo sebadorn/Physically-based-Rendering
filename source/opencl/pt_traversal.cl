@@ -26,8 +26,8 @@ ray4 getNewRay(
 ) {
 	ray4 newRay;
 	newRay.t = -2.0f;
-	// newRay.origin = fma( ray->t, ray->dir, ray->origin );
-	newRay.origin = ray->hit;
+	newRay.origin = fma( ray->t, ray->dir, ray->origin );
+	// newRay.origin = ray->hit;
 
 	// Transparency and refraction
 	bool doTransRefr = ( mtl->d < 1.0f && mtl->d <= rand( seed ) );
@@ -62,7 +62,8 @@ float3 phongTessellation(
 	float3 N1, float3 N2, float3 N3,
 	const float u, const float v, const float w
 ) {
-	float3 pBary = P1*w + P2*u + P3*v;
+	float3 pBary = P1*u + P2*v + P3*w;
+	// float3 pBary = P1*w + P2*u + P3*v;
 	float3 projA = projectOnPlane( pBary, P1, N1 );
 	float3 projB = projectOnPlane( pBary, P2, N2 );
 	float3 projC = projectOnPlane( pBary, P3, N3 );
@@ -71,6 +72,12 @@ float3 phongTessellation(
 	                      u*v*( projectOnPlane( projB, P1, N1 ) + projectOnPlane( projA, P2, N2 ) ) +
 	                      v*w*( projectOnPlane( projC, P2, N2 ) + projectOnPlane( projB, P3, N3 ) ) +
 	                      w*u*( projectOnPlane( projA, P3, N3 ) + projectOnPlane( projC, P1, N1 ) );
+
+	// float3 pTessellated = (float3)(
+	// 	u*projA.x + v*projB.x + w*projC.x,
+	// 	u*projA.y + v*projB.y + w*projC.y,
+	// 	u*projA.z + v*projB.z + w*projC.z
+	// );
 
 	return pTessellated;
 }
@@ -87,36 +94,39 @@ float3 phongTessellation(
 float4 checkFaceIntersection(
 	ray4* ray, const face_t face, float3* tuv, const float tNear, const float tFar
 ) {
-	// int4 cmpAB = ( face.an == face.bn );
-	// int4 cmpBC = ( face.bn == face.cn );
+	float4 normal = (float4)( 0.0f );
 
-	// if( cmpAB.x && cmpAB.y && cmpAB.z && cmpBC.x && cmpBC.y && cmpBC.z ) {
-	// 	const float3 edge1 = face.b.xyz - face.a.xyz;
-	// 	const float3 edge2 = face.c.xyz - face.a.xyz;
-	// 	const float3 tVec = ray->origin.xyz - face.a.xyz;
-	// 	const float3 pVec = cross( ray->dir.xyz, edge2 );
-	// 	const float3 qVec = cross( tVec, edge1 );
-	// 	const float invDet = native_recip( dot( edge1, pVec ) );
+	int4 cmpAB = ( face.an == face.bn );
+	int4 cmpBC = ( face.bn == face.cn );
 
-	// 	tuv->x = dot( edge2, qVec ) * invDet;
+	if( cmpAB.x && cmpAB.y && cmpAB.z && cmpBC.x && cmpBC.y && cmpBC.z ) {
+		const float3 edge1 = face.b.xyz - face.a.xyz;
+		const float3 edge2 = face.c.xyz - face.a.xyz;
+		const float3 tVec = ray->origin.xyz - face.a.xyz;
+		const float3 pVec = cross( ray->dir.xyz, edge2 );
+		const float3 qVec = cross( tVec, edge1 );
+		const float invDet = native_recip( dot( edge1, pVec ) );
 
-	// 	if( tuv->x < EPSILON || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON ) {
-	// 		tuv->x = -2.0f;
-	// 		return (float4)( 0.0f );
-	// 	}
+		tuv->x = dot( edge2, qVec ) * invDet;
 
-	// 	tuv->y = dot( tVec, pVec ) * invDet;
-	// 	tuv->z = dot( ray->dir.xyz, qVec ) * invDet;
-	// 	tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > 1.0f || tuv->y + tuv->z > 1.0f ) ? -2.0f : tuv->x;
+		if( tuv->x < EPSILON || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON ) {
+			tuv->x = -2.0f;
+			return normal;
+		}
 
-	// 	return fma( tuv->x, ray->dir, ray->origin );
-	// }
+		tuv->y = dot( tVec, pVec ) * invDet;
+		tuv->z = dot( ray->dir.xyz, qVec ) * invDet;
+		tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > 1.0f || tuv->y + tuv->z > 1.0f ) ? -2.0f : tuv->x;
+		normal = getTriangleNormal( face, tuv );
+
+		return normal;
+	}
 
 
 	// Phong Tessellation
 	// Based on: "Direct Ray Tracing of Phong Tessellation" by Shinji Ogaki, Yusuke Tokuyoshi
 
-	tuv->x = -2.0f;
+	tuv->x = INFINITY;
 	#define PT_ALPHA 1.0f
 
 	float3 P1 = face.a.xyz;
@@ -146,12 +156,12 @@ float4 checkFaceIntersection(
 	// 	ray->dir.xyz * dot( ray->dir.xyz, D1 ) * ( 1.0f - native_cos( rotationAngle ) )
 	// );
 
-	// if( dot( ray->origin.xyz, D1 ) < 0.0f ) {
-	// 	D1 = -D1;
-	// }
-	// if( dot( ray->origin.xyz, D2 ) < 0.0f ) {
-	// 	D2 = -D2;
-	// }
+	if( dot( ray->origin.xyz, D1 ) < 0.0f ) {
+		D1 = -D1;
+	}
+	if( dot( ray->origin.xyz, D2 ) < 0.0f ) {
+		D2 = -D2;
+	}
 
 	float O1 = -fabs( dot( ray->origin.xyz, D1 ) );
 	float O2 = -fabs( dot( ray->origin.xyz, D2 ) );
@@ -183,11 +193,12 @@ float4 checkFaceIntersection(
 	int numCubicRoots = solveCubic( a0, a1, a2, a3, xs );
 
 	if( 0 == numCubicRoots ) {
-		return (float4)( 0.0f );
+		tuv->x = -2.0f;
+		return normal;
 	}
 
 	float x;
-	float determinant = FLT_MAX;
+	float determinant = INFINITY;
 	float A, B, C, D, E, F;
 
 	for( int i = 0; i < numCubicRoots; i++ ) {
@@ -207,6 +218,10 @@ float4 checkFaceIntersection(
 	D = d * x + o;
 
 	float u, v, w;
+	float t;
+	int domain = 2;
+	if( ray->dir.x != 0.0f ) { domain = 0; }
+	else if( ray->dir.y != 0.0f ) { domain = 1; }
 
 	if( 0.0f < determinant ) {
 		C = c * x + n;
@@ -235,7 +250,6 @@ float4 checkFaceIntersection(
 			}
 
 			for( int loop = 0; loop < 2; loop++ ) {
-				tuv->x = -2.0f;
 				float g = ( 0 == loop ) ? -la1 : -la2;
 				float h = ( 0 == loop ) ? -lc1 : -lc2;
 
@@ -251,8 +265,8 @@ float4 checkFaceIntersection(
 					continue;
 				}
 
-				if( 0.0000001f > fabs( c0 ) ) {
-					if( 0.0000001f < fabs( c1 ) ) {
+				if( EPSILON > fabs( c0 ) ) {
+					if( EPSILON < fabs( c1 ) ) {
 						u = native_divide( -c2, c1 );
 						v = g*u + h;
 						w = 1.0f - u - v;
@@ -260,30 +274,19 @@ float4 checkFaceIntersection(
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
 							float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
 							float3 test = pTessellated - ray->origin.xyz;
+							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
 
-							// if( test.x / ray->dir.x >= 0.0f && test.y / ray->dir.y >= 0.0f && test.z / ray->dir.z >= 0.0f ) {
-							if(
-								( ray->dir.x == 0.0f || test.x / ray->dir.x >= 0.0f ) &&
-								( ray->dir.y == 0.0f || test.y / ray->dir.y >= 0.0f ) &&
-								( ray->dir.z == 0.0f || test.z / ray->dir.z >= 0.0f )
-							) {
-								tuv->x = fast_length( test );
-								if( tNear - tuv->x > EPSILON || tuv->x - tFar > EPSILON ) {
-									continue;
-								}
+							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
+							// if( t > EPSILON && t < tuv->x && t - tFar < EPSILON && tNear - t < EPSILON ) {
+								tuv->x = t;
 								tuv->y = u;
 								tuv->z = v;
 
 								float3 ns = getTriangleNormalS( u, v, w, C12, C23, C31, E23, E31 );
-								float4 np = getTriangleNormal( face, *tuv );
+								float4 np = getTriangleNormal( face, tuv );
 								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-								if( dot( ns, r ) < 0.0f ) {
-									ray->normal = (float4)( ns, 0.0f );
-								}
-								else {
-									ray->normal = np;
-								}
-								return (float4)( pTessellated, 0.0f );
+								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
+								// normal = np;
 							}
 						}
 					}
@@ -293,7 +296,11 @@ float4 checkFaceIntersection(
 					float discriminant = c1 * c1 - 4.0f * c0 * c2;
 
 					if( 0.0f <= discriminant ) {
-						solveQuadratic( c0, c1, c2, &tmp0, &tmp1 );
+						int numResults = solveQuadratic( c0, c1, c2, &tmp0, &tmp1 );
+
+						if( 0 == numResults ) {
+							continue;
+						}
 
 						// Line 1
 						u = tmp0;
@@ -303,31 +310,24 @@ float4 checkFaceIntersection(
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
 							float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
 							float3 test = pTessellated - ray->origin.xyz;
+							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
 
-							// if( test.x / ray->dir.x >= 0.0f && test.y / ray->dir.y >= 0.0f && test.z / ray->dir.z >= 0.0f ) {
-							if(
-								( ray->dir.x == 0.0f || test.x / ray->dir.x >= 0.0f ) &&
-								( ray->dir.y == 0.0f || test.y / ray->dir.y >= 0.0f ) &&
-								( ray->dir.z == 0.0f || test.z / ray->dir.z >= 0.0f )
-							) {
-								tuv->x = fast_length( test );
-								if( tNear - tuv->x > EPSILON || tuv->x - tFar > EPSILON ) {
-									continue;
-								}
+							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
+							// if( t > EPSILON && t < tuv->x && t - tFar < EPSILON && tNear - t < EPSILON ) {
+								tuv->x = t;
 								tuv->y = u;
 								tuv->z = v;
 
 								float3 ns = getTriangleNormalS( u, v, w, C12, C23, C31, E23, E31 );
-								float4 np = getTriangleNormal( face, *tuv );
+								float4 np = getTriangleNormal( face, tuv );
 								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-								if( dot( ns, r ) < 0.0f ) {
-									ray->normal = (float4)( ns, 0.0f );
-								}
-								else {
-									ray->normal = np;
-								}
-								return (float4)( pTessellated, 0.0f );
+								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
+								// normal = np;
 							}
+						}
+
+						if( 1 == numResults ) {
+							continue;
 						}
 
 						// Line 2
@@ -338,30 +338,19 @@ float4 checkFaceIntersection(
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
 							float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
 							float3 test = pTessellated - ray->origin.xyz;
+							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
 
-							// if( test.x / ray->dir.x >= 0.0f && test.y / ray->dir.y >= 0.0f && test.z / ray->dir.z >= 0.0f ) {
-							if(
-								( ray->dir.x == 0.0f || test.x / ray->dir.x >= 0.0f ) &&
-								( ray->dir.y == 0.0f || test.y / ray->dir.y >= 0.0f ) &&
-								( ray->dir.z == 0.0f || test.z / ray->dir.z >= 0.0f )
-							) {
-								tuv->x = fast_length( test );
-								if( tNear - tuv->x > EPSILON || tuv->x - tFar > EPSILON ) {
-									continue;
-								}
+							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
+							// if( t > EPSILON && t < tuv->x && t - tFar < EPSILON && tNear - t < EPSILON ) {
+								tuv->x = t;
 								tuv->y = u;
 								tuv->z = v;
 
 								float3 ns = getTriangleNormalS( u, v, w, C12, C23, C31, E23, E31 );
-								float4 np = getTriangleNormal( face, *tuv );
+								float4 np = getTriangleNormal( face, tuv );
 								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-								if( dot( ns, r ) < 0.0f ) {
-									ray->normal = (float4)( ns, 0.0f );
-								}
-								else {
-									ray->normal = np;
-								}
-								return (float4)( pTessellated, 0.0f );
+								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
+								// normal = np;
 							}
 						}
 					}
@@ -404,8 +393,8 @@ float4 checkFaceIntersection(
 					continue;
 				}
 
-				if( 0.0000001f > fabs( c0 ) ) {
-					if( 0.0000001f < fabs( c1 ) ) {
+				if( EPSILON > fabs( c0 ) ) {
+					if( EPSILON < fabs( c1 ) ) {
 						v = native_divide( -c2, c1 );
 						u = g*v + h;
 						w = 1.0f - u - v;
@@ -413,30 +402,19 @@ float4 checkFaceIntersection(
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
 							float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
 							float3 test = pTessellated - ray->origin.xyz;
+							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
 
-							// if( test.x / ray->dir.x >= 0.0f && test.y / ray->dir.y >= 0.0f && test.z / ray->dir.z >= 0.0f ) {
-							if(
-								( ray->dir.x == 0.0f || test.x / ray->dir.x >= 0.0f ) &&
-								( ray->dir.y == 0.0f || test.y / ray->dir.y >= 0.0f ) &&
-								( ray->dir.z == 0.0f || test.z / ray->dir.z >= 0.0f )
-							) {
-								tuv->x = fast_length( test );
-								if( tNear - tuv->x > EPSILON || tuv->x - tFar > EPSILON ) {
-									continue;
-								}
+							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
+							// if( t > EPSILON && t < tuv->x && t - tFar < EPSILON && tNear - t < EPSILON ) {
+								tuv->x = t;
 								tuv->y = u;
 								tuv->z = v;
 
 								float3 ns = getTriangleNormalS( u, v, w, C12, C23, C31, E23, E31 );
-								float4 np = getTriangleNormal( face, *tuv );
+								float4 np = getTriangleNormal( face, tuv );
 								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-								if( dot( ns, r ) < 0.0f ) {
-									ray->normal = (float4)( ns, 0.0f );
-								}
-								else {
-									ray->normal = np;
-								}
-								return (float4)( pTessellated, 0.0f );
+								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
+								// normal = np;
 							}
 						}
 					}
@@ -446,7 +424,11 @@ float4 checkFaceIntersection(
 					float discriminant = c1 * c1 - 4.0f * c0 * c2;
 
 					if( 0.0f <= discriminant ) {
-						solveQuadratic( c0, c1, c2, &tmp0, &tmp1 );
+						int numResults = solveQuadratic( c0, c1, c2, &tmp0, &tmp1 );
+
+						if( 0 == numResults ) {
+							continue;
+						}
 
 						// Line 1
 						v = tmp0;
@@ -456,31 +438,24 @@ float4 checkFaceIntersection(
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
 							float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
 							float3 test = pTessellated - ray->origin.xyz;
+							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
 
-							// if( test.x / ray->dir.x >= 0.0f && test.y / ray->dir.y >= 0.0f && test.z / ray->dir.z >= 0.0f ) {
-							if(
-								( ray->dir.x == 0.0f || test.x / ray->dir.x >= 0.0f ) &&
-								( ray->dir.y == 0.0f || test.y / ray->dir.y >= 0.0f ) &&
-								( ray->dir.z == 0.0f || test.z / ray->dir.z >= 0.0f )
-							) {
-								tuv->x = fast_length( test );
-								if( tNear - tuv->x > EPSILON || tuv->x - tFar > EPSILON ) {
-									continue;
-								}
+							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
+							// if( t > EPSILON && t < tuv->x && t - tFar < EPSILON && tNear - t < EPSILON ) {
+								tuv->x = t;
 								tuv->y = u;
 								tuv->z = v;
 
 								float3 ns = getTriangleNormalS( u, v, w, C12, C23, C31, E23, E31 );
-								float4 np = getTriangleNormal( face, *tuv );
+								float4 np = getTriangleNormal( face, tuv );
 								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-								if( dot( ns, r ) < 0.0f ) {
-									ray->normal = (float4)( ns, 0.0f );
-								}
-								else {
-									ray->normal = np;
-								}
-								return (float4)( pTessellated, 0.0f );
+								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
+								// normal = np;
 							}
+						}
+
+						if( 1 == numResults ) {
+							continue;
 						}
 
 						// Line 2
@@ -491,30 +466,19 @@ float4 checkFaceIntersection(
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
 							float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
 							float3 test = pTessellated - ray->origin.xyz;
+							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
 
-							// if( test.x / ray->dir.x >= 0.0f && test.y / ray->dir.y >= 0.0f && test.z / ray->dir.z >= 0.0f ) {
-							if(
-								( ray->dir.x == 0.0f || test.x / ray->dir.x >= 0.0f ) &&
-								( ray->dir.y == 0.0f || test.y / ray->dir.y >= 0.0f ) &&
-								( ray->dir.z == 0.0f || test.z / ray->dir.z >= 0.0f )
-							) {
-								tuv->x = fast_length( test );
-								if( tNear - tuv->x > EPSILON || tuv->x - tFar > EPSILON ) {
-									continue;
-								}
+							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
+							// if( t > EPSILON && t < tuv->x && t - tFar < EPSILON && tNear - t < EPSILON ) {
+								tuv->x = t;
 								tuv->y = u;
 								tuv->z = v;
 
 								float3 ns = getTriangleNormalS( u, v, w, C12, C23, C31, E23, E31 );
-								float4 np = getTriangleNormal( face, *tuv );
+								float4 np = getTriangleNormal( face, tuv );
 								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-								if( dot( ns, r ) < 0.0f ) {
-									ray->normal = (float4)( ns, 0.0f );
-								}
-								else {
-									ray->normal = np;
-								}
-								return (float4)( pTessellated, 0.0f );
+								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
+								// normal = np;
 							}
 						}
 					}
@@ -523,7 +487,9 @@ float4 checkFaceIntersection(
 		}
 	}
 
-	return (float4)( 0.0f );
+	tuv->x = ( tuv->x == INFINITY ) ? -2.0f : tuv->x;
+
+	return normal;
 
 	#undef PT_ALPHA
 }
@@ -544,7 +510,6 @@ void intersectFaces(
 	#define IS_SAME_SIDE ( dot( normal.xyz, -ray->dir.xyz ) >= 0.0f )
 
 	float3 tuv;
-	// float tFar_reset;
 	int faceIndices[4] = { node->faces.x, node->faces.y, node->faces.z, node->faces.w };
 
 	for( int i = 0; i < 4; i++ ) {
@@ -552,24 +517,16 @@ void intersectFaces(
 			break;
 		}
 
-		// tFar_reset = tFar;
-		float4 hit = checkFaceIntersection( ray, faces[faceIndices[i]], &tuv, tNear, tFar );
+		float4 normal = checkFaceIntersection( ray, faces[faceIndices[i]], &tuv, tNear, tFar );
 
 		if( tuv.x > -1.0f ) {
 			tFar = tuv.x;
 
 			if( ray->t > tuv.x || ray->t < -1.0f ) {
-				const float4 normal = getTriangleNormal( faces[faceIndices[i]], tuv );
-
-				// if( IS_SAME_SIDE || materials[(uint) faces[faceIndices[i]].a.w].d < 1.0f ) {
-					// ray->normal = normal;
-					ray->normal.w = (float) faceIndices[i];
-					ray->t = tuv.x;
-					ray->hit = hit;
-				// }
-				// else {
-				// 	tFar = tFar_reset;
-				// }
+				// ray->normal = getTriangleNormal( faces[faceIndices[i]], &tuv );
+				ray->normal = normal;
+				ray->normal.w = (float) faceIndices[i];
+				ray->t = tuv.x;
 			}
 		}
 	}

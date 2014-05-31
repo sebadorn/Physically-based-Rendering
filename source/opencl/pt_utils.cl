@@ -19,14 +19,20 @@ inline float fresnel( const float u, const float c ) {
 }
 
 
-void solveQuadratic( float c0, float c1, float c2, float* x0, float* x1 ) {
+int solveQuadratic( float c0, float c1, float c2, float* x0, float* x1 ) {
 	float p = native_divide( c1, c0 );
 	float q = native_divide( c2, c0 );
 	float p_half = 0.5f * p;
-	float tmp = native_sqrt( p_half * p_half - q );
+	float delta = p_half * p_half - q;
+	float tmp = native_sqrt( delta );
+
+	if( delta < 0.0f ) {
+		return 0;
+	}
 
 	*x0 = -p_half + tmp;
 	*x1 = -p_half - tmp;
+	return ( delta == 0.0f ) ? 1 : 2;
 }
 
 
@@ -60,6 +66,13 @@ int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
 			x[2] = fmax( u[0], fmax( u[1], u[2] ) );
 
 			results_real = 3;
+
+			for( int i = 0; i < 3; i++ ) {
+				x[i] = x[i] - native_divide(
+					a3 + x[i] * ( a2 + x[i] * ( a1 + x[i] * a0 ) ),
+					a2 + x[i] * ( 2.0f * a1 + x[i] * 3.0f * a0 )
+				);
+			}
 		}
 		else {
 			// only one real solution!
@@ -67,6 +80,11 @@ int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
 			x[0] = cbrt( q + dis ) + cbrt( q - dis ) - w;
 
 			results_real = 1;
+
+			x[0] = x[0] - native_divide(
+				a3 + x[0] * ( a2 + x[0] * ( a1 + x[0] * a0 ) ),
+				a2 + x[0] * ( 2.0f * a1 + x[0] * 3.0f * a0 )
+			);
 		}
 	}
 	else if( a1 != 0.0f ) {
@@ -79,15 +97,27 @@ int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
 			x[0] = -p - native_sqrt( dis );
 			x[1] = -p + native_sqrt( dis );
 			results_real = 2;
+
+			for( int i = 0; i < 2; i++ ) {
+				x[i] = x[i] - native_divide(
+					a3 + x[i] * ( a2 + x[i] * ( a1 + x[i] * a0 ) ),
+					a2 + x[i] * ( 2.0f * a1 + x[i] * 3.0f * a0 )
+				);
+			}
 		}
 	}
 	else if( a2 != 0.0f ) {
 		//linear equation
 		x[0] = native_divide( a3, a2 );
 		results_real = 1;
+
+		x[0] = x[0] - native_divide(
+			a3 + x[0] * ( a2 + x[0] * ( a1 + x[0] * a0 ) ),
+			a2 + x[0] * ( 2.0f * a1 + x[0] * 3.0f * a0 )
+		);
 	}
 
-	// // perform one step of a newton iteration in order to minimize round-off errors
+	// perform one step of a newton iteration in order to minimize round-off errors
 	// for( int i = 0; i < results_real; i++ ) {
 	// 	x[i] = x[i] - native_divide(
 	// 		a3 + x[i] * ( a2 + x[i] * ( a1 + x[i] * a0 ) ),
@@ -105,10 +135,11 @@ int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
  * @param  {const float3} tuv
  * @return {float4}
  */
-inline float4 getTriangleNormal( const face_t face, const float3 tuv ) {
-	const float w = 1.0f - tuv.y - tuv.z;
+inline float4 getTriangleNormal( const face_t face, const float3* tuv ) {
+	const float w = 1.0f - tuv->y - tuv->z;
 
-	return fast_normalize( face.an * w + face.bn * tuv.y + face.cn * tuv.z );
+	return fast_normalize( face.an * tuv->y + face.bn * tuv->z + face.cn * w );
+	// return fast_normalize( face.an * w + face.bn * tuv->y + face.cn * tuv->z );
 }
 
 
@@ -121,6 +152,7 @@ inline float3 getTriangleNormalS(
 
 	return fast_normalize( cross( du, dv ) );
 }
+
 
 inline float3 getTriangleReflectionVec( const float3 view, const float3 np ) {
 	return view - 2.0f * np * dot( view, np );
