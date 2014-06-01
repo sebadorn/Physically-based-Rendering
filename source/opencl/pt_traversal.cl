@@ -27,6 +27,7 @@ ray4 getNewRay(
 	ray4 newRay;
 	newRay.t = -2.0f;
 	newRay.origin = fma( ray->t, ray->dir, ray->origin );
+	// newRay.origin += ray->normal * EPSILON;
 	// newRay.origin = ray->hit;
 
 	// Transparency and refraction
@@ -96,38 +97,37 @@ float4 checkFaceIntersection(
 ) {
 	float4 normal = (float4)( 0.0f );
 
-	int4 cmpAB = ( face.an == face.bn );
-	int4 cmpBC = ( face.bn == face.cn );
+	// int4 cmpAB = ( face.an == face.bn );
+	// int4 cmpBC = ( face.bn == face.cn );
 
-	if( cmpAB.x && cmpAB.y && cmpAB.z && cmpBC.x && cmpBC.y && cmpBC.z ) {
-		const float3 edge1 = face.b.xyz - face.a.xyz;
-		const float3 edge2 = face.c.xyz - face.a.xyz;
-		const float3 tVec = ray->origin.xyz - face.a.xyz;
-		const float3 pVec = cross( ray->dir.xyz, edge2 );
-		const float3 qVec = cross( tVec, edge1 );
-		const float invDet = native_recip( dot( edge1, pVec ) );
+	// if( cmpAB.x && cmpAB.y && cmpAB.z && cmpBC.x && cmpBC.y && cmpBC.z ) {
+	// 	const float3 edge1 = face.b.xyz - face.a.xyz;
+	// 	const float3 edge2 = face.c.xyz - face.a.xyz;
+	// 	const float3 tVec = ray->origin.xyz - face.a.xyz;
+	// 	const float3 pVec = cross( ray->dir.xyz, edge2 );
+	// 	const float3 qVec = cross( tVec, edge1 );
+	// 	const float invDet = native_recip( dot( edge1, pVec ) );
 
-		tuv->x = dot( edge2, qVec ) * invDet;
+	// 	tuv->x = dot( edge2, qVec ) * invDet;
 
-		if( tuv->x < EPSILON || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON ) {
-			tuv->x = -2.0f;
-			return normal;
-		}
+	// 	if( tuv->x < EPSILON || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON ) {
+	// 		tuv->x = -2.0f;
+	// 		return normal;
+	// 	}
 
-		tuv->y = dot( tVec, pVec ) * invDet;
-		tuv->z = dot( ray->dir.xyz, qVec ) * invDet;
-		tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > 1.0f || tuv->y + tuv->z > 1.0f ) ? -2.0f : tuv->x;
-		normal = getTriangleNormal( face, tuv );
+	// 	tuv->y = dot( tVec, pVec ) * invDet;
+	// 	tuv->z = dot( ray->dir.xyz, qVec ) * invDet;
+	// 	tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > 1.0f || tuv->y + tuv->z > 1.0f ) ? -2.0f : tuv->x;
+	// 	normal = getTriangleNormal( face, tuv );
 
-		return normal;
-	}
+	// 	return normal;
+	// }
 
 
 	// Phong Tessellation
 	// Based on: "Direct Ray Tracing of Phong Tessellation" by Shinji Ogaki, Yusuke Tokuyoshi
 
 	tuv->x = INFINITY;
-	#define PT_ALPHA 1.0f
 
 	float3 P1 = face.a.xyz;
 	float3 P2 = face.b.xyz;
@@ -136,13 +136,13 @@ float4 checkFaceIntersection(
 	float3 N2 = face.bn.xyz;
 	float3 N3 = face.cn.xyz;
 
-	float3 E12 = P2 - P1;
-	float3 E23 = P3 - P2;
-	float3 E31 = P1 - P3;
+	float3 E01 = face.b.xyz - face.a.xyz;
+	float3 E12 = face.c.xyz - face.b.xyz;
+	float3 E20 = face.a.xyz - face.c.xyz;
 
-	float3 C31 = PT_ALPHA * ( dot( N1, E31 ) * N1 - dot( N3, E31 ) * N3 );
-	float3 C23 = PT_ALPHA * ( dot( N3, E23 ) * N3 - dot( N2, E23 ) * N2 );
-	float3 C12 = PT_ALPHA * ( dot( N2, E12 ) * N2 - dot( N1, E12 ) * N1 );
+	float3 C1 = PhongTess_ALPHA * ( dot( N2, E01 ) * N2 - dot( N1, E01 ) * N1 );
+	float3 C2 = PhongTess_ALPHA * ( dot( N3, E12 ) * N3 - dot( N2, E12 ) * N2 );
+	float3 C3 = PhongTess_ALPHA * ( dot( N1, E20 ) * N1 - dot( N3, E20 ) * N3 );
 
 	// Planes of which the intersection is the ray
 	// Hesse normal form
@@ -166,18 +166,18 @@ float4 checkFaceIntersection(
 	float O1 = -fabs( dot( ray->origin.xyz, D1 ) );
 	float O2 = -fabs( dot( ray->origin.xyz, D2 ) );
 
-	float a = dot( -D1, C31 );
-	float b = dot( -D1, C23 );
+	float a = dot( -D1, C3 );
+	float b = dot( -D1, C2 );
 	float c = dot( D1, P3 ) + O1;
-	float d = dot( D1, C12 - C23 - C31 ) * 0.5f;
-	float e = dot( D1, C31 + E31 ) * 0.5f;
-	float f = dot( D1, C23 - E23 ) * 0.5f;
-	float l = dot( -D2, C31 );
-	float m = dot( -D2, C23 );
+	float d = dot( D1, C1 - C2 - C3 ) * 0.5f;
+	float e = dot( D1, C3 + E20 ) * 0.5f;
+	float f = dot( D1, C2 - E12 ) * 0.5f;
+	float l = dot( -D2, C3 );
+	float m = dot( -D2, C2 );
 	float n = dot( D2, P3 ) + O2;
-	float o = dot( D2, C12 - C23 - C31 ) * 0.5f;
-	float p = dot( D2, C31 + E31 ) * 0.5f;
-	float q = dot( D2, C23 - E23 ) * 0.5f;
+	float o = dot( D2, C1 - C2 - C3 ) * 0.5f;
+	float p = dot( D2, C3 + E20 ) * 0.5f;
+	float q = dot( D2, C2 - E12 ) * 0.5f;
 
 
 	// Solve cubic
@@ -219,9 +219,13 @@ float4 checkFaceIntersection(
 
 	float u, v, w;
 	float t;
-	int domain = 2;
-	if( ray->dir.x != 0.0f ) { domain = 0; }
-	else if( ray->dir.y != 0.0f ) { domain = 1; }
+	int domain;
+	if( fabs( ray->dir.x ) > fabs( ray->dir.y ) ) {
+		domain = ( fabs( ray->dir.x ) > fabs( ray->dir.z ) ) ? 0 : 2;
+	}
+	else {
+		domain = ( fabs( ray->dir.y ) > fabs( ray->dir.z ) ) ? 1 : 2;
+	}
 
 	if( 0.0f < determinant ) {
 		C = c * x + n;
@@ -268,7 +272,7 @@ float4 checkFaceIntersection(
 				if( EPSILON > fabs( c0 ) ) {
 					if( EPSILON < fabs( c1 ) ) {
 						u = native_divide( -c2, c1 );
-						v = g*u + h;
+						v = g * u + h;
 						w = 1.0f - u - v;
 
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
@@ -282,11 +286,11 @@ float4 checkFaceIntersection(
 								tuv->y = u;
 								tuv->z = v;
 
-								float3 ns = getTriangleNormalS( u, v, w, C12, C23, C31, E23, E31 );
+								float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
 								float4 np = getTriangleNormal( face, tuv );
 								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
 								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-								// normal = np;
+								normal = np;
 							}
 						}
 					}
@@ -318,11 +322,11 @@ float4 checkFaceIntersection(
 								tuv->y = u;
 								tuv->z = v;
 
-								float3 ns = getTriangleNormalS( u, v, w, C12, C23, C31, E23, E31 );
+								float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
 								float4 np = getTriangleNormal( face, tuv );
 								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
 								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-								// normal = np;
+								normal = np;
 							}
 						}
 
@@ -346,11 +350,11 @@ float4 checkFaceIntersection(
 								tuv->y = u;
 								tuv->z = v;
 
-								float3 ns = getTriangleNormalS( u, v, w, C12, C23, C31, E23, E31 );
+								float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
 								float4 np = getTriangleNormal( face, tuv );
 								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
 								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-								// normal = np;
+								normal = np;
 							}
 						}
 					}
@@ -396,7 +400,7 @@ float4 checkFaceIntersection(
 				if( EPSILON > fabs( c0 ) ) {
 					if( EPSILON < fabs( c1 ) ) {
 						v = native_divide( -c2, c1 );
-						u = g*v + h;
+						u = g * v + h;
 						w = 1.0f - u - v;
 
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
@@ -410,11 +414,11 @@ float4 checkFaceIntersection(
 								tuv->y = u;
 								tuv->z = v;
 
-								float3 ns = getTriangleNormalS( u, v, w, C12, C23, C31, E23, E31 );
+								float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
 								float4 np = getTriangleNormal( face, tuv );
 								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
 								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-								// normal = np;
+								normal = np;
 							}
 						}
 					}
@@ -446,11 +450,11 @@ float4 checkFaceIntersection(
 								tuv->y = u;
 								tuv->z = v;
 
-								float3 ns = getTriangleNormalS( u, v, w, C12, C23, C31, E23, E31 );
+								float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
 								float4 np = getTriangleNormal( face, tuv );
 								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
 								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-								// normal = np;
+								normal = np;
 							}
 						}
 
@@ -474,11 +478,11 @@ float4 checkFaceIntersection(
 								tuv->y = u;
 								tuv->z = v;
 
-								float3 ns = getTriangleNormalS( u, v, w, C12, C23, C31, E23, E31 );
+								float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
 								float4 np = getTriangleNormal( face, tuv );
 								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
 								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-								// normal = np;
+								normal = np;
 							}
 						}
 					}
@@ -490,8 +494,6 @@ float4 checkFaceIntersection(
 	tuv->x = ( tuv->x == INFINITY ) ? -2.0f : tuv->x;
 
 	return normal;
-
-	#undef PT_ALPHA
 }
 
 

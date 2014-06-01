@@ -91,7 +91,7 @@
 		// Extend the path if a reflective or transparent surface is hit
 		"max_added_depth": 3,
 		// Maximum path length
-		"max_depth": 3,
+		"max_depth": 2,
 		// Samples of paths per frame
 		"samples": 1
 	},

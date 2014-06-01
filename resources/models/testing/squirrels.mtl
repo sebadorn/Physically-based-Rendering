@@ -8,7 +8,7 @@ nu 0.0
 nv 0.0
 Rs 0.0
 Rd 1.0
-light 1
+light 0
 
 newmtl Squirrel_lowpoly
 Ni 1.5
@@ -17,7 +17,7 @@ nu 0.0
 nv 0.0
 Rs 0.0
 Rd 1.0
-light 1
+light 0
 
 newmtl WallLeft
 Ni 1.0
