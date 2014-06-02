@@ -2,14 +2,14 @@
 
 	"camera": {
 		"eye": {
-			"x": -0.15,
-			"y": 0.75,
-			"z": 2.95
+			"x": 0.80,
+			"y": 1.87,
+			"z": 1.21
 		},
 		"center": {
-			"x": 0.00,
-			"y": 0.00,
-			"z": 1.00
+			"x": -0.50,
+			"y": 0.36,
+			"z": 0.40
 		},
 		// Perspective
 		"perspective": {
@@ -61,7 +61,7 @@
 		// -cl-single-precision-constant
 		// -cl-strict-aliasing
 		// -cl-unsafe-math-optimizations
-		"build_options": "-cl-fast-relaxed-math",
+		"build_options": "",
 		// Check each executed OpenCL function for encountered errors.
 		// (Disabling doesn't show any performance improvements.)
 		"check_errors": true,

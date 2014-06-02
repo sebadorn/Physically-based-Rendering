@@ -23,7 +23,7 @@ int solveQuadratic( float c0, float c1, float c2, float* x0, float* x1 ) {
 	float p = native_divide( c1, c0 );
 	float q = native_divide( c2, c0 );
 	float p_half = 0.5f * p;
-	float delta = p_half * p_half - q;
+	float delta = fma( p_half, p_half, -q );
 	float tmp = native_sqrt( delta );
 
 	if( delta < 0.0f ) {
@@ -47,9 +47,9 @@ int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
 		// cubic problem
 		w = native_divide( a1, a0 ) * third;
 		p = native_divide( a2, a0 ) * third - w * w;
-		p = p*p*p;
+		p = p * p * p;
 		q = -0.5f * ( 2.0f * w*w*w - native_divide( a2*w - a3, a0 ) );
-		dis = q*q + p;
+		dis = fma( q, q, p );
 
 		if( dis < 0.0f ) {
 			// three real solutions
@@ -90,7 +90,7 @@ int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
 	else if( a1 != 0.0f ) {
 		// quadratic problem
 		p = 0.5f * native_divide( a2, a1 );
-		dis = p*p - native_divide( a3, a1 );
+		dis = p * p - native_divide( a3, a1 );
 
 		if( dis > 0.0f ) {
 			// 2 real solutions
@@ -139,7 +139,6 @@ inline float4 getTriangleNormal( const face_t face, const float3* tuv ) {
 	const float w = 1.0f - tuv->y - tuv->z;
 
 	return fast_normalize( face.an * tuv->y + face.bn * tuv->z + face.cn * w );
-	// return fast_normalize( face.an * w + face.bn * tuv->y + face.cn * tuv->z );
 }
 
 

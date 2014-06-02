@@ -27,8 +27,7 @@ ray4 getNewRay(
 	ray4 newRay;
 	newRay.t = -2.0f;
 	newRay.origin = fma( ray->t, ray->dir, ray->origin );
-	// newRay.origin += ray->normal * EPSILON;
-	// newRay.origin = ray->hit;
+	newRay.origin += ray->normal * EPSILON;
 
 	// Transparency and refraction
 	bool doTransRefr = ( mtl->d < 1.0f && mtl->d <= rand( seed ) );
@@ -64,7 +63,6 @@ float3 phongTessellation(
 	const float u, const float v, const float w
 ) {
 	float3 pBary = P1*u + P2*v + P3*w;
-	// float3 pBary = P1*w + P2*u + P3*v;
 	float3 projA = projectOnPlane( pBary, P1, N1 );
 	float3 projB = projectOnPlane( pBary, P2, N2 );
 	float3 projC = projectOnPlane( pBary, P3, N3 );
@@ -97,31 +95,31 @@ float4 checkFaceIntersection(
 ) {
 	float4 normal = (float4)( 0.0f );
 
-	// int4 cmpAB = ( face.an == face.bn );
-	// int4 cmpBC = ( face.bn == face.cn );
+	int4 cmpAB = ( face.an == face.bn );
+	int4 cmpBC = ( face.bn == face.cn );
 
-	// if( cmpAB.x && cmpAB.y && cmpAB.z && cmpBC.x && cmpBC.y && cmpBC.z ) {
-	// 	const float3 edge1 = face.b.xyz - face.a.xyz;
-	// 	const float3 edge2 = face.c.xyz - face.a.xyz;
-	// 	const float3 tVec = ray->origin.xyz - face.a.xyz;
-	// 	const float3 pVec = cross( ray->dir.xyz, edge2 );
-	// 	const float3 qVec = cross( tVec, edge1 );
-	// 	const float invDet = native_recip( dot( edge1, pVec ) );
+	if( cmpAB.x && cmpAB.y && cmpAB.z && cmpBC.x && cmpBC.y && cmpBC.z ) {
+		const float3 edge1 = face.b.xyz - face.a.xyz;
+		const float3 edge2 = face.c.xyz - face.a.xyz;
+		const float3 tVec = ray->origin.xyz - face.a.xyz;
+		const float3 pVec = cross( ray->dir.xyz, edge2 );
+		const float3 qVec = cross( tVec, edge1 );
+		const float invDet = native_recip( dot( edge1, pVec ) );
 
-	// 	tuv->x = dot( edge2, qVec ) * invDet;
+		tuv->x = dot( edge2, qVec ) * invDet;
 
-	// 	if( tuv->x < EPSILON || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON ) {
-	// 		tuv->x = -2.0f;
-	// 		return normal;
-	// 	}
+		if( tuv->x < EPSILON || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON ) {
+			tuv->x = -2.0f;
+			return normal;
+		}
 
-	// 	tuv->y = dot( tVec, pVec ) * invDet;
-	// 	tuv->z = dot( ray->dir.xyz, qVec ) * invDet;
-	// 	tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > 1.0f || tuv->y + tuv->z > 1.0f ) ? -2.0f : tuv->x;
-	// 	normal = getTriangleNormal( face, tuv );
+		tuv->y = dot( tVec, pVec ) * invDet;
+		tuv->z = dot( ray->dir.xyz, qVec ) * invDet;
+		tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > 1.0f || tuv->y + tuv->z > 1.0f ) ? -2.0f : tuv->x;
+		normal = getTriangleNormal( face, tuv );
 
-	// 	return normal;
-	// }
+		return normal;
+	}
 
 
 	// Phong Tessellation
@@ -144,37 +142,29 @@ float4 checkFaceIntersection(
 	float3 C2 = PhongTess_ALPHA * ( dot( N3, E12 ) * N3 - dot( N2, E12 ) * N2 );
 	float3 C3 = PhongTess_ALPHA * ( dot( N1, E20 ) * N1 - dot( N3, E20 ) * N3 );
 
+
 	// Planes of which the intersection is the ray
 	// Hesse normal form
-	float3 D1 = fast_normalize( cross( ray->origin.xyz, ray->dir.xyz ) );
-	float3 D2 = fast_normalize( cross( -D1, ray->dir.xyz ) );
 
-	// float rotationAngle = radians( 90.0f );
-	// float3 D2 = fast_normalize(
-	// 	D1 * native_cos( rotationAngle ) +
-	// 	cross( ray->dir.xyz, D1 ) * native_sin( rotationAngle ) +
-	// 	ray->dir.xyz * dot( ray->dir.xyz, D1 ) * ( 1.0f - native_cos( rotationAngle ) )
-	// );
+	float3 D1 = cross( ray->dir.zxy, ray->dir.xyz );
+	D1 = ( dot( ray->origin.xyz, D1 ) >= 0.0f ) ? fast_normalize( D1 ) : -fast_normalize( D1 );
 
-	if( dot( ray->origin.xyz, D1 ) < 0.0f ) {
-		D1 = -D1;
-	}
-	if( dot( ray->origin.xyz, D2 ) < 0.0f ) {
-		D2 = -D2;
-	}
+	float3 D2 = cross( D1, ray->dir.xyz );
+	D2 = ( dot( ray->origin.xyz, D2 ) >= 0.0f ) ? fast_normalize( D2 ) : -fast_normalize( D2 );
 
-	float O1 = -fabs( dot( ray->origin.xyz, D1 ) );
-	float O2 = -fabs( dot( ray->origin.xyz, D2 ) );
+	float O1 = dot( D1, ray->origin.xyz );
+	float O2 = dot( D2, ray->origin.xyz ); // O1, O2 values are too big! WHY?! HOW??!!
+
 
 	float a = dot( -D1, C3 );
 	float b = dot( -D1, C2 );
-	float c = dot( D1, P3 ) + O1;
+	float c = dot( D1, P3 ) - O1;
 	float d = dot( D1, C1 - C2 - C3 ) * 0.5f;
 	float e = dot( D1, C3 + E20 ) * 0.5f;
 	float f = dot( D1, C2 - E12 ) * 0.5f;
 	float l = dot( -D2, C3 );
 	float m = dot( -D2, C2 );
-	float n = dot( D2, P3 ) + O2;
+	float n = dot( D2, P3 ) - O2;
 	float o = dot( D2, C1 - C2 - C3 ) * 0.5f;
 	float p = dot( D2, C3 + E20 ) * 0.5f;
 	float q = dot( D2, C2 - E12 ) * 0.5f;
@@ -189,7 +179,7 @@ float4 checkFaceIntersection(
 	           ( l*f*f + m*e*e + n*d*d + 2.0f*( a*f*q + b*e*p + c*d*o ) );
 	float a0 = ( a*b*c + 2.0f*d*e*f ) - ( a*f*f + b*e*e + c*d*d );
 
-	float xs[3] = { 0.0f, 0.0f, 0.0f };
+	float xs[3];
 	int numCubicRoots = solveCubic( a0, a1, a2, a3, xs );
 
 	if( 0 == numCubicRoots ) {
@@ -272,7 +262,7 @@ float4 checkFaceIntersection(
 				if( EPSILON > fabs( c0 ) ) {
 					if( EPSILON < fabs( c1 ) ) {
 						u = native_divide( -c2, c1 );
-						v = g * u + h;
+						v = fma( g, u, h );
 						w = 1.0f - u - v;
 
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
@@ -281,7 +271,6 @@ float4 checkFaceIntersection(
 							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
 
 							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
-							// if( t > EPSILON && t < tuv->x && t - tFar < EPSILON && tNear - t < EPSILON ) {
 								tuv->x = t;
 								tuv->y = u;
 								tuv->z = v;
@@ -308,7 +297,7 @@ float4 checkFaceIntersection(
 
 						// Line 1
 						u = tmp0;
-						v = g * u + h;
+						v = fma( g, u, h );
 						w = 1.0f - u - v;
 
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
@@ -317,7 +306,6 @@ float4 checkFaceIntersection(
 							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
 
 							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
-							// if( t > EPSILON && t < tuv->x && t - tFar < EPSILON && tNear - t < EPSILON ) {
 								tuv->x = t;
 								tuv->y = u;
 								tuv->z = v;
@@ -336,7 +324,7 @@ float4 checkFaceIntersection(
 
 						// Line 2
 						u = tmp1;
-						v = g * u + h;
+						v = fma( g, u, h );
 						w = 1.0f - u - v;
 
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
@@ -345,7 +333,6 @@ float4 checkFaceIntersection(
 							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
 
 							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
-							// if( t > EPSILON && t < tuv->x && t - tFar < EPSILON && tNear - t < EPSILON ) {
 								tuv->x = t;
 								tuv->y = u;
 								tuv->z = v;
@@ -400,7 +387,7 @@ float4 checkFaceIntersection(
 				if( EPSILON > fabs( c0 ) ) {
 					if( EPSILON < fabs( c1 ) ) {
 						v = native_divide( -c2, c1 );
-						u = g * v + h;
+						u = fma( g, v, h );
 						w = 1.0f - u - v;
 
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
@@ -409,7 +396,6 @@ float4 checkFaceIntersection(
 							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
 
 							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
-							// if( t > EPSILON && t < tuv->x && t - tFar < EPSILON && tNear - t < EPSILON ) {
 								tuv->x = t;
 								tuv->y = u;
 								tuv->z = v;
@@ -436,7 +422,7 @@ float4 checkFaceIntersection(
 
 						// Line 1
 						v = tmp0;
-						u = g * v + h;
+						u = fma( g, v, h );
 						w = 1.0f - u - v;
 
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
@@ -445,7 +431,6 @@ float4 checkFaceIntersection(
 							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
 
 							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
-							// if( t > EPSILON && t < tuv->x && t - tFar < EPSILON && tNear - t < EPSILON ) {
 								tuv->x = t;
 								tuv->y = u;
 								tuv->z = v;
@@ -464,7 +449,7 @@ float4 checkFaceIntersection(
 
 						// Line 2
 						v = tmp1;
-						u = g * v + h;
+						u = fma( g, v, h );
 						w = 1.0f - u - v;
 
 						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
@@ -473,7 +458,6 @@ float4 checkFaceIntersection(
 							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
 
 							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
-							// if( t > EPSILON && t < tuv->x && t - tFar < EPSILON && tNear - t < EPSILON ) {
 								tuv->x = t;
 								tuv->y = u;
 								tuv->z = v;
@@ -509,8 +493,6 @@ void intersectFaces(
 	ray4* ray, const bvhNode* node, const global face_t* faces, const float tNear, float tFar,
 	constant const material* materials
 ) {
-	#define IS_SAME_SIDE ( dot( normal.xyz, -ray->dir.xyz ) >= 0.0f )
-
 	float3 tuv;
 	int faceIndices[4] = { node->faces.x, node->faces.y, node->faces.z, node->faces.w };
 
@@ -525,15 +507,12 @@ void intersectFaces(
 			tFar = tuv.x;
 
 			if( ray->t > tuv.x || ray->t < -1.0f ) {
-				// ray->normal = getTriangleNormal( faces[faceIndices[i]], &tuv );
 				ray->normal = normal;
 				ray->normal.w = (float) faceIndices[i];
 				ray->t = tuv.x;
 			}
 		}
 	}
-
-	#undef IS_SAME_SIDE
 }
 
 
