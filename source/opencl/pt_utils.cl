@@ -19,31 +19,47 @@ inline float fresnel( const float u, const float c ) {
 }
 
 
-int solveQuadratic( float c0, float c1, float c2, float* x0, float* x1 ) {
-	float p = native_divide( c1, c0 );
-	float q = native_divide( c2, c0 );
-	float p_half = 0.5f * p;
-	float delta = fma( p_half, p_half, -q );
-	float tmp = native_sqrt( delta );
-
-	if( delta < 0.0f ) {
-		return 0;
-	}
-
-	*x0 = -p_half + tmp;
-	*x1 = -p_half - tmp;
-	return ( delta == 0.0f ) ? 1 : 2;
+inline void swap( float* a, float* b ) {
+	float tmp = *a;
+	*a = *b;
+	*b = tmp;
 }
 
 
+// int solveQuadratic( float c0, float c1, float c2, float* x0, float* x1 ) {
+// 	if( fabs( c0 ) < 0.000001f ) {
+// 		if( fabs( c1 ) < 0.000001f ) {
+// 			return 0;
+// 		}
+
+// 		*x0 = native_divide( -c2, c1 );
+
+// 		return 1;
+// 	}
+
+// 	float p = native_divide( c1, c0 );
+// 	float q = native_divide( c2, c0 );
+// 	float p_half = 0.5f * p;
+// 	float delta = fma( p_half, p_half, -q );
+
+// 	if( delta < 0.0f ) {
+// 		return 0;
+// 	}
+
+// 	float tmp = native_sqrt( delta );
+// 	*x0 = -p_half + tmp;
+// 	*x1 = -p_half - tmp;
+// 	return ( fabs( delta ) < 0.000001f ) ? 1 : 2;
+// }
+
+
 int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
-	// Source: http://van-der-waals.pc.uni-koeln.de/quartic/quartic.html
 	const float third = native_divide( 1.0f, 3.0f );
 	float u[3], w, p, q, dis, phi;
 	int results_real = 0;
 
 	// determine the degree of the polynomial
-	if( a0 != 0.0f ) {
+	if( fabs( a0 ) > 0.000001f ) {
 		// cubic problem
 		w = native_divide( a1, a0 ) * third;
 		p = native_divide( a2, a0 ) * third - w * w;
@@ -53,13 +69,12 @@ int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
 
 		if( dis < 0.0f ) {
 			// three real solutions
-			// confine the argument of ACOS to the interval [-1;1]
-			phi = acos( fmin( 1.0f, fmax( -1.0f, native_divide( q, native_sqrt( -p ) ) ) ) );
+			phi = acos( clamp( native_divide( q, native_sqrt( -p ) ), -1.0f, 1.0f ) );
 			p = 2.0f * pow( -p, 0.5f * third );
 
-			for( int i = 0; i < 3; i++ ) {
-				u[i] = p * native_cos( ( phi + 2.0f * ( (float) i ) * M_PI ) * third ) - w;
-			}
+			u[0] = p * native_cos( phi * third ) - w;
+			u[1] = p * native_cos( ( phi + 2.0f * M_PI ) * third ) - w;
+			u[2] = p * native_cos( ( phi + 4.0f * M_PI ) * third ) - w;
 
 			x[0] = fmin( u[0], fmin( u[1], u[2] ) );
 			x[1] = fmax( fmin( u[0], u[1] ), fmax( fmin( u[0], u[2] ), fmin( u[1], u[2] ) ) );
@@ -67,12 +82,12 @@ int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
 
 			results_real = 3;
 
-			for( int i = 0; i < 3; i++ ) {
-				x[i] = x[i] - native_divide(
-					a3 + x[i] * ( a2 + x[i] * ( a1 + x[i] * a0 ) ),
-					a2 + x[i] * ( 2.0f * a1 + x[i] * 3.0f * a0 )
-				);
-			}
+			// for( int i = 0; i < 3; i++ ) {
+			// 	x[i] = x[i] - native_divide(
+			// 		a3 + x[i] * ( a2 + x[i] * ( a1 + x[i] * a0 ) ),
+			// 		a2 + x[i] * ( 2.0f * a1 + x[i] * 3.0f * a0 )
+			// 	);
+			// }
 		}
 		else {
 			// only one real solution!
@@ -81,40 +96,41 @@ int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
 
 			results_real = 1;
 
-			x[0] = x[0] - native_divide(
-				a3 + x[0] * ( a2 + x[0] * ( a1 + x[0] * a0 ) ),
-				a2 + x[0] * ( 2.0f * a1 + x[0] * 3.0f * a0 )
-			);
+			// x[0] = x[0] - native_divide(
+			// 	a3 + x[0] * ( a2 + x[0] * ( a1 + x[0] * a0 ) ),
+			// 	a2 + x[0] * ( 2.0f * a1 + x[0] * 3.0f * a0 )
+			// );
 		}
 	}
-	else if( a1 != 0.0f ) {
+	else if( fabs( a1 ) > 0.000001f ) {
 		// quadratic problem
 		p = 0.5f * native_divide( a2, a1 );
 		dis = p * p - native_divide( a3, a1 );
 
-		if( dis > 0.0f ) {
+		if( dis >= 0.0f ) {
 			// 2 real solutions
 			x[0] = -p - native_sqrt( dis );
 			x[1] = -p + native_sqrt( dis );
+
 			results_real = 2;
 
-			for( int i = 0; i < 2; i++ ) {
-				x[i] = x[i] - native_divide(
-					a3 + x[i] * ( a2 + x[i] * ( a1 + x[i] * a0 ) ),
-					a2 + x[i] * ( 2.0f * a1 + x[i] * 3.0f * a0 )
-				);
-			}
+			// for( int i = 0; i < 2; i++ ) {
+			// 	x[i] = x[i] - native_divide(
+			// 		a3 + x[i] * ( a2 + x[i] * ( a1 + x[i] * a0 ) ),
+			// 		a2 + x[i] * ( 2.0f * a1 + x[i] * 3.0f * a0 )
+			// 	);
+			// }
 		}
 	}
-	else if( a2 != 0.0f ) {
-		//linear equation
-		x[0] = native_divide( a3, a2 );
+	else if( fabs( a2 ) > 0.000001f ) {
+		// linear equation
+		x[0] = native_divide( -a3, a2 );
 		results_real = 1;
 
-		x[0] = x[0] - native_divide(
-			a3 + x[0] * ( a2 + x[0] * ( a1 + x[0] * a0 ) ),
-			a2 + x[0] * ( 2.0f * a1 + x[0] * 3.0f * a0 )
-		);
+		// x[0] = x[0] - native_divide(
+		// 	a3 + x[0] * ( a2 + x[0] * ( a1 + x[0] * a0 ) ),
+		// 	a2 + x[0] * ( 2.0f * a1 + x[0] * 3.0f * a0 )
+		// );
 	}
 
 	// perform one step of a newton iteration in order to minimize round-off errors

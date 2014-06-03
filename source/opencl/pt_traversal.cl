@@ -126,6 +126,7 @@ float4 checkFaceIntersection(
 	// Based on: "Direct Ray Tracing of Phong Tessellation" by Shinji Ogaki, Yusuke Tokuyoshi
 
 	tuv->x = INFINITY;
+	#define IS_T_VALID ( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) )
 
 	float3 P1 = face.a.xyz;
 	float3 P2 = face.b.xyz;
@@ -153,7 +154,7 @@ float4 checkFaceIntersection(
 	D2 = ( dot( ray->origin.xyz, D2 ) >= 0.0f ) ? fast_normalize( D2 ) : -fast_normalize( D2 );
 
 	float O1 = dot( D1, ray->origin.xyz );
-	float O2 = dot( D2, ray->origin.xyz ); // O1, O2 values are too big! WHY?! HOW??!!
+	float O2 = dot( D2, ray->origin.xyz );
 
 
 	float a = dot( -D1, C3 );
@@ -179,7 +180,7 @@ float4 checkFaceIntersection(
 	           ( l*f*f + m*e*e + n*d*d + 2.0f*( a*f*q + b*e*p + c*d*o ) );
 	float a0 = ( a*b*c + 2.0f*d*e*f ) - ( a*f*f + b*e*e + c*d*d );
 
-	float xs[3];
+	float xs[3] = { -1.0f, -1.0f, -1.0f };
 	int numCubicRoots = solveCubic( a0, a1, a2, a3, xs );
 
 	if( 0 == numCubicRoots ) {
@@ -189,23 +190,24 @@ float4 checkFaceIntersection(
 
 	float x;
 	float determinant = INFINITY;
-	float A, B, C, D, E, F;
+	float mA, mB, mC, mD, mE, mF;
 
 	for( int i = 0; i < numCubicRoots; i++ ) {
-		A = a * xs[i] + l;
-		B = b * xs[i] + m;
-		D = d * xs[i] + o;
+		mA = fma( a, xs[i], l );
+		mB = fma( b, xs[i], m );
+		mD = fma( d, xs[i], o );
 
-		if( determinant > D*D - A*B ) {
-			determinant = D*D - A*B;
+		if( determinant > mD * mD - mA * mB ) {
+			determinant = mD * mD - mA * mB;
 			x = xs[i];
 		}
 	}
 
+	if( 0.0f >= determinant ) {
+		tuv->x = -2.0f;
+		return normal;
+	}
 
-	A = a * x + l;
-	B = b * x + m;
-	D = d * x + o;
 
 	float u, v, w;
 	float t;
@@ -217,258 +219,118 @@ float4 checkFaceIntersection(
 		domain = ( fabs( ray->dir.y ) > fabs( ray->dir.z ) ) ? 1 : 2;
 	}
 
-	if( 0.0f < determinant ) {
-		C = c * x + n;
-		E = e * x + p;
-		F = f * x + q;
+	mA = fma( a, x, l );
+	mB = fma( b, x, m );
+	mC = fma( c, x, n );
+	mD = fma( d, x, o );
+	mE = fma( e, x, p );
+	mF = fma( f, x, q );
 
-		if( fabs( A ) < fabs( B ) ) {
-			A = native_divide( A, B );
-			C = native_divide( C, B );
-			D = native_divide( D, B );
-			E = native_divide( E, B );
-			F = native_divide( F, B );
-			// B = 1.0f;
+	if( fabs( mA ) < fabs( mB ) ) {
+		mA = native_divide( mA, mB );
+		mC = native_divide( mC, mB );
+		mD = native_divide( mD, mB );
+		mE = native_divide( mE, mB );
+		mF = native_divide( mF, mB );
+		// mB = 1.0f;
 
-			float sqrtA = native_sqrt( D * D - A );
-			float sqrtC = native_sqrt( F * F - C );
-			float la1 = D + sqrtA;
-			float la2 = D - sqrtA;
-			float lc1 = F + sqrtC;
-			float lc2 = F - sqrtC;
+		float sqrtA = native_sqrt( mD * mD - mA );
+		float sqrtC = native_sqrt( mF * mF - mC );
+		float la1 = mD + sqrtA;
+		float la2 = mD - sqrtA;
+		float lc1 = mF + sqrtC;
+		float lc2 = mF - sqrtC;
 
-			if( fabs( 2.0f*E - la1*lc1 - la2*lc2 ) < fabs( 2.0f*E - la1*lc2 - la2*lc1 ) ) {
-				float tmp = lc1;
-				lc1 = lc2;
-				lc2 = tmp;
-			}
+		if( fabs( 2.0f * mE - la1 * lc1 - la2 * lc2 ) < fabs( 2.0f * mE - la1 * lc2 - la2 * lc1 ) ) {
+			swap( &lc1, &lc2 );
+		}
 
-			for( int loop = 0; loop < 2; loop++ ) {
-				float g = ( 0 == loop ) ? -la1 : -la2;
-				float h = ( 0 == loop ) ? -lc1 : -lc2;
+		for( int loop = 0; loop < 2; loop++ ) {
+			float g = ( 0 == loop ) ? -la1 : -la2;
+			float h = ( 0 == loop ) ? -lc1 : -lc2;
 
-				// Solve quadratic function: c0*u*u + c1*u + c2 = 0
-				float c0 = a + g*( 2.0f*d + b*g );
-				float c1 = 2.0f*( h*( d + b*g ) + e + f*g );
-				float c2 = h*( b*h + 2.0f*f ) + c;
+			// Solve quadratic function: c0*u*u + c1*u + c2 = 0
+			float c0 = a + g * ( 2.0f * d + b * g );
+			float c1 = 2.0f * ( h * ( d + b * g ) + e + f * g );
+			float c2 = h * ( b * h + 2.0f * f ) + c;
 
-				if( 0.0f < c0 && ( ( 0.0f < c1 && 0.0f < c2 ) || ( 0.0f > c2 && 0.0f > c0 + c1 + c2 ) ) ) {
-					continue;
-				}
-				if( 0.0f > c0 && ( ( 0.0f > c1 && 0.0f > c2 ) || ( 0.0f < c2 && 0.0f < c0 + c1 + c2 ) ) ) {
-					continue;
-				}
+			int numResults = solveCubic( 0.0f, c0, c1, c2, xs );
 
-				if( EPSILON > fabs( c0 ) ) {
-					if( EPSILON < fabs( c1 ) ) {
-						u = native_divide( -c2, c1 );
-						v = fma( g, u, h );
-						w = 1.0f - u - v;
+			for( int i = 0; i < numResults; i++ ) {
+				u = xs[i];
+				v = fma( g, u, h );
+				w = 1.0f - u - v;
 
-						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
-							float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
-							float3 test = pTessellated - ray->origin.xyz;
-							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
+				if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
+					float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
+					float3 test = pTessellated - ray->origin.xyz;
+					float3 dir = ray->dir.xyz;
+					t = ( (float*) &test )[domain] / ( (float*) &dir )[domain];
 
-							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
-								tuv->x = t;
-								tuv->y = u;
-								tuv->z = v;
+					if( IS_T_VALID ) {
+						tuv->x = t;
+						tuv->y = u;
+						tuv->z = v;
 
-								float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
-								float4 np = getTriangleNormal( face, tuv );
-								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-								normal = np;
-							}
-						}
-					}
-				}
-				else {
-					float tmp0, tmp1;
-					float discriminant = c1 * c1 - 4.0f * c0 * c2;
-
-					if( 0.0f <= discriminant ) {
-						int numResults = solveQuadratic( c0, c1, c2, &tmp0, &tmp1 );
-
-						if( 0 == numResults ) {
-							continue;
-						}
-
-						// Line 1
-						u = tmp0;
-						v = fma( g, u, h );
-						w = 1.0f - u - v;
-
-						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
-							float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
-							float3 test = pTessellated - ray->origin.xyz;
-							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
-
-							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
-								tuv->x = t;
-								tuv->y = u;
-								tuv->z = v;
-
-								float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
-								float4 np = getTriangleNormal( face, tuv );
-								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-								normal = np;
-							}
-						}
-
-						if( 1 == numResults ) {
-							continue;
-						}
-
-						// Line 2
-						u = tmp1;
-						v = fma( g, u, h );
-						w = 1.0f - u - v;
-
-						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
-							float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
-							float3 test = pTessellated - ray->origin.xyz;
-							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
-
-							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
-								tuv->x = t;
-								tuv->y = u;
-								tuv->z = v;
-
-								float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
-								float4 np = getTriangleNormal( face, tuv );
-								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-								normal = np;
-							}
-						}
+						float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
+						float4 np = getTriangleNormal( face, tuv );
+						float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
+						normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
 					}
 				}
 			}
 		}
-		else {
-			B = native_divide( B, A );
-			C = native_divide( C, A );
-			D = native_divide( D, A );
-			E = native_divide( E, A );
-			F = native_divide( F, A );
-			// A = 1.0f;
+	}
+	else {
+		mB = native_divide( mB, mA );
+		mC = native_divide( mC, mA );
+		mD = native_divide( mD, mA );
+		mE = native_divide( mE, mA );
+		mF = native_divide( mF, mA );
+		// mA = 1.0f;
 
-			float sqrtB = native_sqrt( D * D - B );
-			float sqrtC = native_sqrt( E * E - C );
-			float lb1 = D + sqrtB;
-			float lb2 = D - sqrtB;
-			float lc1 = E + sqrtC;
-			float lc2 = E - sqrtC;
+		float sqrtB = native_sqrt( mD * mD - mB );
+		float sqrtC = native_sqrt( mE * mE - mC );
+		float lb1 = mD + sqrtB;
+		float lb2 = mD - sqrtB;
+		float lc1 = mE + sqrtC;
+		float lc2 = mE - sqrtC;
 
-			if( fabs( 2.0f*F - lb1*lc1 - lb2*lc2 ) < fabs( 2.0f*F - lb1*lc2 - lb2*lc1 ) ) {
-				float tmp = lc1;
-				lc1 = lc2;
-				lc2 = tmp;
-			}
+		if( fabs( 2.0f * mF - lb1 * lc1 - lb2 * lc2 ) < fabs( 2.0f * mF - lb1 * lc2 - lb2 * lc1 ) ) {
+			swap( &lc1, &lc2 );
+		}
 
-			for( int loop = 0; loop < 2; loop++ ) {
-				float g = ( 0 == loop ) ? -lb1 : -lb2;
-				float h = ( 0 == loop ) ? -lc1 : -lc2;
+		for( int loop = 0; loop < 2; loop++ ) {
+			float g = ( 0 == loop ) ? -lb1 : -lb2;
+			float h = ( 0 == loop ) ? -lc1 : -lc2;
 
-				float c0 = b + g*( 2.0f*d + a*g );
-				float c1 = 2.0f*( h*( d + a*g ) + f + e*g );
-				float c2 = h*( a*h + 2.0f*e ) + c;
+			// Solve quadratic function: c0*u*u + c1*u + c2 = 0
+			float c0 = b + g * ( 2.0f * d + a * g );
+			float c1 = 2.0f * ( h * ( d + a * g ) + f + e * g );
+			float c2 = h * ( a * h + 2.0f * e ) + c;
 
-				if( 0.0f < c0 && ( ( 0.0f < c1 && 0.0f < c2 ) || ( 0.0f > c2 && 0.0f > c0 + c1 + c2 ) ) ) {
-					continue;
-				}
-				if( 0.0f > c0 && ( ( 0.0f > c1 && 0.0f > c2 ) || ( 0.0f < c2 && 0.0f < c0 + c1 + c2 ) ) ) {
-					continue;
-				}
+			int numResults = solveCubic( 0.0f, c0, c1, c2, xs );
 
-				if( EPSILON > fabs( c0 ) ) {
-					if( EPSILON < fabs( c1 ) ) {
-						v = native_divide( -c2, c1 );
-						u = fma( g, v, h );
-						w = 1.0f - u - v;
+			for( int i = 0; i < numResults; i++ ) {
+				v = xs[i];
+				u = fma( g, v, h );
+				w = 1.0f - u - v;
 
-						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
-							float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
-							float3 test = pTessellated - ray->origin.xyz;
-							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
+				if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
+					float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
+					float3 test = pTessellated - ray->origin.xyz;
+					float3 dir = ray->dir.xyz;
+					t = ( (float*) &test )[domain] / ( (float*) &dir )[domain];
 
-							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
-								tuv->x = t;
-								tuv->y = u;
-								tuv->z = v;
+					if( IS_T_VALID ) {
+						tuv->x = t;
+						tuv->y = u;
+						tuv->z = v;
 
-								float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
-								float4 np = getTriangleNormal( face, tuv );
-								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-								normal = np;
-							}
-						}
-					}
-				}
-				else {
-					float tmp0, tmp1;
-					float discriminant = c1 * c1 - 4.0f * c0 * c2;
-
-					if( 0.0f <= discriminant ) {
-						int numResults = solveQuadratic( c0, c1, c2, &tmp0, &tmp1 );
-
-						if( 0 == numResults ) {
-							continue;
-						}
-
-						// Line 1
-						v = tmp0;
-						u = fma( g, v, h );
-						w = 1.0f - u - v;
-
-						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
-							float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
-							float3 test = pTessellated - ray->origin.xyz;
-							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
-
-							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
-								tuv->x = t;
-								tuv->y = u;
-								tuv->z = v;
-
-								float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
-								float4 np = getTriangleNormal( face, tuv );
-								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-								normal = np;
-							}
-						}
-
-						if( 1 == numResults ) {
-							continue;
-						}
-
-						// Line 2
-						v = tmp1;
-						u = fma( g, v, h );
-						w = 1.0f - u - v;
-
-						if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
-							float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w );
-							float3 test = pTessellated - ray->origin.xyz;
-							t = ( (float*) &test )[domain] / ( (float*) &(ray->dir) )[domain];
-
-							if( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) ) {
-								tuv->x = t;
-								tuv->y = u;
-								tuv->z = v;
-
-								float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
-								float4 np = getTriangleNormal( face, tuv );
-								float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-								normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-								normal = np;
-							}
-						}
+						float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
+						float4 np = getTriangleNormal( face, tuv );
+						float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
+						normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
 					}
 				}
 			}
