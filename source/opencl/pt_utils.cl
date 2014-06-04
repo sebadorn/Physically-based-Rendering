@@ -55,7 +55,7 @@ inline void swap( float* a, float* b ) {
 
 int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
 	const float third = native_divide( 1.0f, 3.0f );
-	float u[3], w, p, q, dis, phi;
+	float w, p, q, dis, phi;
 	int results_real = 0;
 
 	// determine the degree of the polynomial
@@ -72,9 +72,11 @@ int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
 			phi = acos( clamp( native_divide( q, native_sqrt( -p ) ), -1.0f, 1.0f ) );
 			p = 2.0f * pow( -p, 0.5f * third );
 
-			u[0] = p * native_cos( phi * third ) - w;
-			u[1] = p * native_cos( ( phi + 2.0f * M_PI ) * third ) - w;
-			u[2] = p * native_cos( ( phi + 4.0f * M_PI ) * third ) - w;
+			float u[3] = {
+				p * native_cos( phi * third ) - w,
+				p * native_cos( ( phi + 2.0f * M_PI ) * third ) - w,
+				p * native_cos( ( phi + 4.0f * M_PI ) * third ) - w
+			};
 
 			x[0] = fmin( u[0], fmin( u[1], u[2] ) );
 			x[1] = fmax( fmin( u[0], u[1] ), fmax( fmin( u[0], u[2] ), fmin( u[1], u[2] ) ) );
@@ -205,7 +207,9 @@ float4 jitter(
  * @param  {float3} n Normal of plane.
  * @return {float3}   Projected point.
  */
-#define projectOnPlane( q, p, n ) ( ( q ) - cross( dot( ( ( q ) - ( p ) ), ( n ) ), ( n ) ) )
+inline float3 projectOnPlane( const float3 q, const float3 p, const float3 n ) {
+	return q - dot( q - p, n ) * n;
+}
 
 
 /**

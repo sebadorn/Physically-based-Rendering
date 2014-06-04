@@ -62,7 +62,7 @@ float3 phongTessellation(
 	float3 N1, float3 N2, float3 N3,
 	const float u, const float v, const float w
 ) {
-	float3 pBary = P1*u + P2*v + P3*w;
+	float3 pBary = P1 * u + P2 * v + P3 * w;
 	float3 projA = projectOnPlane( pBary, P1, N1 );
 	float3 projB = projectOnPlane( pBary, P2, N2 );
 	float3 projC = projectOnPlane( pBary, P3, N3 );
@@ -71,12 +71,6 @@ float3 phongTessellation(
 	                      u*v*( projectOnPlane( projB, P1, N1 ) + projectOnPlane( projA, P2, N2 ) ) +
 	                      v*w*( projectOnPlane( projC, P2, N2 ) + projectOnPlane( projB, P3, N3 ) ) +
 	                      w*u*( projectOnPlane( projA, P3, N3 ) + projectOnPlane( projC, P1, N1 ) );
-
-	// float3 pTessellated = (float3)(
-	// 	u*projA.x + v*projB.x + w*projC.x,
-	// 	u*projA.y + v*projB.y + w*projC.y,
-	// 	u*projA.z + v*projB.z + w*projC.z
-	// );
 
 	return pTessellated;
 }
@@ -126,7 +120,6 @@ float4 checkFaceIntersection(
 	// Based on: "Direct Ray Tracing of Phong Tessellation" by Shinji Ogaki, Yusuke Tokuyoshi
 
 	tuv->x = INFINITY;
-	#define IS_T_VALID ( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) )
 
 	float3 P1 = face.a.xyz;
 	float3 P2 = face.b.xyz;
@@ -147,7 +140,9 @@ float4 checkFaceIntersection(
 	// Planes of which the intersection is the ray
 	// Hesse normal form
 
-	float3 D1 = cross( ray->dir.zxy, ray->dir.xyz );
+	// float3 D1 = cross( ray->dir.zxy, ray->dir.xyz );
+	float3 D1 = { 1.0f, 2.0f, 0.0f };
+	D1.z = native_divide( -D1.x * ray->dir.x - D1.y * ray->dir.y, ray->dir.z );
 	D1 = ( dot( ray->origin.xyz, D1 ) >= 0.0f ) ? fast_normalize( D1 ) : -fast_normalize( D1 );
 
 	float3 D2 = cross( D1, ray->dir.xyz );
@@ -188,7 +183,7 @@ float4 checkFaceIntersection(
 		return normal;
 	}
 
-	float x;
+	float x, t, u, v, w;
 	float determinant = INFINITY;
 	float mA, mB, mC, mD, mE, mF;
 
@@ -209,14 +204,10 @@ float4 checkFaceIntersection(
 	}
 
 
-	float u, v, w;
-	float t;
-	int domain;
+	int domain = ( fabs( ray->dir.y ) > fabs( ray->dir.z ) ) ? 1 : 2;
+
 	if( fabs( ray->dir.x ) > fabs( ray->dir.y ) ) {
 		domain = ( fabs( ray->dir.x ) > fabs( ray->dir.z ) ) ? 0 : 2;
-	}
-	else {
-		domain = ( fabs( ray->dir.y ) > fabs( ray->dir.z ) ) ? 1 : 2;
 	}
 
 	mA = fma( a, x, l );
@@ -225,6 +216,8 @@ float4 checkFaceIntersection(
 	mD = fma( d, x, o );
 	mE = fma( e, x, p );
 	mF = fma( f, x, q );
+
+	#define IS_T_VALID ( t > EPSILON && t < tuv->x && ( t < ray->t || ray->t < -1.0f ) )
 
 	if( fabs( mA ) < fabs( mB ) ) {
 		mA = native_divide( mA, mB );
@@ -276,6 +269,7 @@ float4 checkFaceIntersection(
 						float4 np = getTriangleNormal( face, tuv );
 						float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
 						normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
+						normal = np;
 					}
 				}
 			}
@@ -331,6 +325,7 @@ float4 checkFaceIntersection(
 						float4 np = getTriangleNormal( face, tuv );
 						float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
 						normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
+						normal = np;
 					}
 				}
 			}
