@@ -20,6 +20,7 @@ const char* Cfg::RENDER_IMPLICIT = "render.implicit";
 const char* Cfg::RENDER_INTERVAL = "render.interval";
 const char* Cfg::RENDER_MAXADDEDDEPTH = "render.max_added_depth";
 const char* Cfg::RENDER_MAXDEPTH = "render.max_depth";
+const char* Cfg::RENDER_PHONGTESS = "render.phong_tessellation";
 const char* Cfg::RENDER_SAMPLES = "render.samples";
 const char* Cfg::OPENCL_BUILDOPTIONS = "opencl.build_options";
 const char* Cfg::OPENCL_CHECKERRORS = "opencl.check_errors";

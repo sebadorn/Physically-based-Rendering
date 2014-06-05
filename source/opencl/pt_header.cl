@@ -8,7 +8,8 @@
 #define MAX_ADDED_DEPTH #MAX_ADDED_DEPTH#
 #define MAX_DEPTH #MAX_DEPTH#
 #define NI_AIR 1.00028f
-#define PhongTess_ALPHA 1.0f
+#define PhongTess #PHONG_TESS#
+#define PhongTess_ALPHA #PHONG_TESS_ALPHA#
 #define PI_X2 6.28318530718f
 #define SAMPLES #SAMPLES#
 #define SKY_LIGHT #SKY_LIGHT#

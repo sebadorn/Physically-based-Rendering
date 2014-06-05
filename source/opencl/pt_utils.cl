@@ -153,10 +153,8 @@ int solveCubic( float a0, float a1, float a2, float a3, float x[3] ) {
  * @param  {const float3} tuv
  * @return {float4}
  */
-inline float4 getTriangleNormal( const face_t face, const float3* tuv ) {
-	const float w = 1.0f - tuv->y - tuv->z;
-
-	return fast_normalize( face.an * tuv->y + face.bn * tuv->z + face.cn * w );
+inline float4 getTriangleNormal( const face_t face, const float u, const float v, const float w ) {
+	return fast_normalize( face.an * u + face.bn * v + face.cn * w );
 }
 
 

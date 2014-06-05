@@ -587,6 +587,8 @@ string CL::setValues( string clProgramString ) {
 	size_t foundStrPos;
 	char replacement[16];
 
+	float PhongTess_ALPHA = Cfg::get().value<cl_float>( Cfg::RENDER_PHONGTESS );
+
 
 	// Integer replacement
 
@@ -597,6 +599,7 @@ string CL::setValues( string clProgramString ) {
 	valueReplace.push_back( "IMPLICIT" );
 	valueReplace.push_back( "MAX_DEPTH" );
 	valueReplace.push_back( "MAX_ADDED_DEPTH" );
+	valueReplace.push_back( "PHONG_TESS" );
 	valueReplace.push_back( "SAMPLES" );
 	valueReplace.push_back( "SPECTRAL_COLORSYSTEM" );
 
@@ -607,6 +610,7 @@ string CL::setValues( string clProgramString ) {
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_IMPLICIT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_MAXDEPTH ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_MAXADDEDDEPTH ) );
+	configInt.push_back( PhongTess_ALPHA > 0.0f ? 1 : 0 );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SAMPLES ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::SPECTRAL_COLORSYSTEM ) );
 
@@ -625,9 +629,11 @@ string CL::setValues( string clProgramString ) {
 
 	valueReplace.clear();
 	valueReplace.push_back( "ANTI_ALIASING" );
+	valueReplace.push_back( "PHONG_TESS_ALPHA" );
 
 	vector<cl_float> configFloat;
 	configFloat.push_back( Cfg::get().value<cl_float>( Cfg::RENDER_ANTIALIAS ) );
+	configFloat.push_back( PhongTess_ALPHA );
 
 	for( int i = 0; i < valueReplace.size(); i++ ) {
 		search = "#" + valueReplace[i] + "#";

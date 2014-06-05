@@ -92,6 +92,10 @@
 		"max_added_depth": 3,
 		// Maximum path length
 		"max_depth": 2,
+		// Phong Tessellation
+		// 0.0: disabled
+		// 1.0: maximum
+		"phong_tessellation": 0.7,
 		// Samples of paths per frame
 		"samples": 1
 	},

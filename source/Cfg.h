@@ -36,6 +36,7 @@ class Cfg {
 		static const char* RENDER_INTERVAL;
 		static const char* RENDER_MAXADDEDDEPTH;
 		static const char* RENDER_MAXDEPTH;
+		static const char* RENDER_PHONGTESS;
 		static const char* RENDER_SAMPLES;
 		static const char* OPENCL_CHECKERRORS;
 		static const char* OPENCL_BUILDOPTIONS;
