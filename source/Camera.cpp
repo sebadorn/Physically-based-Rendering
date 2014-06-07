@@ -18,9 +18,9 @@ Camera::Camera( GLWidget* parent ) {
  * Move the camera position backward.
  */
 void Camera::cameraMoveBackward() {
-	mCamera.eyeX -= sin( MathHelp::degToRad( mCamera.rotX ) ) * cos( MathHelp::degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mCamera.eyeY += sin( MathHelp::degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mCamera.eyeZ += cos( MathHelp::degToRad( mCamera.rotX ) ) * cos( MathHelp::degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eye.x -= sin( MathHelp::degToRad( mCamera.rot.x ) ) * cos( MathHelp::degToRad( mCamera.rot.y ) ) * mCameraSpeed;
+	mCamera.eye.y += sin( MathHelp::degToRad( mCamera.rot.y ) ) * mCameraSpeed;
+	mCamera.eye.z += cos( MathHelp::degToRad( mCamera.rot.x ) ) * cos( MathHelp::degToRad( mCamera.rot.y ) ) * mCameraSpeed;
 	this->updateParent();
 }
 
@@ -29,7 +29,7 @@ void Camera::cameraMoveBackward() {
  * Move the camera position downward.
  */
 void Camera::cameraMoveDown() {
-	mCamera.eyeY -= mCameraSpeed;
+	mCamera.eye.y -= mCameraSpeed;
 	this->updateParent();
 }
 
@@ -38,9 +38,9 @@ void Camera::cameraMoveDown() {
  * Move the camera position forward.
  */
 void Camera::cameraMoveForward() {
-	mCamera.eyeX += sin( MathHelp::degToRad( mCamera.rotX ) ) * cos( MathHelp::degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mCamera.eyeY -= sin( MathHelp::degToRad( mCamera.rotY ) ) * mCameraSpeed;
-	mCamera.eyeZ -= cos( MathHelp::degToRad( mCamera.rotX ) ) * cos( MathHelp::degToRad( mCamera.rotY ) ) * mCameraSpeed;
+	mCamera.eye.x += sin( MathHelp::degToRad( mCamera.rot.x ) ) * cos( MathHelp::degToRad( mCamera.rot.y ) ) * mCameraSpeed;
+	mCamera.eye.y -= sin( MathHelp::degToRad( mCamera.rot.y ) ) * mCameraSpeed;
+	mCamera.eye.z -= cos( MathHelp::degToRad( mCamera.rot.x ) ) * cos( MathHelp::degToRad( mCamera.rot.y ) ) * mCameraSpeed;
 	this->updateParent();
 }
 
@@ -49,8 +49,8 @@ void Camera::cameraMoveForward() {
  * Move the camera position to the left.
  */
 void Camera::cameraMoveLeft() {
-	mCamera.eyeX -= cos( MathHelp::degToRad( mCamera.rotX ) ) * mCameraSpeed;
-	mCamera.eyeZ -= sin( MathHelp::degToRad( mCamera.rotX ) ) * mCameraSpeed;
+	mCamera.eye.x -= cos( MathHelp::degToRad( mCamera.rot.x ) ) * mCameraSpeed;
+	mCamera.eye.z -= sin( MathHelp::degToRad( mCamera.rot.x ) ) * mCameraSpeed;
 	this->updateParent();
 }
 
@@ -59,8 +59,8 @@ void Camera::cameraMoveLeft() {
  * Move the camera position to the right.
  */
 void Camera::cameraMoveRight() {
-	mCamera.eyeX += cos( MathHelp::degToRad( mCamera.rotX ) ) * mCameraSpeed;
-	mCamera.eyeZ += sin( MathHelp::degToRad( mCamera.rotX ) ) * mCameraSpeed;
+	mCamera.eye.x += cos( MathHelp::degToRad( mCamera.rot.x ) ) * mCameraSpeed;
+	mCamera.eye.z += sin( MathHelp::degToRad( mCamera.rot.x ) ) * mCameraSpeed;
 	this->updateParent();
 }
 
@@ -69,7 +69,7 @@ void Camera::cameraMoveRight() {
  * Move the camera position upward.
  */
 void Camera::cameraMoveUp() {
-	mCamera.eyeY += mCameraSpeed;
+	mCamera.eye.y += mCameraSpeed;
 	this->updateParent();
 }
 
@@ -78,18 +78,19 @@ void Camera::cameraMoveUp() {
  * Reset the camera position and rotation.
  */
 void Camera::cameraReset() {
-	mCamera.eyeX = Cfg::get().value<float>( Cfg::CAM_EYE_X );
-	mCamera.eyeY = Cfg::get().value<float>( Cfg::CAM_EYE_Y );
-	mCamera.eyeZ = Cfg::get().value<float>( Cfg::CAM_EYE_Z );
-	mCamera.upX = 0.0f;
-	mCamera.upY = 1.0f;
-	mCamera.upZ = 0.0f;
-	mCamera.rotX = 0.0f;
-	mCamera.rotY = 0.0f;
+	mCamera.eye.x = Cfg::get().value<float>( Cfg::CAM_EYE_X );
+	mCamera.eye.y = Cfg::get().value<float>( Cfg::CAM_EYE_Y );
+	mCamera.eye.z = Cfg::get().value<float>( Cfg::CAM_EYE_Z );
+	mCamera.up.x = 0.0f;
+	mCamera.up.y = 1.0f;
+	mCamera.up.z = 0.0f;
+	mCamera.rot.x = 0.0f;
+	mCamera.rot.y = 0.0f;
 	this->updateCameraRot( 0, 0 );
-	mCamera.centerX = Cfg::get().value<float>( Cfg::CAM_CENTER_X );
-	mCamera.centerY = Cfg::get().value<float>( Cfg::CAM_CENTER_Y );
-	mCamera.centerZ = Cfg::get().value<float>( Cfg::CAM_CENTER_Z );
+	mCamera.center.x = Cfg::get().value<float>( Cfg::CAM_CENTER_X );
+	mCamera.center.y = Cfg::get().value<float>( Cfg::CAM_CENTER_Y );
+	mCamera.center.z = Cfg::get().value<float>( Cfg::CAM_CENTER_Z );
+	mCamera.center = glm::normalize( mCamera.center );
 }
 
 
@@ -99,9 +100,9 @@ void Camera::cameraReset() {
  */
 glm::vec3 Camera::getAdjustedCenter_glmVec3() {
 	return glm::vec3(
-		mCamera.eyeX + mCamera.centerX,
-		mCamera.eyeY - mCamera.centerY,
-		mCamera.eyeZ - mCamera.centerZ
+		mCamera.eye.x + mCamera.center.x,
+		mCamera.eye.y - mCamera.center.y,
+		mCamera.eye.z - mCamera.center.z
 	);
 }
 
@@ -111,7 +112,7 @@ glm::vec3 Camera::getAdjustedCenter_glmVec3() {
  * @return {glm::vec3} Center coordinates.
  */
 glm::vec3 Camera::getCenter_glmVec3() {
-	return glm::vec3( mCamera.centerX, mCamera.centerY, mCamera.centerZ );
+	return mCamera.center;
 }
 
 
@@ -120,7 +121,7 @@ glm::vec3 Camera::getCenter_glmVec3() {
  * @return {glm::vec3} Eye coordinates.
  */
 glm::vec3 Camera::getEye_glmVec3() {
-	return glm::vec3( mCamera.eyeX, mCamera.eyeY, mCamera.eyeZ );
+	return mCamera.eye;
 }
 
 
@@ -130,9 +131,9 @@ glm::vec3 Camera::getEye_glmVec3() {
  */
 vector<float> Camera::getEye() {
 	vector<float> eye;
-	eye.push_back( mCamera.eyeX );
-	eye.push_back( mCamera.eyeY );
-	eye.push_back( mCamera.eyeZ );
+	eye.push_back( mCamera.eye.x );
+	eye.push_back( mCamera.eye.y );
+	eye.push_back( mCamera.eye.z );
 
 	return eye;
 }
@@ -143,7 +144,7 @@ vector<float> Camera::getEye() {
  * @return {float} X rotation.
  */
 float Camera::getRotX() {
-	return mCamera.rotX;
+	return mCamera.rot.x;
 }
 
 
@@ -152,7 +153,7 @@ float Camera::getRotX() {
  * @return {float} Y rotation.
  */
 float Camera::getRotY() {
-	return mCamera.rotY;
+	return mCamera.rot.y;
 }
 
 
@@ -161,7 +162,7 @@ float Camera::getRotY() {
  * @return {glm::vec3} Up coordinates.
  */
 glm::vec3 Camera::getUp_glmVec3() {
-	return glm::vec3( mCamera.upX, mCamera.upY, mCamera.upZ );
+	return mCamera.up;
 }
 
 
@@ -180,51 +181,51 @@ void Camera::setSpeed( float speed ) {
  * @param moveY {int} moveY Movement (of the mouse) in 2D Y direction.
  */
 void Camera::updateCameraRot( int moveX, int moveY ) {
-	mCamera.rotX -= moveX;
-	mCamera.rotY -= moveY;
+	mCamera.rot.x -= moveX;
+	mCamera.rot.y -= moveY;
 
-	if( mCamera.rotX >= 360.0f ) {
-		mCamera.rotX = 0.0f;
+	if( mCamera.rot.x >= 360.0f ) {
+		mCamera.rot.x = 0.0f;
 	}
-	else if( mCamera.rotX < 0.0f ) {
-		mCamera.rotX = 360.0f;
-	}
-
-	if( mCamera.rotY > 90 ) {
-		mCamera.rotY = 90.0f;
-	}
-	else if( mCamera.rotY < -90.0f ) {
-		mCamera.rotY = -90.0f;
+	else if( mCamera.rot.x < 0.0f ) {
+		mCamera.rot.x = 360.0f;
 	}
 
-	mCamera.centerX = sin( MathHelp::degToRad( mCamera.rotX ) )
-		- fabs( sin( MathHelp::degToRad( mCamera.rotY ) ) )
-		* sin( MathHelp::degToRad( mCamera.rotX ) );
-	mCamera.centerY = sin( MathHelp::degToRad( mCamera.rotY ) );
-	mCamera.centerZ = cos( MathHelp::degToRad( mCamera.rotX ) )
-		- fabs( sin( MathHelp::degToRad( mCamera.rotY ) ) )
-		* cos( MathHelp::degToRad( mCamera.rotX ) );
-
-	if( mCamera.centerY == 1.0f ) {
-		mCamera.upX = sin( MathHelp::degToRad( mCamera.rotX ) );
+	if( mCamera.rot.y > 90.0f ) {
+		mCamera.rot.y = 90.0f;
 	}
-	else if( mCamera.centerY == -1.0f ) {
-		mCamera.upX = -sin( MathHelp::degToRad( mCamera.rotX ) );
+	else if( mCamera.rot.y < -90.0f ) {
+		mCamera.rot.y = -90.0f;
+	}
+
+	mCamera.center.x = sin( MathHelp::degToRad( mCamera.rot.x ) )
+		- fabs( sin( MathHelp::degToRad( mCamera.rot.y ) ) )
+		* sin( MathHelp::degToRad( mCamera.rot.x ) );
+	mCamera.center.y = sin( MathHelp::degToRad( mCamera.rot.y ) );
+	mCamera.center.z = cos( MathHelp::degToRad( mCamera.rot.x ) )
+		- fabs( sin( MathHelp::degToRad( mCamera.rot.y ) ) )
+		* cos( MathHelp::degToRad( mCamera.rot.x ) );
+
+	if( mCamera.center.y == 1.0f ) {
+		mCamera.up.x = sin( MathHelp::degToRad( mCamera.rot.x ) );
+	}
+	else if( mCamera.center.y == -1.0f ) {
+		mCamera.up.x = -sin( MathHelp::degToRad( mCamera.rot.x ) );
 	}
 	else {
-		mCamera.upX = 0.0f;
+		mCamera.up.x = 0.0f;
 	}
 
-	mCamera.upY = ( mCamera.centerY == 1.0f || mCamera.centerY == -1.0f ) ? 0.0f : 1.0f;
+	mCamera.up.y = ( mCamera.center.y == 1.0f || mCamera.center.y == -1.0f ) ? 0.0f : 1.0f;
 
-	if( mCamera.centerY == 1.0f ) {
-		mCamera.upZ = -cos( MathHelp::degToRad( mCamera.rotX ) );
+	if( mCamera.center.y == 1.0f ) {
+		mCamera.up.z = -cos( MathHelp::degToRad( mCamera.rot.x ) );
 	}
-	else if( mCamera.centerY == -1.0f ) {
-		mCamera.upZ = cos( MathHelp::degToRad( mCamera.rotX ) );
+	else if( mCamera.center.y == -1.0f ) {
+		mCamera.up.z = cos( MathHelp::degToRad( mCamera.rot.x ) );
 	}
 	else {
-		mCamera.upZ = 0.0f;
+		mCamera.up.z = 0.0f;
 	}
 
 	this->updateParent();

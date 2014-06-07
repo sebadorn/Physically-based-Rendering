@@ -29,7 +29,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 			);
 
 	ray4 ray;
-	ray.t = -2.0f;
+	ray.t = INFINITY;
 	ray.origin = eye;
 	ray.dir = fast_normalize( initialRay );
 
@@ -142,7 +142,7 @@ void updateSPD(
 		brdf = native_divide( brdf, pdf );
 
 		for( int i = 0; i < SPEC; i++ ) {
-			spd[i] *= COLOR_DIFF * ( clamp( fresnel( u, COLOR_SPEC ) * brdf, 0.0f, 1.0f ) * mtl->d + ( 1.0f - mtl->d ) );
+			spd[i] *= COLOR_DIFF * ( fresnel( u, COLOR_SPEC ) * brdf * mtl->d + ( 1.0f - mtl->d ) );
 			*maxValSpd = fmax( spd[i], *maxValSpd );
 		}
 
@@ -237,7 +237,7 @@ kernel void pathTracing(
 		for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
 			traverseBVH( bvh, &ray, faces, materials );
 
-			if( ray.t < 0.0f ) {
+			if( ray.t == INFINITY ) {
 				light = SKY_LIGHT * SPEC;
 				break;
 			}
@@ -265,26 +265,29 @@ kernel void pathTracing(
 
 			int lightRaySource = -1;
 			ray4 lightRay;
-			lightRay.t = -2.0f;
+			lightRay.t = INFINITY;
 
 			#if IMPLICIT == 1
+
 				if( mtl.d > 0.0f ) {
 					lightRay.origin = fma( ray.t, ray.dir, ray.origin ) + ray.normal * EPSILON;
 					const float rnd2 = rand( &seed );
-					lightRay.dir = jitter( ray.normal, PI_X2 * rand( &seed ), native_sqrt( rnd2 ), native_sqrt( 1.0f - rnd2 ) );
+					lightRay.dir = fast_normalize( (float4)( 2.0f, 20.0f, 0.0f, 0.0f ) - lightRay.origin );
+					// lightRay.dir = jitter( ray.normal, PI_X2 * rand( &seed ), native_sqrt( rnd2 ), native_sqrt( 1.0f - rnd2 ) );
 
 					traverseBVH( bvh, &lightRay, faces, materials );
 
-					if( lightRay.t < 0.0f ) {
+					if( lightRay.t == INFINITY ) {
 						lightRaySource = SKY_LIGHT * SPEC;
 					}
-					else if( lightRay.t > -1.0f ) {
+					else {
 						material lightMTL = materials[(uint) faces[(uint) lightRay.normal.w].a.w];
 						lightRaySource = ( lightMTL.light == 1 ) ? lightMTL.spd.x : -1;
 					}
 
 					lightRay.normal.w = 0.0f;
 				}
+
 			#endif
 
 			// New direction of the ray (bouncing of the hit surface)

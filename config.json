@@ -2,14 +2,14 @@
 
 	"camera": {
 		"eye": {
-			"x": 0.80,
-			"y": 1.87,
-			"z": 1.21
+			"x": 0.00,
+			"y": 1.00,
+			"z": 3.00
 		},
 		"center": {
-			"x": -0.50,
-			"y": 0.36,
-			"z": 0.40
+			"x": 0.00,
+			"y": 0.00,
+			"z": 1.00
 		},
 		// Perspective
 		"perspective": {
@@ -87,7 +87,7 @@
 		// Shoot shadow rays to generate implicit paths.
 		// 0: disable
 		// 1: enable
-		"implicit": 0,
+		"implicit": 1,
 		// Extend the path if a reflective or transparent surface is hit
 		"max_added_depth": 3,
 		// Maximum path length
@@ -95,7 +95,7 @@
 		// Phong Tessellation
 		// 0.0: disabled
 		// 1.0: maximum
-		"phong_tessellation": 0.7,
+		"phong_tessellation": 0.0,
 		// Samples of paths per frame
 		"samples": 1
 	},

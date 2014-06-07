@@ -13,11 +13,11 @@ using std::vector;
 
 
 struct camera_t {
-	float eyeX, eyeY, eyeZ;
-	float centerX, centerY, centerZ;
-	float upX, upY, upZ;
-	float rightX, rightY, rightZ;
-	float rotX, rotY;
+	glm::vec3 eye;
+	glm::vec3 center;
+	glm::vec3 up;
+	glm::vec3 right;
+	glm::vec2 rot;
 };
 
 
