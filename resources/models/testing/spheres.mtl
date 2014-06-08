@@ -1,0 +1,42 @@
+# Blender MTL File: 'cornell-sphere.blend'
+# Material Count: 8
+
+newmtl Bottom
+Ni 1.0
+d 1.0
+
+newmtl LeftWall
+Ni 1.0
+d 1.0
+
+newmtl RightWall
+Ni 1.0
+d 1.0
+
+newmtl Sphere0
+Ni 1.50
+d 1.0
+p 0.0
+rough 1.0
+nu 100000.0
+nv 100000.0
+Rs 1.0
+Rd 1.0
+
+newmtl Sphere1
+Ni 1.5
+d 1.0
+rough 1.0
+nu 10.0
+nv 10.0
+Rs 1.0
+Rd 1.0
+
+newmtl Sphere2
+Ni 1.5
+d 1.0
+rough 1.0
+
+newmtl Wall
+Ni 1.0
+d 1.0

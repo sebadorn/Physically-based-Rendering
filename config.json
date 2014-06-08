@@ -1,0 +1,125 @@
+{
+
+	"camera": {
+		"eye": {
+			"x": 0.00,
+			"y": 1.00,
+			"z": 3.00
+		},
+		"center": {
+			"x": 0.00,
+			"y": 0.00,
+			"z": 1.00
+		},
+		// Perspective
+		"perspective": {
+			"fov": 45.0,
+			"zfar": 100.0,
+			"znear": 0.1
+		},
+		// Step distance
+		"speed": 0.2
+	},
+
+	// Default model import path for the Qt File Dialog
+	"import_path": "/home/seba/programming/Physically-based Rendering/resources/models/",
+
+	// Concerning contents of the information window
+	"info": {
+		// Update the displayed execution times for each kernel.
+		// Set to 0 to disable updates. [ms]
+		"kernel_times": 250.0
+	},
+
+	// Bounding Volume Hierarchy
+	"bvh": {
+		// Maximum of faces per leaf node [1, 4].
+		"max_faces": 4,
+		// Using a surface area heuristic to build the BVH takes
+		// some time. To speed it up only use SAH for nodes with
+		// a number of faces less or equal to this setting.
+		"sah_faces_limit": 1000,
+		// FIXME: SBVH produces aweful results and endless loops.
+		// DO NOT USE!
+		// Disable: 0
+		"spatial_splits": 0
+	},
+
+	"logging": {
+		// 0 - no logging
+		// 1 - errors and warnings
+		// 2 - also info
+		// 3 - also debug
+		// 4 - extra verbose (additional debug messages)
+		"level": 4
+	},
+
+	"opencl": {
+		// Build options to try:
+		// -cl-fast-relaxed-math
+		// -cl-mad-enable
+		// -cl-single-precision-constant
+		// -cl-strict-aliasing
+		// -cl-unsafe-math-optimizations
+		"build_options": "",
+		// Check each executed OpenCL function for encountered errors.
+		// (Disabling doesn't show any performance improvements.)
+		"check_errors": true,
+		// Path to the main CL source file.
+		"program": "source/opencl/pathtracing.cl",
+		// Local workgroup size.
+		// Has to be 2^n and image width and height have to dividable by it.
+		// Good value from experience: 8
+		"localgroupsize": 8
+	},
+
+	"render": {
+		// AA through jittering.
+		// Disable: Set to "0.0"
+		"antialiasing": 0.7,
+		// BRDF.
+		// 0: none (specular, diffuse, glossy, refraction)
+		// 1: Schlick (+anisotropic)
+		// 2: Shirley-Ashikhmin
+		"brdf": 1,
+		// Render interval in [ms] (16.666 ms ~ 60 FPS).
+		"interval": 100.0,
+		// Shoot shadow rays to generate implicit paths.
+		// 0: disable
+		// 1: enable
+		"implicit": 1,
+		// Extend the path if a reflective or transparent surface is hit
+		"max_added_depth": 3,
+		// Maximum path length
+		"max_depth": 2,
+		// Phong Tessellation
+		// 0.0: disabled
+		// 1.0: maximum
+		"phong_tessellation": 0.0,
+		// Samples of paths per frame
+		"samples": 1
+	},
+
+	"shader": {
+		"name": "pathtracing",
+		"path": "source/shader/"
+	},
+
+	"spectral": {
+		// 0: NTSC
+		// 1: EBU
+		// 2: SMPTE
+		// 3: HDTV
+		// 4: CIE (default)
+		// 5: Rec709
+		"color_system": 4
+	},
+
+	"window": {
+		// Has to be a mutliple of localgroupsize
+		"height": 600,
+		// Has to be a mutliple of localgroupsize
+		"width": 800
+	}
+
+}

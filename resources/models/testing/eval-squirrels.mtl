@@ -1,0 +1,52 @@
+# Blender MTL File: 'squirrels-double.blend'
+# Material Count: 6
+
+newmtl Ground
+Ni 1.0
+d 1.0
+nu 1.0
+nv 1.0
+Rs 0.0
+Rd 1.0
+
+newmtl Squirrel-left
+Ni 1.5
+d 1.0
+rough 0.0
+nu 1.0
+nv 1.0
+Rs 0.0
+Rd 1.0
+
+newmtl Squirrel-right
+Ni 1.5
+d 1.0
+rough 0.0
+nu 1.0
+nv 1.0
+Rs 0.0
+Rd 1.0
+
+newmtl WallBack
+Ni 1.0
+d 1.0
+nu 1.0
+nv 1.0
+Rs 0.0
+Rd 1.0
+
+newmtl WallLeft
+Ni 1.0
+d 1.0
+nu 1.0
+nv 1.0
+Rs 0.0
+Rd 1.0
+
+newmtl WallRight
+Ni 1.0
+d 1.0
+nu 1.0
+nv 1.0
+Rs 0.0
+Rd 1.0

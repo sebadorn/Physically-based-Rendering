@@ -1,0 +1,35 @@
+# Blender MTL File: 'squirrel-lowpoly-boxed.blend'
+# Material Count: 7
+
+newmtl Squirrel_lowpoly
+Ni 1.7
+d 0.0
+nu 1000.0
+nv 1000.0
+Rs 1.0
+Rd 1.0
+
+newmtl WallLeft
+Ni 1.0
+d 1.0
+
+newmtl WallRight
+Ni 1.0
+d 1.0
+light 1
+
+newmtl Walls
+Ni 1.0
+d 1.0
+
+newmtl Bottom
+Ni 1.0
+d 1.0
+
+newmtl Ceiling
+Ni 1.0
+d 1.0
+
+newmtl WallFront
+Ni 1.0
+d 1.0

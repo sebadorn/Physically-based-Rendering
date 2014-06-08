@@ -1,0 +1,19 @@
+# Blender MTL File: 'applejack2.blend'
+# Material Count: 3
+
+newmtl Applejack
+Ni 1.0
+d 1.0
+rough 0.5
+nu 10.0
+nv 10.0
+Rs 0.05
+Rd 1.0
+
+newmtl Ground
+Ni 1.0
+d 1.0
+
+newmtl Pillar
+Ni 1.0
+d 1.0
