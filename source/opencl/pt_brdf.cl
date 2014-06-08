@@ -340,13 +340,15 @@
 		const float theta_e = native_recip( mtl->nu * cosphi * cosphi + mtl->nv * sinphi * sinphi + 1.0f );
 		const float theta = acos( pow( 1.0f - b, theta_e ) );
 
-		const float4 h = jitter( N, phi_full, native_sin( theta ), native_cos( theta ) );
+		const float4 normal = ( mtl->d < 1.0f || dot( N.xyz, -DIR.xyz ) >= 0.0f ) ? N : -N;
+
+		const float4 h = jitter( normal, phi_full, native_sin( theta ), native_cos( theta ) );
 		const float4 spec = reflect( DIR, h );
-		const float4 diff = jitter( N, 2.0f * M_PI * rand( seed ), native_sqrt( b ), native_sqrt( 1.0f - b ) );
+		const float4 diff = jitter( normal, 2.0f * M_PI * rand( seed ), native_sqrt( b ), native_sqrt( 1.0f - b ) );
 
 		// If new ray direction points under the hemisphere,
 		// use a cosine-weighted sample instead.
-		const float4 newRay = ( dot( spec.xyz, N.xyz ) <= 0.0f ) ? diff : spec;
+		const float4 newRay = ( dot( spec.xyz, normal.xyz ) <= 0.0f ) ? diff : spec;
 
 		return newRay;
 	}

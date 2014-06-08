@@ -23,10 +23,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 	const float4 v = { eyeIn[9], eyeIn[10], eyeIn[11], 0.0f };
 
 	const float4 initialRay = w + pxDim * 0.5f *
-			(
-				u - IMG_WIDTH * u + 2.0f * pos.x * u +
-				v - IMG_HEIGHT * v + 2.0f * pos.y * v
-			);
+			( u - IMG_WIDTH * u + 2.0f * pos.x * u +
+			  v - IMG_HEIGHT * v + 2.0f * pos.y * v );
 
 	ray4 ray;
 	ray.t = INFINITY;
@@ -225,6 +223,7 @@ kernel void pathTracing(
 
 	float focus;
 	bool addDepth;
+	int secondaryPaths = 1; // Start at 1 instead of 0, because we are going to divide through it.
 
 
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
@@ -235,7 +234,7 @@ kernel void pathTracing(
 		int depthAdded = 0;
 
 		for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
-			traverseBVH( bvh, &ray, faces, materials );
+			traverseBVH( bvh, &ray, faces );
 
 			if( ray.t == INFINITY ) {
 				light = SKY_LIGHT * SPEC;
@@ -250,7 +249,7 @@ kernel void pathTracing(
 			// Implicit connection to a light found
 			if( mtl.light == 1 ) {
 				light = mtl.spd.x * SPEC;
-				break;
+				// break;
 			}
 
 			// Last round, no need to calculate a new ray.
@@ -275,14 +274,16 @@ kernel void pathTracing(
 					lightRay.dir = fast_normalize( (float4)( 2.0f, 20.0f, 0.0f, 0.0f ) - lightRay.origin );
 					// lightRay.dir = jitter( ray.normal, PI_X2 * rand( &seed ), native_sqrt( rnd2 ), native_sqrt( 1.0f - rnd2 ) );
 
-					traverseBVH( bvh, &lightRay, faces, materials );
+					traverseBVH( bvh, &lightRay, faces );
 
 					if( lightRay.t == INFINITY ) {
 						lightRaySource = SKY_LIGHT * SPEC;
+						secondaryPaths++;
 					}
 					else {
 						material lightMTL = materials[(uint) faces[(uint) lightRay.normal.w].a.w];
 						lightRaySource = ( lightMTL.light == 1 ) ? lightMTL.spd.x : -1;
+						secondaryPaths += ( lightMTL.light == 1 );
 					}
 
 					lightRay.normal.w = 0.0f;
@@ -315,6 +316,10 @@ kernel void pathTracing(
 			}
 		}
 	} // end samples
+
+	for( int i = 0; i < SPEC; i++ ) {
+		spdTotal[i] = native_divide( spdTotal[i], (float) secondaryPaths );
+	}
 
 	for( int i = 0; SAMPLES > 1 && i < SPEC; i++ ) {
 		spdTotal[i] = native_divide( spdTotal[i], (float) SAMPLES );

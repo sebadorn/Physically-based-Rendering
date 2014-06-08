@@ -81,7 +81,7 @@
 		// 0: none (specular, diffuse, glossy, refraction)
 		// 1: Schlick (+anisotropic)
 		// 2: Shirley-Ashikhmin
-		"brdf": 1,
+		"brdf": 2,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 100.0,
 		// Shoot shadow rays to generate implicit paths.

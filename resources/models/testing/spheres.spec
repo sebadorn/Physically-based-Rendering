@@ -4,9 +4,9 @@
 		"Sphere1": { "diff": "white", "spec": "white" },
 		"Sphere2": { "diff": "white", "spec": "white" },
 		"Wall": { "diff": "white", "spec": "white" },
-		"LeftWall": { "diff": "white", "spec": "white" },
-		"RightWall": { "diff": "white", "spec": "white" },
-		"Bottom": { "diff": "red", "spec": "white" }
+		"LeftWall": { "diff": "green", "spec": "white" },
+		"RightWall": { "diff": "orange", "spec": "white" },
+		"Bottom": { "diff": "white", "spec": "white" }
 	},
 
 	"sky": "CIE_D65",

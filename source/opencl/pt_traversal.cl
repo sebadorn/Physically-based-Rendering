@@ -27,7 +27,7 @@ ray4 getNewRay(
 	ray4 newRay;
 	newRay.t = INFINITY;
 	newRay.origin = fma( ray->t, ray->dir, ray->origin );
-	newRay.origin += ray->normal * EPSILON;
+	// newRay.origin += ray->normal * EPSILON;
 
 	// Transparency and refraction
 	bool doTransRefr = ( mtl->d < 1.0f && mtl->d <= rand( seed ) );
@@ -366,8 +366,7 @@ float4 checkFaceIntersection(
  * @param {float tFar}           tFar
  */
 void intersectFaces(
-	ray4* ray, const bvhNode* node, const global face_t* faces, const float tNear, float tFar,
-	constant const material* materials
+	ray4* ray, const bvhNode* node, const global face_t* faces, const float tNear, float tFar
 ) {
 	float3 tuv;
 	const int faceIndices[4] = { node->faces.x, node->faces.y, node->faces.z, node->faces.w };
@@ -451,8 +450,7 @@ const bool intersectSphere(
  * @param {const global face_t*}  faces
  */
 void traverseBVH(
-	const global bvhNode* bvh, ray4* ray, const global face_t* faces,
-	constant const material* materials
+	const global bvhNode* bvh, ray4* ray, const global face_t* faces
 ) {
 	bool addLeftToStack, addRightToStack, rightThenLeft;
 	float tFarL, tFarR, tNearL, tNearR;
@@ -477,7 +475,7 @@ void traverseBVH(
 				intersectBox( ray, invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
 				rayBest.t > tNearL
 			) {
-				intersectFaces( ray, &node, faces, tNearL, tFarL, materials );
+				intersectFaces( ray, &node, faces, tNearL, tFarL );
 				rayBest = ( ray->t < rayBest.t ) ? *ray : rayBest;
 			}
 
