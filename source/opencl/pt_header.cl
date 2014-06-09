@@ -42,7 +42,18 @@ typedef struct {
 } bvhNode __attribute__((aligned));
 
 
-#if BRDF == 2
+#if BRDF == 0
+
+	typedef struct {
+		constant float d;
+		constant float Ni;
+		constant float p;
+		constant float rough;
+		constant ushort2 spd;
+		constant char light
+	} material __attribute__((aligned));
+
+#elif BRDF == 1
 
 	typedef struct {
 		constant float nu;
@@ -51,17 +62,6 @@ typedef struct {
 		constant float Rd;
 		constant float d;
 		constant float Ni;
-		constant ushort2 spd;
-		constant char light
-	} material __attribute__((aligned));
-
-#else
-
-	typedef struct {
-		constant float d;
-		constant float Ni;
-		constant float p;
-		constant float rough;
 		constant ushort2 spd;
 		constant char light
 	} material __attribute__((aligned));

@@ -5,7 +5,7 @@
  * @return
  */
 inline bool extendDepth( material* mtl, float* seed ) {
-	#if BRDF == 2
+	#if BRDF == 1
 		return ( fmax( mtl->nu, mtl->nv ) >= 50.0f );
 	#else
 		return ( mtl->rough < rand( seed ) );
@@ -38,19 +38,21 @@ ray4 getNewRay(
 		newRay.dir = refract( ray, mtl, seed );
 	}
 	else {
-		// BRDF: Not much of any.
-		// Supports specular, diffuse, and glossy surfaces.
+
 		#if BRDF == 0
-			newRay.dir = newRayNoBRDF( ray, mtl, seed );
-		// BRDF: Schlick.
-		// Supports specular, diffuse, glossy, and anisotropic surfaces.
-		#elif BRDF == 1
+
+			// BRDF: Schlick.
+			// Supports specular, diffuse, glossy, and anisotropic surfaces.
 			newRay.dir = newRaySchlick( ray, mtl, seed );
-		// BRDF: Shirley-Ashikhmin.
-		// Supports specular, diffuse, glossy, and anisotropic surfaces.
-		#elif BRDF == 2
+
+		#elif BRDF == 1
+
+			// BRDF: Shirley-Ashikhmin.
+			// Supports specular, diffuse, glossy, and anisotropic surfaces.
 			newRay.dir = newRayShirleyAshikhmin( ray, mtl, seed );
+
 		#endif
+
 	}
 
 	return newRay;

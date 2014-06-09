@@ -80,7 +80,7 @@ void setColors(
  */
 void updateSPD(
 	const ray4* ray, const ray4* newRay, const material* mtl,
-	const ray4* lightRay, const int lightRaySource,
+	const ray4* lightRay, const int lightRaySource, uint* secondaryPaths,
 	constant const float* specPowerDists, float* spd, float* spdTotal, float* maxValSpd
 ) {
 	#define COLOR_DIFF ( specPowerDists[index0 + i] )
@@ -90,49 +90,30 @@ void updateSPD(
 	const uint index1 = mtl->spd.y * SPEC;
 
 
-	// BRDF: Self-made something to account for some basic effects
-	#if BRDF == 0
-
-		float brdf, u;
-
-		#if IMPLICIT == 1
-			if( lightRaySource >= 0 ) {
-				brdf = lambert( ray->normal, lightRay->dir );
-
-				for( int i = 0; i < SPEC; i++ ) {
-					spdTotal[i] += spd[i] * specPowerDists[lightRaySource + i] *
-					               COLOR_DIFF * clamp( fresnel( u, COLOR_SPEC ) * brdf, 0.0f, 1.0f ) *
-					               mtl->d + ( 1.0f - mtl->d ) );
-				}
-			}
-		#endif
-
-		u = 1.0f;
-		brdf = lambert( ray->normal, newRay->dir ) * mtl->rough + ( 1.0f - mtl->rough );
-		brdf = brdf * mtl->d + ( 1.0f - mtl->d );
-
-		for( int i = 0; i < SPEC; i++ ) {
-			spd[i] *= COLOR_DIFF * clamp( fresnel( u, COLOR_SPEC ) * brdf, 0.0f, 1.0f );
-			*maxValSpd = fmax( spd[i], *maxValSpd );
-		}
-
 	// BRDF: Schlick
-	#elif BRDF == 1
+	#if BRDF == 0
 
 		float brdf, pdf, u;
 
 		#if IMPLICIT == 1
+
 			if( lightRaySource >= 0 ) {
 				brdf = brdfSchlick( mtl, ray, lightRay, &( ray->normal ), &u, &pdf );
-				brdf *= lambert( ray->normal, lightRay->dir );
-				brdf = native_divide( brdf, pdf );
 
-				for( int i = 0; i < SPEC; i++ ) {
-					spdTotal[i] += spd[i] * specPowerDists[lightRaySource + i] *
-					               COLOR_DIFF * ( fresnel( u, COLOR_SPEC ) * brdf *
-					               mtl->d + ( 1.0f - mtl->d ) );
+				if( fabs( pdf ) > 0.00001f ) {
+					brdf *= lambert( ray->normal, lightRay->dir );
+					brdf = native_divide( brdf, pdf );
+
+					for( int i = 0; i < SPEC; i++ ) {
+						spdTotal[i] += spd[i] * specPowerDists[lightRaySource + i] *
+						               COLOR_DIFF * ( fresnel( u, COLOR_SPEC ) * brdf *
+						               mtl->d + ( 1.0f - mtl->d ) );
+					}
+
+					*secondaryPaths += 1;
 				}
 			}
+
 		#endif
 
 		brdf = brdfSchlick( mtl, ray, newRay, &( ray->normal ), &u, &pdf );
@@ -145,30 +126,36 @@ void updateSPD(
 		}
 
 	// BRDF: Shirley/Ashikhmin
-	#elif BRDF == 2
+	#elif BRDF == 1
 
 		float brdf_d, brdf_s, brdfDiff, brdfSpec, pdf;
 		float dotHK1;
 
 		#if IMPLICIT == 1
+
 			if( lightRaySource >= 0 ) {
 				brdfShirleyAshikhmin(
 					mtl->nu, mtl->nv, mtl->Rs, mtl->Rd,
 					ray, lightRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1, &pdf
 				);
 
-				brdfSpec = native_divide( brdfSpec, pdf );
-				brdfDiff = native_divide( brdfDiff, pdf );
+				if( fabs( pdf ) > 0.00001f ) {
+					brdfSpec = native_divide( brdfSpec, pdf );
+					brdfDiff = native_divide( brdfDiff, pdf );
 
-				for( int i = 0; i < SPEC; i++ ) {
-					brdf_s = brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC );
-					brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs * COLOR_SPEC );
+					for( int i = 0; i < SPEC; i++ ) {
+						brdf_s = brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC );
+						brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs * COLOR_SPEC );
 
-					spdTotal[i] += spd[i] * specPowerDists[lightRaySource + i] *
-					               ( brdf_s + brdf_d ) *
-					               mtl->d + ( 1.0f - mtl->d );
+						spdTotal[i] += spd[i] * specPowerDists[lightRaySource + i] *
+						               ( brdf_s + brdf_d ) *
+						               mtl->d + ( 1.0f - mtl->d );
+					}
+
+					*secondaryPaths += 1;
 				}
 			}
+
 		#endif
 
 		brdfShirleyAshikhmin(
@@ -223,7 +210,7 @@ kernel void pathTracing(
 
 	float focus;
 	bool addDepth;
-	int secondaryPaths = 1; // Start at 1 instead of 0, because we are going to divide through it.
+	uint secondaryPaths = 1; // Start at 1 instead of 0, because we are going to divide through it.
 
 
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
@@ -249,7 +236,7 @@ kernel void pathTracing(
 			// Implicit connection to a light found
 			if( mtl.light == 1 ) {
 				light = mtl.spd.x * SPEC;
-				// break;
+				break;
 			}
 
 			// Last round, no need to calculate a new ray.
@@ -271,19 +258,17 @@ kernel void pathTracing(
 				if( mtl.d > 0.0f ) {
 					lightRay.origin = fma( ray.t, ray.dir, ray.origin ) + ray.normal * EPSILON;
 					const float rnd2 = rand( &seed );
-					lightRay.dir = fast_normalize( (float4)( 2.0f, 20.0f, 0.0f, 0.0f ) - lightRay.origin );
+					lightRay.dir = fast_normalize( (float4)( 6.0f, 20.0f, 0.0f, 0.0f ) - lightRay.origin );
 					// lightRay.dir = jitter( ray.normal, PI_X2 * rand( &seed ), native_sqrt( rnd2 ), native_sqrt( 1.0f - rnd2 ) );
 
 					traverseBVH( bvh, &lightRay, faces );
 
 					if( lightRay.t == INFINITY ) {
 						lightRaySource = SKY_LIGHT * SPEC;
-						secondaryPaths++;
 					}
 					else {
 						material lightMTL = materials[(uint) faces[(uint) lightRay.normal.w].a.w];
 						lightRaySource = ( lightMTL.light == 1 ) ? lightMTL.spd.x : -1;
-						secondaryPaths += ( lightMTL.light == 1 );
 					}
 
 					lightRay.normal.w = 0.0f;
@@ -295,7 +280,7 @@ kernel void pathTracing(
 			ray4 newRay = getNewRay( &ray, &mtl, &seed, &addDepth );
 
 			updateSPD(
-				&ray, &newRay, &mtl, &lightRay, lightRaySource,
+				&ray, &newRay, &mtl, &lightRay, lightRaySource, &secondaryPaths,
 				specPowerDists, spd, spdTotal, &maxValSpd
 			);
 
@@ -321,9 +306,13 @@ kernel void pathTracing(
 		spdTotal[i] = native_divide( spdTotal[i], (float) secondaryPaths );
 	}
 
-	for( int i = 0; SAMPLES > 1 && i < SPEC; i++ ) {
-		spdTotal[i] = native_divide( spdTotal[i], (float) SAMPLES );
-	}
+	#if SAMPLES > 1
+
+		for( int i = 0; i < SPEC; i++ ) {
+			spdTotal[i] = native_divide( spdTotal[i], (float) SAMPLES );
+		}
+
+	#endif
 
 	setColors( imageIn, imageOut, pixelWeight, spdTotal, focus );
 }

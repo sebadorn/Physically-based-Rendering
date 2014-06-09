@@ -320,7 +320,8 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 	size_t bytesMTL;
 	string spdName;
 
-	if( brdf == 0 || brdf == 1 ) {
+	// BRDF: Schlick
+	if( brdf == 0 ) {
 		vector<material_schlick> materialsCL;
 
 		for( int i = 0; i < materials.size(); i++ ) {
@@ -342,7 +343,8 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 		bytesMTL = sizeof( material_schlick ) * materialsCL.size();
 		mBufMaterials = mCL->createBuffer( materialsCL, bytesMTL );
 	}
-	else if( brdf == 2 ) {
+	// BRDF: Shirley-Ashikhmin
+	else if( brdf == 1 ) {
 		vector<material_shirley_ashikhmin> materialsCL;
 
 		for( int i = 0; i < materials.size(); i++ ) {

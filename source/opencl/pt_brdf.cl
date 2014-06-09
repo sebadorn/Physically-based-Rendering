@@ -1,28 +1,8 @@
 #define DIR ( ray->dir )
 #define N ( ray->normal )
 
+
 #if BRDF == 0
-
-
-	/**
-	 *
-	 * @param  {const ray4*}     ray
-	 * @param  {const material*} mtl
-	 * @param  {float*}          seed
-	 * @return {float}
-	 */
-	float4 newRayNoBRDF( const ray4* ray, const material* mtl, float* seed ) {
-		const float a = rand( seed );
-
-		const float4 spec = reflect( DIR, N );
-		const float4 diff = jitter( N, PI_X2 * rand( seed ), native_sqrt( a ), native_sqrt( 1.0f - a ) );
-		const float4 newRay = spec * ( 1.0f - mtl->rough ) + diff * mtl->rough;
-
-		return fast_normalize( newRay );
-	}
-
-
-#elif BRDF == 1
 
 
 	/**
@@ -231,7 +211,7 @@
 	}
 
 
-#elif BRDF == 2
+#elif BRDF == 1
 
 
 	/**
