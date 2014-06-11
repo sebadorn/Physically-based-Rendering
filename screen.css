@@ -101,6 +101,11 @@ p {
 	border-color: #B21F21;
 }
 
+.orange {
+	background-color: #DEA10E;
+	border-color: #D39E20;
+}
+
 
 .linear-blue {
 	background-image: linear-gradient( to bottom, #4D98DF 0%, #4D86BB 100% );
@@ -112,6 +117,10 @@ p {
 
 .linear-red {
 	background-image: linear-gradient( to bottom, #E12C2E 0%, #CD2022 100% );
+}
+
+.linear-orange {
+	background-image: linear-gradient( to bottom, #DEA10E 0%, #D39E20 100% );
 }
 
 
@@ -130,12 +139,17 @@ p {
 	background-image:         radial-gradient( circle farthest-corner at center top, #E12C2E 0%, #CD2022 100% );
 }
 
+.radial-orange {
+	background-image: -webkit-radial-gradient( circle farthest-corner at center top, #DEA10E 0%, #D39E20 100% );
+	background-image:         radial-gradient( circle farthest-corner at center top, #DEA10E 0%, #D39E20 100% );
+}
+
 
 
 /* Specific site elements */
 /* ---------------------- */
 
-header {
+header, section {
 	-moz-box-sizing: border-box;
 	     box-sizing: border-box;
 	color: #ffffff;
@@ -150,7 +164,7 @@ header {
 		font-family: "OpenSans Light Web";
 		font-size: 64px;
 		font-weight: normal;
-		letter-spacing: -2px;
+		letter-spacing: -1px;
 		line-height: 100%;
 		margin-bottom: 16px;
 		margin-right: 60px;
@@ -161,76 +175,61 @@ header {
 		border-left: 2px solid #ffffff;
 		display: inline-block;
 		font-size: 22px;
+		margin-left: 6px;
 		max-width: 600px;
 		padding-left: 40px;
 	}
 
-	header .download {
-		top: 0;
-		left: 160px;
-		position: absolute;
-		z-index: 100;
+	.download {
+		padding: 40px 160px;
+		width: 100%;
 	}
 
+		.download h2 {
+			font-family: "OpenSans Light Web";
+			font-size: 36px;
+			font-weight: normal;
+			margin-bottom: 24px;
+		}
+
+		.download ul {
+			margin-left: 26px;
+		}
+
+		.download li {
+			margin-bottom: 8px;
+		}
+
 		.download a {
-			background-color: #404040;
 			border: 0;
-			border-bottom-left-radius: 2px;
-			border-bottom-right-radius: 2px;
 			color: #f0f0f0;
 			display: inline-block;
-			font-size: 70%;
-			margin-right: 8px;
-			padding: 8px 14px;
+			font-size: 20px;
 		}
 
 		.download a:hover {
-			background-color: #D8DFE9;
 			color: #303030;
 		}
 
 
-header.demo {
-	text-align: center;
-}
-
-	header.demo a.button {
-		display: inline-block;
-		font-family: "OpenSans Light Web";
-		font-size: 64px;
-		font-weight: normal;
-		letter-spacing: -2px;
-		line-height: 100%;
-		padding: 14px 22px;
-	}
-
-	header.demo .annotation {
-		display: inline-block;
-		font-family: "OpenSans Light Web";
-		margin-left: -264px;
-		margin-right: 20px;
-		vertical-align: middle;
-	}
-
-
-header.about {
+section.about {
 	border-top: 3px solid transparent;
 	padding-bottom: 10px;
 	padding-top: 9px;
 	text-align: right;
 }
 
-	header.about p {
+	section.about p {
 		color: #f0f0f0;
 		font-size: 70%;
 		font-style: italic;
 	}
 
-	header.about a {
+	section.about a {
 		color: #f0f0f0;
 	}
 
-	header.about a:hover {
+	section.about a:hover {
 		border-bottom-color: transparent;
 	}
 
@@ -260,7 +259,7 @@ header.about {
 
 
 .images {
-	text-align: center;
+	padding: 60px 160px;
 }
 
 	.images img {
@@ -268,9 +267,9 @@ header.about {
 		border: 1px solid #d0d0d0;
 		border-radius: 2px;
 		display: inline-block;
-		height: 178px;
-		margin: 10px;
-		width: 300px;
+		height: 240px;
+		margin: 20px 40px 20px 0;
+		width: 400px;
 	}
 
 	.images a {
