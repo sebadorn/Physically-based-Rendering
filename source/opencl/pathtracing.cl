@@ -256,12 +256,12 @@ kernel void pathTracing(
 			#if IMPLICIT == 1
 
 				if( mtl.d > 0.0f ) {
-					lightRay.origin = fma( ray.t, ray.dir, ray.origin ) + ray.normal * EPSILON;
+					lightRay.origin = fma( ray.t, ray.dir, ray.origin ) + ray.normal * EPSILON5;
 					const float rnd2 = rand( &seed );
 					lightRay.dir = fast_normalize( (float4)( 6.0f, 20.0f, 0.0f, 0.0f ) - lightRay.origin );
 					// lightRay.dir = jitter( ray.normal, PI_X2 * rand( &seed ), native_sqrt( rnd2 ), native_sqrt( 1.0f - rnd2 ) );
 
-					traverseBVH( bvh, &lightRay, faces );
+					traverseBVH_shadowRay( bvh, &lightRay, faces );
 
 					if( lightRay.t == INFINITY ) {
 						lightRaySource = SKY_LIGHT * SPEC;

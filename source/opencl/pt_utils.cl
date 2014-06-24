@@ -26,14 +26,22 @@ inline void swap( float* a, float* b ) {
 }
 
 
+/**
+ * Solve a cubic function: a0*x^3 + a1*x^2 + a2*x^1 + a3 = 0
+ * @param  {const float} a0
+ * @param  {const float} a1
+ * @param  {const float} a2
+ * @param  {const float} a3
+ * @param  {float[3]} x     Output. Found real solutions.
+ * @return {char}           Number of found real solutions.
+ */
 char solveCubic( const float a0, const float a1, const float a2, const float a3, float x[3] ) {
 	#define THIRD 0.3333333333f
 	#define THIRD_HALF 0.166666666f
 	float w, p, q, dis, phi;
 	char results_real = 0;
 
-	// determine the degree of the polynomial
-	if( fabs( a0 ) > 0.00000000001f ) {
+	if( fabs( a0 ) > EPSILON10 ) {
 		// cubic problem
 		w = native_divide( a1, a0 ) * THIRD;
 		p = native_divide( a2, a0 ) * THIRD - w * w;
@@ -84,7 +92,7 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
 			results_real = 1;
 		}
 	}
-	else if( fabs( a1 ) > 0.00000000001f ) {
+	else if( fabs( a1 ) > EPSILON10 ) {
 		// quadratic problem
 		p = 0.5f * native_divide( a2, a1 );
 		dis = p * p - native_divide( a3, a1 );
@@ -106,7 +114,7 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
 			results_real = 2;
 		}
 	}
-	else if( fabs( a2 ) > 0.00000000001f ) {
+	else if( fabs( a2 ) > EPSILON10 ) {
 		// linear equation
 		x[0] = native_divide( -a3, a2 );
 		// Newton iteration
@@ -119,6 +127,30 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
 
 	#undef THIRD
 	#undef THIRD_HALF
+}
+
+
+/**
+ * Get two planes from a ray that have the ray as intersection.
+ * The planes are described in the Hesse normal form.
+ * @param  {const ray4*} ray The ray.
+ * @return {rayPlanes}       The planes describing the ray.
+ */
+rayPlanes getPlanesFromRay( const ray4* ray ) {
+	rayPlanes rp;
+
+	// TODO: find better way to choose planes, this way causes some artifacts
+	float3 tmp = { 1.0f, 2.0f, 0.0f };
+	tmp.z = native_divide( -tmp.x * ray->dir.x - tmp.y * ray->dir.y, ray->dir.z );
+	rp.n1 = fast_normalize( tmp );
+
+	rp.n2 = cross( rp.n1, ray->dir.xyz );
+	rp.n2 = fast_normalize( rp.n2 );
+
+	rp.o1 = dot( rp.n1, ray->origin.xyz );
+	rp.o2 = dot( rp.n2, ray->origin.xyz );
+
+	return rp;
 }
 
 
@@ -146,6 +178,18 @@ inline float3 getTriangleNormalS(
 
 inline float3 getTriangleReflectionVec( const float3 view, const float3 np ) {
 	return view - 2.0f * np * dot( view, np );
+}
+
+
+inline float4 getPhongTessNormal(
+	const face_t* face, const float3 rayDir, const float u, const float v, const float w,
+	const float3 C1, const float3 C2, const float3 C3, const float3 E12, const float3 E20
+) {
+	const float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
+	const float4 np = getTriangleNormal( face, u, v, w );
+	const float3 r = getTriangleReflectionVec( rayDir, np.xyz );
+
+	return ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
 }
 
 

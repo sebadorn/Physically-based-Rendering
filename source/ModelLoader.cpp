@@ -22,27 +22,15 @@ ModelLoader::~ModelLoader() {
 
 
 /**
- * Extract the faces and vertices data from an object3D.
+ * Extract the faces data from an object3D.
  * @param {object3D}                object
- * @param {std::vector<cl_float>}   allVertices
  * @param {std::vector<cl_uint4>*}  faces
- * @param {std::vector<cl_float4>*} vertices
+ * @param {cl_int}                  offset
  */
-void ModelLoader::getFacesAndVertices(
-	object3D object, vector<cl_float> allVertices,
-	vector<cl_uint4>* faces, vector<cl_float4>* vertices, cl_int offset
+void ModelLoader::getFacesOfObject(
+	object3D object, vector<cl_uint4>* faces, cl_int offset
 ) {
 	cl_uint a, b, c;
-
-	for( cl_uint i = 0; i < allVertices.size(); i += 3 ) {
-		cl_float4 v = {
-			allVertices[i + 0],
-			allVertices[i + 1],
-			allVertices[i + 2],
-			0.0f
-		};
-		vertices->push_back( v );
-	}
 
 	for( cl_uint i = 0; i < object.facesV.size(); i += 3 ) {
 		a = object.facesV[i + 0];

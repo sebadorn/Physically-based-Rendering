@@ -1,11 +1,12 @@
 /**
  *
- * @param  mtl
- * @param  seed
- * @return
+ * @param  {const material*} mtl
+ * @param  {float*}          seed
+ * @return {bool}
  */
-inline bool extendDepth( material* mtl, float* seed ) {
+inline bool extendDepth( const material* mtl, float* seed ) {
 	#if BRDF == 1
+		// TODO: Use rand() in some way instead of this fixed threshold value.
 		return ( fmax( mtl->nu, mtl->nv ) >= 50.0f );
 	#else
 		return ( mtl->rough < rand( seed ) );
@@ -27,7 +28,7 @@ ray4 getNewRay(
 	ray4 newRay;
 	newRay.t = INFINITY;
 	newRay.origin = fma( ray->t, ray->dir, ray->origin );
-	// newRay.origin += ray->normal * EPSILON;
+	newRay.origin += ray->normal * EPSILON7;
 
 	// Transparency and refraction
 	bool doTransRefr = ( mtl->d < 1.0f && mtl->d <= rand( seed ) );
@@ -59,6 +60,19 @@ ray4 getNewRay(
 }
 
 
+/**
+ * Phong tessellation of a given barycentric point.
+ * @param  {const float3} P1
+ * @param  {const float3} P2
+ * @param  {const float3} P3
+ * @param  {const float3} N1
+ * @param  {const float3} N2
+ * @param  {const float3} N3
+ * @param  {const float}  u
+ * @param  {const float}  v
+ * @param  {const float}  w
+ * @return {float3}          Phong tessellated point.
+ */
 float3 phongTessellation(
 	const float3 P1, const float3 P2, const float3 P3,
 	const float3 N1, const float3 N2, const float3 N3,
@@ -74,6 +88,12 @@ float3 phongTessellation(
 }
 
 
+/**
+ * Get the best axis of the ray direction in order to calculate the t factor later on.
+ * Meaning: Get the axis with the biggest coordinate.
+ * @param  {float3} d Ray direction.
+ * @return {char}     Index of the axis (x: 0, y: 1, z: 2)
+ */
 inline char getBestRayDomain( float3 d ) {
 	char domain = ( fabs( d.y ) > fabs( d.z ) ) ? 1 : 2;
 
@@ -85,7 +105,16 @@ inline char getBestRayDomain( float3 d ) {
 }
 
 
-float4 flatTriangleAndRayIntersection(
+/**
+ * Find intersection of a triangle and a ray. (No tessellation.)
+ * @param  {const face_t*} face
+ * @param  {const ray4*}   ray
+ * @param  {float3*}       tuv
+ * @param  {const float}   tNear
+ * @param  {const float}   tFar
+ * @return {float4}
+ */
+float4 flatTriAndRayIntersect(
 	const face_t* face, const ray4* ray, float3* tuv, const float tNear, const float tFar
 ) {
 	const float3 edge1 = face->b.xyz - face->a.xyz;
@@ -97,7 +126,7 @@ float4 flatTriangleAndRayIntersection(
 
 	tuv->x = dot( edge2, qVec ) * invDet;
 
-	if( tuv->x < EPSILON || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON ) {
+	if( tuv->x < EPSILON5 || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON5 ) {
 		tuv->x = INFINITY;
 		return (float4)( 0.0f );
 	}
@@ -107,6 +136,176 @@ float4 flatTriangleAndRayIntersection(
 	tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > 1.0f || tuv->y + tuv->z > 1.0f ) ? INFINITY : tuv->x;
 
 	return getTriangleNormal( face, 1.0f - tuv->y - tuv->z, tuv->y, tuv->z );
+}
+
+
+/**
+ * Find intersection of a triangle and a ray. (Phong tessellation.)
+ * @param  {const face_t*} face
+ * @param  {const ray4*}   ray
+ * @param  {float3*}       tuv
+ * @param  {const float}   tNear
+ * @param  {const float}   tFar
+ * @return {float4}
+ */
+float4 phongTessTriAndRayIntersect(
+	const face_t* face, const ray4* ray, float3* tuv, const float tNear, const float tFar
+) {
+	#define P1 ( face->a.xyz )
+	#define P2 ( face->b.xyz )
+	#define P3 ( face->c.xyz )
+	#define N1 ( face->an.xyz )
+	#define N2 ( face->bn.xyz )
+	#define N3 ( face->cn.xyz )
+
+	float4 normal = (float4)( 0.0f );
+	tuv->x = INFINITY;
+
+	const float3 E01 = P2 - P1;
+	const float3 E12 = P3 - P2;
+	const float3 E20 = P1 - P3;
+
+	const float3 C1 = PhongTess_ALPHA * ( dot( N2, E01 ) * N2 - dot( N1, E01 ) * N1 );
+	const float3 C2 = PhongTess_ALPHA * ( dot( N3, E12 ) * N3 - dot( N2, E12 ) * N2 );
+	const float3 C3 = PhongTess_ALPHA * ( dot( N1, E20 ) * N1 - dot( N3, E20 ) * N3 );
+
+	const rayPlanes rp = getPlanesFromRay( ray );
+
+	const float a = dot( -rp.n1, C3 );
+	const float b = dot( -rp.n1, C2 );
+	const float c = dot( rp.n1, P3 ) - rp.o1;
+	const float d = dot( rp.n1, C1 - C2 - C3 ) * 0.5f;
+	const float e = dot( rp.n1, C3 + E20 ) * 0.5f;
+	const float f = dot( rp.n1, C2 - E12 ) * 0.5f;
+	const float l = dot( -rp.n2, C3 );
+	const float m = dot( -rp.n2, C2 );
+	const float n = dot( rp.n2, P3 ) - rp.o2;
+	const float o = dot( rp.n2, C1 - C2 - C3 ) * 0.5f;
+	const float p = dot( rp.n2, C3 + E20 ) * 0.5f;
+	const float q = dot( rp.n2, C2 - E12 ) * 0.5f;
+
+
+	// Solve cubic
+
+	const float a3 = ( l*m*n + 2.0f*o*p*q ) - ( l*q*q + m*p*p + n*o*o );
+	const float a2 = ( a*m*n + l*b*n + l*m*c + 2.0f*( d*p*q + o*e*q + o*p*f ) ) -
+	                 ( a*q*q + b*p*p + c*o*o + 2.0f*( l*f*q + m*e*p + n*d*o ) );
+	const float a1 = ( a*b*n + a*m*c + l*b*c + 2.0f*( o*e*f + d*e*q + d*p*f ) ) -
+	                 ( l*f*f + m*e*e + n*d*d + 2.0f*( a*f*q + b*e*p + c*d*o ) );
+	const float a0 = ( a*b*c + 2.0f*d*e*f ) - ( a*f*f + b*e*e + c*d*d );
+
+	float xs[3] = { -1.0f, -1.0f, -1.0f };
+	const char numCubicRoots = solveCubic( a0, a1, a2, a3, xs );
+
+	if( 0 == numCubicRoots ) {
+		return normal;
+	}
+
+	float x;
+	float determinant = INFINITY;
+	float mA, mB, mC, mD, mE, mF;
+
+	for( char i = 0; i < numCubicRoots; i++ ) {
+		mA = fma( a, xs[i], l );
+		mB = fma( b, xs[i], m );
+		mD = fma( d, xs[i], o );
+
+		if( determinant > mD * mD - mA * mB ) {
+			determinant = mD * mD - mA * mB;
+			x = xs[i];
+		}
+	}
+
+	if( 0.0f >= determinant ) {
+		return normal;
+	}
+
+
+	const char domain = getBestRayDomain( ray->dir.xyz );
+
+	mA = fma( a, x, l );
+	mB = fma( b, x, m );
+	mC = fma( c, x, n );
+	mD = fma( d, x, o );
+	mE = fma( e, x, p );
+	mF = fma( f, x, q );
+
+	const bool AlessB = fabs( mA ) < fabs( mB );
+
+	const float mBorA = AlessB ? mB : mA;
+	mA = native_divide( mA, mBorA );
+	mB = native_divide( mB, mBorA );
+	mC = native_divide( mC, mBorA );
+	mD = native_divide( mD, mBorA );
+	mE = native_divide( mE, mBorA );
+	mF = native_divide( mF, mBorA );
+
+	const float mAorB = AlessB ? mA : mB;
+	const float mEorF = AlessB ? mE : mF;
+	const float mForE = AlessB ? mF : mE;
+	const float ab = AlessB ? a : b;
+	const float ba = AlessB ? b : a;
+	const float ef = AlessB ? e : f;
+	const float fe = AlessB ? f : e;
+
+	const float sqrtAorB = native_sqrt( mD * mD - mAorB );
+	const float sqrtC = native_sqrt( mForE * mForE - mC );
+	const float lab1 = mD + sqrtAorB;
+	const float lab2 = mD - sqrtAorB;
+	float lc1 = mForE + sqrtC;
+	float lc2 = mForE - sqrtC;
+
+	if( fabs( 2.0f * mEorF - lab1 * lc1 - lab2 * lc2 ) < fabs( 2.0f * mEorF - lab1 * lc2 - lab2 * lc1 ) ) {
+		swap( &lc1, &lc2 );
+	}
+
+
+	for( int loop = 0; loop < 2; loop++ ) {
+		const float g = ( 0 == loop ) ? -lab1 : -lab2;
+		const float h = ( 0 == loop ) ? -lc1 : -lc2;
+
+		// Solve quadratic function: c0*u*u + c1*u + c2 = 0
+		const float c0 = ab + g * ( 2.0f * d + ba * g );
+		const float c1 = 2.0f * ( h * ( d + ba * g ) + ef + fe * g );
+		const float c2 = h * ( ba * h + 2.0f * fe ) + c;
+		const char numResults = solveCubic( 0.0f, c0, c1, c2, xs );
+
+		for( char i = 0; i < numResults; i++ ) {
+			float u = xs[i];
+			float v = fma( g, u, h );
+			const float w = 1.0f - u - v;
+
+			if( u < 0.0f || v < 0.0f || w < 0.0f ) {
+				continue;
+			}
+
+			if( !AlessB ) {
+				swap( &u, &v );
+			}
+
+			const float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w ) - ray->origin.xyz;
+			const float t = native_divide(
+				( (float*) &pTessellated )[domain],
+				( (float*) &(ray->dir) )[domain]
+			);
+
+			if( t > EPSILON5 && t < tuv->x && t < ray->t ) {
+				tuv->x = t;
+				tuv->y = u;
+				tuv->z = v;
+				normal = getPhongTessNormal( face, ray->dir.xyz, u, v, w, C1, C2, C3, E12, E20 );
+			}
+		}
+	}
+
+	return normal;
+
+	#undef P1
+	#undef P2
+	#undef P3
+	#undef N1
+	#undef N2
+	#undef N3
 }
 
 
@@ -121,16 +320,9 @@ float4 flatTriangleAndRayIntersection(
 float4 checkFaceIntersection(
 	const ray4* ray, const face_t face, float3* tuv, const float tNear, const float tFar
 ) {
-	#define P1 ( face.a.xyz )
-	#define P2 ( face.b.xyz )
-	#define P3 ( face.c.xyz )
-	#define N1 ( face.an.xyz )
-	#define N2 ( face.bn.xyz )
-	#define N3 ( face.cn.xyz )
-
 	#if PhongTess == 1
 
-		const int3 cmp = ( N1 == N2 ) + ( N2 == N3 );
+		const int3 cmp = ( face.an.xyz == face.bn.xyz ) + ( face.bn.xyz == face.cn.xyz );
 
 		// Comparing vectors in OpenCL: 0/false/not equal; -1/true/equal
 		if( cmp.x + cmp.y + cmp.z == -6 )
@@ -138,7 +330,7 @@ float4 checkFaceIntersection(
 	#endif
 
 	{
-		return flatTriangleAndRayIntersection( &face, ray, tuv, tNear, tFar );
+		return flatTriAndRayIntersect( &face, ray, tuv, tNear, tFar );
 	}
 
 
@@ -146,216 +338,9 @@ float4 checkFaceIntersection(
 	// Based on: "Direct Ray Tracing of Phong Tessellation" by Shinji Ogaki, Yusuke Tokuyoshi
 	#if PhongTess == 1
 
-		float4 normal = (float4)( 0.0f );
-		tuv->x = INFINITY;
-
-		float3 E01 = P2 - P1;
-		float3 E12 = P3 - P2;
-		float3 E20 = P1 - P3;
-
-		float3 C1 = PhongTess_ALPHA * ( dot( N2, E01 ) * N2 - dot( N1, E01 ) * N1 );
-		float3 C2 = PhongTess_ALPHA * ( dot( N3, E12 ) * N3 - dot( N2, E12 ) * N2 );
-		float3 C3 = PhongTess_ALPHA * ( dot( N1, E20 ) * N1 - dot( N3, E20 ) * N3 );
-
-
-		// Planes of which the intersection is the ray
-		// Hesse normal form
-
-		float3 D1 = { 1.0f, 2.0f, 0.0f };
-		D1.z = native_divide( -D1.x * ray->dir.x - D1.y * ray->dir.y, ray->dir.z );
-		D1 = fast_normalize( D1 );
-
-		float3 D2 = cross( D1, ray->dir.xyz );
-		D2 = fast_normalize( D2 );
-
-		#define O1 ( dot( D1, ray->origin.xyz ) )
-		#define O2 ( dot( D2, ray->origin.xyz ) )
-
-		const float a = dot( -D1, C3 );
-		const float b = dot( -D1, C2 );
-		const float c = dot( D1, P3 ) - O1;
-		const float d = dot( D1, C1 - C2 - C3 ) * 0.5f;
-		const float e = dot( D1, C3 + E20 ) * 0.5f;
-		const float f = dot( D1, C2 - E12 ) * 0.5f;
-		const float l = dot( -D2, C3 );
-		const float m = dot( -D2, C2 );
-		const float n = dot( D2, P3 ) - O2;
-		const float o = dot( D2, C1 - C2 - C3 ) * 0.5f;
-		const float p = dot( D2, C3 + E20 ) * 0.5f;
-		const float q = dot( D2, C2 - E12 ) * 0.5f;
-
-		#undef O1
-		#undef O2
-
-
-		// Solve cubic
-
-		const float a3 = ( l*m*n + 2.0f*o*p*q ) - ( l*q*q + m*p*p + n*o*o );
-		const float a2 = ( a*m*n + l*b*n + l*m*c + 2.0f*( d*p*q + o*e*q + o*p*f ) ) -
-		                 ( a*q*q + b*p*p + c*o*o + 2.0f*( l*f*q + m*e*p + n*d*o ) );
-		const float a1 = ( a*b*n + a*m*c + l*b*c + 2.0f*( o*e*f + d*e*q + d*p*f ) ) -
-		                 ( l*f*f + m*e*e + n*d*d + 2.0f*( a*f*q + b*e*p + c*d*o ) );
-		const float a0 = ( a*b*c + 2.0f*d*e*f ) - ( a*f*f + b*e*e + c*d*d );
-
-		float xs[3] = { -1.0f, -1.0f, -1.0f };
-		const char numCubicRoots = solveCubic( a0, a1, a2, a3, xs );
-
-		if( 0 == numCubicRoots ) {
-			return normal;
-		}
-
-		float x, t, u, v, w;
-		float determinant = INFINITY;
-		float mA, mB, mC, mD, mE, mF;
-
-		for( char i = 0; i < numCubicRoots; i++ ) {
-			mA = fma( a, xs[i], l );
-			mB = fma( b, xs[i], m );
-			mD = fma( d, xs[i], o );
-
-			if( determinant > mD * mD - mA * mB ) {
-				determinant = mD * mD - mA * mB;
-				x = xs[i];
-			}
-		}
-
-		if( 0.0f >= determinant ) {
-			return normal;
-		}
-
-
-		const char domain = getBestRayDomain( ray->dir.xyz );
-
-		mA = fma( a, x, l );
-		mB = fma( b, x, m );
-		mC = fma( c, x, n );
-		mD = fma( d, x, o );
-		mE = fma( e, x, p );
-		mF = fma( f, x, q );
-
-		#define IS_T_VALID ( t > EPSILON && t < tuv->x && t < ray->t )
-
-		if( fabs( mA ) < fabs( mB ) ) {
-			mA = native_divide( mA, mB );
-			mC = native_divide( mC, mB );
-			mD = native_divide( mD, mB );
-			mE = native_divide( mE, mB );
-			mF = native_divide( mF, mB );
-
-			const float sqrtA = native_sqrt( mD * mD - mA );
-			const float sqrtC = native_sqrt( mF * mF - mC );
-			float la1 = mD + sqrtA;
-			float la2 = mD - sqrtA;
-			float lc1 = mF + sqrtC;
-			float lc2 = mF - sqrtC;
-
-			if( fabs( 2.0f * mE - la1 * lc1 - la2 * lc2 ) < fabs( 2.0f * mE - la1 * lc2 - la2 * lc1 ) ) {
-				swap( &lc1, &lc2 );
-			}
-
-			for( int loop = 0; loop < 2; loop++ ) {
-				const float g = ( 0 == loop ) ? -la1 : -la2;
-				const float h = ( 0 == loop ) ? -lc1 : -lc2;
-
-				// Solve quadratic function: c0*u*u + c1*u + c2 = 0
-				const float c0 = a + g * ( 2.0f * d + b * g );
-				const float c1 = 2.0f * ( h * ( d + b * g ) + e + f * g );
-				const float c2 = h * ( b * h + 2.0f * f ) + c;
-				const char numResults = solveCubic( 0.0f, c0, c1, c2, xs );
-
-				for( char i = 0; i < numResults; i++ ) {
-					u = xs[i];
-					v = fma( g, u, h );
-					w = 1.0f - u - v;
-
-					if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
-						float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w ) - ray->origin.xyz;
-						t = native_divide(
-							( (float*) &pTessellated )[domain],
-							( (float*) &(ray->dir) )[domain]
-						);
-
-						if( IS_T_VALID ) {
-							tuv->x = t;
-							tuv->y = u;
-							tuv->z = v;
-
-							const float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
-							const float4 np = getTriangleNormal( &face, u, v, w );
-							const float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-							normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-						}
-					}
-				}
-			}
-		}
-		else {
-			mB = native_divide( mB, mA );
-			mC = native_divide( mC, mA );
-			mD = native_divide( mD, mA );
-			mE = native_divide( mE, mA );
-			mF = native_divide( mF, mA );
-
-			const float sqrtB = native_sqrt( mD * mD - mB );
-			const float sqrtC = native_sqrt( mE * mE - mC );
-			float lb1 = mD + sqrtB;
-			float lb2 = mD - sqrtB;
-			float lc1 = mE + sqrtC;
-			float lc2 = mE - sqrtC;
-
-			if( fabs( 2.0f * mF - lb1 * lc1 - lb2 * lc2 ) < fabs( 2.0f * mF - lb1 * lc2 - lb2 * lc1 ) ) {
-				swap( &lc1, &lc2 );
-			}
-
-			for( int loop = 0; loop < 2; loop++ ) {
-				const float g = ( 0 == loop ) ? -lb1 : -lb2;
-				const float h = ( 0 == loop ) ? -lc1 : -lc2;
-
-				// Solve quadratic function: c0*u*u + c1*u + c2 = 0
-				const float c0 = b + g * ( 2.0f * d + a * g );
-				const float c1 = 2.0f * ( h * ( d + a * g ) + f + e * g );
-				const float c2 = h * ( a * h + 2.0f * e ) + c;
-				const char numResults = solveCubic( 0.0f, c0, c1, c2, xs );
-
-				for( char i = 0; i < numResults; i++ ) {
-					v = xs[i];
-					u = fma( g, v, h );
-					w = 1.0f - u - v;
-
-					if( 0.0f <= u && 0.0f <= v && 0.0f <= w ) {
-						float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w ) - ray->origin.xyz;
-						t = native_divide(
-							( (float*) &pTessellated )[domain],
-							( (float*) &(ray->dir) )[domain]
-						);
-
-						if( IS_T_VALID ) {
-							tuv->x = t;
-							tuv->y = u;
-							tuv->z = v;
-
-							const float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
-							const float4 np = getTriangleNormal( &face, u, v, w );
-							const float3 r = getTriangleReflectionVec( ray->dir.xyz, np.xyz );
-							normal = ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
-						}
-					}
-				}
-			}
-		}
-
-		return normal;
-
-		#undef IS_T_VALID
+		return phongTessTriAndRayIntersect( &face, ray, tuv, tNear, tFar );
 
 	#endif
-
-	#undef P1
-	#undef P2
-	#undef P3
-	#undef N1
-	#undef N2
-	#undef N3
 }
 
 
@@ -373,7 +358,7 @@ void intersectFaces(
 	float3 tuv;
 	const int faceIndices[4] = { node->faces.x, node->faces.y, node->faces.z, node->faces.w };
 
-	for( int i = 0; i < 4; i++ ) {
+	for( char i = 0; i < 4; i++ ) {
 		if( faceIndices[i] == -1 ) {
 			break;
 		}
@@ -403,10 +388,11 @@ void intersectFaces(
  * @return {const bool}          True, if ray intersects box, false otherwise.
  */
 const bool intersectBox(
-	const ray4* ray, const float3 invDir, const float4 bbMin, const float4 bbMax, float* tNear, float* tFar
+	const ray4* ray, const float3* invDir, const float4 bbMin, const float4 bbMax,
+	float* tNear, float* tFar
 ) {
-	const float3 t1 = ( bbMin.xyz - ray->origin.xyz ) * invDir;
-	float3 tMax = ( bbMax.xyz - ray->origin.xyz ) * invDir;
+	const float3 t1 = ( bbMin.xyz - ray->origin.xyz ) * (*invDir);
+	float3 tMax = ( bbMax.xyz - ray->origin.xyz ) * (*invDir);
 	const float3 tMin = fmin( t1, tMax );
 	tMax = fmax( t1, tMax );
 
@@ -441,7 +427,7 @@ const bool intersectSphere(
 	*tNear = b - det;
 	*tFar = b + det;
 
-	return ( fmax( *tNear, *tFar ) > EPSILON );
+	return ( fmax( *tNear, *tFar ) > EPSILON5 );
 }
 
 
@@ -474,7 +460,7 @@ void traverseBVH(
 		// Is a leaf node with faces
 		if( node.faces.x > -1 ) {
 			if(
-				intersectBox( ray, invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
+				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
 				rayBest.t > tNearL
 			) {
 				intersectFaces( ray, &node, faces, tNearL, tFarL );
@@ -495,7 +481,7 @@ void traverseBVH(
 		// Add child nodes to stack, if hit by ray
 		if(
 			node.bbMin.w > 0.0f &&
-			intersectBox( ray, invDir, BVH_LEFTCHILD.bbMin, BVH_LEFTCHILD.bbMax, &tNearL, &tFarL ) &&
+			intersectBox( ray, &invDir, BVH_LEFTCHILD.bbMin, BVH_LEFTCHILD.bbMax, &tNearL, &tFarL ) &&
 			rayBest.t > tNearL
 		) {
 			addLeftToStack = true;
@@ -503,7 +489,7 @@ void traverseBVH(
 
 		if(
 			node.bbMax.w > 0.0f &&
-			intersectBox( ray, invDir, BVH_RIGHTCHILD.bbMin, BVH_RIGHTCHILD.bbMax, &tNearR, &tFarR ) &&
+			intersectBox( ray, &invDir, BVH_RIGHTCHILD.bbMin, BVH_RIGHTCHILD.bbMax, &tNearR, &tFarR ) &&
 			rayBest.t > tNearR
 		) {
 			addRightToStack = true;
@@ -533,4 +519,90 @@ void traverseBVH(
 	}
 
 	*ray = ( rayBest.t != INFINITY ) ? rayBest : *ray;
+}
+
+
+/**
+ * Traverse the BVH and test the kD-trees against the given ray.
+ * This version is for the shadow ray test, so it only checks IF there
+ * is an intersection and terminates on the first hit.
+ * @param {const global bvhNode*} bvh
+ * @param {ray4*}                 ray
+ * @param {const global face_t*}  faces
+ */
+void traverseBVH_shadowRay(
+	const global bvhNode* bvh, ray4* ray, const global face_t* faces
+) {
+	bool addLeftToStack, addRightToStack, rightThenLeft;
+	float tFarL, tFarR, tNearL, tNearR;
+
+	uint bvhStack[BVH_STACKSIZE];
+	int stackIndex = 0;
+	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
+
+	const float3 invDir = native_recip( ray->dir.xyz );
+
+	while( stackIndex >= 0 ) {
+		bvhNode node = bvh[bvhStack[stackIndex--]];
+		tNearL = 0.0f;
+		tFarL = INFINITY;
+
+		// Is a leaf node with faces
+		if( node.faces.x > -1 ) {
+			if( intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) ) {
+				intersectFaces( ray, &node, faces, tNearL, tFarL );
+
+				if( ray->t < INFINITY ) {
+					break;
+				}
+			}
+
+			continue;
+		}
+
+		tNearR = 0.0f;
+		tFarR = INFINITY;
+		addLeftToStack = false;
+		addRightToStack = false;
+
+		#define BVH_LEFTCHILD bvh[(int) node.bbMin.w]
+		#define BVH_RIGHTCHILD bvh[(int) node.bbMax.w]
+
+		// Add child nodes to stack, if hit by ray
+		if(
+			node.bbMin.w > 0.0f &&
+			intersectBox( ray, &invDir, BVH_LEFTCHILD.bbMin, BVH_LEFTCHILD.bbMax, &tNearL, &tFarL )
+		) {
+			addLeftToStack = true;
+		}
+
+		if(
+			node.bbMax.w > 0.0f &&
+			intersectBox( ray, &invDir, BVH_RIGHTCHILD.bbMin, BVH_RIGHTCHILD.bbMax, &tNearR, &tFarR )
+		) {
+			addRightToStack = true;
+		}
+
+		#undef BVH_LEFTCHILD
+		#undef BVH_RIGHTCHILD
+
+
+		// The node that is pushed on the stack first will be evaluated last.
+		// So the nearer one should be pushed last, because it will be popped first then.
+		rightThenLeft = ( tNearR > tNearL );
+
+		if( rightThenLeft && addRightToStack) {
+			bvhStack[++stackIndex] = (int) node.bbMax.w;
+		}
+		if( rightThenLeft && addLeftToStack) {
+			bvhStack[++stackIndex] = (int) node.bbMin.w;
+		}
+
+		if( !rightThenLeft && addLeftToStack) {
+			bvhStack[++stackIndex] = (int) node.bbMin.w;
+		}
+		if( !rightThenLeft && addRightToStack) {
+			bvhStack[++stackIndex] = (int) node.bbMax.w;
+		}
+	}
 }

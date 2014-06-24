@@ -215,12 +215,12 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 		sn.bbMin.w = ( bvhNodes[i]->leftChild == NULL ) ? -1.0f : (cl_float) bvhNodes[i]->leftChild->id;
 		sn.bbMax.w = ( bvhNodes[i]->rightChild == NULL ) ? -1.0f : (cl_float) bvhNodes[i]->rightChild->id;
 
-		vector<cl_uint4> facesVec = bvhNodes[i]->faces;
+		vector<Tri> facesVec = bvhNodes[i]->faces;
 		cl_int4 faces;
-		faces.x = ( facesVec.size() >= 1 ) ? facesVec[0].w : -1;
-		faces.y = ( facesVec.size() >= 2 ) ? facesVec[1].w : -1;
-		faces.z = ( facesVec.size() >= 3 ) ? facesVec[2].w : -1;
-		faces.w = ( facesVec.size() >= 4 ) ? facesVec[3].w : -1;
+		faces.x = ( facesVec.size() >= 1 ) ? facesVec[0].face.w : -1;
+		faces.y = ( facesVec.size() >= 2 ) ? facesVec[1].face.w : -1;
+		faces.z = ( facesVec.size() >= 3 ) ? facesVec[2].face.w : -1;
+		faces.w = ( facesVec.size() >= 4 ) ? facesVec[3].face.w : -1;
 		sn.faces = faces;
 
 		bvhNodesCL.push_back( sn );

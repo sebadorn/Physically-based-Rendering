@@ -1,7 +1,9 @@
 #define ANTI_ALIASING #ANTI_ALIASING#
 #define BRDF #BRDF#
 #define BVH_STACKSIZE #BVH_STACKSIZE#
-#define EPSILON 0.00001f
+#define EPSILON5 0.00001f
+#define EPSILON7 0.0000001f
+#define EPSILON10 0.0000000001f
 #define IMG_HEIGHT #IMG_HEIGHT#
 #define IMG_WIDTH #IMG_WIDTH#
 #define IMPLICIT #IMPLICIT#
@@ -13,6 +15,7 @@
 #define PI_X2 6.28318530718f
 #define SAMPLES #SAMPLES#
 #define SKY_LIGHT #SKY_LIGHT#
+// TODO: Using any other value than 40 doesn't really work.
 #define SPEC 40
 #define SPECTRAL_COLORSYSTEM #SPECTRAL_COLORSYSTEM#
 
@@ -34,6 +37,13 @@ typedef struct {
 	float4 normal;
 	float t;
 } ray4;
+
+typedef struct {
+	float3 n1; // Normal of plane 1
+	float3 n2; // Normal of plane 2
+	float o1;  // Distance of plane 1 to the origin
+	float o2;  // Distance of plane 2 to the origin
+} rayPlanes;
 
 typedef struct {
 	global float4 bbMin; // bbMin.w = leftChild
