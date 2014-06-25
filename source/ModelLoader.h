@@ -22,6 +22,7 @@ class ModelLoader {
 		SpecParser* getSpecParser();
 		void loadModel( string filepath, string filename );
 
+		static void getFaceNormalsOfObject( object3D object, vector<cl_uint4>* faceNormals, cl_int offset );
 		static void getFacesOfObject( object3D object, vector<cl_uint4>* faces, cl_int offset );
 
 	private:

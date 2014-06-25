@@ -43,6 +43,22 @@ void ModelLoader::getFacesOfObject(
 }
 
 
+void ModelLoader::getFaceNormalsOfObject(
+	object3D object, vector<cl_uint4>* faceNormals, cl_int offset
+) {
+	cl_uint a, b, c;
+
+	for( cl_uint i = 0; i < object.facesVN.size(); i += 3 ) {
+		a = object.facesVN[i + 0];
+		b = object.facesVN[i + 1];
+		c = object.facesVN[i + 2];
+
+		cl_uint4 fn = { a, b, c, offset + faceNormals->size() };
+		faceNormals->push_back( fn );
+	}
+}
+
+
 /**
  * Get the used instance of the ObjParser.
  * @return {ObjParser*}

@@ -158,6 +158,11 @@ glm::vec3 MathHelp::intersectLinePlane( glm::vec3 p, glm::vec3 q, glm::vec3 x, g
 }
 
 
+glm::vec3 MathHelp::projectOnPlane( glm::vec3 q, glm::vec3 p, glm::vec3 n ) {
+	return q - glm::dot( q - p, n ) * n;
+}
+
+
 /**
  * Convert an angle from radians to degree.
  * @param  {cl_float} rad Angle in radians.

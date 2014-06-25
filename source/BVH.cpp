@@ -69,16 +69,17 @@ struct sortFacesCmp {
 /**
  * Build a sphere tree for each object in the scene and combine them into one big tree.
  * @param  {std::vector<object3D>} sceneObjects
- * @param  {std::vector<cl_float>} allVertices
+ * @param  {std::vector<cl_float>} vertices
+ * @param  {std::vector<cl_float>} normals
  * @return {BVH*}
  */
-BVH::BVH( vector<object3D> sceneObjects, vector<cl_float> allVertices ) {
+BVH::BVH( vector<object3D> sceneObjects, vector<cl_float> vertices, vector<cl_float> normals ) {
 	boost::posix_time::ptime timerStart = boost::posix_time::microsec_clock::local_time();
 
 	mDepthReached = 0;
 	this->setMaxFaces( Cfg::get().value<cl_uint>( Cfg::BVH_MAXFACES ) );
 
-	vector<BVHNode*> subTrees = this->buildTreesFromObjects( sceneObjects, allVertices );
+	vector<BVHNode*> subTrees = this->buildTreesFromObjects( sceneObjects, vertices, normals );
 	mRoot = this->makeContainerNode( subTrees, true );
 	this->groupTreesToNodes( subTrees, mRoot, mDepthReached );
 	this->combineNodes( subTrees );
@@ -237,29 +238,29 @@ BVHNode* BVH::buildTree(
 /**
  * Build sphere trees for all given scene objects.
  * @param  {std::vector<object3D>} sceneObjects
- * @param  {std::vector<cl_float>} allVertices
+ * @param  {std::vector<cl_float>} vertices
  * @return {std::vector<BVHNode*>}
  */
 vector<BVHNode*> BVH::buildTreesFromObjects(
-	vector<object3D> sceneObjects, vector<cl_float> allVertices
+	vector<object3D> sceneObjects, vector<cl_float> vertices, vector<cl_float> normals
 ) {
 	vector<BVHNode*> subTrees;
 	char msg[256];
 	cl_int offset = 0;
+	cl_int offsetN = 0;
 
-	vector<cl_float4> allVertices4;
+	vector<cl_float4> vertices4;
 
 
-	for( cl_uint i = 0; i < allVertices.size(); i += 3 ) {
+	for( cl_uint i = 0; i < vertices.size(); i += 3 ) {
 		cl_float4 v = {
-			allVertices[i + 0],
-			allVertices[i + 1],
-			allVertices[i + 2],
+			vertices[i + 0],
+			vertices[i + 1],
+			vertices[i + 2],
 			0.0f
 		};
-		allVertices4.push_back( v );
+		vertices4.push_back( v );
 	}
-
 
 	for( cl_uint i = 0; i < sceneObjects.size(); i++ ) {
 		vector<cl_uint4> facesThisObj;
@@ -274,19 +275,23 @@ vector<BVHNode*> BVH::buildTreesFromObjects(
 		Logger::logInfo( msg );
 
 
-		for( cl_uint i = 0; i < facesThisObj.size(); i++ ) {
+		vector<cl_uint4> faceNormalsThisObj;
+		ModelLoader::getFaceNormalsOfObject( sceneObjects[i], &faceNormalsThisObj, offsetN );
+		offsetN += faceNormalsThisObj.size();
+
+		for( cl_uint j = 0; j < facesThisObj.size(); j++ ) {
 			Tri tri;
-			tri.face = facesThisObj[i];
-			this->triCalcAABB( &tri, allVertices4 );
+			tri.face = facesThisObj[j];
+			this->triCalcAABB( &tri, faceNormalsThisObj[j], vertices4, normals );
 			triFaces.push_back( tri );
 		}
 
 
-		BVHNode* rootNode = this->makeNode( triFaces, allVertices4 );
+		BVHNode* rootNode = this->makeNode( triFaces, vertices4 );
 		cl_float rootSA = MathHelp::getSurfaceArea( rootNode->bbMin, rootNode->bbMax );
 
 		glm::vec3 bbMin, bbMax;
-		BVHNode* st = this->buildTree( triFaces, allVertices4, 1, bbMin, bbMax, false, rootSA );
+		BVHNode* st = this->buildTree( triFaces, vertices4, 1, bbMin, bbMax, false, rootSA );
 		subTrees.push_back( st );
 	}
 
@@ -1205,7 +1210,9 @@ void BVH::splitNodes(
  * @param {Tri}                    tri
  * @param {std::vector<cl_float4>} vertices
  */
-void BVH::triCalcAABB( Tri* tri, vector<cl_float4> vertices ) {
+void BVH::triCalcAABB(
+	Tri* tri, cl_uint4 fn, vector<cl_float4> vertices, vector<cl_float> normals
+) {
 	vector<cl_float4> v;
 	v.push_back( vertices[tri->face.x] );
 	v.push_back( vertices[tri->face.y] );
@@ -1215,6 +1222,101 @@ void BVH::triCalcAABB( Tri* tri, vector<cl_float4> vertices ) {
 	MathHelp::getAABB( v, &bbMin, &bbMax );
 	tri->bbMin = bbMin;
 	tri->bbMax = bbMax;
+
+	// ALPHA <= 0.0, no Phong Tessellation
+	if( Cfg::get().value<float>( Cfg::RENDER_PHONGTESS ) <= 0.0f ) {
+		return;
+	}
+
+	glm::vec3 p1 = glm::vec3( v[0].x, v[0].y, v[0].z );
+	glm::vec3 p2 = glm::vec3( v[1].x, v[1].y, v[1].z );
+	glm::vec3 p3 = glm::vec3( v[2].x, v[2].y, v[2].z );
+
+	glm::vec3 n1 = glm::vec3(
+		normals[fn.x * 3],
+		normals[fn.x * 3 + 1],
+		normals[fn.x * 3 + 2]
+	);
+	glm::vec3 n2 = glm::vec3(
+		normals[fn.y * 3],
+		normals[fn.y * 3 + 1],
+		normals[fn.y * 3 + 2]
+	);
+	glm::vec3 n3 = glm::vec3(
+		normals[fn.z * 3],
+		normals[fn.z * 3 + 1],
+		normals[fn.z * 3 + 2]
+	);
+
+	// Normals are the same, which means no Phong Tessellation possible
+	glm::vec3 test = ( n1 - n2 ) + ( n2 - n3 );
+	if(
+		fabs( test.x ) <= 0.00001f &&
+		fabs( test.y ) <= 0.00001f &&
+		fabs( test.z ) <= 0.00001f
+	) {
+		return;
+	}
+
+	float thickness;
+	glm::vec3 sidedrop;
+	this->triThicknessAndSidedrop( p1, p2, p3, n1, n2, n3, &thickness, &sidedrop );
+}
+
+
+void BVH::triThicknessAndSidedrop(
+	glm::vec3 p1, glm::vec3 p2, glm::vec3 p3,
+	glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,
+	float* thickness, glm::vec3* sidedrop
+) {
+	float alpha = Cfg::get().value<float>( Cfg::RENDER_PHONGTESS );
+
+	glm::vec3 e12 = p2 - p1;
+	glm::vec3 e13 = p3 - p1;
+	glm::vec3 e23 = p3 - p2;
+	glm::vec3 e31 = p1 - p3;
+	glm::vec3 c12 = alpha * ( glm::dot( n2, e12 ) * n2 - glm::dot( n1, e12 ) * n1 );
+	glm::vec3 c23 = alpha * ( glm::dot( n3, e23 ) * n3 - glm::dot( n2, e23 ) * n2 );
+	glm::vec3 c31 = alpha * ( glm::dot( n1, e31 ) * n1 - glm::dot( n3, e31 ) * n3 );
+	glm::vec3 ng = glm::normalize( glm::cross( e12, e13 ) );
+
+	float k_tmp = glm::dot( ng, c12 - c23 - c31 );
+	float k = 1.0f / ( 4.0f * glm::dot( ng, c23 ) * glm::dot( ng, c31 ) - k_tmp * k_tmp );
+
+	float u = k * (
+		2.0f * glm::dot( ng, c23 ) * glm::dot( ng, c31 + e31 ) +
+		glm::dot( ng, c23 - e23 ) * glm::dot( ng, c12 - c23 - c31 )
+	);
+	float v = k * (
+		2.0f * glm::dot( ng, c31 ) * glm::dot( ng, c23 - e23 ) +
+		glm::dot( ng, c31 + e31 ) * glm::dot( ng, c12 - c23 - c31 )
+	);
+
+	u = ( u < 0.0f || u > 1.0f ) ? 0.0f : u;
+	v = ( v < 0.0f || v > 1.0f ) ? 0.0f : v;
+
+	glm::vec3 pt = this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, u, v );
+
+	*thickness = glm::dot( ng, pt - p1 );
+	sidedrop->x = glm::length( glm::cross( p2 - pt, p1 - pt ) ) / glm::length( e12 );
+	sidedrop->y = glm::length( glm::cross( p3 - pt, p2 - pt ) ) / glm::length( e23 );
+	sidedrop->z = glm::length( glm::cross( p1 - pt, p3 - pt ) ) / glm::length( e31 );
+}
+
+
+glm::vec3 BVH::phongTessellate(
+	glm::vec3 p1, glm::vec3 p2, glm::vec3 p3,
+	glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,
+	float alpha, float u, float v
+) {
+	float w = 1.0f - u - v;
+	glm::vec3 pBary = p1 * u + p2 * v + p3 * w;
+	glm::vec3 pTessellated =
+		u * MathHelp::projectOnPlane( pBary, p1, n1 ) +
+		v * MathHelp::projectOnPlane( pBary, p2, n2 ) +
+		w * MathHelp::projectOnPlane( pBary, p3, n3 );
+
+	return ( 1.0f - alpha ) * pBary + alpha * pTessellated;
 }
 
 

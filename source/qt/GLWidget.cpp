@@ -308,7 +308,7 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mNormals = ml->getObjParser()->getNormals();
 	mVertices = ml->getObjParser()->getVertices();
 
-	BVH* bvh = new BVH( ml->getObjParser()->getObjects(), mVertices );
+	BVH* bvh = new BVH( ml->getObjParser()->getObjects(), mVertices, mNormals );
 
 	// Visualization of BVH
 	vector<GLfloat> verticesBVH;

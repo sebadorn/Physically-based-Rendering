@@ -36,7 +36,7 @@ struct BVHNode {
 class BVH {
 
 	public:
-		BVH( vector<object3D> sceneObjects, vector<cl_float> vertices );
+		BVH( vector<object3D> sceneObjects, vector<cl_float> vertices, vector<cl_float> normals );
 		~BVH();
 		vector<BVHNode*> getContainerNodes();
 		cl_uint getDepth();
@@ -55,7 +55,7 @@ class BVH {
 			glm::vec3 bbMin, glm::vec3 bbMax, bool useGivenBB, cl_float rootSA
 		);
 		vector<BVHNode*> buildTreesFromObjects(
-			vector<object3D> sceneObjects, vector<cl_float> vertices
+			vector<object3D> sceneObjects, vector<cl_float> vertices, vector<cl_float> normals
 		);
 		cl_float calcSAH(
 			cl_float nodeSA_recip, cl_float leftSA, cl_float leftNumFaces,
@@ -91,6 +91,11 @@ class BVH {
 		cl_uint longestAxis( BVHNode* node );
 		BVHNode* makeNode( vector<Tri> faces, vector<cl_float4> vertices );
 		BVHNode* makeContainerNode( vector<BVHNode*> subTrees, bool isRoot );
+		glm::vec3 phongTessellate(
+			glm::vec3 p1, glm::vec3 p2, glm::vec3 p3,
+			glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,
+			float alpha, float u, float v
+		);
 		cl_uint setMaxFaces( cl_uint value );
 		void splitBySAH(
 			cl_float nodeSA, cl_float* bestSAH, cl_uint axis, vector<Tri> faces, vector<cl_float4> allVertices,
@@ -109,7 +114,14 @@ class BVH {
 			vector<BVHNode*> nodes, cl_float midpoint, cl_uint axis,
 			vector<BVHNode*>* leftGroup, vector<BVHNode*>* rightGroup
 		);
-		void triCalcAABB( Tri* tri, vector<cl_float4> vertices );
+		void triCalcAABB(
+			Tri* tri, cl_uint4 fn, vector<cl_float4> vertices, vector<cl_float> normals
+		);
+		void triThicknessAndSidedrop(
+			glm::vec3 p1, glm::vec3 p2, glm::vec3 p3,
+			glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,
+			float* thickness, glm::vec3* sidedrop
+		);
 		vector<Tri> uniqueFaces( vector<Tri> faces );
 		void visualizeNextNode( BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices );
 

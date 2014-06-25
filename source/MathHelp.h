@@ -37,6 +37,7 @@ class MathHelp {
 		static glm::vec3 intersectLinePlane(
 			glm::vec3 p, glm::vec3 q, glm::vec3 x, glm::vec3 nl, bool* isParallel
 		);
+		static glm::vec3 projectOnPlane( glm::vec3 q, glm::vec3 p, glm::vec3 n );
 		static cl_float radToDeg( cl_float rad );
 
 };
