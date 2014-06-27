@@ -53,12 +53,15 @@ struct sortFacesCmp {
 	 * @return {bool}  a < b
 	 */
 	bool operator()( Tri a, Tri b ) {
-		glm::vec3 cenA = MathHelp::getTriangleCentroid(
-			( *this->v )[a.face.x], ( *this->v )[a.face.y], ( *this->v )[a.face.z]
-		);
-		glm::vec3 cenB = MathHelp::getTriangleCentroid(
-			( *this->v )[b.face.x], ( *this->v )[b.face.y], ( *this->v )[b.face.z]
-		);
+		// glm::vec3 cenA = MathHelp::getTriangleCentroid(
+		// 	( *this->v )[a.face.x], ( *this->v )[a.face.y], ( *this->v )[a.face.z]
+		// );
+		// glm::vec3 cenB = MathHelp::getTriangleCentroid(
+		// 	( *this->v )[b.face.x], ( *this->v )[b.face.y], ( *this->v )[b.face.z]
+		// );
+
+		glm::vec3 cenA = ( a.bbMax + a.bbMin ) * 0.5f;
+		glm::vec3 cenB = ( b.bbMax + b.bbMin ) * 0.5f;
 
 		return cenA[this->axis] < cenB[this->axis];
 	};
@@ -473,7 +476,7 @@ cl_float BVH::findMeanOfNodes( vector<BVHNode*> nodes, cl_uint axis ) {
 	cl_float sum = 0.0f;
 
 	for( cl_uint i = 0; i < nodes.size(); i++ ) {
-		glm::vec3 center = ( nodes[i]->bbMax - nodes[i]->bbMin ) / 2.0f;
+		glm::vec3 center = ( nodes[i]->bbMax - nodes[i]->bbMin ) * 0.5f;
 		sum += center[axis];
 	}
 
@@ -488,7 +491,7 @@ cl_float BVH::findMeanOfNodes( vector<BVHNode*> nodes, cl_uint axis ) {
  * @return {cl_float}
  */
 cl_float BVH::findMidpoint( BVHNode* container, cl_uint axis ) {
-	glm::vec3 sides = ( container->bbMax + container->bbMin ) / 2.0f;
+	glm::vec3 sides = ( container->bbMax + container->bbMin ) * 0.5f;
 
 	return sides[axis];
 }
@@ -545,30 +548,31 @@ vector< vector<Tri> > BVH::getBinFaces(
 	vector<Tri> faces, vector<cl_float4> allVertices, vector< vector<glm::vec3> > bins, cl_uint axis
 ) {
 	vector< vector<Tri> > binFaces( bins.size() );
-	cl_float4 v0, v1, v2;
-	glm::vec3 bbMin, bbMax;
+	// cl_float4 v0, v1, v2;
+	// glm::vec3 bbMin, bbMax;
 
 	for( cl_uint i = 0; i < faces.size(); i++ ) {
-		v0 = allVertices[faces[i].face.x];
-		v1 = allVertices[faces[i].face.y];
-		v2 = allVertices[faces[i].face.z];
+		// v0 = allVertices[faces[i].face.x];
+		// v1 = allVertices[faces[i].face.y];
+		// v2 = allVertices[faces[i].face.z];
 
-		MathHelp::getTriangleAABB( v0, v1, v2, &bbMin, &bbMax );
+		// MathHelp::getTriangleAABB( v0, v1, v2, &bbMin, &bbMax );
+		Tri tri = faces[i];
 
 		// First bin
-		if( bbMin[axis] <= bins[0][1][axis] ) {
+		if( tri.bbMin[axis] <= bins[0][1][axis] ) {
 			binFaces[0].push_back( faces[i] );
 		}
 
 		// All the bins in between
 		for( cl_uint j = 1; j < bins.size() - 1; j++ ) {
-			if( bbMin[axis] <= bins[j][1][axis] && bbMax[axis] >= bins[j][0][axis] ) {
+			if( tri.bbMin[axis] <= bins[j][1][axis] && tri.bbMax[axis] >= bins[j][0][axis] ) {
 				binFaces[j].push_back( faces[i] );
 			}
 		}
 
 		// Last bin
-		if( bbMax[axis] >= bins[bins.size() - 1][0][axis] ) {
+		if( tri.bbMax[axis] >= bins[bins.size() - 1][0][axis] ) {
 			binFaces[bins.size() - 1].push_back( faces[i] );
 		}
 	}
@@ -827,16 +831,15 @@ BVHNode* BVH::makeNode( vector<Tri> tris, vector<cl_float4> allVertices ) {
 	node->rightChild = NULL;
 	node->depth = 0;
 
-	vector<cl_float4> vertices;
+	vector<glm::vec3> bbMins, bbMaxs;
 	for( cl_uint i = 0; i < tris.size(); i++ ) {
-		vertices.push_back( allVertices[tris[i].face.x] );
-		vertices.push_back( allVertices[tris[i].face.y] );
-		vertices.push_back( allVertices[tris[i].face.z] );
+		bbMins.push_back( tris[i].bbMin );
+		bbMaxs.push_back( tris[i].bbMax );
 	}
 
 	glm::vec3 bbMin;
 	glm::vec3 bbMax;
-	MathHelp::getAABB( vertices, &bbMin, &bbMax );
+	MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
 	node->bbMin = bbMin;
 	node->bbMax = bbMax;
 
@@ -883,21 +886,26 @@ void BVH::splitBySAH(
 
 	vector<cl_float> leftSA( numFaces - 1 );
 	vector<cl_float> rightSA( numFaces - 1 );
-	vector<cl_float4> vertsForSA;
+	// vector<cl_float4> vertsForSA;
 
 	vector< vector<glm::vec3> > leftBB( numFaces - 1 ), rightBB( numFaces - 1 );
 
+	vector<glm::vec3> bbMins, bbMaxs;
 
 	// Grow a bounding box face by face starting from the left.
 	// Save the growing surface area for each step.
 
 	for( int i = 0; i < numFaces - 1; i++ ) {
 		glm::vec3 bbMin, bbMax;
-		vertsForSA.push_back( allVertices[faces[i].face.x] );
-		vertsForSA.push_back( allVertices[faces[i].face.y] );
-		vertsForSA.push_back( allVertices[faces[i].face.z] );
+		// vertsForSA.push_back( allVertices[faces[i].face.x] );
+		// vertsForSA.push_back( allVertices[faces[i].face.y] );
+		// vertsForSA.push_back( allVertices[faces[i].face.z] );
 
-		MathHelp::getAABB( vertsForSA, &bbMin, &bbMax );
+		bbMins.push_back( faces[i].bbMin );
+		bbMaxs.push_back( faces[i].bbMax );
+		MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
+
+		// MathHelp::getAABB( vertsForSA, &bbMin, &bbMax );
 		leftBB[i] = vector<glm::vec3>( 2 );
 		leftBB[i][0] = bbMin;
 		leftBB[i][1] = bbMax;
@@ -908,15 +916,21 @@ void BVH::splitBySAH(
 	// Grow a bounding box face by face starting from the right.
 	// Save the growing surface area for each step.
 
-	vertsForSA.clear();
+	// vertsForSA.clear();
+	bbMins.clear();
+	bbMaxs.clear();
 
 	for( int i = numFaces - 2; i >= 0; i-- ) {
 		glm::vec3 bbMin, bbMax;
-		vertsForSA.push_back( allVertices[faces[i + 1].face.x] );
-		vertsForSA.push_back( allVertices[faces[i + 1].face.y] );
-		vertsForSA.push_back( allVertices[faces[i + 1].face.z] );
+		// vertsForSA.push_back( allVertices[faces[i + 1].face.x] );
+		// vertsForSA.push_back( allVertices[faces[i + 1].face.y] );
+		// vertsForSA.push_back( allVertices[faces[i + 1].face.z] );
 
-		MathHelp::getAABB( vertsForSA, &bbMin, &bbMax );
+		bbMins.push_back( faces[i + 1].bbMin );
+		bbMaxs.push_back( faces[i + 1].bbMax );
+		MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
+
+		// MathHelp::getAABB( vertsForSA, &bbMin, &bbMax );
 		rightBB[i] = vector<glm::vec3>( 2 );
 		rightBB[i][0] = bbMin;
 		rightBB[i][1] = bbMax;
@@ -1070,27 +1084,20 @@ void BVH::splitBySpatialSplit(
 
 /**
  * Split the faces into two groups using the given midpoint and axis as criterium.
- * @param {std::vector<Tri>}  faces
+ * @param {std::vector<Tri>}       faces
  * @param {std::vector<cl_float4>} vertices
  * @param {cl_float}               midpoint
  * @param {cl_uint}                axis
- * @param {std::vector<Tri>*} leftFaces
- * @param {std::vector<Tri>*} rightFaces
+ * @param {std::vector<Tri>*}      leftFaces
+ * @param {std::vector<Tri>*}      rightFaces
  */
 void BVH::splitFaces(
 	vector<Tri> faces, vector<cl_float4> vertices, cl_float midpoint, cl_uint axis,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces
 ) {
-	Tri tri;
-	cl_float4 v0, v1, v2;
-	glm::vec3 cen;
-
 	for( cl_uint i = 0; i < faces.size(); i++ ) {
-		tri = faces[i];
-		v0 = vertices[tri.face.x];
-		v1 = vertices[tri.face.y];
-		v2 = vertices[tri.face.z];
-		cen = MathHelp::getTriangleCentroid( v0, v1, v2 );
+		Tri tri = faces[i];
+		glm::vec3 cen = ( tri.bbMin + tri.bbMax ) * 0.5f;
 
 		if( cen[axis] < midpoint ) {
 			leftFaces->push_back( tri );
@@ -1103,17 +1110,41 @@ void BVH::splitFaces(
 	// One group has no children. We cannot allow that.
 	// Try again with the triangle center instead of the centroid.
 	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
+		Logger::logDebugVerbose( "[BVH] Dividing faces by triangle AABB center left one side empty. Trying again with triangle centroid." );
+
+		leftFaces->clear();
+		rightFaces->clear();
+
+		for( cl_uint i = 0; i < faces.size(); i++ ) {
+			Tri tri = faces[i];
+			cl_float4 v0 = vertices[tri.face.x];
+			cl_float4 v1 = vertices[tri.face.y];
+			cl_float4 v2 = vertices[tri.face.z];
+			glm::vec3 cen = MathHelp::getTriangleCentroid( v0, v1, v2 );
+
+			if( cen[axis] < midpoint ) {
+				leftFaces->push_back( tri );
+			}
+			else {
+				rightFaces->push_back( tri );
+			}
+		}
+	}
+
+	// One group has no children. We cannot allow that.
+	// Try again with the triangle center instead of the centroid.
+	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
 		Logger::logDebugVerbose( "[BVH] Dividing faces by centroid left one side empty. Trying again with center." );
 
 		leftFaces->clear();
 		rightFaces->clear();
 
 		for( cl_uint i = 0; i < faces.size(); i++ ) {
-			tri = faces[i];
-			v0 = vertices[tri.face.x];
-			v1 = vertices[tri.face.y];
-			v2 = vertices[tri.face.z];
-			cen = MathHelp::getTriangleCenter( v0, v1, v2 );
+			Tri tri = faces[i];
+			cl_float4 v0 = vertices[tri.face.x];
+			cl_float4 v1 = vertices[tri.face.y];
+			cl_float4 v2 = vertices[tri.face.z];
+			glm::vec3 cen = MathHelp::getTriangleCenter( v0, v1, v2 );
 
 			if( cen[axis] < midpoint ) {
 				leftFaces->push_back( tri );
@@ -1261,6 +1292,59 @@ void BVH::triCalcAABB(
 	float thickness;
 	glm::vec3 sidedrop;
 	this->triThicknessAndSidedrop( p1, p2, p3, n1, n2, n3, &thickness, &sidedrop );
+
+	// Grow bigger according to sidedrop
+	glm::vec3 e12 = p2 - p1;
+	glm::vec3 e13 = p3 - p1;
+	glm::vec3 e23 = p3 - p2;
+	glm::vec3 e31 = p1 - p3;
+	glm::vec3 ng = glm::normalize( glm::cross( e12, e13 ) );
+	glm::vec3 s12 = glm::normalize( glm::cross( e12, ng ) );
+	glm::vec3 s23 = glm::normalize( glm::cross( e23, ng ) );
+	glm::vec3 s31 = glm::normalize( glm::cross( e31, ng ) );
+
+	glm::vec3 p11 = p1 + sidedrop.x * s12;
+	glm::vec3 p12 = p1 + sidedrop.z * s31;
+	glm::vec3 p21 = p2 + sidedrop.x * s12;
+	glm::vec3 p22 = p2 + sidedrop.y * s23;
+	glm::vec3 p31 = p3 + sidedrop.y * s23;
+	glm::vec3 p32 = p3 + sidedrop.z * s31;
+
+	tri->bbMin.x = fmin( tri->bbMin.x, fmin( p11.x, fmin( p21.x, p31.x ) ) );
+	tri->bbMin.x = fmin( tri->bbMin.x, fmin( p12.x, fmin( p22.x, p32.x ) ) );
+	tri->bbMin.y = fmin( tri->bbMin.y, fmin( p11.y, fmin( p21.y, p31.y ) ) );
+	tri->bbMin.y = fmin( tri->bbMin.y, fmin( p12.y, fmin( p22.y, p32.y ) ) );
+	tri->bbMin.z = fmin( tri->bbMin.z, fmin( p11.z, fmin( p21.z, p31.z ) ) );
+	tri->bbMin.z = fmin( tri->bbMin.z, fmin( p12.z, fmin( p22.z, p32.z ) ) );
+
+	tri->bbMax.x = fmax( tri->bbMax.x, fmax( p11.x, fmax( p21.x, p31.x ) ) );
+	tri->bbMax.x = fmax( tri->bbMax.x, fmax( p12.x, fmax( p22.x, p32.x ) ) );
+	tri->bbMax.y = fmax( tri->bbMax.y, fmax( p11.y, fmax( p21.y, p31.y ) ) );
+	tri->bbMax.y = fmax( tri->bbMax.y, fmax( p12.y, fmax( p22.y, p32.y ) ) );
+	tri->bbMax.z = fmax( tri->bbMax.z, fmax( p11.z, fmax( p21.z, p31.z ) ) );
+	tri->bbMax.z = fmax( tri->bbMax.z, fmax( p12.z, fmax( p22.z, p32.z ) ) );
+
+	// Move by thickness and combine with old AABB position
+	p11 += thickness * ng;
+	p12 += thickness * ng;
+	p21 += thickness * ng;
+	p22 += thickness * ng;
+	p31 += thickness * ng;
+	p32 += thickness * ng;
+
+	tri->bbMin.x = fmin( tri->bbMin.x, fmin( p11.x, fmin( p21.x, p31.x ) ) );
+	tri->bbMin.x = fmin( tri->bbMin.x, fmin( p12.x, fmin( p22.x, p32.x ) ) );
+	tri->bbMin.y = fmin( tri->bbMin.y, fmin( p11.y, fmin( p21.y, p31.y ) ) );
+	tri->bbMin.y = fmin( tri->bbMin.y, fmin( p12.y, fmin( p22.y, p32.y ) ) );
+	tri->bbMin.z = fmin( tri->bbMin.z, fmin( p11.z, fmin( p21.z, p31.z ) ) );
+	tri->bbMin.z = fmin( tri->bbMin.z, fmin( p12.z, fmin( p22.z, p32.z ) ) );
+
+	tri->bbMax.x = fmax( tri->bbMax.x, fmax( p11.x, fmax( p21.x, p31.x ) ) );
+	tri->bbMax.x = fmax( tri->bbMax.x, fmax( p12.x, fmax( p22.x, p32.x ) ) );
+	tri->bbMax.y = fmax( tri->bbMax.y, fmax( p11.y, fmax( p21.y, p31.y ) ) );
+	tri->bbMax.y = fmax( tri->bbMax.y, fmax( p12.y, fmax( p22.y, p32.y ) ) );
+	tri->bbMax.z = fmax( tri->bbMax.z, fmax( p11.z, fmax( p21.z, p31.z ) ) );
+	tri->bbMax.z = fmax( tri->bbMax.z, fmax( p12.z, fmax( p22.z, p32.z ) ) );
 }
 
 
