@@ -1239,7 +1239,9 @@ void BVH::splitNodes(
 /**
  * Calculate and set the AABB for a Tri (face).
  * @param {Tri}                    tri
+ * @param {cl_uint4}               fn
  * @param {std::vector<cl_float4>} vertices
+ * @param {std::vector<cl_float>}  normals
  */
 void BVH::triCalcAABB(
 	Tri* tri, cl_uint4 fn, vector<cl_float4> vertices, vector<cl_float> normals
@@ -1310,19 +1312,19 @@ void BVH::triCalcAABB(
 	glm::vec3 p31 = p3 + sidedrop.y * s23;
 	glm::vec3 p32 = p3 + sidedrop.z * s31;
 
-	tri->bbMin.x = fmin( tri->bbMin.x, fmin( p11.x, fmin( p21.x, p31.x ) ) );
-	tri->bbMin.x = fmin( tri->bbMin.x, fmin( p12.x, fmin( p22.x, p32.x ) ) );
-	tri->bbMin.y = fmin( tri->bbMin.y, fmin( p11.y, fmin( p21.y, p31.y ) ) );
-	tri->bbMin.y = fmin( tri->bbMin.y, fmin( p12.y, fmin( p22.y, p32.y ) ) );
-	tri->bbMin.z = fmin( tri->bbMin.z, fmin( p11.z, fmin( p21.z, p31.z ) ) );
-	tri->bbMin.z = fmin( tri->bbMin.z, fmin( p12.z, fmin( p22.z, p32.z ) ) );
+	tri->bbMin.x = fmin( p11.x, fmin( p21.x, p31.x ) );
+	tri->bbMin.x = fmin( p12.x, fmin( p22.x, p32.x ) );
+	tri->bbMin.y = fmin( p11.y, fmin( p21.y, p31.y ) );
+	tri->bbMin.y = fmin( p12.y, fmin( p22.y, p32.y ) );
+	tri->bbMin.z = fmin( p11.z, fmin( p21.z, p31.z ) );
+	tri->bbMin.z = fmin( p12.z, fmin( p22.z, p32.z ) );
 
-	tri->bbMax.x = fmax( tri->bbMax.x, fmax( p11.x, fmax( p21.x, p31.x ) ) );
-	tri->bbMax.x = fmax( tri->bbMax.x, fmax( p12.x, fmax( p22.x, p32.x ) ) );
-	tri->bbMax.y = fmax( tri->bbMax.y, fmax( p11.y, fmax( p21.y, p31.y ) ) );
-	tri->bbMax.y = fmax( tri->bbMax.y, fmax( p12.y, fmax( p22.y, p32.y ) ) );
-	tri->bbMax.z = fmax( tri->bbMax.z, fmax( p11.z, fmax( p21.z, p31.z ) ) );
-	tri->bbMax.z = fmax( tri->bbMax.z, fmax( p12.z, fmax( p22.z, p32.z ) ) );
+	tri->bbMax.x = fmax( p11.x, fmax( p21.x, p31.x ) );
+	tri->bbMax.x = fmax( p12.x, fmax( p22.x, p32.x ) );
+	tri->bbMax.y = fmax( p11.y, fmax( p21.y, p31.y ) );
+	tri->bbMax.y = fmax( p12.y, fmax( p22.y, p32.y ) );
+	tri->bbMax.z = fmax( p11.z, fmax( p21.z, p31.z ) );
+	tri->bbMax.z = fmax( p12.z, fmax( p22.z, p32.z ) );
 
 	// Move by thickness and combine with old AABB position
 	p11 += thickness * ng;
@@ -1348,6 +1350,17 @@ void BVH::triCalcAABB(
 }
 
 
+/**
+ *
+ * @param {glm::vec3}  p1
+ * @param {glm::vec3}  p2
+ * @param {glm::vec3}  p3
+ * @param {glm::vec3}  n1
+ * @param {glm::vec3}  n2
+ * @param {glm::vec3}  n3
+ * @param {float*}     thickness
+ * @param {glm::vec3*} sidedrop
+ */
 void BVH::triThicknessAndSidedrop(
 	glm::vec3 p1, glm::vec3 p2, glm::vec3 p3,
 	glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,
@@ -1388,6 +1401,19 @@ void BVH::triThicknessAndSidedrop(
 }
 
 
+/**
+ * 
+ * @param  {glm::vec3} p1    
+ * @param  {glm::vec3} p2    
+ * @param  {glm::vec3} p3    
+ * @param  {glm::vec3} n1    
+ * @param  {glm::vec3} n2    
+ * @param  {glm::vec3} n3    
+ * @param  {float}     alpha 
+ * @param  {float}     u     
+ * @param  {float}     v     
+ * @return {glm::vec3}       
+ */
 glm::vec3 BVH::phongTessellate(
 	glm::vec3 p1, glm::vec3 p2, glm::vec3 p3,
 	glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,

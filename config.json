@@ -34,7 +34,7 @@
 	// Bounding Volume Hierarchy
 	"bvh": {
 		// Maximum of faces per leaf node [1, 4].
-		"max_faces": 4,
+		"max_faces": 2,
 		// Using a surface area heuristic to build the BVH takes
 		// some time. To speed it up only use SAH for nodes with
 		// a number of faces less or equal to this setting.
@@ -82,7 +82,7 @@
 		// 1: Shirley-Ashikhmin
 		"brdf": 1,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
-		"interval": 100.0,
+		"interval": 200.0,
 		// Shoot shadow rays to generate implicit paths.
 		// 0: disable
 		// 1: enable

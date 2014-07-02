@@ -39,22 +39,21 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
 	#define THIRD 0.3333333333f
 	#define THIRD_HALF 0.166666666f
 	float w, p, q, dis, phi;
-	char results_real = 0;
 
 	if( fabs( a0 ) > EPSILON10 ) {
 		// cubic problem
 		w = native_divide( a1, a0 ) * THIRD;
 		p = native_divide( a2, a0 ) * THIRD - w * w;
 		p = p * p * p;
-		q = -0.5f * ( 2.0f * w*w*w - native_divide( a2*w - a3, a0 ) );
-		dis = fma( q, q, p );
+		q = 0.5f * native_divide( a2 * w - a3, a0 ) - w * w * w;
+		dis = q * q + p;
 
 		if( dis < 0.0f ) {
 			// three real solutions
 			phi = acos( clamp( native_divide( q, native_sqrt( -p ) ), -1.0f, 1.0f ) );
 			p = 2.0f * pow( -p, THIRD_HALF );
 
-			float u[3] = {
+			const float u[3] = {
 				p * native_cos( phi * THIRD ) - w,
 				p * native_cos( ( phi + 2.0f * M_PI ) * THIRD ) - w,
 				p * native_cos( ( phi + 4.0f * M_PI ) * THIRD ) - w
@@ -64,32 +63,32 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
 			x[1] = fmax( fmin( u[0], u[1] ), fmax( fmin( u[0], u[2] ), fmin( u[1], u[2] ) ) );
 			x[2] = fmax( u[0], fmax( u[1], u[2] ) );
 			// Minimize rounding errors through a Newton iteration
-			x[0] = x[0] - native_divide(
+			x[0] -= native_divide(
 				a3 + x[0] * ( a2 + x[0] * ( a1 + x[0] * a0 ) ),
 				a2 + x[0] * ( 2.0f * a1 + x[0] * 3.0f * a0 )
 			);
-			x[1] = x[1] - native_divide(
+			x[1] -= native_divide(
 				a3 + x[1] * ( a2 + x[1] * ( a1 + x[1] * a0 ) ),
 				a2 + x[1] * ( 2.0f * a1 + x[1] * 3.0f * a0 )
 			);
-			x[2] = x[2] - native_divide(
+			x[2] -= native_divide(
 				a3 + x[2] * ( a2 + x[2] * ( a1 + x[2] * a0 ) ),
 				a2 + x[2] * ( 2.0f * a1 + x[2] * 3.0f * a0 )
 			);
 
-			results_real = 3;
+			return 3;
 		}
 		else {
 			// only one real solution!
 			dis = native_sqrt( dis );
 			x[0] = cbrt( q + dis ) + cbrt( q - dis ) - w;
 			// Newton iteration
-			x[0] = x[0] - native_divide(
+			x[0] -= native_divide(
 				a3 + x[0] * ( a2 + x[0] * ( a1 + x[0] * a0 ) ),
 				a2 + x[0] * ( 2.0f * a1 + x[0] * 3.0f * a0 )
 			);
 
-			results_real = 1;
+			return 1;
 		}
 	}
 	else if( fabs( a1 ) > EPSILON10 ) {
@@ -98,32 +97,32 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
 		dis = p * p - native_divide( a3, a1 );
 
 		if( dis >= 0.0f ) {
+			const float dis_sqrt = native_sqrt( dis );
+
 			// 2 real solutions
-			x[0] = -p - native_sqrt( dis );
-			x[1] = -p + native_sqrt( dis );
+			x[0] = -p - dis_sqrt;
+			x[1] = -p + dis_sqrt;
 			// Newton iteration
-			x[0] = x[0] - native_divide(
+			x[0] -= native_divide(
 				a3 + x[0] * ( a2 + x[0] * a1 ),
 				a2 + x[0] * 2.0f * a1
 			);
-			x[1] = x[1] - native_divide(
+			x[1] -= native_divide(
 				a3 + x[1] * ( a2 + x[1] * a1 ),
 				a2 + x[1] * 2.0f * a1
 			);
 
-			results_real = 2;
+			return 2;
 		}
 	}
 	else if( fabs( a2 ) > EPSILON10 ) {
 		// linear equation
 		x[0] = native_divide( -a3, a2 );
-		// Newton iteration
-		x[0] = x[0] - native_divide( a3 + x[0] * a2, a2 );
 
-		results_real = 1;
+		return 1;
 	}
 
-	return results_real;
+	return 0;
 
 	#undef THIRD
 	#undef THIRD_HALF
@@ -138,11 +137,48 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
  */
 rayPlanes getPlanesFromRay( const ray4* ray ) {
 	rayPlanes rp;
+	float3 nCand = ray->dir.zxy;
 
-	// TODO: find better way to choose planes, this way causes some artifacts
-	float3 tmp = { 1.0f, 2.0f, 0.0f };
-	tmp.z = native_divide( -tmp.x * ray->dir.x - tmp.y * ray->dir.y, ray->dir.z );
-	rp.n1 = fast_normalize( tmp );
+	// if( fabs( ray->dir.z ) >= EPSILON5 ) {
+	// 	// nCand.z = native_divide( -nCand.x * ray->dir.x - nCand.y * ray->dir.y, ray->dir.z );
+	// 	nCand.z = native_divide( -ray->dir.x - ray->dir.y, ray->dir.z );
+	// }
+	// else if( fabs( ray->dir.y ) >= EPSILON5 ) {
+	// 	// nCand.y = native_divide( -nCand.x * ray->dir.x - nCand.z * ray->dir.z, ray->dir.y );
+	// 	nCand.y = native_divide( -ray->dir.x - ray->dir.z, ray->dir.y );
+	// }
+	// else {
+	// 	// nCand.x = native_divide( -nCand.y * ray->dir.y - nCand.z * ray->dir.z, ray->dir.x );
+	// 	nCand.x = native_divide( -ray->dir.y - ray->dir.z, ray->dir.x );
+	// }
+
+	if( fabs( ray->dir.x ) > fabs( ray->dir.y ) ) {
+		if( fabs( ray->dir.x ) > fabs( ray->dir.z ) ) {
+			nCand.x = native_divide( -nCand.y * ray->dir.y - nCand.z * ray->dir.z, ray->dir.x );
+		}
+		else {
+			nCand.z = native_divide( -nCand.x * ray->dir.x - nCand.y * ray->dir.y, ray->dir.z );
+		}
+	}
+	else {
+		if( fabs( ray->dir.y ) > fabs( ray->dir.z ) ) {
+			nCand.y = native_divide( -nCand.x * ray->dir.x - nCand.z * ray->dir.z, ray->dir.y );
+		}
+		else {
+			nCand.z = native_divide( -nCand.x * ray->dir.x - nCand.y * ray->dir.y, ray->dir.z );
+		}
+	}
+
+	rp.n1 = fast_normalize( nCand );
+
+
+	// if( fabs( fast_length( ray->dir.xyz - ray->dir.zxy ) ) > EPSILON5 ) {
+	// 	rp.n1 = fast_normalize( cross( ray->dir.xyz, ray->dir.zxy ) );
+	// }
+	// else {
+	// 	float3 alt1 = { -ray->dir.z, -ray->dir.x, ray->dir.y };
+	// 	rp.n1 = fast_normalize( cross( ray->dir.xyz, alt1 ) );
+	// }
 
 	rp.n2 = cross( rp.n1, ray->dir.xyz );
 	rp.n2 = fast_normalize( rp.n2 );
