@@ -57,13 +57,20 @@ class BVH {
 		vector<BVHNode*> buildTreesFromObjects(
 			vector<object3D> sceneObjects, vector<cl_float> vertices, vector<cl_float> normals
 		);
+		void buildWidthMidpointSplit(
+			BVHNode* node, vector<Tri> faces, vector<cl_float4> allVertices,
+			vector<Tri>* leftFaces, vector<Tri>* rightFaces
+		);
+		cl_float buildWithSAH(
+			BVHNode* node, vector<Tri> faces, vector<cl_float4> allVertices,
+			vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
+		);
 		cl_float calcSAH(
 			cl_float nodeSA_recip, cl_float leftSA, cl_float leftNumFaces,
 			cl_float rightSA, cl_float rightNumFaces
 		);
 		void clipLine(
-			glm::vec3 p, glm::vec3 q, glm::vec3 s, glm::vec3 nl,
-			vector<cl_float4>* vertices
+			glm::vec3 p, glm::vec3 q, glm::vec3 s, glm::vec3 nl, vector<cl_float4>* vertices
 		);
 		void clippedFacesAABB(
 			vector<Tri> faces, vector<cl_float4> allVertices,
@@ -83,14 +90,14 @@ class BVH {
 		vector<cl_float> getBinSplits( BVHNode* node, cl_uint splits, cl_uint axis );
 		void groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint depth );
 		void growBinAABBs(
-			vector< vector<glm::vec3> > binBBs, vector< vector<Tri> > binFaces,
-			cl_uint splits,
+			vector< vector<glm::vec3> > binBBs, vector< vector<Tri> > binFaces, cl_uint splits,
 			vector< vector<glm::vec3> >* leftBB, vector< vector<glm::vec3> >* rightBB
 		);
 		void logStats( boost::posix_time::ptime timerStart );
 		cl_uint longestAxis( BVHNode* node );
 		BVHNode* makeNode( vector<Tri> faces, vector<cl_float4> vertices );
 		BVHNode* makeContainerNode( vector<BVHNode*> subTrees, bool isRoot );
+		vector<cl_float4> packFloatAsFloat4( vector<cl_float> vertices );
 		glm::vec3 phongTessellate(
 			glm::vec3 p1, glm::vec3 p2, glm::vec3 p3,
 			glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,
