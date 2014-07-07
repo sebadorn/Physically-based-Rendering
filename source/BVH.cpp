@@ -139,6 +139,12 @@ BVHNode* BVH::buildTree(
 ) {
 	BVHNode* containerNode = this->makeNode( faces, allVertices );
 
+printf(
+	"\nAABB | min: %f %f %f | max: %f %f %f\n",
+	bbMin.x, bbMin.y, bbMin.z,
+	bbMax.x, bbMax.y, bbMax.z
+);
+
 	if( useGivenBB ) {
 		containerNode->bbMin = glm::vec3( bbMin );
 		containerNode->bbMax = glm::vec3( bbMax );
@@ -149,6 +155,7 @@ BVHNode* BVH::buildTree(
 
 	// leaf node
 	if( faces.size() <= mMaxFaces ) {
+printf( "leaf node\n" );
 		if( faces.size() <= 0 ) {
 			Logger::logWarning( "[BVH] No faces in node." );
 		}
@@ -172,8 +179,9 @@ BVHNode* BVH::buildTree(
 		lambda /= rootSA;
 
 		// Split with spatial splits and compare with previous SAH.
-		if( lambda > 0.00001f && Cfg::get().value<cl_uint>( Cfg::BVH_SPATIALSPLITS ) > 0 ) {
-			cl_float spatialSAH = objectSAH;
+		if( /*lambda > 0.00001f &&*/ Cfg::get().value<cl_uint>( Cfg::BVH_SPATIALSPLITS ) > 0 ) {
+			// cl_float spatialSAH = objectSAH;
+			cl_float spatialSAH = FLT_MAX;
 
 			for( cl_uint axis = 0; axis <= 2; axis++ ) {
 				this->splitBySpatialSplit(
@@ -182,7 +190,10 @@ BVHNode* BVH::buildTree(
 				);
 			}
 
-			useGivenBB = ( spatialSAH < objectSAH );
+			printf( "--- left faces: %lu | right faces: %lu\n", leftFaces.size(), rightFaces.size() );
+			printf( "--- SAH | spatial: %f | object: %f\n", spatialSAH, objectSAH );
+
+			useGivenBB = true;//( spatialSAH < objectSAH );
 		}
 	}
 	// Faster to build: Splitting at the midpoint of the longest axis.
@@ -303,6 +314,8 @@ cl_float BVH::buildWithSAH(
 	for( cl_uint axis = 0; axis <= 2; axis++ ) {
 		this->splitBySAH( nodeSA, &bestSAH, axis, faces, allVertices, leftFaces, rightFaces, lambda );
 	}
+
+	return bestSAH;
 }
 
 
@@ -352,73 +365,96 @@ void BVH::clipLine(
  * @param {std::vector<glm::vec3>*} binAABB
  */
 void BVH::clippedFacesAABB(
-	vector<Tri> faces, vector<cl_float4> allVertices, cl_uint axis, vector<glm::vec3>* binAABB
+	vector<Tri>* faces, vector<cl_float4> allVertices, cl_uint axis, vector<glm::vec3>* binAABB
 ) {
-	vector<cl_float4> vAABB;
-	cl_float4 v0, v1, v2;
-	glm::vec3 v0glm, v1glm, v2glm;
-
 	glm::vec3 bbMin = (*binAABB)[0];
 	glm::vec3 bbMax = (*binAABB)[1];
 
-	glm::vec3 nl = glm::vec3( 0.0f, 0.0f, 0.0f );
-	nl[axis] = 1.0f;
-
-	for( cl_uint i = 0; i < faces.size(); i++ ) {
-		v0 = allVertices[faces[i].face.x];
-		v1 = allVertices[faces[i].face.y];
-		v2 = allVertices[faces[i].face.z];
-		v0glm = FLOAT4_TO_VEC3( v0 );
-		v1glm = FLOAT4_TO_VEC3( v1 );
-		v2glm = FLOAT4_TO_VEC3( v2 );
-
-
-		// Face extends into previous or next bin
-
-		bool isInPrev0 = ( v0glm[axis] < bbMin[axis] );
-		bool isInNext0 = ( v0glm[axis] > bbMax[axis] );
-		bool isInPrev1 = ( v1glm[axis] < bbMin[axis] );
-		bool isInNext1 = ( v1glm[axis] > bbMax[axis] );
-		bool isInPrev2 = ( v2glm[axis] < bbMin[axis] );
-		bool isInNext2 = ( v2glm[axis] > bbMax[axis] );
-
-		if( !isInPrev0 && !isInNext0 ) {
-			vAABB.push_back( v0 );
-		}
-		if( ( isInPrev0 && !isInPrev1 ) || ( isInNext0 && !isInNext1 ) ) {
-			this->clipLine( v0glm, v1glm, ( isInPrev0 ? bbMin : bbMax ), nl, &vAABB );
-		}
-		if( ( isInPrev0 && !isInPrev2 ) || ( isInNext0 && !isInNext2 ) ) {
-			this->clipLine( v0glm, v2glm, ( isInPrev0 ? bbMin : bbMax ), nl, &vAABB );
-		}
-
-		if( !isInPrev1 && !isInNext1 ) {
-			vAABB.push_back( v1 );
-		}
-		if( ( isInPrev1 && !isInPrev0 ) || ( isInNext1 && !isInNext0 ) ) {
-			this->clipLine( v1glm, v0glm, ( isInPrev1 ? bbMin : bbMax ), nl, &vAABB );
-		}
-		if( ( isInPrev1 && !isInPrev2 ) || ( isInNext1 && !isInNext2 ) ) {
-			this->clipLine( v1glm, v2glm, ( isInPrev1 ? bbMin : bbMax ), nl, &vAABB );
-		}
-
-		if( !isInPrev2 && !isInNext2 ) {
-			vAABB.push_back( v2 );
-		}
-		if( ( isInPrev2 && !isInPrev0 ) || ( isInNext2 && !isInNext0 ) ) {
-			this->clipLine( v2glm, v0glm, ( isInPrev2 ? bbMin : bbMax ), nl, &vAABB );
-		}
-		if( ( isInPrev2 && !isInPrev1 ) || ( isInNext2 && !isInNext1 ) ) {
-			this->clipLine( v2glm, v1glm, ( isInPrev2 ? bbMin : bbMax ), nl, &vAABB );
-		}
+	for( cl_uint i = 0; i < faces->size(); i++ ) {
+		Tri tri = (*faces)[i];
+		tri.bbMin[axis] = fmax( tri.bbMin[axis], bbMin[axis] );
+		tri.bbMax[axis] = fmin( tri.bbMax[axis], bbMax[axis] );
+		(*faces)[i] = tri;
 	}
 
-	if( vAABB.size() > 0 ) {
-		MathHelp::getAABB( vAABB, &bbMin, &bbMax );
+	bbMin = glm::vec3( (*faces)[0].bbMin );
+	bbMax = glm::vec3( (*faces)[0].bbMax );
+
+	for( cl_uint i = 1; i < faces->size(); i++ ) {
+		Tri tri = (*faces)[i];
+		bbMin = glm::min( bbMin, tri.bbMin );
+		bbMax = glm::max( bbMax, tri.bbMax );
 	}
 
 	(*binAABB)[0] = bbMin;
 	(*binAABB)[1] = bbMax;
+
+
+	// vector<cl_float4> vAABB;
+	// cl_float4 v0, v1, v2;
+	// glm::vec3 v0glm, v1glm, v2glm;
+
+	// glm::vec3 bbMin = (*binAABB)[0];
+	// glm::vec3 bbMax = (*binAABB)[1];
+
+	// glm::vec3 nl = glm::vec3( 0.0f, 0.0f, 0.0f );
+	// nl[axis] = 1.0f;
+
+	// for( cl_uint i = 0; i < faces.size(); i++ ) {
+	// 	v0 = allVertices[faces[i].face.x];
+	// 	v1 = allVertices[faces[i].face.y];
+	// 	v2 = allVertices[faces[i].face.z];
+	// 	v0glm = FLOAT4_TO_VEC3( v0 );
+	// 	v1glm = FLOAT4_TO_VEC3( v1 );
+	// 	v2glm = FLOAT4_TO_VEC3( v2 );
+
+
+	// 	// Face extends into previous or next bin
+
+	// 	bool isInPrev0 = ( v0glm[axis] < bbMin[axis] );
+	// 	bool isInNext0 = ( v0glm[axis] > bbMax[axis] );
+	// 	bool isInPrev1 = ( v1glm[axis] < bbMin[axis] );
+	// 	bool isInNext1 = ( v1glm[axis] > bbMax[axis] );
+	// 	bool isInPrev2 = ( v2glm[axis] < bbMin[axis] );
+	// 	bool isInNext2 = ( v2glm[axis] > bbMax[axis] );
+
+	// 	if( !isInPrev0 && !isInNext0 ) {
+	// 		vAABB.push_back( v0 );
+	// 	}
+	// 	if( ( isInPrev0 && !isInPrev1 ) || ( isInNext0 && !isInNext1 ) ) {
+	// 		this->clipLine( v0glm, v1glm, ( isInPrev0 ? bbMin : bbMax ), nl, &vAABB );
+	// 	}
+	// 	if( ( isInPrev0 && !isInPrev2 ) || ( isInNext0 && !isInNext2 ) ) {
+	// 		this->clipLine( v0glm, v2glm, ( isInPrev0 ? bbMin : bbMax ), nl, &vAABB );
+	// 	}
+
+	// 	if( !isInPrev1 && !isInNext1 ) {
+	// 		vAABB.push_back( v1 );
+	// 	}
+	// 	if( ( isInPrev1 && !isInPrev0 ) || ( isInNext1 && !isInNext0 ) ) {
+	// 		this->clipLine( v1glm, v0glm, ( isInPrev1 ? bbMin : bbMax ), nl, &vAABB );
+	// 	}
+	// 	if( ( isInPrev1 && !isInPrev2 ) || ( isInNext1 && !isInNext2 ) ) {
+	// 		this->clipLine( v1glm, v2glm, ( isInPrev1 ? bbMin : bbMax ), nl, &vAABB );
+	// 	}
+
+	// 	if( !isInPrev2 && !isInNext2 ) {
+	// 		vAABB.push_back( v2 );
+	// 	}
+	// 	if( ( isInPrev2 && !isInPrev0 ) || ( isInNext2 && !isInNext0 ) ) {
+	// 		this->clipLine( v2glm, v0glm, ( isInPrev2 ? bbMin : bbMax ), nl, &vAABB );
+	// 	}
+	// 	if( ( isInPrev2 && !isInPrev1 ) || ( isInNext2 && !isInNext1 ) ) {
+	// 		this->clipLine( v2glm, v1glm, ( isInPrev2 ? bbMin : bbMax ), nl, &vAABB );
+	// 	}
+	// }
+
+	// if( vAABB.size() > 0 ) {
+	// 	MathHelp::getAABB( vAABB, &bbMin, &bbMax );
+	// }
+
+	// (*binAABB)[0] = bbMin;
+	// (*binAABB)[1] = bbMax;
 }
 
 
@@ -518,7 +554,7 @@ vector< vector<glm::vec3> > BVH::getBinAABBs(
 	for( cl_uint i = 1; i < bins.size() - 1; i++ ) {
 		bins[i] = vector<glm::vec3>( 2 );
 		// bbMin
-		bins[i][0] = glm::vec3( bins[i - 1][0] );
+		bins[i][0] = glm::vec3( node->bbMin );
 		bins[i][0][axis] = splitPos[i - 1];
 		// bbMax
 		bins[i][1] = glm::vec3( node->bbMax );
@@ -527,8 +563,8 @@ vector< vector<glm::vec3> > BVH::getBinAABBs(
 
 	// Last bin
 	bins[bins.size() - 1] = vector<glm::vec3>( 2 );
-	bins[bins.size() - 1][0] = glm::vec3( bins[bins.size() - 2][0] );
-	bins[bins.size() - 1][0][axis] = splitPos[splitPos.size() - 1];
+	bins[bins.size() - 1][0] = glm::vec3( node->bbMin );
+	bins[bins.size() - 1][0][axis] = splitPos[bins.size() - 2];
 	bins[bins.size() - 1][1] = glm::vec3( node->bbMax );
 
 	return bins;
@@ -551,21 +587,10 @@ vector< vector<Tri> > BVH::getBinFaces(
 	for( cl_uint i = 0; i < faces.size(); i++ ) {
 		Tri tri = faces[i];
 
-		// First bin
-		if( tri.bbMin[axis] <= bins[0][1][axis] ) {
-			binFaces[0].push_back( faces[i] );
-		}
-
-		// All the bins in between
-		for( cl_uint j = 1; j < bins.size() - 1; j++ ) {
+		for( cl_uint j = 0; j < bins.size(); j++ ) {
 			if( tri.bbMin[axis] <= bins[j][1][axis] && tri.bbMax[axis] >= bins[j][0][axis] ) {
 				binFaces[j].push_back( faces[i] );
 			}
-		}
-
-		// Last bin
-		if( tri.bbMax[axis] >= bins[bins.size() - 1][0][axis] ) {
-			binFaces[bins.size() - 1].push_back( faces[i] );
 		}
 	}
 
@@ -687,8 +712,7 @@ void BVH::groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint de
  * @param {std::vector<std::vector<glm::vec3>>*} rightBB
  */
 void BVH::growBinAABBs(
-	vector< vector<glm::vec3> > binBBs, vector< vector<Tri> > binFaces,
-	cl_uint splits,
+	vector< vector<glm::vec3> > binBBs, vector< vector<Tri> > binFaces, cl_uint splits,
 	vector< vector<glm::vec3> >* leftBB, vector< vector<glm::vec3> >* rightBB
 ) {
 	// Growing bounding boxes from the left
@@ -704,15 +728,11 @@ void BVH::growBinAABBs(
 		(*leftBB)[i][1] = (*leftBB)[i - 1][1];
 
 		if( binFaces[i].size() > 0 ) {
-			(*leftBB)[i][0][0] = glm::min( binBBs[i][0][0], (*leftBB)[i][0][0] );
-			(*leftBB)[i][0][1] = glm::min( binBBs[i][0][1], (*leftBB)[i][0][1] );
-			(*leftBB)[i][0][2] = glm::min( binBBs[i][0][2], (*leftBB)[i][0][2] );
-
-			(*leftBB)[i][1][0] = glm::max( binBBs[i][1][0], (*leftBB)[i][1][0] );
-			(*leftBB)[i][1][1] = glm::max( binBBs[i][1][1], (*leftBB)[i][1][1] );
-			(*leftBB)[i][1][2] = glm::max( binBBs[i][1][2], (*leftBB)[i][1][2] );
+			(*leftBB)[i][0] = glm::min( binBBs[i][0], (*leftBB)[i][0] );
+			(*leftBB)[i][1] = glm::max( binBBs[i][1], (*leftBB)[i][1] );
 		}
 	}
+
 
 	// Growing bounding boxes from the right
 
@@ -727,13 +747,8 @@ void BVH::growBinAABBs(
 		(*rightBB)[i][1] = glm::vec3( (*rightBB)[i + 1][1] );
 
 		if( binFaces[i + 1].size() > 0 ) {
-			(*rightBB)[i][0][0] = glm::min( binBBs[i + 1][0][0], (*rightBB)[i][0][0] );
-			(*rightBB)[i][0][1] = glm::min( binBBs[i + 1][0][1], (*rightBB)[i][0][1] );
-			(*rightBB)[i][0][2] = glm::min( binBBs[i + 1][0][2], (*rightBB)[i][0][2] );
-
-			(*rightBB)[i][1][0] = glm::max( binBBs[i + 1][1][0], (*rightBB)[i][1][0] );
-			(*rightBB)[i][1][1] = glm::max( binBBs[i + 1][1][1], (*rightBB)[i][1][1] );
-			(*rightBB)[i][1][2] = glm::max( binBBs[i + 1][1][2], (*rightBB)[i][1][2] );
+			(*rightBB)[i][0] = glm::min( binBBs[i + 1][0], (*rightBB)[i][0] );
+			(*rightBB)[i][1] = glm::max( binBBs[i + 1][1], (*rightBB)[i][1] );
 		}
 	}
 }
@@ -793,13 +808,8 @@ BVHNode* BVH::makeContainerNode( vector<BVHNode*> subTrees, bool isRoot ) {
 	node->bbMax = glm::vec3( subTrees[0]->bbMax );
 
 	for( cl_uint i = 1; i < subTrees.size(); i++ ) {
-		node->bbMin[0] = ( node->bbMin[0] < subTrees[i]->bbMin[0] ) ? node->bbMin[0] : subTrees[i]->bbMin[0];
-		node->bbMin[1] = ( node->bbMin[1] < subTrees[i]->bbMin[1] ) ? node->bbMin[1] : subTrees[i]->bbMin[1];
-		node->bbMin[2] = ( node->bbMin[2] < subTrees[i]->bbMin[2] ) ? node->bbMin[2] : subTrees[i]->bbMin[2];
-
-		node->bbMax[0] = ( node->bbMax[0] > subTrees[i]->bbMax[0] ) ? node->bbMax[0] : subTrees[i]->bbMax[0];
-		node->bbMax[1] = ( node->bbMax[1] > subTrees[i]->bbMax[1] ) ? node->bbMax[1] : subTrees[i]->bbMax[1];
-		node->bbMax[2] = ( node->bbMax[2] > subTrees[i]->bbMax[2] ) ? node->bbMax[2] : subTrees[i]->bbMax[2];
+		node->bbMin = glm::min( node->bbMin, subTrees[i]->bbMin );
+		node->bbMax = glm::max( node->bbMax, subTrees[i]->bbMax );
 	}
 
 	if( !isRoot ) {
@@ -980,22 +990,34 @@ void BVH::splitBySpatialSplit(
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces,
 	glm::vec3* bbMinLeft, glm::vec3* bbMaxLeft, glm::vec3* bbMinRight, glm::vec3* bbMaxRight
 ) {
-	if( node->bbMax[axis] - node->bbMin[axis] < 0.0001f ) {
+	if( fabs( node->bbMax[axis] - node->bbMin[axis] ) < 0.00001f ) {
+printf( "skip axis %u, no volume\n", axis );
 		return;
 	}
 
-	cl_uint splits = Cfg::get().value<cl_uint>( Cfg::BVH_SPATIALSPLITS );
-	vector<cl_float> splitPos = this->getBinSplits( node, splits, axis );
+	// cl_uint splits = Cfg::get().value<cl_uint>( Cfg::BVH_SPATIALSPLITS );
+	// vector<cl_float> splitPos = this->getBinSplits( node, splits, axis );
+
+	vector<cl_float> splitPos;
+	for( cl_uint i = 0; i < faces.size(); i++ ) {
+		Tri tri = faces[i];
+		splitPos.push_back( 0.5f * ( tri.bbMax[axis] + tri.bbMin[axis] ) );
+	}
+	std::sort( splitPos.begin(), splitPos.end() );
+	vector<cl_float>::iterator it = std::unique( splitPos.begin(), splitPos.end() );
+	splitPos.resize( std::distance( splitPos.begin(), it ) );
+	cl_uint splits = splitPos.size();
+
 
 	// Create AABBs for bins
 	vector< vector<glm::vec3> > binBBs = this->getBinAABBs( node, splitPos, axis );
 
-	// Assign face
+	// Assign faces
 	vector< vector<Tri> > binFaces = this->getBinFaces( faces, allVertices, binBBs, axis );
 
 	// Clip faces and shrink AABB
 	for( int i = 0; i < binBBs.size(); i++ ) {
-		this->clippedFacesAABB( binFaces[i], allVertices, axis, &(binBBs[i]) );
+		this->clippedFacesAABB( &(binFaces[i]), allVertices, axis, &(binBBs[i]) );
 	}
 
 	// Faces for different combinations of bins
@@ -1032,19 +1054,22 @@ void BVH::splitBySpatialSplit(
 		sah[i] = this->calcSAH(
 			saNode_recip, leftSA[i], leftBinFaces[i].size(), rightSA[i], rightBinFaces[i].size()
 		);
+// printf( "SAH: %f | SA left: %f | SA right: %f\n", sah[i], leftSA[i], rightSA[i] );
 
 		if( sah[i] < currentBestSAH ) {
 			currentBestSAH = sah[i];
 			index = i;
 		}
 	}
-
-	// printf( "-> Axis: %u | Spatial SAH: %g\n", axis, currentBestSAH );
-
+printf( "axis: %d | splits: %u\n", axis, splits );
 
 	// Choose best split
-	if( currentBestSAH == sah[index] && currentBestSAH < *sahBest ) {
-		if( leftBinFaces[index].size() == faces.size() || rightBinFaces[index].size() == faces.size() ) {
+
+	if( index >= 0 && currentBestSAH == sah[index] && currentBestSAH < *sahBest ) {
+		if(
+			leftBinFaces[index].size() == 0 ||
+			rightBinFaces[index].size() == 0
+		) {
 			return;
 		}
 
@@ -1055,6 +1080,17 @@ void BVH::splitBySpatialSplit(
 		*bbMaxLeft = leftBB[index][1];
 		*bbMinRight = rightBB[index][0];
 		*bbMaxRight = rightBB[index][1];
+
+printf(
+	"left AABB  | min %f %f %f | max %f %f %f\n",
+	(*bbMinLeft).x, (*bbMinLeft).y, (*bbMinLeft).z,
+	(*bbMaxLeft).x, (*bbMaxLeft).y, (*bbMaxLeft).z
+);
+printf(
+	"right AABB | min %f %f %f | max %f %f %f\n",
+	(*bbMinRight).x, (*bbMinRight).y, (*bbMinRight).z,
+	(*bbMaxRight).x, (*bbMaxRight).y, (*bbMaxRight).z
+);
 
 		*sahBest = currentBestSAH;
 	}
@@ -1291,19 +1327,10 @@ void BVH::triCalcAABB(
 	glm::vec3 p31 = p3 + sidedrop.y * s23;
 	glm::vec3 p32 = p3 + sidedrop.z * s31;
 
-	tri->bbMin.x = fmin( p11.x, fmin( p21.x, p31.x ) );
-	tri->bbMin.x = fmin( p12.x, fmin( p22.x, p32.x ) );
-	tri->bbMin.y = fmin( p11.y, fmin( p21.y, p31.y ) );
-	tri->bbMin.y = fmin( p12.y, fmin( p22.y, p32.y ) );
-	tri->bbMin.z = fmin( p11.z, fmin( p21.z, p31.z ) );
-	tri->bbMin.z = fmin( p12.z, fmin( p22.z, p32.z ) );
-
-	tri->bbMax.x = fmax( p11.x, fmax( p21.x, p31.x ) );
-	tri->bbMax.x = fmax( p12.x, fmax( p22.x, p32.x ) );
-	tri->bbMax.y = fmax( p11.y, fmax( p21.y, p31.y ) );
-	tri->bbMax.y = fmax( p12.y, fmax( p22.y, p32.y ) );
-	tri->bbMax.z = fmax( p11.z, fmax( p21.z, p31.z ) );
-	tri->bbMax.z = fmax( p12.z, fmax( p22.z, p32.z ) );
+	tri->bbMin = glm::min( p11, glm::min( p21, p31 ) );
+	tri->bbMin = glm::min( tri->bbMin, glm::min( p12, glm::min( p22, p32 ) ) );
+	tri->bbMax = glm::max( p11, glm::max( p21, p31 ) );
+	tri->bbMax = glm::max( tri->bbMax, glm::max( p12, glm::max( p22, p32 ) ) );
 
 	// Move by thickness and combine with old AABB position
 	p11 += thickness * ng;
@@ -1313,19 +1340,10 @@ void BVH::triCalcAABB(
 	p31 += thickness * ng;
 	p32 += thickness * ng;
 
-	tri->bbMin.x = fmin( tri->bbMin.x, fmin( p11.x, fmin( p21.x, p31.x ) ) );
-	tri->bbMin.x = fmin( tri->bbMin.x, fmin( p12.x, fmin( p22.x, p32.x ) ) );
-	tri->bbMin.y = fmin( tri->bbMin.y, fmin( p11.y, fmin( p21.y, p31.y ) ) );
-	tri->bbMin.y = fmin( tri->bbMin.y, fmin( p12.y, fmin( p22.y, p32.y ) ) );
-	tri->bbMin.z = fmin( tri->bbMin.z, fmin( p11.z, fmin( p21.z, p31.z ) ) );
-	tri->bbMin.z = fmin( tri->bbMin.z, fmin( p12.z, fmin( p22.z, p32.z ) ) );
-
-	tri->bbMax.x = fmax( tri->bbMax.x, fmax( p11.x, fmax( p21.x, p31.x ) ) );
-	tri->bbMax.x = fmax( tri->bbMax.x, fmax( p12.x, fmax( p22.x, p32.x ) ) );
-	tri->bbMax.y = fmax( tri->bbMax.y, fmax( p11.y, fmax( p21.y, p31.y ) ) );
-	tri->bbMax.y = fmax( tri->bbMax.y, fmax( p12.y, fmax( p22.y, p32.y ) ) );
-	tri->bbMax.z = fmax( tri->bbMax.z, fmax( p11.z, fmax( p21.z, p31.z ) ) );
-	tri->bbMax.z = fmax( tri->bbMax.z, fmax( p12.z, fmax( p22.z, p32.z ) ) );
+	tri->bbMin = glm::min( p11, glm::min( p21, p31 ) );
+	tri->bbMin = glm::min( tri->bbMin, glm::min( p12, glm::min( p22, p32 ) ) );
+	tri->bbMax = glm::max( p11, glm::max( p21, p31 ) );
+	tri->bbMax = glm::max( tri->bbMax, glm::max( p12, glm::max( p22, p32 ) ) );
 }
 
 

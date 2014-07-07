@@ -36,7 +36,7 @@ struct face_cl {
 struct bvhNode_cl {
 	cl_float4 bbMin; // bbMin.w = leftChild
 	cl_float4 bbMax; // bbMax.w = rightChild
-	cl_int4 faces;
+	// cl_int4 faces;
 };
 
 struct material_schlick {
@@ -107,6 +107,7 @@ class PathTracer {
 		cl_kernel mKernelRays;
 
 		cl_mem mBufBVH;
+		cl_mem mBufBVHFaces;
 		cl_mem mBufFaces;
 		cl_mem mBufMaterials;
 		cl_mem mBufSPDs;

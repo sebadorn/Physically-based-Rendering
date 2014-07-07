@@ -365,9 +365,9 @@ float4 checkFaceIntersection(
  * @param {float tFar}           tFar
  */
 void intersectFaces(
-	ray4* ray, const bvhNode* node, const global face_t* faces, const float tNear, float tFar
+	ray4* ray, const bvhNode* node, const int4 nodeFaces, const global face_t* faces, const float tNear, float tFar
 ) {
-	const int faceIndices[4] = { node->faces.x, node->faces.y, node->faces.z, node->faces.w };
+	const int faceIndices[4] = { nodeFaces.x, nodeFaces.y, nodeFaces.z, nodeFaces.w };
 
 	#pragma unroll(4)
 	for( char i = 0; i < 4; i++ ) {
@@ -445,16 +445,18 @@ const bool intersectSphere(
 
 
 /**
- * Traverse the BVH and test the kD-trees against the given ray.
- * @param {const global bvhNode*} bvh
+ * Traverse the BVH and test the faces against the given ray.
+ * @param {global const bvhNode*} bvh
+ * @param {global const int4*}    bvhFaces
  * @param {ray4*}                 ray
- * @param {const global face_t*}  faces
+ * @param {global const face_t*}  faces
  */
 void traverseBVH(
-	const global bvhNode* bvh, ray4* ray, const global face_t* faces
+	global const bvhNode* bvh, global const int4* bvhFaces,
+	ray4* ray, global const face_t* faces
 ) {
 	bool addLeftToStack, addRightToStack, rightThenLeft;
-	float tFarL, tFarR, tNearL, tNearR;
+	float tFarL, tNearL, tNearR;
 
 	uint bvhStack[BVH_STACKSIZE];
 	int stackIndex = 0;
@@ -471,12 +473,12 @@ void traverseBVH(
 		tFarL = INFINITY;
 
 		// Is a leaf node with faces
-		if( node.faces.x > -1 ) {
+		if( node.bbMin.w < 0.0f && node.bbMax.w < 0.0f ) {
 			if(
 				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
 				rayBest.t > tNearL
 			) {
-				intersectFaces( ray, &node, faces, tNearL, tFarL );
+				intersectFaces( ray, &node, bvhFaces[bvhStack[stackIndex + 1]], faces, tNearL, tFarL );
 				rayBest = ( ray->t < rayBest.t ) ? *ray : rayBest;
 			}
 
@@ -484,49 +486,45 @@ void traverseBVH(
 		}
 
 		tNearR = 0.0f;
-		tFarR = INFINITY;
 		addLeftToStack = false;
 		addRightToStack = false;
 
-		#define BVH_LEFTCHILD bvh[(int) node.bbMin.w]
-		#define BVH_RIGHTCHILD bvh[(int) node.bbMax.w]
-
 		// Add child nodes to stack, if hit by ray
-		if(
-			node.bbMin.w > 0.0f &&
-			intersectBox( ray, &invDir, BVH_LEFTCHILD.bbMin, BVH_LEFTCHILD.bbMax, &tNearL, &tFarL ) &&
-			rayBest.t > tNearL
-		) {
-			addLeftToStack = true;
+		if( node.bbMin.w > 0.0f ) {
+			const bvhNode childNode = bvh[(int) node.bbMin.w];
+
+			addLeftToStack = (
+				intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL ) &&
+				rayBest.t > tNearL
+			);
 		}
 
-		if(
-			node.bbMax.w > 0.0f &&
-			intersectBox( ray, &invDir, BVH_RIGHTCHILD.bbMin, BVH_RIGHTCHILD.bbMax, &tNearR, &tFarR ) &&
-			rayBest.t > tNearR
-		) {
-			addRightToStack = true;
-		}
+		if( node.bbMax.w > 0.0f ) {
+			float tFarR = INFINITY;
+			const bvhNode childNode = bvh[(int) node.bbMax.w];
 
-		#undef BVH_LEFTCHILD
-		#undef BVH_RIGHTCHILD
+			addRightToStack = (
+				intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR ) &&
+				rayBest.t > tNearR
+			);
+		}
 
 
 		// The node that is pushed on the stack first will be evaluated last.
 		// So the nearer one should be pushed last, because it will be popped first then.
 		rightThenLeft = ( tNearR > tNearL );
 
-		if( rightThenLeft && addRightToStack) {
+		if( rightThenLeft && addRightToStack ) {
 			bvhStack[++stackIndex] = (int) node.bbMax.w;
 		}
-		if( rightThenLeft && addLeftToStack) {
+		if( rightThenLeft && addLeftToStack ) {
 			bvhStack[++stackIndex] = (int) node.bbMin.w;
 		}
 
-		if( !rightThenLeft && addLeftToStack) {
+		if( !rightThenLeft && addLeftToStack ) {
 			bvhStack[++stackIndex] = (int) node.bbMin.w;
 		}
-		if( !rightThenLeft && addRightToStack) {
+		if( !rightThenLeft && addRightToStack ) {
 			bvhStack[++stackIndex] = (int) node.bbMax.w;
 		}
 	}
@@ -536,7 +534,7 @@ void traverseBVH(
 
 
 /**
- * Traverse the BVH and test the kD-trees against the given ray.
+ * Traverse the BVH and test the faces against the given ray.
  * This version is for the shadow ray test, so it only checks IF there
  * is an intersection and terminates on the first hit.
  * @param {const global bvhNode*} bvh
@@ -544,7 +542,7 @@ void traverseBVH(
  * @param {const global face_t*}  faces
  */
 void traverseBVH_shadowRay(
-	const global bvhNode* bvh, ray4* ray, const global face_t* faces
+	const global bvhNode* bvh, const global int4* bvhFaces, ray4* ray, const global face_t* faces
 ) {
 	bool addLeftToStack, addRightToStack, rightThenLeft;
 	float tFarL, tFarR, tNearL, tNearR;
@@ -561,9 +559,9 @@ void traverseBVH_shadowRay(
 		tFarL = INFINITY;
 
 		// Is a leaf node with faces
-		if( node.faces.x > -1 ) {
+		if( node.bbMin.w < 0.0f && node.bbMax.w < 0.0f ) {
 			if( intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) ) {
-				intersectFaces( ray, &node, faces, tNearL, tFarL );
+				intersectFaces( ray, &node, bvhFaces[bvhStack[stackIndex + 1]], faces, tNearL, tFarL );
 
 				if( ray->t < INFINITY ) {
 					break;
@@ -578,26 +576,16 @@ void traverseBVH_shadowRay(
 		addLeftToStack = false;
 		addRightToStack = false;
 
-		#define BVH_LEFTCHILD bvh[(int) node.bbMin.w]
-		#define BVH_RIGHTCHILD bvh[(int) node.bbMax.w]
-
 		// Add child nodes to stack, if hit by ray
-		if(
-			node.bbMin.w > 0.0f &&
-			intersectBox( ray, &invDir, BVH_LEFTCHILD.bbMin, BVH_LEFTCHILD.bbMax, &tNearL, &tFarL )
-		) {
-			addLeftToStack = true;
+		if( node.bbMin.w > 0.0f ) {
+			const bvhNode childNode = bvh[(int) node.bbMin.w];
+			addLeftToStack = intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL );
 		}
 
-		if(
-			node.bbMax.w > 0.0f &&
-			intersectBox( ray, &invDir, BVH_RIGHTCHILD.bbMin, BVH_RIGHTCHILD.bbMax, &tNearR, &tFarR )
-		) {
-			addRightToStack = true;
+		if( node.bbMax.w > 0.0f ) {
+			const bvhNode childNode = bvh[(int) node.bbMax.w];
+			addRightToStack = intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR );
 		}
-
-		#undef BVH_LEFTCHILD
-		#undef BVH_RIGHTCHILD
 
 
 		// The node that is pushed on the stack first will be evaluated last.

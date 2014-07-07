@@ -201,7 +201,7 @@ void updateSPD(
  */
 kernel void pathTracing(
 	float seed, float pixelWeight, const float pxDim,
-	global const float* eyeIn, global const face_t* faces, global const bvhNode* bvh,
+	global const float* eyeIn, global const face_t* faces, global const bvhNode* bvh, global const int4* bvhFaces,
 	constant const material* materials, constant const float* specPowerDists,
 	read_only image2d_t imageIn, write_only image2d_t imageOut
 ) {
@@ -221,7 +221,7 @@ kernel void pathTracing(
 		int depthAdded = 0;
 
 		for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
-			traverseBVH( bvh, &ray, faces );
+			traverseBVH( bvh, bvhFaces, &ray, faces );
 
 			if( ray.t == INFINITY ) {
 				light = SKY_LIGHT * SPEC;

@@ -73,7 +73,7 @@ class BVH {
 			glm::vec3 p, glm::vec3 q, glm::vec3 s, glm::vec3 nl, vector<cl_float4>* vertices
 		);
 		void clippedFacesAABB(
-			vector<Tri> faces, vector<cl_float4> allVertices,
+			vector<Tri>* faces, vector<cl_float4> allVertices,
 			cl_uint axis, vector<glm::vec3>* binAABB
 		);
 		void combineNodes( vector<BVHNode*> subTrees );

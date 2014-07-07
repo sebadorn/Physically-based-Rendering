@@ -94,6 +94,7 @@ void PathTracer::initArgsKernelPathTracing() {
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufEye );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufFaces );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVH );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVHFaces );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufMaterials );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufSPDs );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufTextureIn );
@@ -204,6 +205,7 @@ void PathTracer::initOpenCLBuffers(
 size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 	vector<BVHNode*> bvhNodes = bvh->getNodes();
 	vector<bvhNode_cl> bvhNodesCL;
+	vector<cl_int4> bvhNodeFaces;
 
 	for( cl_uint i = 0; i < bvhNodes.size(); i++ ) {
 		cl_float4 bbMin = { bvhNodes[i]->bbMin[0], bvhNodes[i]->bbMin[1], bvhNodes[i]->bbMin[2], 0.0f };
@@ -221,15 +223,17 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 		faces.y = ( facesVec.size() >= 2 ) ? facesVec[1].face.w : -1;
 		faces.z = ( facesVec.size() >= 3 ) ? facesVec[2].face.w : -1;
 		faces.w = ( facesVec.size() >= 4 ) ? facesVec[3].face.w : -1;
-		sn.faces = faces;
 
+		bvhNodeFaces.push_back( faces );
 		bvhNodesCL.push_back( sn );
 	}
 
-	size_t bytes = sizeof( bvhNode_cl ) * bvhNodesCL.size();
-	mBufBVH = mCL->createBuffer( bvhNodesCL, bytes );
+	size_t bytesBVH = sizeof( bvhNode_cl ) * bvhNodesCL.size();
+	size_t bytesFaces = sizeof( cl_int4 ) * bvhNodeFaces.size();
+	mBufBVH = mCL->createBuffer( bvhNodesCL, bytesBVH );
+	mBufBVHFaces = mCL->createBuffer( bvhNodeFaces, bytesFaces );
 
-	return bytes;
+	return bytesBVH + bytesFaces;
 }
 
 
