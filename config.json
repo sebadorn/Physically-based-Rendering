@@ -33,8 +33,8 @@
 
 	// Bounding Volume Hierarchy
 	"bvh": {
-		// Maximum of faces per leaf node [1, 4].
-		"max_faces": 2,
+		// Maximum of faces per leaf node (>= 1).
+		"max_faces": 1,
 		// Using a surface area heuristic to build the BVH takes
 		// some time. To speed it up only use SAH for nodes with
 		// a number of faces less or equal to this setting.
@@ -43,7 +43,7 @@
 		// DO NOT USE!
 		// 0: disabled
 		// >0: number of splits to test per node; default: 10
-		"spatial_splits": 4
+		"spatial_splits": 0
 	},
 
 	"logging": {

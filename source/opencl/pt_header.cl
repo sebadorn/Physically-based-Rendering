@@ -48,6 +48,7 @@ typedef struct {
 typedef struct {
 	global float4 bbMin; // bbMin.w = leftChild
 	global float4 bbMax; // bbMax.w = rightChild
+	global int2 facesInterval; // x = start index; y = number of faces
 } bvhNode __attribute__((aligned));
 
 

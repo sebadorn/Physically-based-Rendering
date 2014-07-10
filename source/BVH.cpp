@@ -138,12 +138,7 @@ BVHNode* BVH::buildTree(
 	glm::vec3 bbMin, glm::vec3 bbMax, bool useGivenBB, cl_float rootSA
 ) {
 	BVHNode* containerNode = this->makeNode( faces, allVertices );
-
-printf(
-	"\nAABB | min: %f %f %f | max: %f %f %f\n",
-	bbMin.x, bbMin.y, bbMin.z,
-	bbMax.x, bbMax.y, bbMax.z
-);
+printf( "[\n" );
 
 	if( useGivenBB ) {
 		containerNode->bbMin = glm::vec3( bbMin );
@@ -155,7 +150,7 @@ printf(
 
 	// leaf node
 	if( faces.size() <= mMaxFaces ) {
-printf( "leaf node\n" );
+printf( "  > leaf node with %lu faces [LIMIT]\n", faces.size() );
 		if( faces.size() <= 0 ) {
 			Logger::logWarning( "[BVH] No faces in node." );
 		}
@@ -190,8 +185,8 @@ printf( "leaf node\n" );
 				);
 			}
 
-			printf( "--- left faces: %lu | right faces: %lu\n", leftFaces.size(), rightFaces.size() );
-			printf( "--- SAH | spatial: %f | object: %f\n", spatialSAH, objectSAH );
+			printf( "  > left faces: %lu | right faces: %lu\n", leftFaces.size(), rightFaces.size() );
+			printf( "  > SAH | spatial: %f | object: %f\n", spatialSAH, objectSAH );
 
 			useGivenBB = true;//( spatialSAH < objectSAH );
 		}
@@ -202,12 +197,24 @@ printf( "leaf node\n" );
 		this->buildWidthMidpointSplit( containerNode, faces, allVertices, &leftFaces, &rightFaces );
 	}
 
-	containerNode->leftChild = this->buildTree(
-		leftFaces, allVertices, depth + 1, bbMinLeft, bbMaxLeft, useGivenBB, rootSA
-	);
-	containerNode->rightChild = this->buildTree(
-		rightFaces, allVertices, depth + 1, bbMinRight, bbMaxRight, useGivenBB, rootSA
-	);
+	if( leftFaces.size() == 0 && rightFaces.size() == 0 ) {
+printf( "  > leaf node with %lu faces\n", faces.size() );
+		if( faces.size() <= 0 ) {
+			Logger::logWarning( "[BVH] No faces in node." );
+		}
+
+		containerNode->faces = faces;
+printf( "]\n" );
+	}
+	else {
+printf( "]\n" );
+		containerNode->leftChild = this->buildTree(
+			leftFaces, allVertices, depth + 1, bbMinLeft, bbMaxLeft, useGivenBB, rootSA
+		);
+		containerNode->rightChild = this->buildTree(
+			rightFaces, allVertices, depth + 1, bbMinRight, bbMaxRight, useGivenBB, rootSA
+		);
+	}
 
 	return containerNode;
 }
@@ -308,11 +315,13 @@ cl_float BVH::buildWithSAH(
 	BVHNode* node, vector<Tri> faces, vector<cl_float4> allVertices,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
 ) {
-	cl_float bestSAH = FLT_MAX;
-	cl_float nodeSA = 1.0f / MathHelp::getSurfaceArea( node->bbMin, node->bbMax );
+	cl_float nodeSA = MathHelp::getSurfaceArea( node->bbMin, node->bbMax );
+	cl_float bestSAH = nodeSA * faces.size();
+	bestSAH = FLT_MAX;
+// printf( "non-split SAH: %f\n", bestSAH );
 
 	for( cl_uint axis = 0; axis <= 2; axis++ ) {
-		this->splitBySAH( nodeSA, &bestSAH, axis, faces, allVertices, leftFaces, rightFaces, lambda );
+		this->splitBySAH( 1.0f / nodeSA, &bestSAH, axis, faces, allVertices, leftFaces, rightFaces, lambda );
 	}
 
 	return bestSAH;
@@ -861,7 +870,7 @@ BVHNode* BVH::makeNode( vector<Tri> tris, vector<cl_float4> allVertices ) {
  * @return {cl_uint}       The now set number of max faces per (leaf) node.
  */
 cl_uint BVH::setMaxFaces( cl_uint value ) {
-	mMaxFaces = ( value < 1 || value > 4 ) ? 4 : value;
+	mMaxFaces = fmax( value, 1 );
 
 	return mMaxFaces;
 }
@@ -990,24 +999,46 @@ void BVH::splitBySpatialSplit(
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces,
 	glm::vec3* bbMinLeft, glm::vec3* bbMaxLeft, glm::vec3* bbMinRight, glm::vec3* bbMaxRight
 ) {
-	if( fabs( node->bbMax[axis] - node->bbMin[axis] ) < 0.00001f ) {
-printf( "skip axis %u, no volume\n", axis );
+	if( node->bbMax[axis] - node->bbMin[axis] < 0.00001f ) {
+printf( "  skip axis %u, no volume\n", axis );
 		return;
 	}
+
+printf(
+	"  > AABB | min: %f %f %f | max: %f %f %f\n",
+	node->bbMin.x, node->bbMin.y, node->bbMin.z,
+	node->bbMax.x, node->bbMax.y, node->bbMax.z
+);
 
 	// cl_uint splits = Cfg::get().value<cl_uint>( Cfg::BVH_SPATIALSPLITS );
 	// vector<cl_float> splitPos = this->getBinSplits( node, splits, axis );
 
 	vector<cl_float> splitPos;
+
 	for( cl_uint i = 0; i < faces.size(); i++ ) {
 		Tri tri = faces[i];
-		splitPos.push_back( 0.5f * ( tri.bbMax[axis] + tri.bbMin[axis] ) );
+		float split = 0.5f * ( tri.bbMax[axis] + tri.bbMin[axis] );
+		if( split != node->bbMin[axis] && split != node->bbMax[axis] ) {
+			splitPos.push_back( split );
+		}
 	}
+
 	std::sort( splitPos.begin(), splitPos.end() );
 	vector<cl_float>::iterator it = std::unique( splitPos.begin(), splitPos.end() );
 	splitPos.resize( std::distance( splitPos.begin(), it ) );
 	cl_uint splits = splitPos.size();
 
+printf( "  axis: %d | faces: %lu | splits: %u\n", axis, faces.size(), splits );
+printf( "  splits: " );
+for( int i = 0; i < splits; i++ ) {
+	printf( "(%f) ", splitPos[i] );
+}
+printf( "\n" );
+printf( "  ---\n" );
+
+if( splits == 0 ) {
+	return;
+}
 
 	// Create AABBs for bins
 	vector< vector<glm::vec3> > binBBs = this->getBinAABBs( node, splitPos, axis );
@@ -1061,7 +1092,7 @@ printf( "skip axis %u, no volume\n", axis );
 			index = i;
 		}
 	}
-printf( "axis: %d | splits: %u\n", axis, splits );
+
 
 	// Choose best split
 
@@ -1081,19 +1112,21 @@ printf( "axis: %d | splits: %u\n", axis, splits );
 		*bbMinRight = rightBB[index][0];
 		*bbMaxRight = rightBB[index][1];
 
+printf( "    split at %f\n", splitPos[index] );
 printf(
-	"left AABB  | min %f %f %f | max %f %f %f\n",
+	"    left AABB  | min %f %f %f | max %f %f %f\n",
 	(*bbMinLeft).x, (*bbMinLeft).y, (*bbMinLeft).z,
 	(*bbMaxLeft).x, (*bbMaxLeft).y, (*bbMaxLeft).z
 );
 printf(
-	"right AABB | min %f %f %f | max %f %f %f\n",
+	"    right AABB | min %f %f %f | max %f %f %f\n",
 	(*bbMinRight).x, (*bbMinRight).y, (*bbMinRight).z,
 	(*bbMaxRight).x, (*bbMaxRight).y, (*bbMaxRight).z
 );
 
 		*sahBest = currentBestSAH;
 	}
+printf( "  ---\n" );
 }
 
 

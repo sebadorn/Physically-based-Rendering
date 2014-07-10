@@ -200,8 +200,8 @@ void updateSPD(
  * @param {write_only image2d_t}   imageOut
  */
 kernel void pathTracing(
-	float seed, float pixelWeight, const float pxDim,
-	global const float* eyeIn, global const face_t* faces, global const bvhNode* bvh, global const int4* bvhFaces,
+	float seed, float pixelWeight, const float pxDim, global const float* eyeIn,
+	global const face_t* faces, global const bvhNode* bvh, global const uint* bvhFaces,
 	constant const material* materials, constant const float* specPowerDists,
 	read_only image2d_t imageIn, write_only image2d_t imageOut
 ) {

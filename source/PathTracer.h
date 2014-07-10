@@ -36,7 +36,7 @@ struct face_cl {
 struct bvhNode_cl {
 	cl_float4 bbMin; // bbMin.w = leftChild
 	cl_float4 bbMax; // bbMax.w = rightChild
-	// cl_int4 faces;
+	cl_int2 facesInterval; // x = start index; y = number of faces
 };
 
 struct material_schlick {

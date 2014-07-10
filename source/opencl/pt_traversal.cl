@@ -365,25 +365,21 @@ float4 checkFaceIntersection(
  * @param {float tFar}           tFar
  */
 void intersectFaces(
-	ray4* ray, const bvhNode* node, const int4 nodeFaces, const global face_t* faces, const float tNear, float tFar
+	ray4* ray, const bvhNode* node, global const uint* bvhFaces, const global face_t* faces, const float tNear, float tFar
 ) {
-	const int faceIndices[4] = { nodeFaces.x, nodeFaces.y, nodeFaces.z, nodeFaces.w };
+	// const int faceIndices[4] = { nodeFaces.x, nodeFaces.y, nodeFaces.z, nodeFaces.w };
 
-	#pragma unroll(4)
-	for( char i = 0; i < 4; i++ ) {
-		if( faceIndices[i] == -1 ) {
-			break;
-		}
-
+	// #pragma unroll(4)
+	for( char i = 0; i < node->facesInterval.y; i++ ) {
 		float3 tuv;
-		float4 normal = checkFaceIntersection( ray, faces[faceIndices[i]], &tuv, tNear, tFar );
+		float4 normal = checkFaceIntersection( ray, faces[bvhFaces[node->facesInterval.x + i]], &tuv, tNear, tFar );
 
 		if( tuv.x < INFINITY ) {
 			tFar = tuv.x;
 
 			if( ray->t > tuv.x ) {
 				ray->normal = normal;
-				ray->normal.w = (float) faceIndices[i];
+				ray->normal.w = (float) bvhFaces[node->facesInterval.x + i];
 				ray->t = tuv.x;
 			}
 		}
@@ -452,7 +448,7 @@ const bool intersectSphere(
  * @param {global const face_t*}  faces
  */
 void traverseBVH(
-	global const bvhNode* bvh, global const int4* bvhFaces,
+	global const bvhNode* bvh, global const uint* bvhFaces,
 	ray4* ray, global const face_t* faces
 ) {
 	bool addLeftToStack, addRightToStack, rightThenLeft;
@@ -478,7 +474,7 @@ void traverseBVH(
 				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
 				rayBest.t > tNearL
 			) {
-				intersectFaces( ray, &node, bvhFaces[bvhStack[stackIndex + 1]], faces, tNearL, tFarL );
+				intersectFaces( ray, &node, bvhFaces, faces, tNearL, tFarL );
 				rayBest = ( ray->t < rayBest.t ) ? *ray : rayBest;
 			}
 
@@ -542,7 +538,7 @@ void traverseBVH(
  * @param {const global face_t*}  faces
  */
 void traverseBVH_shadowRay(
-	const global bvhNode* bvh, const global int4* bvhFaces, ray4* ray, const global face_t* faces
+	const global bvhNode* bvh, const global uint* bvhFaces, ray4* ray, const global face_t* faces
 ) {
 	bool addLeftToStack, addRightToStack, rightThenLeft;
 	float tFarL, tFarR, tNearL, tNearR;
@@ -561,7 +557,7 @@ void traverseBVH_shadowRay(
 		// Is a leaf node with faces
 		if( node.bbMin.w < 0.0f && node.bbMax.w < 0.0f ) {
 			if( intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) ) {
-				intersectFaces( ray, &node, bvhFaces[bvhStack[stackIndex + 1]], faces, tNearL, tFarL );
+				intersectFaces( ray, &node, bvhFaces, faces, tNearL, tFarL );
 
 				if( ray->t < INFINITY ) {
 					break;
