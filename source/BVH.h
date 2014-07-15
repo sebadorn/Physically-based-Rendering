@@ -95,7 +95,7 @@ class BVH {
 		);
 		void logStats( boost::posix_time::ptime timerStart );
 		cl_uint longestAxis( BVHNode* node );
-		BVHNode* makeNode( vector<Tri> faces, vector<cl_float4> vertices );
+		BVHNode* makeNode( vector<Tri> faces, vector<cl_float4> vertices, bool ignore );
 		BVHNode* makeContainerNode( vector<BVHNode*> subTrees, bool isRoot );
 		vector<cl_float4> packFloatAsFloat4( vector<cl_float> vertices );
 		glm::vec3 phongTessellate(
