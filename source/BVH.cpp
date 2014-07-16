@@ -180,9 +180,6 @@ BVHNode* BVH::buildTree(
 				);
 			}
 
-			// printf( "> left faces: %lu | right faces: %lu\n", leftFaces.size(), rightFaces.size() );
-			// printf( "> SAH | spatial: %f | object: %f\n", spatialSAH, objectSAH );
-
 			useGivenBB = true;//( spatialSAH < objectSAH );
 		}
 	}
@@ -925,47 +922,97 @@ void BVH::splitBySpatialSplit(
 		return;
 	}
 
-	// cl_uint splits = Cfg::get().value<cl_uint>( Cfg::BVH_SPATIALSPLITS );
-	// vector<cl_float> splitPos = this->getBinSplits( node, splits, axis );
 
-	vector<cl_float> splitPos;
+	// Get split positions
 
-	for( cl_uint i = 0; i < faces.size(); i++ ) {
-		Tri tri = faces[i];
-		float split = 0.5f * ( tri.bbMax[axis] + tri.bbMin[axis] );
-
-		if( split != node->bbMin[axis] && split != node->bbMax[axis] ) {
-			splitPos.push_back( split );
-		}
-	}
+	cl_uint splits = Cfg::get().value<cl_uint>( Cfg::BVH_SPATIALSPLITS );
+	vector<cl_float> splitPos = this->getBinSplits( node, splits, axis );
 
 	std::sort( splitPos.begin(), splitPos.end() );
 	vector<cl_float>::iterator it = std::unique( splitPos.begin(), splitPos.end() );
 	splitPos.resize( std::distance( splitPos.begin(), it ) );
-	cl_uint splits = splitPos.size();
+	splits = splitPos.size();
 
 	if( splits == 0 ) {
 		return;
 	}
 
-	// Create AABBs for bins
-	vector< vector<glm::vec3> > binBBs = this->getBinAABBs( node, splitPos, axis );
 
-	// Assign faces
-	vector< vector<Tri> > binFaces = this->getBinFaces( faces, allVertices, binBBs, axis );
+	// Create possible bin combinations according to split positions
 
-	// Clip faces and shrink AABB
-	for( int i = 0; i < binBBs.size(); i++ ) {
-		this->clippedFacesAABB( &(binFaces[i]), allVertices, axis, &(binBBs[i]) );
+	vector< vector<glm::vec3> > leftBin( splits ), rightBin( splits );
+
+	for( cl_uint i = 0; i < splits; i++ ) {
+		leftBin[i] = vector<glm::vec3>( 2 );
+		leftBin[i][0] = glm::vec3( node->bbMin );
+		leftBin[i][1] = glm::vec3( node->bbMax );
+		leftBin[i][1][axis] = splitPos[i];
+
+		rightBin[i] = vector<glm::vec3>( 2 );
+		rightBin[i][0] = glm::vec3( node->bbMin );
+		rightBin[i][1] = glm::vec3( node->bbMax );
+		rightBin[i][0][axis] = splitPos[i];
 	}
 
-	// Faces for different combinations of bins
-	vector< vector<Tri> > leftBinFaces( splits ), rightBinFaces( splits );
-	this->assignFacesToBins( binFaces, splits, &leftBinFaces, &rightBinFaces );
 
-	// Bounding boxes for the bin combinations
-	vector< vector<glm::vec3> > leftBB( splits ), rightBB( splits );
-	this->growBinAABBs( binBBs, binFaces, splits, &leftBB, &rightBB );
+	// Assign faces to the bin combinations and clip them on the split positions
+
+	vector< vector<Tri> > leftBinFaces( splits ), rightBinFaces( splits );
+
+	for( cl_uint i = 0; i < splits; i++ ) {
+		vector<glm::vec3> leftAABB = leftBin[i];
+		vector<glm::vec3> rightAABB = rightBin[i];
+
+		for( cl_uint j = 0; j < faces.size(); j++ ) {
+			Tri tri = faces[j];
+
+			if( tri.bbMin[axis] <= leftAABB[1][axis] && tri.bbMax[axis] >= leftAABB[0][axis] ) {
+				Tri triCpy;
+				triCpy.face = tri.face;
+				triCpy.bbMin = glm::vec3( tri.bbMin );
+				triCpy.bbMax = glm::vec3( tri.bbMax );
+				triCpy.bbMin[axis] = fmax( tri.bbMin[axis], leftAABB[0][axis] );
+				triCpy.bbMax[axis] = fmin( tri.bbMax[axis], leftAABB[1][axis] );
+
+				leftBinFaces[i].push_back( triCpy );
+			}
+			if( tri.bbMin[axis] <= rightAABB[1][axis] && tri.bbMax[axis] >= rightAABB[0][axis] ) {
+				Tri triCpy;
+				triCpy.face = tri.face;
+				triCpy.bbMin = glm::vec3( tri.bbMin );
+				triCpy.bbMax = glm::vec3( tri.bbMax );
+				triCpy.bbMin[axis] = fmax( tri.bbMin[axis], rightAABB[0][axis] );
+				triCpy.bbMax[axis] = fmin( tri.bbMax[axis], rightAABB[1][axis] );
+
+				rightBinFaces[i].push_back( triCpy );
+			}
+		}
+	}
+
+
+	// Resize bins according to their faces
+
+	for( cl_uint i = 0; i < splits; i++ ) {
+		if( leftBinFaces[i].size() == 0 || rightBinFaces[i].size() == 0 ) {
+			continue;
+		}
+
+		leftBin[i][0] = glm::vec3( leftBinFaces[i][0].bbMin );
+		leftBin[i][1] = glm::vec3( leftBinFaces[i][0].bbMax );
+
+		for( cl_uint j = 1; j < leftBinFaces[i].size(); j++ ) {
+			leftBin[i][0] = glm::min( leftBin[i][0], leftBinFaces[i][j].bbMin );
+			leftBin[i][1] = glm::max( leftBin[i][1], leftBinFaces[i][j].bbMax );
+		}
+
+		rightBin[i][0] = glm::vec3( rightBinFaces[i][0].bbMin );
+		rightBin[i][1] = glm::vec3( rightBinFaces[i][0].bbMax );
+
+		for( cl_uint j = 1; j < rightBinFaces[i].size(); j++ ) {
+			rightBin[i][0] = glm::min( rightBin[i][0], rightBinFaces[i][j].bbMin );
+			rightBin[i][1] = glm::max( rightBin[i][1], rightBinFaces[i][j].bbMax );
+		}
+	}
 
 
 	// Surface areas for SAH
@@ -974,8 +1021,8 @@ void BVH::splitBySpatialSplit(
 	vector<cl_float> leftSA( splits ), rightSA( splits );
 
 	for( int i = 0; i < splits; i++ ) {
-		leftSA[i] = MathHelp::getSurfaceArea( leftBB[i][0], leftBB[i][1] );
-		rightSA[i] = MathHelp::getSurfaceArea( rightBB[i][0], rightBB[i][1] );
+		leftSA[i] = MathHelp::getSurfaceArea( leftBin[i][0], leftBin[i][1] );
+		rightSA[i] = MathHelp::getSurfaceArea( rightBin[i][0], rightBin[i][1] );
 	}
 
 
@@ -1004,13 +1051,15 @@ void BVH::splitBySpatialSplit(
 	// Choose best split
 
 	if( index >= 0 && currentBestSAH == sah[index] && currentBestSAH < *sahBest ) {
+		leftFaces->clear();
+		rightFaces->clear();
 		leftFaces->assign( leftBinFaces[index].begin(), leftBinFaces[index].end() );
 		rightFaces->assign( rightBinFaces[index].begin(), rightBinFaces[index].end() );
 
-		*bbMinLeft = leftBB[index][0];
-		*bbMaxLeft = leftBB[index][1];
-		*bbMinRight = rightBB[index][0];
-		*bbMaxRight = rightBB[index][1];
+		*bbMinLeft = leftBin[index][0];
+		*bbMaxLeft = leftBin[index][1];
+		*bbMinRight = rightBin[index][0];
+		*bbMaxRight = rightBin[index][1];
 
 		*sahBest = currentBestSAH;
 	}

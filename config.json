@@ -43,7 +43,7 @@
 		// DO NOT USE!
 		// 0: disabled
 		// >0: number of splits to test per node; default: 10
-		"spatial_splits": 1
+		"spatial_splits": 100
 	},
 
 	"logging": {
@@ -95,7 +95,7 @@
 		// Phong Tessellation
 		// 0.0: disabled
 		// 1.0: maximum
-		"phong_tessellation": 0.0,
+		"phong_tessellation": 0.7,
 		// Samples of paths per frame
 		"samples": 1
 	},
