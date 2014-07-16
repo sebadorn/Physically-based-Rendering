@@ -867,11 +867,9 @@ void BVH::splitBySpatialSplit(
 	vector< vector<glm::vec3> > leftBin( splits ), rightBin( splits );
 	this->createBinCombinations( node, axis, &splitPos, &leftBin, &rightBin );
 
-
 	// Assign faces to the bin combinations and clip them on the split positions
 	vector< vector<Tri> > leftBinFaces( splits ), rightBinFaces( splits );
 	this->assignFacesToBins( axis, splits, &faces, &leftBin, &rightBin, &leftBinFaces, &rightBinFaces );
-
 
 	// Resize bins according to their faces
 	this->resizeBinsToFaces( splits, &leftBinFaces, &rightBinFaces, &leftBin, &rightBin );
@@ -1115,12 +1113,21 @@ void BVH::triCalcAABB(
 	glm::vec3 sidedrop;
 	this->triThicknessAndSidedrop( p1, p2, p3, n1, n2, n3, &thickness, &sidedrop );
 
+	// float enlarge = fmax( thickness, fmax( sidedrop.x, fmax( sidedrop.y, sidedrop.z ) ) );
+	// tri->bbMin.x -= enlarge;
+	// tri->bbMin.y -= enlarge;
+	// tri->bbMin.z -= enlarge;
+	// tri->bbMax.x += enlarge;
+	// tri->bbMax.y += enlarge;
+	// tri->bbMax.z += enlarge;
+
 	// Grow bigger according to sidedrop
 	glm::vec3 e12 = p2 - p1;
 	glm::vec3 e13 = p3 - p1;
 	glm::vec3 e23 = p3 - p2;
 	glm::vec3 e31 = p1 - p3;
 	glm::vec3 ng = glm::normalize( glm::cross( e12, e13 ) );
+
 	glm::vec3 s12 = glm::normalize( glm::cross( e12, ng ) );
 	glm::vec3 s23 = glm::normalize( glm::cross( e23, ng ) );
 	glm::vec3 s31 = glm::normalize( glm::cross( e31, ng ) );
@@ -1132,10 +1139,10 @@ void BVH::triCalcAABB(
 	glm::vec3 p31 = p3 + sidedrop.y * s23;
 	glm::vec3 p32 = p3 + sidedrop.z * s31;
 
-	tri->bbMin = glm::min( p11, glm::min( p21, p31 ) );
-	tri->bbMin = glm::min( tri->bbMin, glm::min( p12, glm::min( p22, p32 ) ) );
-	tri->bbMax = glm::max( p11, glm::max( p21, p31 ) );
-	tri->bbMax = glm::max( tri->bbMax, glm::max( p12, glm::max( p22, p32 ) ) );
+	tri->bbMin = glm::min( glm::min( tri->bbMin, p11 ), glm::min( p21, p31 ) );
+	tri->bbMin = glm::min( glm::min( tri->bbMin, p12 ), glm::min( p22, p32 ) );
+	tri->bbMax = glm::max( glm::max( tri->bbMax, p11 ), glm::max( p21, p31 ) );
+	tri->bbMax = glm::max( glm::max( tri->bbMax, p12 ), glm::max( p22, p32 ) );
 
 	// Move by thickness and combine with old AABB position
 	p11 += thickness * ng;
@@ -1145,10 +1152,10 @@ void BVH::triCalcAABB(
 	p31 += thickness * ng;
 	p32 += thickness * ng;
 
-	tri->bbMin = glm::min( p11, glm::min( p21, p31 ) );
-	tri->bbMin = glm::min( tri->bbMin, glm::min( p12, glm::min( p22, p32 ) ) );
-	tri->bbMax = glm::max( p11, glm::max( p21, p31 ) );
-	tri->bbMax = glm::max( tri->bbMax, glm::max( p12, glm::max( p22, p32 ) ) );
+	tri->bbMin = glm::min( glm::min( tri->bbMin, p11 ), glm::min( p21, p31 ) );
+	tri->bbMin = glm::min( glm::min( tri->bbMin, p12 ), glm::min( p22, p32 ) );
+	tri->bbMax = glm::max( glm::max( tri->bbMax, p11 ), glm::max( p21, p31 ) );
+	tri->bbMax = glm::max( glm::max( tri->bbMax, p12 ), glm::max( p22, p32 ) );
 }
 
 
