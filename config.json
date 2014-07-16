@@ -39,11 +39,11 @@
 		// some time. To speed it up only use SAH for nodes with
 		// a number of faces less or equal to this setting.
 		"sah_faces_limit": 1000,
-		// FIXME: SBVH produces aweful results and endless loops.
-		// DO NOT USE!
+		// Use spatial splits to create the BVH.
+		// WORKS, BUT HAS AWEFUL PERFORMANCE. NEEDS OPTIMIZATION!
 		// 0: disabled
-		// >0: number of splits to test per node; default: 10
-		"spatial_splits": 100
+		// >0: number of splits to test per node
+		"spatial_splits": 0
 	},
 
 	"logging": {

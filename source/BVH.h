@@ -36,7 +36,11 @@ struct BVHNode {
 class BVH {
 
 	public:
-		BVH( vector<object3D> sceneObjects, vector<cl_float> vertices, vector<cl_float> normals );
+		BVH(
+			const vector<object3D> sceneObjects,
+			const vector<cl_float> vertices,
+			const vector<cl_float> normals
+		);
 		~BVH();
 		vector<BVHNode*> getContainerNodes();
 		cl_uint getDepth();
@@ -47,90 +51,88 @@ class BVH {
 
 	protected:
 		void assignFacesToBins(
-			vector< vector<Tri> > binFaces, cl_uint splits,
+			const cl_uint axis, const cl_uint splits, const vector<Tri>* faces,
+			const vector< vector<glm::vec3> >* leftBin,
+			const vector< vector<glm::vec3> >* rightBin,
 			vector< vector<Tri> >* leftBinFaces, vector< vector<Tri> >* rightBinFaces
 		);
 		BVHNode* buildTree(
-			vector<Tri> faces, vector<cl_float4> vertices, cl_uint depth,
-			glm::vec3 bbMin, glm::vec3 bbMax, bool useGivenBB, cl_float rootSA
+			const vector<Tri> faces, const glm::vec3 bbMin, const glm::vec3 bbMax,
+			cl_uint depth, bool useGivenBB, const cl_float rootSA
 		);
 		vector<BVHNode*> buildTreesFromObjects(
-			vector<object3D> sceneObjects, vector<cl_float> vertices, vector<cl_float> normals
+			const vector<object3D>* sceneObjects,
+			const vector<cl_float>* vertices,
+			const vector<cl_float>* normals
 		);
-		void buildWidthMidpointSplit(
-			BVHNode* node, vector<Tri> faces, vector<cl_float4> allVertices,
+		void buildWithMidpointSplit(
+			BVHNode* node, const vector<Tri> faces,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces
 		);
 		cl_float buildWithSAH(
-			BVHNode* node, vector<Tri> faces, vector<cl_float4> allVertices,
+			BVHNode* node, vector<Tri> faces,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
 		);
 		cl_float calcSAH(
-			cl_float nodeSA_recip, cl_float leftSA, cl_float leftNumFaces,
-			cl_float rightSA, cl_float rightNumFaces
+			const cl_float nodeSA_recip, const cl_float leftSA, const cl_float leftNumFaces,
+			const cl_float rightSA, const cl_float rightNumFaces
 		);
-		void clipLine(
-			glm::vec3 p, glm::vec3 q, glm::vec3 s, glm::vec3 nl, vector<cl_float4>* vertices
+		void combineNodes( const cl_uint numSubTrees );
+		void createBinCombinations(
+			const BVHNode* node, const cl_uint axis, const vector<cl_float>* splitPos,
+			vector< vector<glm::vec3> >* leftBin, vector< vector<glm::vec3> >* rightBin
 		);
-		void clippedFacesAABB(
-			vector<Tri>* faces, vector<cl_float4> allVertices,
-			cl_uint axis, vector<glm::vec3>* binAABB
+		cl_float getMean( const vector<Tri> faces, const cl_uint axis );
+		cl_float getMeanOfNodes( const vector<BVHNode*> nodes, const cl_uint axis );
+		vector<cl_float> getBinSplits(
+			const BVHNode* node, const cl_uint splits, const cl_uint axis
 		);
-		void combineNodes( vector<BVHNode*> subTrees );
-		cl_float findMean( vector<Tri> faces, vector<cl_float4> allVertices, cl_uint axis );
-		cl_float findMeanOfNodes( vector<BVHNode*> nodes, cl_uint axis );
-		cl_float findMidpoint( BVHNode* container, cl_uint axis );
-		vector< vector<glm::vec3> > getBinAABBs(
-			BVHNode* node, vector<cl_float> splitPos, cl_uint axis
-		);
-		vector< vector<Tri> > getBinFaces(
-			vector<Tri> faces, vector<cl_float4> allVertices,
-			vector< vector<glm::vec3> > bins, cl_uint axis
-		);
-		vector<cl_float> getBinSplits( BVHNode* node, cl_uint splits, cl_uint axis );
 		void groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint depth );
-		void growBinAABBs(
-			vector< vector<glm::vec3> > binBBs, vector< vector<Tri> > binFaces, cl_uint splits,
-			vector< vector<glm::vec3> >* leftBB, vector< vector<glm::vec3> >* rightBB
-		);
 		void logStats( boost::posix_time::ptime timerStart );
-		cl_uint longestAxis( BVHNode* node );
-		BVHNode* makeNode( vector<Tri> faces, vector<cl_float4> vertices, bool ignore );
-		BVHNode* makeContainerNode( vector<BVHNode*> subTrees, bool isRoot );
-		vector<cl_float4> packFloatAsFloat4( vector<cl_float> vertices );
+		cl_uint longestAxis( const BVHNode* node );
+		BVHNode* makeNode( const vector<Tri> faces, bool ignore );
+		BVHNode* makeContainerNode( const vector<BVHNode*> subTrees, const bool isRoot );
+		vector<cl_float4> packFloatAsFloat4( const vector<cl_float>* vertices );
 		glm::vec3 phongTessellate(
-			glm::vec3 p1, glm::vec3 p2, glm::vec3 p3,
-			glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,
-			float alpha, float u, float v
+			const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
+			const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
+			const float alpha, const float u, const float v
 		);
-		cl_uint setMaxFaces( cl_uint value );
+		void resizeBinsToFaces(
+			const cl_uint splits,
+			const vector< vector<Tri> >* leftBinFaces, const vector< vector<Tri> >* rightBinFaces,
+			vector< vector<glm::vec3> >* leftBin, vector< vector<glm::vec3> >* rightBin
+		);
+		cl_uint setMaxFaces( const int value );
 		void splitBySAH(
-			cl_float nodeSA, cl_float* bestSAH, cl_uint axis, vector<Tri> faces, vector<cl_float4> allVertices,
+			const cl_float nodeSA, cl_float* bestSAH, const cl_uint axis, vector<Tri> faces,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
 		);
 		void splitBySpatialSplit(
-			BVHNode* node, cl_uint axis, cl_float* sahBest, vector<Tri> faces, vector<cl_float4> allVertices,
+			BVHNode* node, const cl_uint axis, cl_float* sahBest, const vector<Tri> faces,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces,
 			glm::vec3* bbMinLeft, glm::vec3* bbMaxLeft, glm::vec3* bbMinRight, glm::vec3* bbMaxRight
 		);
 		void splitFaces(
-			vector<Tri> faces, vector<cl_float4> vertices, cl_float midpoint, cl_uint axis,
+			const vector<Tri> faces, const cl_float midpoint, const cl_uint axis,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces
 		);
 		void splitNodes(
-			vector<BVHNode*> nodes, cl_float midpoint, cl_uint axis,
+			const vector<BVHNode*> nodes, const cl_float midpoint, const cl_uint axis,
 			vector<BVHNode*>* leftGroup, vector<BVHNode*>* rightGroup
 		);
 		void triCalcAABB(
-			Tri* tri, cl_uint4 fn, vector<cl_float4> vertices, vector<cl_float> normals
+			Tri* tri, const cl_uint4 fn,
+			const vector<cl_float4>* vertices, const vector<cl_float>* normals
 		);
 		void triThicknessAndSidedrop(
-			glm::vec3 p1, glm::vec3 p2, glm::vec3 p3,
-			glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,
+			const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
+			const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
 			float* thickness, glm::vec3* sidedrop
 		);
-		vector<Tri> uniqueFaces( vector<Tri> faces );
-		void visualizeNextNode( BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices );
+		void visualizeNextNode(
+			const BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices
+		);
 
 	private:
 		vector<BVHNode*> mContainerNodes;

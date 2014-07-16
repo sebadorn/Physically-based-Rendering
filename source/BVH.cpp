@@ -4,31 +4,6 @@ using std::vector;
 
 
 /**
- * Struct to use as comparator in std::find_if() for the faces (cl_uint4).
- */
-struct findFace : std::unary_function<Tri, bool> {
-
-	Tri* fc;
-
-	/**
-	 * Constructor.
-	 * @param {cl_uint4*} fc Face to compare other faces with.
-	 */
-	findFace( Tri* fc ) : fc( fc ) {};
-
-	/**
-	 * Compare two faces.
-	 * @param  {cl_uint4 const&} f
-	 * @return {bool}              True, if they are identical, false otherwise.
-	 */
-	bool operator()( Tri const& tri ) const {
-		return ( fc->face.x == tri.face.x && fc->face.y == tri.face.y && fc->face.z == tri.face.z );
-	};
-
-};
-
-
-/**
  * Struct to use as comparator in std::sort() for the faces (cl_uint4).
  */
 struct sortFacesCmp {
@@ -37,19 +12,19 @@ struct sortFacesCmp {
 
 	/**
 	 * Constructor.
-	 * @param {cl_uint} axis Axis to compare the faces on.
+	 * @param {const cl_uint} axis Axis to compare the faces on.
 	 */
-	sortFacesCmp( cl_uint axis ) {
+	sortFacesCmp( const cl_uint axis ) {
 		this->axis = axis;
 	};
 
 	/**
 	 * Compare two faces by their centroids.
-	 * @param  {Tri} a Indizes for vertices that describe a face.
-	 * @param  {Tri} b Indizes for vertices that describe a face.
-	 * @return {bool}  a < b
+	 * @param  {const Tri} a Indizes for vertices that describe a face.
+	 * @param  {const Tri} b Indizes for vertices that describe a face.
+	 * @return {bool}        a < b
 	 */
-	bool operator()( Tri a, Tri b ) {
+	bool operator()( const Tri a, const Tri b ) {
 		glm::vec3 cenA = ( a.bbMax + a.bbMin ) * 0.5f;
 		glm::vec3 cenB = ( b.bbMax + b.bbMin ) * 0.5f;
 
@@ -66,15 +41,19 @@ struct sortFacesCmp {
  * @param  {std::vector<cl_float>} normals
  * @return {BVH*}
  */
-BVH::BVH( vector<object3D> sceneObjects, vector<cl_float> vertices, vector<cl_float> normals ) {
+BVH::BVH(
+	const vector<object3D> sceneObjects,
+	const vector<cl_float> vertices,
+	const vector<cl_float> normals
+) {
 	boost::posix_time::ptime timerStart = boost::posix_time::microsec_clock::local_time();
 	mDepthReached = 0;
 	this->setMaxFaces( Cfg::get().value<cl_uint>( Cfg::BVH_MAXFACES ) );
 
-	vector<BVHNode*> subTrees = this->buildTreesFromObjects( sceneObjects, vertices, normals );
+	vector<BVHNode*> subTrees = this->buildTreesFromObjects( &sceneObjects, &vertices, &normals );
 	mRoot = this->makeContainerNode( subTrees, true );
 	this->groupTreesToNodes( subTrees, mRoot, mDepthReached );
-	this->combineNodes( subTrees );
+	this->combineNodes( subTrees.size() );
 	this->logStats( timerStart );
 }
 
@@ -91,50 +70,66 @@ BVH::~BVH() {
 
 /**
  * Assign faces to the created bins.
- * @param {std::vector<std::vector<Tri>>}  binFaces
- * @param {cl_uint}                        splits
- * @param {std::vector<std::vector<Tri>>*} leftBinFaces
- * @param {std::vector<std::vector<Tri>>*} rightBinFaces
+ * @param {const cl_uint}                              axis
+ * @param {const cl_uint}                              splits
+ * @param {const std::vector<Tri>*}                    faces
+ * @param {const std::vector<std::vector<glm::vec3>>*} leftBin
+ * @param {const std::vector<std::vector<glm::vec3>>*} rightBin
+ * @param {std::vector<std::vector<Tri>>*}             leftBinFaces
+ * @param {std::vector<std::vector<Tri>>*}             rightBinFaces
  */
 void BVH::assignFacesToBins(
-	vector< vector<Tri> > binFaces, cl_uint splits,
+	const cl_uint axis, const cl_uint splits, const vector<Tri>* faces,
+	const vector< vector<glm::vec3> >* leftBin, const vector< vector<glm::vec3> >* rightBin,
 	vector< vector<Tri> >* leftBinFaces, vector< vector<Tri> >* rightBinFaces
 ) {
-	// Growing left group
+	for( cl_uint i = 0; i < splits; i++ ) {
+		vector<glm::vec3> leftAABB = (*leftBin)[i];
+		vector<glm::vec3> rightAABB = (*rightBin)[i];
 
-	(*leftBinFaces)[0].assign( binFaces[0].begin(), binFaces[0].end() );
+		for( cl_uint j = 0; j < faces->size(); j++ ) {
+			Tri tri = (*faces)[j];
 
-	for( int i = 1; i < splits; i++ ) {
-		(*leftBinFaces)[i].assign( (*leftBinFaces)[i - 1].begin(), (*leftBinFaces)[i - 1].end() );
-		(*leftBinFaces)[i].insert( (*leftBinFaces)[i].end(), binFaces[i].begin(), binFaces[i].end() );
-		(*leftBinFaces)[i] = this->uniqueFaces( (*leftBinFaces)[i] );
-	}
+			if( tri.bbMin[axis] <= leftAABB[1][axis] && tri.bbMax[axis] >= leftAABB[0][axis] ) {
+				Tri triCpy;
+				triCpy.face = tri.face;
+				triCpy.bbMin = glm::vec3( tri.bbMin );
+				triCpy.bbMax = glm::vec3( tri.bbMax );
+				triCpy.bbMin[axis] = fmax( tri.bbMin[axis], leftAABB[0][axis] );
+				triCpy.bbMax[axis] = fmin( tri.bbMax[axis], leftAABB[1][axis] );
 
+				(*leftBinFaces)[i].push_back( triCpy );
+			}
+			if( tri.bbMin[axis] <= rightAABB[1][axis] && tri.bbMax[axis] >= rightAABB[0][axis] ) {
+				Tri triCpy;
+				triCpy.face = tri.face;
+				triCpy.bbMin = glm::vec3( tri.bbMin );
+				triCpy.bbMax = glm::vec3( tri.bbMax );
+				triCpy.bbMin[axis] = fmax( tri.bbMin[axis], rightAABB[0][axis] );
+				triCpy.bbMax[axis] = fmin( tri.bbMax[axis], rightAABB[1][axis] );
 
-	// Growing right group
-
-	(*rightBinFaces)[splits - 1].assign( binFaces[splits].begin(), binFaces[splits].end() );
-
-	for( int i = splits - 2; i >= 0; i-- ) {
-		(*rightBinFaces)[i].assign( (*rightBinFaces)[i + 1].begin(), (*rightBinFaces)[i + 1].end() );
-		(*rightBinFaces)[i].insert( (*rightBinFaces)[i].end(), binFaces[i + 1].begin(), binFaces[i + 1].end() );
-		(*rightBinFaces)[i] = this->uniqueFaces( (*rightBinFaces)[i] );
+				(*rightBinFaces)[i].push_back( triCpy );
+			}
+		}
 	}
 }
 
 
 /**
  * Build the sphere tree.
- * @param  {std::vector<Tri>}       faces
- * @param  {std::vector<cl_float4>} allVertices
- * @param  {cl_uint}                depth       The current depth of the node in the tree. Starts at 1.
+ * @param  {std::vector<Tri>} faces
+ * @param  {const glm::vec3}  bbMin
+ * @param  {const glm::vec3}  bbMax
+ * @param  {cl_uint}          depth      The current depth of the node in the tree. Starts at 1.
+ * @param  {bool}             useGivenBB
+ * @param  {const cl_float}   rootSA
  * @return {BVHNode*}
  */
 BVHNode* BVH::buildTree(
-	vector<Tri> faces, vector<cl_float4> allVertices, cl_uint depth,
-	glm::vec3 bbMin, glm::vec3 bbMax, bool useGivenBB, cl_float rootSA
+	vector<Tri> faces, const glm::vec3 bbMin, const glm::vec3 bbMax,
+	cl_uint depth, bool useGivenBB, const cl_float rootSA
 ) {
-	BVHNode* containerNode = this->makeNode( faces, allVertices, false );
+	BVHNode* containerNode = this->makeNode( faces, false );
 
 	if( useGivenBB ) {
 		containerNode->bbMin = glm::vec3( bbMin );
@@ -163,7 +158,7 @@ BVHNode* BVH::buildTree(
 	if( faces.size() <= Cfg::get().value<cl_uint>( Cfg::BVH_SAHFACESLIMIT ) ) {
 		cl_float lambda;
 		cl_float objectSAH = this->buildWithSAH(
-			containerNode, faces, allVertices, &leftFaces, &rightFaces, &lambda
+			containerNode, faces, &leftFaces, &rightFaces, &lambda
 		);
 
 		lambda /= rootSA;
@@ -175,7 +170,7 @@ BVHNode* BVH::buildTree(
 
 			for( cl_uint axis = 0; axis <= 2; axis++ ) {
 				this->splitBySpatialSplit(
-					containerNode, axis, &spatialSAH, faces, allVertices, &leftFaces, &rightFaces,
+					containerNode, axis, &spatialSAH, faces, &leftFaces, &rightFaces,
 					&bbMinLeft, &bbMaxLeft, &bbMinRight, &bbMaxRight
 				);
 			}
@@ -186,7 +181,7 @@ BVHNode* BVH::buildTree(
 	// Faster to build: Splitting at the midpoint of the longest axis.
 	else {
 		Logger::logDebug( "[BVH] Too many faces in node for SAH. Splitting by midpoint." );
-		this->buildWidthMidpointSplit( containerNode, faces, allVertices, &leftFaces, &rightFaces );
+		this->buildWithMidpointSplit( containerNode, faces, &leftFaces, &rightFaces );
 	}
 
 	if(
@@ -204,10 +199,10 @@ BVHNode* BVH::buildTree(
 	}
 
 	containerNode->leftChild = this->buildTree(
-		leftFaces, allVertices, depth + 1, bbMinLeft, bbMaxLeft, useGivenBB, rootSA
+		leftFaces, bbMinLeft, bbMaxLeft, depth + 1, useGivenBB, rootSA
 	);
 	containerNode->rightChild = this->buildTree(
-		rightFaces, allVertices, depth + 1, bbMinRight, bbMaxRight, useGivenBB, rootSA
+		rightFaces, bbMinRight, bbMaxRight, depth + 1, useGivenBB, rootSA
 	);
 
 	return containerNode;
@@ -216,12 +211,15 @@ BVHNode* BVH::buildTree(
 
 /**
  * Build sphere trees for all given scene objects.
- * @param  {std::vector<object3D>} sceneObjects
- * @param  {std::vector<cl_float>} vertices
+ * @param  {const std::vector<object3D>*} sceneObjects
+ * @param  {const std::vector<cl_float>*} vertices
+ * @param  {const std::vector<cl_float>*} normals
  * @return {std::vector<BVHNode*>}
  */
 vector<BVHNode*> BVH::buildTreesFromObjects(
-	vector<object3D> sceneObjects, vector<cl_float> vertices, vector<cl_float> normals
+	const vector<object3D>* sceneObjects,
+	const vector<cl_float>* vertices,
+	const vector<cl_float>* normals
 ) {
 	vector<BVHNode*> subTrees;
 	char msg[256];
@@ -230,36 +228,36 @@ vector<BVHNode*> BVH::buildTreesFromObjects(
 
 	vector<cl_float4> vertices4 = this->packFloatAsFloat4( vertices );
 
-	for( cl_uint i = 0; i < sceneObjects.size(); i++ ) {
+	for( cl_uint i = 0; i < sceneObjects->size(); i++ ) {
 		vector<cl_uint4> facesThisObj;
 		vector<Tri> triFaces;
-		ModelLoader::getFacesOfObject( sceneObjects[i], &facesThisObj, offset );
+		ModelLoader::getFacesOfObject( (*sceneObjects)[i], &facesThisObj, offset );
 		offset += facesThisObj.size();
 
 		snprintf(
 			msg, 256, "[BVH] Building tree %u/%lu: \"%s\". %lu faces.",
-			i + 1, sceneObjects.size(), sceneObjects[i].oName.c_str(), facesThisObj.size()
+			i + 1, sceneObjects->size(), (*sceneObjects)[i].oName.c_str(), facesThisObj.size()
 		);
 		Logger::logInfo( msg );
 
 
 		vector<cl_uint4> faceNormalsThisObj;
-		ModelLoader::getFaceNormalsOfObject( sceneObjects[i], &faceNormalsThisObj, offsetN );
+		ModelLoader::getFaceNormalsOfObject( (*sceneObjects)[i], &faceNormalsThisObj, offsetN );
 		offsetN += faceNormalsThisObj.size();
 
 		for( cl_uint j = 0; j < facesThisObj.size(); j++ ) {
 			Tri tri;
 			tri.face = facesThisObj[j];
-			this->triCalcAABB( &tri, faceNormalsThisObj[j], vertices4, normals );
+			this->triCalcAABB( &tri, faceNormalsThisObj[j], &vertices4, normals );
 			triFaces.push_back( tri );
 		}
 
 
-		BVHNode* rootNode = this->makeNode( triFaces, vertices4, true );
+		BVHNode* rootNode = this->makeNode( triFaces, true );
 		cl_float rootSA = MathHelp::getSurfaceArea( rootNode->bbMin, rootNode->bbMax );
 
 		glm::vec3 bbMin, bbMax;
-		BVHNode* st = this->buildTree( triFaces, vertices4, 1, bbMin, bbMax, false, rootSA );
+		BVHNode* st = this->buildTree( triFaces, bbMin, bbMax, 1, false, rootSA );
 		subTrees.push_back( st );
 	}
 
@@ -269,28 +267,27 @@ vector<BVHNode*> BVH::buildTreesFromObjects(
 
 /**
  * Build the BVH using midpoint splits.
- * @param {BVHNode*}               node        Container node for the (sub) tree.
- * @param {std::vector<Tri>}       faces       Faces to be arranged into a BVH.
- * @param {std::vector<cl_float4>} allVertices All vertices.
- * @param {std::vector<Tri>*}      leftFaces   Output. Faces left of the split.
- * @param {std::vector<Tri>*}      rightFaces  Output. Faces right of the split.
+ * @param {BVHNode*}                node        Container node for the (sub) tree.
+ * @param {const std::vector<Tri>*} faces       Faces to be arranged into a BVH.
+ * @param {std::vector<Tri>*}       leftFaces   Output. Faces left of the split.
+ * @param {std::vector<Tri>*}       rightFaces  Output. Faces right of the split.
  */
-void BVH::buildWidthMidpointSplit(
-	BVHNode* node, vector<Tri> faces, vector<cl_float4> allVertices,
+void BVH::buildWithMidpointSplit(
+	BVHNode* node, const vector<Tri> faces,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces
 ) {
 	cl_uint axis = this->longestAxis( node );
-	cl_float splitPos = this->findMidpoint( node, axis );
+	cl_float splitPos = 0.5f * ( node->bbMin[axis] + node->bbMax[axis] );
 
-	this->splitFaces( faces, allVertices, splitPos, axis, leftFaces, rightFaces );
+	this->splitFaces( faces, splitPos, axis, leftFaces, rightFaces );
 
 	if( leftFaces->size() <= 0 || rightFaces->size() <= 0 ) {
 		Logger::logDebug( "[BVH] Splitting faces by midpoint didn't work. Trying again with mean." );
 		leftFaces->clear();
 		rightFaces->clear();
-		splitPos = this->findMean( faces, allVertices, axis );
+		splitPos = this->getMean( faces, axis );
 
-		this->splitFaces( faces, allVertices, splitPos, axis, leftFaces, rightFaces );
+		this->splitFaces( faces, splitPos, axis, leftFaces, rightFaces );
 	}
 }
 
@@ -299,14 +296,13 @@ void BVH::buildWidthMidpointSplit(
  * Build the BVH using SAH.
  * @param  {BVHNode*}               node        Container node for the (sub) tree.
  * @param  {std::vector<Tri>}       faces       Faces to be arranged into a BVH.
- * @param  {std::vector<cl_float4>} allVertices All vertices.
  * @param  {std::vector<Tri>*}      leftFaces   Output. Faces left of the split.
  * @param  {std::vector<Tri>*}      rightFaces  Output. Faces right of the split.
  * @param  {cl_float*}              lambda      Output.
  * @return {cl_float}                           Best found SAH value.
  */
 cl_float BVH::buildWithSAH(
-	BVHNode* node, vector<Tri> faces, vector<cl_float4> allVertices,
+	BVHNode* node, vector<Tri> faces,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
 ) {
 	cl_float nodeSA = MathHelp::getSurfaceArea( node->bbMin, node->bbMax );
@@ -314,7 +310,7 @@ cl_float BVH::buildWithSAH(
 	bestSAH = FLT_MAX;
 
 	for( cl_uint axis = 0; axis <= 2; axis++ ) {
-		this->splitBySAH( 1.0f / nodeSA, &bestSAH, axis, faces, allVertices, leftFaces, rightFaces, lambda );
+		this->splitBySAH( 1.0f / nodeSA, &bestSAH, axis, faces, leftFaces, rightFaces, lambda );
 	}
 
 	return bestSAH;
@@ -323,225 +319,77 @@ cl_float BVH::buildWithSAH(
 
 /**
  * Calculate the SAH value.
- * @param  {cl_float} nodeSA_recip  Reciprocal of the surface area of the container node.
- * @param  {cl_float} leftSA        Surface are of the left node.
- * @param  {cl_float} leftNumFaces  Number of faces in the left node.
- * @param  {cl_float} rightSA       Surface area of the right node.
- * @param  {cl_float} rightNumFaces Number of faces in the right node.
- * @return {cl_float}               Value estimated by the SAH.
+ * @param  {const cl_float} nodeSA_recip  Reciprocal of the surface area of the container node.
+ * @param  {const cl_float} leftSA        Surface are of the left node.
+ * @param  {const cl_float} leftNumFaces  Number of faces in the left node.
+ * @param  {const cl_float} rightSA       Surface area of the right node.
+ * @param  {const cl_float} rightNumFaces Number of faces in the right node.
+ * @return {cl_float}                     Value estimated by the SAH.
  */
 cl_float BVH::calcSAH(
-	cl_float nodeSA_recip, cl_float leftSA, cl_float leftNumFaces, cl_float rightSA, cl_float rightNumFaces
+	const cl_float nodeSA_recip, const cl_float leftSA, const cl_float leftNumFaces,
+	const cl_float rightSA, const cl_float rightNumFaces
 ) {
 	return nodeSA_recip * ( leftSA * leftNumFaces + rightSA * rightNumFaces );
 }
 
 
 /**
- *
- * @param {glm::vec3}               p        Start of line segment.
- * @param {glm::vec3}               q        End of line segment.
- * @param {glm::vec3}               s        Point on the plane.
- * @param {glm::vec3}               nl       Normal of the plane.
- * @param {std::vector<cl_float4>*} vertices List to store the clipped line end in.
- */
-void BVH::clipLine(
-	glm::vec3 p, glm::vec3 q, glm::vec3 s, glm::vec3 nl,
-	vector<cl_float4>* vertices
-) {
-	bool bad;
-	glm::vec3 clipped = MathHelp::intersectLinePlane( p, q, s, nl, &bad );
-
-	if( !bad ) {
-		cl_float4 clipped_f4 = { clipped[0], clipped[1], clipped[2], 0.0f };
-		vertices->push_back( clipped_f4 );
-	}
-}
-
-
-/**
- * Clip faces of a box on the given axis and re-calculate the bounding box.
- * @param {std::vector<Tri>}        faces
- * @param {std::vector<cl_float4>}  allVertices
- * @param {cl_uint}                 axis
- * @param {std::vector<glm::vec3>*} binAABB
- */
-void BVH::clippedFacesAABB(
-	vector<Tri>* faces, vector<cl_float4> allVertices, cl_uint axis, vector<glm::vec3>* binAABB
-) {
-	glm::vec3 bbMin = (*binAABB)[0];
-	glm::vec3 bbMax = (*binAABB)[1];
-
-	for( cl_uint i = 0; i < faces->size(); i++ ) {
-		Tri tri = (*faces)[i];
-		tri.bbMin[axis] = fmax( tri.bbMin[axis], bbMin[axis] );
-		tri.bbMax[axis] = fmin( tri.bbMax[axis], bbMax[axis] );
-		(*faces)[i] = tri;
-	}
-
-	bbMin = glm::vec3( (*faces)[0].bbMin );
-	bbMax = glm::vec3( (*faces)[0].bbMax );
-
-	for( cl_uint i = 1; i < faces->size(); i++ ) {
-		Tri tri = (*faces)[i];
-		bbMin = glm::min( bbMin, tri.bbMin );
-		bbMax = glm::max( bbMax, tri.bbMax );
-	}
-
-	(*binAABB)[0] = bbMin;
-	(*binAABB)[1] = bbMax;
-}
-
-
-/**
  * Combine the container nodes, leaf nodes and the root node into one list.
  * The root node will be at the very beginning of the list.
- * @param {std::vector<BVHNode*>} subTrees The generated trees for each object.
+ * @param {const cl_uint} numSubTrees The number of generated trees (one for each 3D object).
  */
-void BVH::combineNodes( vector<BVHNode*> subTrees ) {
-	if( subTrees.size() > 1 ) {
+void BVH::combineNodes( const cl_uint numSubTrees ) {
+	if( numSubTrees > 1 ) {
 		mNodes.push_back( mRoot );
 	}
 
 	mNodes.insert( mNodes.end(), mContainerNodes.begin(), mContainerNodes.end() );
-	mNodes.insert( mNodes.end(), mLeafNodes.begin(), mLeafNodes.end() );
 
 	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
 		mNodes[i]->id = i;
-	}
-}
 
-
-/**
- * Find the mean of the triangles regarding the given axis.
- * @param  {std::vector<Tri>}       faces
- * @param  {std::vector<cl_float4>} allVertices
- * @param  {cl_uint}                axis
- * @return {cl_float}
- */
-cl_float BVH::findMean( vector<Tri> faces, vector<cl_float4> allVertices, cl_uint axis ) {
-	cl_float sum = 0.0f;
-	cl_float4 v0, v1, v2;
-	glm::vec3 center;
-
-	for( cl_uint i = 0; i < faces.size(); i++ ) {
-		v0 = allVertices[faces[i].face.x];
-		v1 = allVertices[faces[i].face.y];
-		v2 = allVertices[faces[i].face.z];
-		glm::vec3 center = MathHelp::getTriangleCentroid( v0, v1, v2 );
-
-		sum += center[axis];
-	}
-
-	return sum / faces.size();
-}
-
-
-/**
- * Find the mean of the centers of the given nodes.
- * @param  {std::vector<BVHNode*>} nodes
- * @param  {cl_uint}               axis
- * @return {cl_float}
- */
-cl_float BVH::findMeanOfNodes( vector<BVHNode*> nodes, cl_uint axis ) {
-	cl_float sum = 0.0f;
-
-	for( cl_uint i = 0; i < nodes.size(); i++ ) {
-		glm::vec3 center = ( nodes[i]->bbMax - nodes[i]->bbMin ) * 0.5f;
-		sum += center[axis];
-	}
-
-	return sum / nodes.size();
-}
-
-
-/**
- * Find the midpoint on the longest axis of the node.
- * @param  {BVHNode*} container
- * @param  {cl_uint*} axis
- * @return {cl_float}
- */
-cl_float BVH::findMidpoint( BVHNode* container, cl_uint axis ) {
-	glm::vec3 sides = ( container->bbMax + container->bbMin ) * 0.5f;
-
-	return sides[axis];
-}
-
-
-/**
- * Get the bounding boxes for the bins.
- * @param  {BVHNode*}                            node
- * @param  {std::vector<cl_float>}               splitPos
- * @param  {cl_uint}                             axis
- * @return {std::vector<std::vector<glm::vec3>>}
- */
-vector< vector<glm::vec3> > BVH::getBinAABBs(
-	BVHNode* node, vector<cl_float> splitPos, cl_uint axis
-) {
-	vector< vector<glm::vec3> > bins( splitPos.size() + 1 );
-
-	// First bin
-	bins[0] = vector<glm::vec3>( 2 );
-	bins[0][0] = glm::vec3( node->bbMin );
-	bins[0][1] = glm::vec3( node->bbMax );
-	bins[0][1][axis] = splitPos[0];
-
-	// All the bins between the first one and last one.
-	for( cl_uint i = 1; i < bins.size() - 1; i++ ) {
-		bins[i] = vector<glm::vec3>( 2 );
-		// bbMin
-		bins[i][0] = glm::vec3( node->bbMin );
-		bins[i][0][axis] = splitPos[i - 1];
-		// bbMax
-		bins[i][1] = glm::vec3( node->bbMax );
-		bins[i][1][axis] = splitPos[i];
-	}
-
-	// Last bin
-	bins[bins.size() - 1] = vector<glm::vec3>( 2 );
-	bins[bins.size() - 1][0] = glm::vec3( node->bbMin );
-	bins[bins.size() - 1][0][axis] = splitPos[bins.size() - 2];
-	bins[bins.size() - 1][1] = glm::vec3( node->bbMax );
-
-	return bins;
-}
-
-
-/**
- * Get the faces for each bin.
- * @param  {std::vector<Tri>}                    faces
- * @param  {std::vector<cl_float4>}              allVertices
- * @param  {std::vector<std::vector<glm::vec3>>} bins
- * @param  {cl_uint}                             axis
- * @return {std::vector<std::vector<Tri>>}
- */
-vector< vector<Tri> > BVH::getBinFaces(
-	vector<Tri> faces, vector<cl_float4> allVertices, vector< vector<glm::vec3> > bins, cl_uint axis
-) {
-	vector< vector<Tri> > binFaces( bins.size() );
-
-	for( cl_uint i = 0; i < faces.size(); i++ ) {
-		Tri tri = faces[i];
-
-		for( cl_uint j = 0; j < bins.size(); j++ ) {
-			if( tri.bbMin[axis] <= bins[j][1][axis] && tri.bbMax[axis] >= bins[j][0][axis] ) {
-				binFaces[j].push_back( tri );
-			}
+		if( mNodes[i]->faces.size() > 0 ) {
+			mLeafNodes.push_back( mNodes[i] );
 		}
 	}
+}
 
-	return binFaces;
+
+/**
+ * Create the possible bin combinations for the spatial splits.
+ * @param {const BVHNode*}                       node
+ * @param {const cl_uint}                        axis
+ * @param {const std::vector<cl_float>*}         splitPos
+ * @param {std::vector<std::vector<glm::vec3>>*} leftBin
+ * @param {std::vector<std::vector<glm::vec3>>*} rightBin
+ */
+void BVH::createBinCombinations(
+	const BVHNode* node, const cl_uint axis, const vector<cl_float>* splitPos,
+	vector< vector<glm::vec3> >* leftBin, vector< vector<glm::vec3> >* rightBin
+) {
+	for( cl_uint i = 0; i < splitPos->size(); i++ ) {
+		(*leftBin)[i] = vector<glm::vec3>( 2 );
+		(*leftBin)[i][0] = glm::vec3( node->bbMin );
+		(*leftBin)[i][1] = glm::vec3( node->bbMax );
+		(*leftBin)[i][1][axis] = (*splitPos)[i];
+
+		(*rightBin)[i] = vector<glm::vec3>( 2 );
+		(*rightBin)[i][0] = glm::vec3( node->bbMin );
+		(*rightBin)[i][1] = glm::vec3( node->bbMax );
+		(*rightBin)[i][0][axis] = (*splitPos)[i];
+	}
 }
 
 
 /**
  * Get the positions to generate bins at on the given axis for the given node.
- * @param  {BVHNode*}              node
- * @param  {cl_uint}               splits
- * @param  {cl_uint}               axis
+ * @param  {const BVHNode*}        node
+ * @param  {const cl_uint}         splits
+ * @param  {const cl_uint}         axis
  * @return {std::vector<cl_float>}
  */
-vector<cl_float> BVH::getBinSplits( BVHNode* node, cl_uint splits, cl_uint axis ) {
+vector<cl_float> BVH::getBinSplits( const BVHNode* node, const cl_uint splits, const cl_uint axis ) {
 	vector<cl_float> pos( splits );
 	cl_float lenSegment = ( node->bbMax[axis] - node->bbMin[axis] ) / ( (cl_float) splits + 1.0f );
 
@@ -550,6 +398,10 @@ vector<cl_float> BVH::getBinSplits( BVHNode* node, cl_uint splits, cl_uint axis 
 	for( cl_uint i = 1; i < splits; i++ ) {
 		pos[i] = pos[i - 1] + lenSegment;
 	}
+
+	std::sort( pos.begin(), pos.end() );
+	vector<cl_float>::iterator it = std::unique( pos.begin(), pos.end() );
+	pos.resize( std::distance( pos.begin(), it ) );
 
 	return pos;
 }
@@ -579,6 +431,43 @@ cl_uint BVH::getDepth() {
  */
 vector<BVHNode*> BVH::getLeafNodes() {
 	return mLeafNodes;
+}
+
+
+/**
+ * Find the mean of the triangles regarding the given axis.
+ * @param  {const std::vector<Tri>} faces
+ * @param  {const cl_uint}          axis
+ * @return {cl_float}
+ */
+cl_float BVH::getMean( const vector<Tri> faces, const cl_uint axis ) {
+	cl_float sum = 0.0f;
+
+	for( cl_uint i = 0; i < faces.size(); i++ ) {
+		Tri tri = faces[i];
+		glm::vec3 center = 0.5f * ( tri.bbMin + tri.bbMax );
+		sum += center[axis];
+	}
+
+	return sum / faces.size();
+}
+
+
+/**
+ * Find the mean of the centers of the given nodes.
+ * @param  {const std::vector<BVHNode*>} nodes
+ * @param  {const cl_uint}               axis
+ * @return {cl_float}
+ */
+cl_float BVH::getMeanOfNodes( const vector<BVHNode*> nodes, const cl_uint axis ) {
+	cl_float sum = 0.0f;
+
+	for( cl_uint i = 0; i < nodes.size(); i++ ) {
+		glm::vec3 center = ( nodes[i]->bbMax - nodes[i]->bbMin ) * 0.5f;
+		sum += center[axis];
+	}
+
+	return sum / nodes.size();
 }
 
 
@@ -616,7 +505,7 @@ void BVH::groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint de
 	mDepthReached = ( depth > mDepthReached ) ? depth : mDepthReached;
 
 	cl_uint axis = this->longestAxis( parent );
-	cl_float midpoint = this->findMidpoint( parent, axis );
+	cl_float midpoint = 0.5f * ( parent->bbMin[axis] + parent->bbMax[axis] );
 
 	vector<BVHNode*> leftGroup, rightGroup;
 	this->splitNodes( nodes, midpoint, axis, &leftGroup, &rightGroup );
@@ -624,7 +513,7 @@ void BVH::groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint de
 	if( leftGroup.size() <= 0 || rightGroup.size() <= 0 ) {
 		leftGroup.clear();
 		rightGroup.clear();
-		cl_float mean = this->findMeanOfNodes( nodes, axis );
+		cl_float mean = this->getMeanOfNodes( nodes, axis );
 		this->splitNodes( nodes, mean, axis, &leftGroup, &rightGroup );
 	}
 
@@ -635,53 +524,6 @@ void BVH::groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint de
 	BVHNode* rightNode = this->makeContainerNode( rightGroup, false );
 	parent->rightChild = rightNode;
 	this->groupTreesToNodes( rightGroup, parent->rightChild, depth + 1 );
-}
-
-
-/**
- * Grow bounding boxes from the bins.
- * @param {std::vector<std::vector<glm::vec3>>}  binBBs
- * @param {std::vector<std::vector<Tri>>}        binFaces
- * @param {cl_uint}                              splits
- * @param {std::vector<std::vector<glm::vec3>>*} leftBB
- * @param {std::vector<std::vector<glm::vec3>>*} rightBB
- */
-void BVH::growBinAABBs(
-	vector< vector<glm::vec3> > binBBs, vector< vector<Tri> > binFaces, cl_uint splits,
-	vector< vector<glm::vec3> >* leftBB, vector< vector<glm::vec3> >* rightBB
-) {
-	// Growing bounding boxes from the left
-
-	(*leftBB)[0] = vector<glm::vec3>( 2 );
-	(*leftBB)[0][0] = glm::vec3( binBBs[0][0] );
-	(*leftBB)[0][1] = glm::vec3( binBBs[0][1] );
-
-	for( int i = 1; i < splits; i++ ) {
-		(*leftBB)[i] = vector<glm::vec3>( 2 );
-
-		(*leftBB)[i][0] = glm::vec3( (*leftBB)[i - 1][0] );
-		(*leftBB)[i][1] = glm::vec3( (*leftBB)[i - 1][1] );
-
-		(*leftBB)[i][0] = glm::min( binBBs[i][0], (*leftBB)[i][0] );
-		(*leftBB)[i][1] = glm::max( binBBs[i][1], (*leftBB)[i][1] );
-	}
-
-
-	// Growing bounding boxes from the right
-
-	(*rightBB)[splits - 1] = vector<glm::vec3>( 2 );
-	(*rightBB)[splits - 1][0] = glm::vec3( binBBs[splits][0] );
-	(*rightBB)[splits - 1][1] = glm::vec3( binBBs[splits][1] );
-
-	for( int i = splits - 2; i >= 0; i-- ) {
-		(*rightBB)[i] = vector<glm::vec3>( 2 );
-
-		(*rightBB)[i][0] = glm::vec3( (*rightBB)[i + 1][0] );
-		(*rightBB)[i][1] = glm::vec3( (*rightBB)[i + 1][1] );
-
-		(*rightBB)[i][0] = glm::min( binBBs[i + 1][0], (*rightBB)[i][0] );
-		(*rightBB)[i][1] = glm::max( binBBs[i + 1][1], (*rightBB)[i][1] );
-	}
 }
 
 
@@ -704,10 +546,10 @@ void BVH::logStats( boost::posix_time::ptime timerStart ) {
 
 /**
  * Get the index of the longest axis.
- * @param  {BVHNode*} node The node to find the longest side of.
- * @return {cl_uint}       Index of the longest axis (X: 0, Y: 1, Z: 2).
+ * @param  {const BVHNode*} node The node to find the longest side of.
+ * @return {cl_uint}             Index of the longest axis (X: 0, Y: 1, Z: 2).
  */
-cl_uint BVH::longestAxis( BVHNode* node ) {
+cl_uint BVH::longestAxis( const BVHNode* node ) {
 	glm::vec3 sides = node->bbMax - node->bbMin;
 
 	if( sides[0] > sides[1] ) {
@@ -721,10 +563,11 @@ cl_uint BVH::longestAxis( BVHNode* node ) {
 
 /**
  * Create a container node that can contain the created sub-trees.
- * @param  {std::vector<BVHNode*>} subTrees
+ * @param  {const std::vector<BVHNode*>} subTrees
+ * @param  {const bool}                  isRoot
  * @return {BVHNode*}
  */
-BVHNode* BVH::makeContainerNode( vector<BVHNode*> subTrees, bool isRoot ) {
+BVHNode* BVH::makeContainerNode( const vector<BVHNode*> subTrees, const bool isRoot ) {
 	if( subTrees.size() == 1 ) {
 		return subTrees[0];
 	}
@@ -752,11 +595,11 @@ BVHNode* BVH::makeContainerNode( vector<BVHNode*> subTrees, bool isRoot ) {
 
 /**
  * Create a new node.
- * @param  {std::vector<Tri>}      tris
- * @param  {std::vector<cl_float>} allVertices Vertices to compute the bounding box from.
+ * @param  {const std::vector<Tri>} tris
+ * @param  {const bool}             ignore
  * @return {BVHNode*}
  */
-BVHNode* BVH::makeNode( vector<Tri> tris, vector<cl_float4> allVertices, bool ignore ) {
+BVHNode* BVH::makeNode( const vector<Tri> tris, const bool ignore ) {
 	BVHNode* node = new BVHNode;
 	node->leftChild = NULL;
 	node->rightChild = NULL;
@@ -784,11 +627,99 @@ BVHNode* BVH::makeNode( vector<Tri> tris, vector<cl_float4> allVertices, bool ig
 
 
 /**
- * Set the number of max faces per (leaf) node.
- * @param  {cl_uint} value Max faces per (leaf) node.
- * @return {cl_uint}       The now set number of max faces per (leaf) node.
+ * Convert an array of floats to an array of float4s.
+ * @param  {const std::vector<cl_float>*} vertices Input array of floats.
+ * @return {std::vector<cl_float4>}                Array of float4s.
  */
-cl_uint BVH::setMaxFaces( cl_uint value ) {
+vector<cl_float4> BVH::packFloatAsFloat4( const vector<cl_float>* vertices ) {
+	vector<cl_float4> vertices4;
+
+	for( cl_uint i = 0; i < vertices->size(); i += 3 ) {
+		cl_float4 v = {
+			(*vertices)[i + 0],
+			(*vertices)[i + 1],
+			(*vertices)[i + 2],
+			0.0f
+		};
+		vertices4.push_back( v );
+	}
+
+	return vertices4;
+}
+
+
+/**
+ * Phong tessellate a given point.
+ * @param  {const glm::vec3} p1    Point 1 of the triangle.
+ * @param  {const glm::vec3} p2    Point 2 of the triangle.
+ * @param  {const glm::vec3} p3    Point 3 of the triangle.
+ * @param  {const glm::vec3} n1    Normal at point 1.
+ * @param  {const glm::vec3} n2    Normal at point 2.
+ * @param  {const glm::vec3} n3    Normal at point 3.
+ * @param  {const float}     alpha Phong Tessellation strength [0,1].
+ * @param  {const float}     u     Value for barycentric coordinate.
+ * @param  {const float}     v     Value for barycentric coordinate.
+ * @return {glm::vec3}       Phong tessellated point.
+ */
+glm::vec3 BVH::phongTessellate(
+	const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
+	const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
+	const float alpha, const float u, const float v
+) {
+	float w = 1.0f - u - v;
+	glm::vec3 pBary = p1 * u + p2 * v + p3 * w;
+	glm::vec3 pTessellated =
+		u * MathHelp::projectOnPlane( pBary, p1, n1 ) +
+		v * MathHelp::projectOnPlane( pBary, p2, n2 ) +
+		w * MathHelp::projectOnPlane( pBary, p3, n3 );
+
+	return ( 1.0f - alpha ) * pBary + alpha * pTessellated;
+}
+
+
+/**
+ * Resize bins so they fit the AABB of their contained faces.
+ * @param {const cl_uint}                        splits
+ * @param {const std::vector<std::vector<Tri>>*} leftBinFaces
+ * @param {const std::vector<std::vector<Tri>>*} rightBinFaces
+ * @param {std::vector<std::vector<glm::vec3>>*} leftBin
+ * @param {std::vector<std::vector<glm::vec3>>*} rightBin
+ */
+void BVH::resizeBinsToFaces(
+	const cl_uint splits,
+	const vector< vector<Tri> >* leftBinFaces, const vector< vector<Tri> >* rightBinFaces,
+	vector< vector<glm::vec3> >* leftBin, vector< vector<glm::vec3> >* rightBin
+) {
+	for( cl_uint i = 0; i < splits; i++ ) {
+		if( (*leftBinFaces)[i].size() == 0 || (*rightBinFaces)[i].size() == 0 ) {
+			continue;
+		}
+
+		(*leftBin)[i][0] = glm::vec3( (*leftBinFaces)[i][0].bbMin );
+		(*leftBin)[i][1] = glm::vec3( (*leftBinFaces)[i][0].bbMax );
+
+		for( cl_uint j = 1; j < (*leftBinFaces)[i].size(); j++ ) {
+			(*leftBin)[i][0] = glm::min( (*leftBin)[i][0], (*leftBinFaces)[i][j].bbMin );
+			(*leftBin)[i][1] = glm::max( (*leftBin)[i][1], (*leftBinFaces)[i][j].bbMax );
+		}
+
+		(*rightBin)[i][0] = glm::vec3( (*rightBinFaces)[i][0].bbMin );
+		(*rightBin)[i][1] = glm::vec3( (*rightBinFaces)[i][0].bbMax );
+
+		for( cl_uint j = 1; j < (*rightBinFaces)[i].size(); j++ ) {
+			(*rightBin)[i][0] = glm::min( (*rightBin)[i][0], (*rightBinFaces)[i][j].bbMin );
+			(*rightBin)[i][1] = glm::max( (*rightBin)[i][1], (*rightBinFaces)[i][j].bbMax );
+		}
+	}
+}
+
+
+/**
+ * Set the number of max faces per (leaf) node.
+ * @param  {const int} value     Max faces per (leaf) node.
+ * @return {cl_uint}             The now set number of max faces per (leaf) node.
+ */
+cl_uint BVH::setMaxFaces( const int value ) {
 	mMaxFaces = fmax( value, 1 );
 
 	return mMaxFaces;
@@ -798,21 +729,20 @@ cl_uint BVH::setMaxFaces( cl_uint value ) {
 /**
  * Split the faces into two groups.
  * Determine this splitting point by using a Surface Area Heuristic (SAH).
- * @param {cl_float}               nodeSA      Reciprocal of the surface area of the current node.
+ * @param {const cl_float}         nodeSA      Reciprocal of the surface area of the current node.
  * @param {cl_float*}              bestSAH     Best SAH value that has been found so far (for the faces in this node).
- * @param {cl_uint}                axis        The axis to sort the faces by.
+ * @param {const cl_uint}          axis        The axis to sort the faces by.
  * @param {std::vector<Tri>}       faces       Faces in this node.
- * @param {std::vector<cl_float4>} allVertices All vertices in the model.
  * @param {std::vector<Tri>*}      leftFaces   Output. Group for the faces left of the split.
  * @param {std::vector<Tri>*}      rightFaces  Output. Group for the faces right of the split.
  * @param {cl_float*}              lambda
  */
 void BVH::splitBySAH(
-	cl_float nodeSA, cl_float* bestSAH, cl_uint axis, vector<Tri> faces, vector<cl_float4> allVertices,
+	const cl_float nodeSA, cl_float* bestSAH, const cl_uint axis, vector<Tri> faces,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
 ) {
 	std::sort( faces.begin(), faces.end(), sortFacesCmp( axis ) );
-	int numFaces = faces.size();
+	const int numFaces = faces.size();
 
 	vector<cl_float> leftSA( numFaces - 1 );
 	vector<cl_float> rightSA( numFaces - 1 );
@@ -905,7 +835,6 @@ void BVH::splitBySAH(
  * @param {cl_uint}                axis
  * @param {cl_float*}              sahBest
  * @param {std::vector<Tri>}       faces
- * @param {std::vector<cl_float4>} allVertices
  * @param {std::vector<Tri>*}      leftFaces
  * @param {std::vector<Tri>*}      rightFaces
  * @param {glm::vec3*}             bbMinLeft
@@ -914,7 +843,7 @@ void BVH::splitBySAH(
  * @param {glm::vec3*}             bbMaxRight
  */
 void BVH::splitBySpatialSplit(
-	BVHNode* node, cl_uint axis, cl_float* sahBest, vector<Tri> faces, vector<cl_float4> allVertices,
+	BVHNode* node, const cl_uint axis, cl_float* sahBest, const vector<Tri> faces,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces,
 	glm::vec3* bbMinLeft, glm::vec3* bbMaxLeft, glm::vec3* bbMinRight, glm::vec3* bbMaxRight
 ) {
@@ -927,10 +856,6 @@ void BVH::splitBySpatialSplit(
 
 	cl_uint splits = Cfg::get().value<cl_uint>( Cfg::BVH_SPATIALSPLITS );
 	vector<cl_float> splitPos = this->getBinSplits( node, splits, axis );
-
-	std::sort( splitPos.begin(), splitPos.end() );
-	vector<cl_float>::iterator it = std::unique( splitPos.begin(), splitPos.end() );
-	splitPos.resize( std::distance( splitPos.begin(), it ) );
 	splits = splitPos.size();
 
 	if( splits == 0 ) {
@@ -939,80 +864,17 @@ void BVH::splitBySpatialSplit(
 
 
 	// Create possible bin combinations according to split positions
-
 	vector< vector<glm::vec3> > leftBin( splits ), rightBin( splits );
-
-	for( cl_uint i = 0; i < splits; i++ ) {
-		leftBin[i] = vector<glm::vec3>( 2 );
-		leftBin[i][0] = glm::vec3( node->bbMin );
-		leftBin[i][1] = glm::vec3( node->bbMax );
-		leftBin[i][1][axis] = splitPos[i];
-
-		rightBin[i] = vector<glm::vec3>( 2 );
-		rightBin[i][0] = glm::vec3( node->bbMin );
-		rightBin[i][1] = glm::vec3( node->bbMax );
-		rightBin[i][0][axis] = splitPos[i];
-	}
+	this->createBinCombinations( node, axis, &splitPos, &leftBin, &rightBin );
 
 
 	// Assign faces to the bin combinations and clip them on the split positions
-
 	vector< vector<Tri> > leftBinFaces( splits ), rightBinFaces( splits );
-
-	for( cl_uint i = 0; i < splits; i++ ) {
-		vector<glm::vec3> leftAABB = leftBin[i];
-		vector<glm::vec3> rightAABB = rightBin[i];
-
-		for( cl_uint j = 0; j < faces.size(); j++ ) {
-			Tri tri = faces[j];
-
-			if( tri.bbMin[axis] <= leftAABB[1][axis] && tri.bbMax[axis] >= leftAABB[0][axis] ) {
-				Tri triCpy;
-				triCpy.face = tri.face;
-				triCpy.bbMin = glm::vec3( tri.bbMin );
-				triCpy.bbMax = glm::vec3( tri.bbMax );
-				triCpy.bbMin[axis] = fmax( tri.bbMin[axis], leftAABB[0][axis] );
-				triCpy.bbMax[axis] = fmin( tri.bbMax[axis], leftAABB[1][axis] );
-
-				leftBinFaces[i].push_back( triCpy );
-			}
-			if( tri.bbMin[axis] <= rightAABB[1][axis] && tri.bbMax[axis] >= rightAABB[0][axis] ) {
-				Tri triCpy;
-				triCpy.face = tri.face;
-				triCpy.bbMin = glm::vec3( tri.bbMin );
-				triCpy.bbMax = glm::vec3( tri.bbMax );
-				triCpy.bbMin[axis] = fmax( tri.bbMin[axis], rightAABB[0][axis] );
-				triCpy.bbMax[axis] = fmin( tri.bbMax[axis], rightAABB[1][axis] );
-
-				rightBinFaces[i].push_back( triCpy );
-			}
-		}
-	}
+	this->assignFacesToBins( axis, splits, &faces, &leftBin, &rightBin, &leftBinFaces, &rightBinFaces );
 
 
 	// Resize bins according to their faces
-
-	for( cl_uint i = 0; i < splits; i++ ) {
-		if( leftBinFaces[i].size() == 0 || rightBinFaces[i].size() == 0 ) {
-			continue;
-		}
-
-		leftBin[i][0] = glm::vec3( leftBinFaces[i][0].bbMin );
-		leftBin[i][1] = glm::vec3( leftBinFaces[i][0].bbMax );
-
-		for( cl_uint j = 1; j < leftBinFaces[i].size(); j++ ) {
-			leftBin[i][0] = glm::min( leftBin[i][0], leftBinFaces[i][j].bbMin );
-			leftBin[i][1] = glm::max( leftBin[i][1], leftBinFaces[i][j].bbMax );
-		}
-
-		rightBin[i][0] = glm::vec3( rightBinFaces[i][0].bbMin );
-		rightBin[i][1] = glm::vec3( rightBinFaces[i][0].bbMax );
-
-		for( cl_uint j = 1; j < rightBinFaces[i].size(); j++ ) {
-			rightBin[i][0] = glm::min( rightBin[i][0], rightBinFaces[i][j].bbMin );
-			rightBin[i][1] = glm::max( rightBin[i][1], rightBinFaces[i][j].bbMax );
-		}
-	}
+	this->resizeBinsToFaces( splits, &leftBinFaces, &rightBinFaces, &leftBin, &rightBin );
 
 
 	// Surface areas for SAH
@@ -1068,15 +930,14 @@ void BVH::splitBySpatialSplit(
 
 /**
  * Split the faces into two groups using the given midpoint and axis as criterium.
- * @param {std::vector<Tri>}       faces
- * @param {std::vector<cl_float4>} vertices
- * @param {cl_float}               midpoint
- * @param {cl_uint}                axis
+ * @param {const std::vector<Tri>} faces
+ * @param {const cl_float}         midpoint
+ * @param {const cl_uint}          axis
  * @param {std::vector<Tri>*}      leftFaces
  * @param {std::vector<Tri>*}      rightFaces
  */
 void BVH::splitFaces(
-	vector<Tri> faces, vector<cl_float4> vertices, cl_float midpoint, cl_uint axis,
+	const vector<Tri> faces, const cl_float midpoint, const cl_uint axis,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces
 ) {
 	for( cl_uint i = 0; i < faces.size(); i++ ) {
@@ -1101,10 +962,7 @@ void BVH::splitFaces(
 
 		for( cl_uint i = 0; i < faces.size(); i++ ) {
 			Tri tri = faces[i];
-			cl_float4 v0 = vertices[tri.face.x];
-			cl_float4 v1 = vertices[tri.face.y];
-			cl_float4 v2 = vertices[tri.face.z];
-			glm::vec3 cen = MathHelp::getTriangleCentroid( v0, v1, v2 );
+			glm::vec3 cen = 0.5f * ( tri.bbMin + tri.bbMax );
 
 			if( cen[axis] < midpoint ) {
 				leftFaces->push_back( tri );
@@ -1115,31 +973,7 @@ void BVH::splitFaces(
 		}
 	}
 
-	// One group has no children. We cannot allow that.
-	// Try again with the triangle center instead of the centroid.
-	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
-		Logger::logDebugVerbose( "[BVH] Dividing faces by centroid left one side empty. Trying again with center." );
-
-		leftFaces->clear();
-		rightFaces->clear();
-
-		for( cl_uint i = 0; i < faces.size(); i++ ) {
-			Tri tri = faces[i];
-			cl_float4 v0 = vertices[tri.face.x];
-			cl_float4 v1 = vertices[tri.face.y];
-			cl_float4 v2 = vertices[tri.face.z];
-			glm::vec3 cen = MathHelp::getTriangleCenter( v0, v1, v2 );
-
-			if( cen[axis] < midpoint ) {
-				leftFaces->push_back( tri );
-			}
-			else {
-				rightFaces->push_back( tri );
-			}
-		}
-	}
-
-	// Oh, come on! Just do it 50:50 then.
+	// Just do it 50:50 then.
 	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
 		Logger::logDebugVerbose( "[BVH] Dividing faces by center left one side empty. Just doing it 50:50 now." );
 
@@ -1160,8 +994,8 @@ void BVH::splitFaces(
 	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
 		char msg[256];
 		snprintf(
-			msg, 256, "[BVH] Dividing faces 50:50 left one side empty. Faces: %lu. Vertices: %lu.",
-			faces.size(), vertices.size()
+			msg, 256, "[BVH] Dividing faces 50:50 left one side empty. Faces: %lu.",
+			faces.size()
 		);
 		Logger::logError( msg );
 	}
@@ -1170,14 +1004,14 @@ void BVH::splitFaces(
 
 /**
  * Split the nodes into two groups using the given midpoint and axis as criterium.
- * @param {std::vector<BVHNode*>}  nodes
- * @param {cl_float}               midpoint
- * @param {cl_uint}                axis
- * @param {std::vector<BVHNode*>*} leftGroup
- * @param {std::vector<BVHNode*>*} rightGroup
+ * @param {const std::vector<BVHNode*>}  nodes
+ * @param {const cl_float}               midpoint
+ * @param {const cl_uint}                axis
+ * @param {std::vector<BVHNode*>*}       leftGroup
+ * @param {std::vector<BVHNode*>*}       rightGroup
  */
 void BVH::splitNodes(
-	vector<BVHNode*> nodes, cl_float midpoint, cl_uint axis,
+	const vector<BVHNode*> nodes, const cl_float midpoint, const cl_uint axis,
 	vector<BVHNode*>* leftGroup, vector<BVHNode*>* rightGroup
 ) {
 	for( cl_uint i = 0; i < nodes.size(); i++ ) {
@@ -1222,18 +1056,19 @@ void BVH::splitNodes(
 
 /**
  * Calculate and set the AABB for a Tri (face).
- * @param {Tri}                    tri      The face/triangle.
- * @param {cl_uint4}               fn       Face normals of the triangle.
- * @param {std::vector<cl_float4>} vertices All vertices.
- * @param {std::vector<cl_float>}  normals  All normals.
+ * @param {Tri}                           tri      The face/triangle.
+ * @param {const cl_uint4}                fn       Face normals of the triangle.
+ * @param {const std::vector<cl_float4>*} vertices All vertices.
+ * @param {const std::vector<cl_float>*}  normals  All normals.
  */
 void BVH::triCalcAABB(
-	Tri* tri, cl_uint4 fn, vector<cl_float4> vertices, vector<cl_float> normals
+	Tri* tri, const cl_uint4 fn,
+	const vector<cl_float4>* vertices, const vector<cl_float>* normals
 ) {
 	vector<cl_float4> v;
-	v.push_back( vertices[tri->face.x] );
-	v.push_back( vertices[tri->face.y] );
-	v.push_back( vertices[tri->face.z] );
+	v.push_back( (*vertices)[tri->face.x] );
+	v.push_back( (*vertices)[tri->face.y] );
+	v.push_back( (*vertices)[tri->face.z] );
 
 	glm::vec3 bbMin, bbMax;
 	MathHelp::getAABB( v, &bbMin, &bbMax );
@@ -1250,19 +1085,19 @@ void BVH::triCalcAABB(
 	glm::vec3 p3 = glm::vec3( v[2].x, v[2].y, v[2].z );
 
 	glm::vec3 n1 = glm::vec3(
-		normals[fn.x * 3],
-		normals[fn.x * 3 + 1],
-		normals[fn.x * 3 + 2]
+		(*normals)[fn.x * 3],
+		(*normals)[fn.x * 3 + 1],
+		(*normals)[fn.x * 3 + 2]
 	);
 	glm::vec3 n2 = glm::vec3(
-		normals[fn.y * 3],
-		normals[fn.y * 3 + 1],
-		normals[fn.y * 3 + 2]
+		(*normals)[fn.y * 3],
+		(*normals)[fn.y * 3 + 1],
+		(*normals)[fn.y * 3 + 2]
 	);
 	glm::vec3 n3 = glm::vec3(
-		normals[fn.z * 3],
-		normals[fn.z * 3 + 1],
-		normals[fn.z * 3 + 2]
+		(*normals)[fn.z * 3],
+		(*normals)[fn.z * 3 + 1],
+		(*normals)[fn.z * 3 + 2]
 	);
 
 	// Normals are the same, which means no Phong Tessellation possible
@@ -1319,18 +1154,18 @@ void BVH::triCalcAABB(
 
 /**
  * Calculate thickness and sidedrops of the tessellated face.
- * @param {glm::vec3}  p1        Point 1 of the triangle.
- * @param {glm::vec3}  p2        Point 2 of the triangle.
- * @param {glm::vec3}  p3        Point 3 of the triangle.
- * @param {glm::vec3}  n1        Normal at point 1.
- * @param {glm::vec3}  n2        Normal at point 2.
- * @param {glm::vec3}  n3        Normal at point 3.
- * @param {float*}     thickness Thickness.
- * @param {glm::vec3*} sidedrop  Sidedrops of all sides.
+ * @param {const glm::vec3}  p1        Point 1 of the triangle.
+ * @param {const glm::vec3}  p2        Point 2 of the triangle.
+ * @param {const glm::vec3}  p3        Point 3 of the triangle.
+ * @param {const glm::vec3}  n1        Normal at point 1.
+ * @param {const glm::vec3}  n2        Normal at point 2.
+ * @param {const glm::vec3}  n3        Normal at point 3.
+ * @param {float*}           thickness Thickness.
+ * @param {glm::vec3*}       sidedrop  Sidedrops of all sides.
  */
 void BVH::triThicknessAndSidedrop(
-	glm::vec3 p1, glm::vec3 p2, glm::vec3 p3,
-	glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,
+	const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
+	const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
 	float* thickness, glm::vec3* sidedrop
 ) {
 	float alpha = Cfg::get().value<float>( Cfg::RENDER_PHONGTESS );
@@ -1369,79 +1204,9 @@ void BVH::triThicknessAndSidedrop(
 
 
 /**
- * Convert an array of floats to an array of float4s.
- * @param  {std::vector<cl_float>} vertices Input array of floats.
- * @return {std::vector<cl_float4>}         Array of float4s.
- */
-vector<cl_float4> BVH::packFloatAsFloat4( vector<cl_float> vertices ) {
-	vector<cl_float4> vertices4;
-
-	for( cl_uint i = 0; i < vertices.size(); i += 3 ) {
-		cl_float4 v = {
-			vertices[i + 0],
-			vertices[i + 1],
-			vertices[i + 2],
-			0.0f
-		};
-		vertices4.push_back( v );
-	}
-
-	return vertices4;
-}
-
-
-/**
- * Phong tessellate a given point.
- * @param  {glm::vec3} p1    Point 1 of the triangle.
- * @param  {glm::vec3} p2    Point 2 of the triangle.
- * @param  {glm::vec3} p3    Point 3 of the triangle.
- * @param  {glm::vec3} n1    Normal at point 1.
- * @param  {glm::vec3} n2    Normal at point 2.
- * @param  {glm::vec3} n3    Normal at point 3.
- * @param  {float}     alpha Phong Tessellation strength [0,1].
- * @param  {float}     u     Value for barycentric coordinate.
- * @param  {float}     v     Value for barycentric coordinate.
- * @return {glm::vec3}       Phong tessellated point.
- */
-glm::vec3 BVH::phongTessellate(
-	glm::vec3 p1, glm::vec3 p2, glm::vec3 p3,
-	glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,
-	float alpha, float u, float v
-) {
-	float w = 1.0f - u - v;
-	glm::vec3 pBary = p1 * u + p2 * v + p3 * w;
-	glm::vec3 pTessellated =
-		u * MathHelp::projectOnPlane( pBary, p1, n1 ) +
-		v * MathHelp::projectOnPlane( pBary, p2, n2 ) +
-		w * MathHelp::projectOnPlane( pBary, p3, n3 );
-
-	return ( 1.0f - alpha ) * pBary + alpha * pTessellated;
-}
-
-
-/**
- * Remove duplicate faces from a list.
- * @param  {std::vector<Tri>} faces List of faces.
- * @return {std::vector<Tri>}       Duplicate free list.
- */
-vector<Tri> BVH::uniqueFaces( vector<Tri> faces ) {
-	vector<Tri> uniqueFaces;
-	uniqueFaces.push_back( faces[0] );
-
-	for( cl_uint i = 1; i < faces.size(); i++ ) {
-		if( find_if( uniqueFaces.begin(), uniqueFaces.end(), findFace( &(faces[i]) ) ) == uniqueFaces.end() ) {
-			uniqueFaces.push_back( faces[i] );
-		}
-	}
-
-	return uniqueFaces;
-}
-
-
-/**
  * Get vertices and indices to draw a 3D visualization of the bounding box.
  * @param {std::vector<cl_float>*} vertices Vector to put the vertices into.
- * @param {std::vector<cl_uint>*}  indices  Vector to put the indices into.
+ * @param {std::vector<cl_uint>*}        indices  Vector to put the indices into.
  */
 void BVH::visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) {
 	this->visualizeNextNode( mRoot, vertices, indices );
@@ -1450,11 +1215,13 @@ void BVH::visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) {
 
 /**
  * Visualize the next node in the BVH.
- * @param {BVHNode*}               node     Current node.
+ * @param {const BVHNode*}               node     Current node.
  * @param {std::vector<cl_float>*} vertices Vector to put the vertices into.
- * @param {std::vector<cl_uint>*}  indices  Vector to put the indices into.
+ * @param {std::vector<cl_uint>*}        indices  Vector to put the indices into.
  */
-void BVH::visualizeNextNode( BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices ) {
+void BVH::visualizeNextNode(
+	const BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices
+) {
 	if( node == NULL ) {
 		return;
 	}
