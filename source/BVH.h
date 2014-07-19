@@ -128,7 +128,7 @@ class BVH {
 		void triThicknessAndSidedrop(
 			const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
 			const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
-			float* thickness, glm::vec3* sidedrop
+			float* thickness, glm::vec3* sidedropMin, glm::vec3* sidedropMax
 		);
 		void visualizeNextNode(
 			const BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices

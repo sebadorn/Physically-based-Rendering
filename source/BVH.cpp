@@ -1110,16 +1110,8 @@ void BVH::triCalcAABB(
 
 
 	float thickness;
-	glm::vec3 sidedrop;
-	this->triThicknessAndSidedrop( p1, p2, p3, n1, n2, n3, &thickness, &sidedrop );
-
-	// float enlarge = fmax( thickness, fmax( sidedrop.x, fmax( sidedrop.y, sidedrop.z ) ) );
-	// tri->bbMin.x -= enlarge;
-	// tri->bbMin.y -= enlarge;
-	// tri->bbMin.z -= enlarge;
-	// tri->bbMax.x += enlarge;
-	// tri->bbMax.y += enlarge;
-	// tri->bbMax.z += enlarge;
+	glm::vec3 sidedropMin, sidedropMax;
+	this->triThicknessAndSidedrop( p1, p2, p3, n1, n2, n3, &thickness, &sidedropMin, &sidedropMax );
 
 	// Grow bigger according to sidedrop
 	glm::vec3 e12 = p2 - p1;
@@ -1128,34 +1120,45 @@ void BVH::triCalcAABB(
 	glm::vec3 e31 = p1 - p3;
 	glm::vec3 ng = glm::normalize( glm::cross( e12, e13 ) );
 
-	glm::vec3 s12 = glm::normalize( glm::cross( e12, ng ) );
-	glm::vec3 s23 = glm::normalize( glm::cross( e23, ng ) );
-	glm::vec3 s31 = glm::normalize( glm::cross( e31, ng ) );
 
-	glm::vec3 p11 = p1 + sidedrop.x * s12;
-	glm::vec3 p12 = p1 + sidedrop.z * s31;
-	glm::vec3 p21 = p2 + sidedrop.x * s12;
-	glm::vec3 p22 = p2 + sidedrop.y * s23;
-	glm::vec3 p31 = p3 + sidedrop.y * s23;
-	glm::vec3 p32 = p3 + sidedrop.z * s31;
+	glm::vec3 p1thick = p1 + thickness * ng;
+	glm::vec3 p2thick = p2 + thickness * ng;
+	glm::vec3 p3thick = p3 + thickness * ng;
 
-	tri->bbMin = glm::min( glm::min( tri->bbMin, p11 ), glm::min( p21, p31 ) );
-	tri->bbMin = glm::min( glm::min( tri->bbMin, p12 ), glm::min( p22, p32 ) );
-	tri->bbMax = glm::max( glm::max( tri->bbMax, p11 ), glm::max( p21, p31 ) );
-	tri->bbMax = glm::max( glm::max( tri->bbMax, p12 ), glm::max( p22, p32 ) );
+	tri->bbMin = glm::min( glm::min( tri->bbMin, p1thick ), glm::min( p2thick, p3thick ) );
+	tri->bbMax = glm::max( glm::max( tri->bbMax, p1thick ), glm::max( p2thick, p3thick ) );
 
-	// Move by thickness and combine with old AABB position
-	p11 += thickness * ng;
-	p12 += thickness * ng;
-	p21 += thickness * ng;
-	p22 += thickness * ng;
-	p31 += thickness * ng;
-	p32 += thickness * ng;
+	tri->bbMin = glm::min( tri->bbMin, sidedropMin );
+	tri->bbMax = glm::max( tri->bbMax, sidedropMax );
 
-	tri->bbMin = glm::min( glm::min( tri->bbMin, p11 ), glm::min( p21, p31 ) );
-	tri->bbMin = glm::min( glm::min( tri->bbMin, p12 ), glm::min( p22, p32 ) );
-	tri->bbMax = glm::max( glm::max( tri->bbMax, p11 ), glm::max( p21, p31 ) );
-	tri->bbMax = glm::max( glm::max( tri->bbMax, p12 ), glm::max( p22, p32 ) );
+	// glm::vec3 s12 = glm::normalize( glm::cross( e12, ng ) );
+	// glm::vec3 s23 = glm::normalize( glm::cross( e23, ng ) );
+	// glm::vec3 s31 = glm::normalize( glm::cross( e31, ng ) );
+
+	// glm::vec3 p11 = p1 + sidedrop.x * s12;
+	// glm::vec3 p12 = p1 + sidedrop.z * s31;
+	// glm::vec3 p21 = p2 + sidedrop.x * s12;
+	// glm::vec3 p22 = p2 + sidedrop.y * s23;
+	// glm::vec3 p31 = p3 + sidedrop.y * s23;
+	// glm::vec3 p32 = p3 + sidedrop.z * s31;
+
+	// tri->bbMin = glm::min( glm::min( tri->bbMin, p11 ), glm::min( p21, p31 ) );
+	// tri->bbMin = glm::min( glm::min( tri->bbMin, p12 ), glm::min( p22, p32 ) );
+	// tri->bbMax = glm::max( glm::max( tri->bbMax, p11 ), glm::max( p21, p31 ) );
+	// tri->bbMax = glm::max( glm::max( tri->bbMax, p12 ), glm::max( p22, p32 ) );
+
+	// // Move by thickness and combine with old AABB position
+	// p11 += thickness * ng;
+	// p12 += thickness * ng;
+	// p21 += thickness * ng;
+	// p22 += thickness * ng;
+	// p31 += thickness * ng;
+	// p32 += thickness * ng;
+
+	// tri->bbMin = glm::min( glm::min( tri->bbMin, p11 ), glm::min( p21, p31 ) );
+	// tri->bbMin = glm::min( glm::min( tri->bbMin, p12 ), glm::min( p22, p32 ) );
+	// tri->bbMax = glm::max( glm::max( tri->bbMax, p11 ), glm::max( p21, p31 ) );
+	// tri->bbMax = glm::max( glm::max( tri->bbMax, p12 ), glm::max( p22, p32 ) );
 }
 
 
@@ -1173,7 +1176,7 @@ void BVH::triCalcAABB(
 void BVH::triThicknessAndSidedrop(
 	const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
 	const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
-	float* thickness, glm::vec3* sidedrop
+	float* thickness, glm::vec3* sidedropMin, glm::vec3* sidedropMax
 ) {
 	float alpha = Cfg::get().value<float>( Cfg::RENDER_PHONGTESS );
 
@@ -1202,18 +1205,36 @@ void BVH::triThicknessAndSidedrop(
 	v = ( v < 0.0f || v > 1.0f ) ? 0.0f : v;
 
 	glm::vec3 pt = this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, u, v );
-
 	*thickness = glm::dot( ng, pt - p1 );
-	sidedrop->x = glm::length( glm::cross( p2 - pt, p1 - pt ) ) / glm::length( e12 );
-	sidedrop->y = glm::length( glm::cross( p3 - pt, p2 - pt ) ) / glm::length( e23 );
-	sidedrop->z = glm::length( glm::cross( p1 - pt, p3 - pt ) ) / glm::length( e31 );
+
+	glm::vec3 ptsd[3] = {
+		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.0f, 0.5f ),
+		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.5f, 0.0f ),
+		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.5f, 0.5f )
+	};
+
+	*sidedropMin = glm::min( ptsd[0], glm::min( ptsd[1], ptsd[2] ) );
+	*sidedropMax = glm::max( ptsd[0], glm::max( ptsd[1], ptsd[2] ) );
+
+	// for( int i = 0; i < 3; i++ ) {
+	// 	glm::vec3 sdtmp = glm::vec3(
+	// 		glm::length( glm::cross( p2 - ptsd[i], p1 - ptsd[i] ) ) / glm::length( e12 ),
+	// 		glm::length( glm::cross( p3 - ptsd[i], p2 - ptsd[i] ) ) / glm::length( e23 ),
+	// 		glm::length( glm::cross( p1 - ptsd[i], p3 - ptsd[i] ) ) / glm::length( e31 )
+	// 	);
+	// 	*sidedrop = glm::max( *sidedrop, sdtmp );
+	// }
+
+	// sidedrop->x = glm::length( glm::cross( p2 - ptsd[2], p1 - ptsd[2] ) ) / glm::length( e12 );
+	// sidedrop->y = glm::length( glm::cross( p3 - ptsd[0], p2 - ptsd[0] ) ) / glm::length( e23 );
+	// sidedrop->z = glm::length( glm::cross( p1 - ptsd[1], p3 - ptsd[1] ) ) / glm::length( e31 );
 }
 
 
 /**
  * Get vertices and indices to draw a 3D visualization of the bounding box.
  * @param {std::vector<cl_float>*} vertices Vector to put the vertices into.
- * @param {std::vector<cl_uint>*}        indices  Vector to put the indices into.
+ * @param {std::vector<cl_uint>*}  indices  Vector to put the indices into.
  */
 void BVH::visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) {
 	this->visualizeNextNode( mRoot, vertices, indices );
@@ -1222,9 +1243,9 @@ void BVH::visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) {
 
 /**
  * Visualize the next node in the BVH.
- * @param {const BVHNode*}               node     Current node.
+ * @param {const BVHNode*}         node     Current node.
  * @param {std::vector<cl_float>*} vertices Vector to put the vertices into.
- * @param {std::vector<cl_uint>*}        indices  Vector to put the indices into.
+ * @param {std::vector<cl_uint>*}  indices  Vector to put the indices into.
  */
 void BVH::visualizeNextNode(
 	const BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices
