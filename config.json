@@ -40,7 +40,7 @@
 		// a number of faces less or equal to this setting.
 		"sah_faces_limit": 1000,
 		// Use spatial splits to create the BVH.
-		// WORKS, BUT HAS AWEFUL PERFORMANCE. NEEDS OPTIMIZATION!
+		// WORKS, BUT HAS BAD PERFORMANCE. NEEDS OPTIMIZATION!
 		// 0: disabled
 		// >0: number of splits to test per node
 		"spatial_splits": 0
@@ -95,7 +95,7 @@
 		// Phong Tessellation
 		// 0.0: disabled
 		// 1.0: maximum
-		"phong_tessellation": 0.7,
+		"phong_tessellation": 0.6,
 		// Samples of paths per frame
 		"samples": 1
 	},

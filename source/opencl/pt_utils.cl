@@ -19,6 +19,11 @@ inline float fresnel( const float u, const float c ) {
 }
 
 
+/**
+ * Swap two float values.
+ * @param {float*} a
+ * @param {float*} b
+ */
 inline void swap( float* a, float* b ) {
 	const float tmp = *a;
 	*a = *b;
@@ -32,15 +37,15 @@ inline void swap( float* a, float* b ) {
  * @param  {const float} a1
  * @param  {const float} a2
  * @param  {const float} a3
- * @param  {float[3]} x     Output. Found real solutions.
+ * @param  {float[3]}    x  Output. Found real solutions.
  * @return {char}           Number of found real solutions.
  */
 char solveCubic( const float a0, const float a1, const float a2, const float a3, float x[3] ) {
 	#define THIRD 0.3333333333f
-	#define THIRD_HALF 0.166666666f
+	#define THIRD_HALF 0.1666666666f
 	float w, p, q, dis, phi;
 
-	if( fabs( a0 ) > EPSILON10 ) {
+	if( fabs( a0 ) > 0.0f ) {
 		// cubic problem
 		w = native_divide( a1, a0 ) * THIRD;
 		p = native_divide( a2, a0 ) * THIRD - w * w;
@@ -91,7 +96,7 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
 			return 1;
 		}
 	}
-	else if( fabs( a1 ) > EPSILON10 ) {
+	else if( fabs( a1 ) > 0.0f ) {
 		// quadratic problem
 		p = 0.5f * native_divide( a2, a1 );
 		dis = p * p - native_divide( a3, a1 );
@@ -115,7 +120,7 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
 			return 2;
 		}
 	}
-	else if( fabs( a2 ) > EPSILON10 ) {
+	else if( fabs( a2 ) > 0.0f ) {
 		// linear equation
 		x[0] = native_divide( -a3, a2 );
 
@@ -136,50 +141,36 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
  * @return {rayPlanes}       The planes describing the ray.
  */
 rayPlanes getPlanesFromRay( const ray4* ray ) {
-	rayPlanes rp;
-	float3 nCand = ray->dir.zxy;
-
-	// if( fabs( ray->dir.z ) >= EPSILON5 ) {
-	// 	// nCand.z = native_divide( -nCand.x * ray->dir.x - nCand.y * ray->dir.y, ray->dir.z );
-	// 	nCand.z = native_divide( -ray->dir.x - ray->dir.y, ray->dir.z );
-	// }
-	// else if( fabs( ray->dir.y ) >= EPSILON5 ) {
-	// 	// nCand.y = native_divide( -nCand.x * ray->dir.x - nCand.z * ray->dir.z, ray->dir.y );
-	// 	nCand.y = native_divide( -ray->dir.x - ray->dir.z, ray->dir.y );
-	// }
-	// else {
-	// 	// nCand.x = native_divide( -nCand.y * ray->dir.y - nCand.z * ray->dir.z, ray->dir.x );
-	// 	nCand.x = native_divide( -ray->dir.y - ray->dir.z, ray->dir.x );
-	// }
+	float3 planeNormal1 = ray->dir.zxy;
 
 	if( fabs( ray->dir.x ) > fabs( ray->dir.y ) ) {
 		if( fabs( ray->dir.x ) > fabs( ray->dir.z ) ) {
-			nCand.x = native_divide( -nCand.y * ray->dir.y - nCand.z * ray->dir.z, ray->dir.x );
+			planeNormal1.x = native_divide(
+				-planeNormal1.y * ray->dir.y - planeNormal1.z * ray->dir.z, ray->dir.x
+			);
 		}
 		else {
-			nCand.z = native_divide( -nCand.x * ray->dir.x - nCand.y * ray->dir.y, ray->dir.z );
+			planeNormal1.z = native_divide(
+				-planeNormal1.x * ray->dir.x - planeNormal1.y * ray->dir.y, ray->dir.z
+			);
 		}
 	}
 	else {
 		if( fabs( ray->dir.y ) > fabs( ray->dir.z ) ) {
-			nCand.y = native_divide( -nCand.x * ray->dir.x - nCand.z * ray->dir.z, ray->dir.y );
+			planeNormal1.y = native_divide(
+				-planeNormal1.x * ray->dir.x - planeNormal1.z * ray->dir.z, ray->dir.y
+			);
 		}
 		else {
-			nCand.z = native_divide( -nCand.x * ray->dir.x - nCand.y * ray->dir.y, ray->dir.z );
+			planeNormal1.z = native_divide(
+				-planeNormal1.x * ray->dir.x - planeNormal1.y * ray->dir.y, ray->dir.z
+			);
 		}
 	}
 
-	rp.n1 = fast_normalize( nCand );
+	rayPlanes rp;
 
-
-	// if( fabs( fast_length( ray->dir.xyz - ray->dir.zxy ) ) > EPSILON5 ) {
-	// 	rp.n1 = fast_normalize( cross( ray->dir.xyz, ray->dir.zxy ) );
-	// }
-	// else {
-	// 	float3 alt1 = { -ray->dir.z, -ray->dir.x, ray->dir.y };
-	// 	rp.n1 = fast_normalize( cross( ray->dir.xyz, alt1 ) );
-	// }
-
+	rp.n1 = fast_normalize( planeNormal1 );
 	rp.n2 = cross( rp.n1, ray->dir.xyz );
 	rp.n2 = fast_normalize( rp.n2 );
 

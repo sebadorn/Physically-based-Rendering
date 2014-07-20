@@ -164,9 +164,9 @@ BVHNode* BVH::buildTree(
 		lambda /= rootSA;
 
 		// Split with spatial splits and compare with previous SAH.
-		if( /*lambda > 0.00001f &&*/ Cfg::get().value<cl_uint>( Cfg::BVH_SPATIALSPLITS ) > 0 ) {
-			// cl_float spatialSAH = objectSAH;
-			cl_float spatialSAH = FLT_MAX;
+		if( lambda > 0.00001f && Cfg::get().value<cl_uint>( Cfg::BVH_SPATIALSPLITS ) > 0 ) {
+			cl_float spatialSAH = objectSAH;
+			// cl_float spatialSAH = FLT_MAX;
 
 			for( cl_uint axis = 0; axis <= 2; axis++ ) {
 				this->splitBySpatialSplit(
@@ -175,7 +175,7 @@ BVHNode* BVH::buildTree(
 				);
 			}
 
-			useGivenBB = true;//( spatialSAH < objectSAH );
+			useGivenBB = ( spatialSAH < objectSAH );
 		}
 	}
 	// Faster to build: Splitting at the midpoint of the longest axis.
@@ -528,6 +528,61 @@ void BVH::groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint de
 
 
 /**
+ * Grow AABBs according to the contained faces and calculate their surface areas.
+ * @param {const std::vector<Tri>*}              faces
+ * @param {std::vector<std::vector<glm::vec3>>*} leftBB
+ * @param {std::vector<std::vector<glm::vec3>>*} rightBB
+ * @param {std::vector<cl_float>*}               leftSA
+ * @param {std::vector<cl_float>*}               rightSA
+ */
+void BVH::growAABBsForSAH(
+	const vector<Tri>* faces,
+	vector< vector<glm::vec3> >* leftBB, vector< vector<glm::vec3> >* rightBB,
+	vector<cl_float>* leftSA, vector<cl_float>* rightSA
+) {
+	vector<glm::vec3> bbMins, bbMaxs;
+	const cl_uint numFaces = faces->size();
+
+
+	// Grow a bounding box face by face starting from the left.
+	// Save the growing surface area for each step.
+
+	for( int i = 0; i < numFaces - 1; i++ ) {
+		glm::vec3 bbMin, bbMax;
+
+		bbMins.push_back( (*faces)[i].bbMin );
+		bbMaxs.push_back( (*faces)[i].bbMax );
+		MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
+
+		(*leftBB)[i] = vector<glm::vec3>( 2 );
+		(*leftBB)[i][0] = bbMin;
+		(*leftBB)[i][1] = bbMax;
+		(*leftSA)[i] = MathHelp::getSurfaceArea( bbMin, bbMax );
+	}
+
+
+	// Grow a bounding box face by face starting from the right.
+	// Save the growing surface area for each step.
+
+	bbMins.clear();
+	bbMaxs.clear();
+
+	for( int i = numFaces - 2; i >= 0; i-- ) {
+		glm::vec3 bbMin, bbMax;
+
+		bbMins.push_back( (*faces)[i + 1].bbMin );
+		bbMaxs.push_back( (*faces)[i + 1].bbMax );
+		MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
+
+		(*rightBB)[i] = vector<glm::vec3>( 2 );
+		(*rightBB)[i][0] = bbMin;
+		(*rightBB)[i][1] = bbMax;
+		(*rightSA)[i] = MathHelp::getSurfaceArea( bbMin, bbMax );
+	}
+}
+
+
+/**
  * Log some stats.
  * @param {boost::posix_time::ptime} timerStart
  */
@@ -742,48 +797,13 @@ void BVH::splitBySAH(
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
 ) {
 	std::sort( faces.begin(), faces.end(), sortFacesCmp( axis ) );
-	const int numFaces = faces.size();
+	const cl_uint numFaces = faces.size();
 
 	vector<cl_float> leftSA( numFaces - 1 );
 	vector<cl_float> rightSA( numFaces - 1 );
 	vector< vector<glm::vec3> > leftBB( numFaces - 1 ), rightBB( numFaces - 1 );
-	vector<glm::vec3> bbMins, bbMaxs;
 
-	// Grow a bounding box face by face starting from the left.
-	// Save the growing surface area for each step.
-
-	for( int i = 0; i < numFaces - 1; i++ ) {
-		glm::vec3 bbMin, bbMax;
-
-		bbMins.push_back( faces[i].bbMin );
-		bbMaxs.push_back( faces[i].bbMax );
-		MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
-
-		leftBB[i] = vector<glm::vec3>( 2 );
-		leftBB[i][0] = bbMin;
-		leftBB[i][1] = bbMax;
-		leftSA[i] = MathHelp::getSurfaceArea( bbMin, bbMax );
-	}
-
-
-	// Grow a bounding box face by face starting from the right.
-	// Save the growing surface area for each step.
-
-	bbMins.clear();
-	bbMaxs.clear();
-
-	for( int i = numFaces - 2; i >= 0; i-- ) {
-		glm::vec3 bbMin, bbMax;
-
-		bbMins.push_back( faces[i + 1].bbMin );
-		bbMaxs.push_back( faces[i + 1].bbMax );
-		MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
-
-		rightBB[i] = vector<glm::vec3>( 2 );
-		rightBB[i][0] = bbMin;
-		rightBB[i][1] = bbMax;
-		rightSA[i] = MathHelp::getSurfaceArea( bbMin, bbMax );
-	}
+	this->growAABBsForSAH( &faces, &leftBB, &rightBB, &leftSA, &rightSA );
 
 
 	// Compute the SAH for each split position and choose the one with the lowest cost.
@@ -1101,9 +1121,9 @@ void BVH::triCalcAABB(
 	// Normals are the same, which means no Phong Tessellation possible
 	glm::vec3 test = ( n1 - n2 ) + ( n2 - n3 );
 	if(
-		fabs( test.x ) <= 0.00001f &&
-		fabs( test.y ) <= 0.00001f &&
-		fabs( test.z ) <= 0.00001f
+		fabs( test.x ) <= 0.000001f &&
+		fabs( test.y ) <= 0.000001f &&
+		fabs( test.z ) <= 0.000001f
 	) {
 		return;
 	}
@@ -1113,13 +1133,12 @@ void BVH::triCalcAABB(
 	glm::vec3 sidedropMin, sidedropMax;
 	this->triThicknessAndSidedrop( p1, p2, p3, n1, n2, n3, &thickness, &sidedropMin, &sidedropMax );
 
-	// Grow bigger according to sidedrop
+	// Grow bigger according to thickness and sidedrop
 	glm::vec3 e12 = p2 - p1;
 	glm::vec3 e13 = p3 - p1;
 	glm::vec3 e23 = p3 - p2;
 	glm::vec3 e31 = p1 - p3;
 	glm::vec3 ng = glm::normalize( glm::cross( e12, e13 ) );
-
 
 	glm::vec3 p1thick = p1 + thickness * ng;
 	glm::vec3 p2thick = p2 + thickness * ng;
@@ -1127,51 +1146,22 @@ void BVH::triCalcAABB(
 
 	tri->bbMin = glm::min( glm::min( tri->bbMin, p1thick ), glm::min( p2thick, p3thick ) );
 	tri->bbMax = glm::max( glm::max( tri->bbMax, p1thick ), glm::max( p2thick, p3thick ) );
-
 	tri->bbMin = glm::min( tri->bbMin, sidedropMin );
 	tri->bbMax = glm::max( tri->bbMax, sidedropMax );
-
-	// glm::vec3 s12 = glm::normalize( glm::cross( e12, ng ) );
-	// glm::vec3 s23 = glm::normalize( glm::cross( e23, ng ) );
-	// glm::vec3 s31 = glm::normalize( glm::cross( e31, ng ) );
-
-	// glm::vec3 p11 = p1 + sidedrop.x * s12;
-	// glm::vec3 p12 = p1 + sidedrop.z * s31;
-	// glm::vec3 p21 = p2 + sidedrop.x * s12;
-	// glm::vec3 p22 = p2 + sidedrop.y * s23;
-	// glm::vec3 p31 = p3 + sidedrop.y * s23;
-	// glm::vec3 p32 = p3 + sidedrop.z * s31;
-
-	// tri->bbMin = glm::min( glm::min( tri->bbMin, p11 ), glm::min( p21, p31 ) );
-	// tri->bbMin = glm::min( glm::min( tri->bbMin, p12 ), glm::min( p22, p32 ) );
-	// tri->bbMax = glm::max( glm::max( tri->bbMax, p11 ), glm::max( p21, p31 ) );
-	// tri->bbMax = glm::max( glm::max( tri->bbMax, p12 ), glm::max( p22, p32 ) );
-
-	// // Move by thickness and combine with old AABB position
-	// p11 += thickness * ng;
-	// p12 += thickness * ng;
-	// p21 += thickness * ng;
-	// p22 += thickness * ng;
-	// p31 += thickness * ng;
-	// p32 += thickness * ng;
-
-	// tri->bbMin = glm::min( glm::min( tri->bbMin, p11 ), glm::min( p21, p31 ) );
-	// tri->bbMin = glm::min( glm::min( tri->bbMin, p12 ), glm::min( p22, p32 ) );
-	// tri->bbMax = glm::max( glm::max( tri->bbMax, p11 ), glm::max( p21, p31 ) );
-	// tri->bbMax = glm::max( glm::max( tri->bbMax, p12 ), glm::max( p22, p32 ) );
 }
 
 
 /**
  * Calculate thickness and sidedrops of the tessellated face.
- * @param {const glm::vec3}  p1        Point 1 of the triangle.
- * @param {const glm::vec3}  p2        Point 2 of the triangle.
- * @param {const glm::vec3}  p3        Point 3 of the triangle.
- * @param {const glm::vec3}  n1        Normal at point 1.
- * @param {const glm::vec3}  n2        Normal at point 2.
- * @param {const glm::vec3}  n3        Normal at point 3.
- * @param {float*}           thickness Thickness.
- * @param {glm::vec3*}       sidedrop  Sidedrops of all sides.
+ * @param {const glm::vec3}  p1           Point 1 of the triangle.
+ * @param {const glm::vec3}  p2           Point 2 of the triangle.
+ * @param {const glm::vec3}  p3           Point 3 of the triangle.
+ * @param {const glm::vec3}  n1           Normal at point 1.
+ * @param {const glm::vec3}  n2           Normal at point 2.
+ * @param {const glm::vec3}  n3           Normal at point 3.
+ * @param {float*}           thickness    Thickness.
+ * @param {glm::vec3*}       sidedropMin  Sidedrops of all sides, minimum coordinates.
+ * @param {glm::vec3*}       sidedropMax  Sidedrops of all sides, maximum coordinates.
  */
 void BVH::triThicknessAndSidedrop(
 	const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
@@ -1207,27 +1197,25 @@ void BVH::triThicknessAndSidedrop(
 	glm::vec3 pt = this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, u, v );
 	*thickness = glm::dot( ng, pt - p1 );
 
-	glm::vec3 ptsd[3] = {
+	glm::vec3 ptsd[9] = {
 		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.0f, 0.5f ),
 		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.5f, 0.0f ),
-		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.5f, 0.5f )
+		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.5f, 0.5f ),
+		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.25f, 0.75f ),
+		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.75f, 0.25f ),
+		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.25f, 0.0f ),
+		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.75f, 0.0f ),
+		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.0f, 0.25f ),
+		this->phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.0f, 0.75f )
 	};
 
-	*sidedropMin = glm::min( ptsd[0], glm::min( ptsd[1], ptsd[2] ) );
-	*sidedropMax = glm::max( ptsd[0], glm::max( ptsd[1], ptsd[2] ) );
+	*sidedropMin = ptsd[0];
+	*sidedropMax = ptsd[0];
 
-	// for( int i = 0; i < 3; i++ ) {
-	// 	glm::vec3 sdtmp = glm::vec3(
-	// 		glm::length( glm::cross( p2 - ptsd[i], p1 - ptsd[i] ) ) / glm::length( e12 ),
-	// 		glm::length( glm::cross( p3 - ptsd[i], p2 - ptsd[i] ) ) / glm::length( e23 ),
-	// 		glm::length( glm::cross( p1 - ptsd[i], p3 - ptsd[i] ) ) / glm::length( e31 )
-	// 	);
-	// 	*sidedrop = glm::max( *sidedrop, sdtmp );
-	// }
-
-	// sidedrop->x = glm::length( glm::cross( p2 - ptsd[2], p1 - ptsd[2] ) ) / glm::length( e12 );
-	// sidedrop->y = glm::length( glm::cross( p3 - ptsd[0], p2 - ptsd[0] ) ) / glm::length( e23 );
-	// sidedrop->z = glm::length( glm::cross( p1 - ptsd[1], p3 - ptsd[1] ) ) / glm::length( e31 );
+	for( cl_uint i = 1; i < 9; i++ ) {
+		*sidedropMin = glm::min( *sidedropMin, ptsd[i] );
+		*sidedropMax = glm::max( *sidedropMax, ptsd[i] );
+	}
 }
 
 

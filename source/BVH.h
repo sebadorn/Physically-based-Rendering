@@ -88,6 +88,11 @@ class BVH {
 			const BVHNode* node, const cl_uint splits, const cl_uint axis
 		);
 		void groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint depth );
+		void growAABBsForSAH(
+			const vector<Tri>* faces,
+			vector< vector<glm::vec3> >* leftBB, vector< vector<glm::vec3> >* rightBB,
+			vector<cl_float>* leftSA, vector<cl_float>* rightSA
+		);
 		void logStats( boost::posix_time::ptime timerStart );
 		cl_uint longestAxis( const BVHNode* node );
 		BVHNode* makeNode( const vector<Tri> faces, bool ignore );
@@ -111,7 +116,8 @@ class BVH {
 		void splitBySpatialSplit(
 			BVHNode* node, const cl_uint axis, cl_float* sahBest, const vector<Tri> faces,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces,
-			glm::vec3* bbMinLeft, glm::vec3* bbMaxLeft, glm::vec3* bbMinRight, glm::vec3* bbMaxRight
+			glm::vec3* bbMinLeft, glm::vec3* bbMaxLeft,
+			glm::vec3* bbMinRight, glm::vec3* bbMaxRight
 		);
 		void splitFaces(
 			const vector<Tri> faces, const cl_float midpoint, const cl_uint axis,

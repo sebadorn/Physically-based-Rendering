@@ -451,81 +451,72 @@ void traverseBVH(
 	global const bvhNode* bvh, global const uint* bvhFaces,
 	ray4* ray, global const face_t* faces
 ) {
-	bool addLeftToStack, addRightToStack, rightThenLeft;
-	float tFarL, tNearL, tNearR;
-
 	uint bvhStack[BVH_STACKSIZE];
 	int stackIndex = 0;
 	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
 
-	ray4 rayBest = *ray;
 	const float3 invDir = native_recip( ray->dir.xyz );
-
-	rayBest.t = INFINITY;
+	float tBest = INFINITY;
 
 	while( stackIndex >= 0 ) {
 		bvhNode node = bvh[bvhStack[stackIndex--]];
-		tNearL = 0.0f;
-		tFarL = INFINITY;
+		float tNearL = 0.0f;
+		float tFarL = INFINITY;
 
-		// Is a leaf node with faces
-		if( node.bbMin.w < 0.0f && node.bbMax.w < 0.0f ) {
+		// Is a leaf node
+		if( node.bbMin.w < 0.0f ) {
 			if(
 				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
-				rayBest.t > tNearL
+				tBest > tNearL
 			) {
 				intersectFaces( ray, &node, bvhFaces, faces, tNearL, tFarL );
-				rayBest = ( ray->t < rayBest.t ) ? *ray : rayBest;
+				tBest = fmin( ray->t, tBest );
 			}
 
 			continue;
 		}
 
-		tNearR = 0.0f;
-		addLeftToStack = false;
-		addRightToStack = false;
 
 		// Add child nodes to stack, if hit by ray
-		if( node.bbMin.w > 0.0f ) {
-			const bvhNode childNode = bvh[(int) node.bbMin.w];
 
-			addLeftToStack = (
-				intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL ) &&
-				rayBest.t > tNearL
-			);
-		}
+		bvhNode childNode = bvh[(int) node.bbMin.w];
 
-		if( node.bbMax.w > 0.0f ) {
-			float tFarR = INFINITY;
-			const bvhNode childNode = bvh[(int) node.bbMax.w];
+		bool addLeftToStack = (
+			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL ) &&
+			tBest > tNearL
+		);
 
-			addRightToStack = (
-				intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR ) &&
-				rayBest.t > tNearR
-			);
-		}
+
+		float tNearR = 0.0f;
+		float tFarR = INFINITY;
+		childNode = bvh[(int) node.bbMax.w];
+
+		bool addRightToStack = (
+			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR ) &&
+			tBest > tNearR
+		);
 
 
 		// The node that is pushed on the stack first will be evaluated last.
 		// So the nearer one should be pushed last, because it will be popped first then.
-		rightThenLeft = ( tNearR > tNearL );
+		const bool rightThenLeft = ( tNearR > tNearL );
 
 		if( rightThenLeft && addRightToStack ) {
-			bvhStack[++stackIndex] = (int) node.bbMax.w;
+			bvhStack[++stackIndex] = (uint) node.bbMax.w;
 		}
 		if( rightThenLeft && addLeftToStack ) {
-			bvhStack[++stackIndex] = (int) node.bbMin.w;
+			bvhStack[++stackIndex] = (uint) node.bbMin.w;
 		}
 
 		if( !rightThenLeft && addLeftToStack ) {
-			bvhStack[++stackIndex] = (int) node.bbMin.w;
+			bvhStack[++stackIndex] = (uint) node.bbMin.w;
 		}
 		if( !rightThenLeft && addRightToStack ) {
-			bvhStack[++stackIndex] = (int) node.bbMax.w;
+			bvhStack[++stackIndex] = (uint) node.bbMax.w;
 		}
 	}
 
-	*ray = ( rayBest.t != INFINITY ) ? rayBest : *ray;
+	ray->t = fmin( ray->t, tBest );
 }
 
 
