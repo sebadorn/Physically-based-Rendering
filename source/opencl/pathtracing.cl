@@ -1,6 +1,6 @@
 #FILE:pt_header.cl:FILE#
 #FILE:pt_utils.cl:FILE#
-#FILE:pt_spectral.cl:FILE#
+#FILE:pt_spectral_precalc.cl:FILE#
 #FILE:pt_brdf.cl:FILE#
 #FILE:pt_traversal.cl:FILE#
 

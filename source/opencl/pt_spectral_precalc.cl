@@ -29,60 +29,6 @@
  */
 
 
-/* A colour system is defined by the CIE x and y coordinates of
- * its three primary illuminants and the x and y coordinates of
- * the white point.
- */
-typedef struct {
-	float xRed, yRed,     /* Red x, y */
-	      xGreen, yGreen, /* Green x, y */
-	      xBlue, yBlue,   /* Blue x, y */
-	      xWhite, yWhite, /* White point x, y */
-	      gamma;          /* Gamma correction for system */
-} colorSystem;
-
-
-// White point chromaticities.
-#define IlluminantC   0.3101f, 0.3162f         // For NTSC television
-#define IlluminantD65 0.3127f, 0.3291f         // For EBU and SMPTE
-#define IlluminantE   0.33333333f, 0.33333333f // CIE equal-energy illuminant
-
-
-/* Gamma of nonlinear correction.
- * See Charles Poynton's ColorFAQ Item 45 and GammaFAQ Item 6 at:
- *     http://www.poynton.com/ColorFAQ.html
- *     http://www.poynton.com/GammaFAQ.html
- */
-#define GAMMA_REC709 0.0f // Rec. 709
-
-	                         /* xRed     yRed     xGreen   yGreen   xBlue    yBlue    White point    Gamma */
-#if SPECTRAL_COLORSYSTEM == 0 // NTSC
-
-	constant colorSystem CS = { 0.67f,   0.33f,   0.21f,   0.71f,   0.14f,   0.08f,   IlluminantC,   GAMMA_REC709 };
-
-#elif SPECTRAL_COLORSYSTEM == 1 // EBU
-
-	constant colorSystem CS = { 0.64f,   0.33f,   0.29f,   0.60f,   0.15f,   0.06f,   IlluminantD65, GAMMA_REC709 };
-
-#elif SPECTRAL_COLORSYSTEM == 2 // SMPTE
-
-	constant colorSystem CS = { 0.630f,  0.340f,  0.310f,  0.595f,  0.155f,  0.070f,  IlluminantD65, GAMMA_REC709 };
-
-#elif SPECTRAL_COLORSYSTEM == 3 // HDTV
-
-	constant colorSystem CS = { 0.670f,  0.330f,  0.210f,  0.710f,  0.150f,  0.060f,  IlluminantD65, GAMMA_REC709 };
-
-#elif SPECTRAL_COLORSYSTEM == 4 // CIE
-
-	constant colorSystem CS = { 0.7355f, 0.2645f, 0.2658f, 0.7243f, 0.1669f, 0.0085f, IlluminantE,   GAMMA_REC709 };
-
-#elif SPECTRAL_COLORSYSTEM == 5 // Rec709
-
-	constant colorSystem CS = { 0.64f,   0.33f,   0.30f,   0.60f,   0.15f,   0.06f,   IlluminantD65, GAMMA_REC709 };
-
-#endif
-
-
 /* CIE colour matching functions xBar, yBar, and zBar for
  * wavelengths from 380 through 780 nanometers, every 5
  * nanometers. For a wavelength lambda in this range:
@@ -241,96 +187,50 @@ void scaleRGB( float4* rgb ) {
  * the available gamut and/or norm_rgb to normalise the RGB
  * components so the largest nonzero component has value 1.
  *
- * @param {const colorSystem} cs
- * @param {const float4}      xyz
- * @param {float4*}           rgb
+ * @param {const float4} xyz
+ * @param {float4*}      rgb
  */
-void xyz_to_rgb( const colorSystem cs, const float4 xyz, float4* rgb ) {
-	float xr = cs.xRed;
-	float yr = cs.yRed;
-	float zr = 1.0f - ( xr + yr );
+void xyz_to_rgb( const float4 xyz, float4* rgb ) {
+	// Using a pre-calculated matrix
+	// For the calculations see "opencl/pt_spectral.cl".
 
-	float xg = cs.xGreen;
-	float yg = cs.yGreen;
-	float zg = 1.0f - ( xg + yg );
+	#if SPECTRAL_COLORSYSTEM == 0
 
-	float xb = cs.xBlue;
-	float yb = cs.yBlue;
-	float zb = 1.0f - ( xb + yb );
+		rgb->x =  6.040009f * xyz.x + -1.683788f * xyz.y + -0.911408f * xyz.z;
+		rgb->y = -3.113923f * xyz.x +  6.322208f * xyz.y + -0.089522f * xyz.z;
+		rgb->z =  0.184473f * xyz.x + -0.374537f * xyz.y +  2.839774f * xyz.z;
 
-	float xw = cs.xWhite;
-	float yw = cs.yWhite;
-	float zw = 1.0f - xw - yw;
+	#elif SPECTRAL_COLORSYSTEM == 1
 
+		rgb->x =  9.313725f * xyz.x + -4.236410f * xyz.y + -1.446676f * xyz.z;
+		rgb->y = -2.944388f * xyz.x +  5.698851f * xyz.y +  0.126237f * xyz.z;
+		rgb->z =  0.206346f * xyz.x + -0.695713f * xyz.y +  3.250795f * xyz.z;
 
-	// http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_RGB.html
+	#elif SPECTRAL_COLORSYSTEM == 2
 
-	float Xr = xr / yr;
-	float Xg = xg / yg;
-	float Xb = xb / yb;
+		rgb->x = 10.660419f * xyz.x + -5.290040f * xyz.y + -1.654274f * xyz.z;
+		rgb->y = -3.247467f * xyz.x +  6.007939f * xyz.y +  0.106841f * xyz.z;
+		rgb->z =  0.171210f * xyz.x + -0.598937f * xyz.y +  3.192554f * xyz.z;
 
-	float Zr = zr / yr;
-	float Zg = zg / yg;
-	float Zb = zb / yb;
+	#elif SPECTRAL_COLORSYSTEM == 3
 
+		rgb->x =  6.205850f * xyz.x + -1.717461f * xyz.y + -1.047886f * xyz.z;
+		rgb->y = -2.715540f * xyz.x +  5.513369f * xyz.y +  0.096872f * xyz.z;
+		rgb->z =  0.193850f * xyz.x + -0.393574f * xyz.y +  2.984110f * xyz.z;
 
-	float detN1 = Xr * ( Zb - Zg );
-	float detN2 = Xg * ( Zb - Zr );
-	float detN3 = Xb * ( Zg - Zr );
-	float detNrecip = 1.0f / ( detN1 - detN2 + detN3 );
+	#elif SPECTRAL_COLORSYSTEM == 4
 
-	float n00 = detNrecip * ( Zb - Zg );
-	float n01 = detNrecip * ( Xb * Zg - Xg * Zb );
-	float n02 = detNrecip * ( Xg - Xb );
+		rgb->x =  6.863516f * xyz.x + -2.500103f * xyz.y + -1.363412f * xyz.z;
+		rgb->y = -1.534954f * xyz.x +  4.268275f * xyz.y +  0.266679f * xyz.z;
+		rgb->z =  0.017161f * xyz.x + -0.047721f * xyz.y +  3.030559f * xyz.z;
 
-	float n10 = detNrecip * ( Zr - Zb );
-	float n11 = detNrecip * ( Xr * Zb - Xb * Zr );
-	float n12 = detNrecip * ( Xb - Xr );
+	#elif SPECTRAL_COLORSYSTEM == 5
 
-	float n20 = detNrecip * ( Zg - Zr );
-	float n21 = detNrecip * ( Xg * Zr - Xr * Zg );
-	float n22 = detNrecip * ( Xr - Xg );
+		rgb->x =  9.854084f * xyz.x + -4.674373f * xyz.y + -1.516013f * xyz.z;
+		rgb->y = -2.944388f * xyz.x +  5.698851f * xyz.y +  0.126237f * xyz.z;
+		rgb->z =  0.169153f * xyz.x + -0.620228f * xyz.y +  3.213911f * xyz.z;
 
-
-	float sr = n00 * xw + n01 * yw + n02 * zw;
-	float sg = n10 * xw + n11 * yw + n12 * zw;
-	float sb = n20 * xw + n21 * yw + n22 * zw;
-
-
-	float m00 = sr * Xr;
-	float m01 = sg * Xg;
-	float m02 = sb * Xb;
-
-	float m10 = sr;
-	float m11 = sg;
-	float m12 = sb;
-
-	float m20 = sr * Zr;
-	float m21 = sg * Zg;
-	float m22 = sb * Zb;
-
-
-	float sMul = sr * sg * sb;
-	float detM1 = sMul * Xr * ( Zb - Zg );
-	float detM2 = sMul * Xg * ( Zb - Zr );
-	float detM3 = sMul * Xb * ( Zg - Zr );
-	float detMrecip = 1.0f / ( detM1 - detM2 + detM3 );
-
-	float m00inv = detMrecip * sg * sb * ( Zb - Zg );
-	float m01inv = detMrecip * sg * sb * ( Xb * Zg - Xg * Zb );
-	float m02inv = detMrecip * sg * sb * ( Xg - Xb );
-
-	float m10inv = detMrecip * sb * sr * ( Zr - Zb );
-	float m11inv = detMrecip * sb * sr * ( Xr * Zb - Xb * Zr );
-	float m12inv = detMrecip * sb * sr * ( Xb - Xr );
-
-	float m20inv = detMrecip * sg * sr * ( Zg - Zr );
-	float m21inv = detMrecip * sg * sr * ( Xg * Zr - Xr * Zg );
-	float m22inv = detMrecip * sg * sr * ( Xr - Xg );
-
-	rgb->x = m00inv * xyz.x + m01inv * xyz.y + m02inv * xyz.z;
-	rgb->y = m10inv * xyz.x + m11inv * xyz.y + m12inv * xyz.z;
-	rgb->z = m20inv * xyz.x + m21inv * xyz.y + m22inv * xyz.z;
+	#endif
 }
 
 
@@ -357,44 +257,34 @@ inline bool inside_gamut( float4 rgb ) {
  *     http://www.poynton.com/ColorFAQ.html
  *     http://www.poynton.com/GammaFAQ.html
  *
- * @param {const colorSystem} cs
- * @param {float*}            c
+ * @param {float*} c
  */
-void gamma_correct( const colorSystem cs, float* c ) {
-	float gamma = cs.gamma;
+void gamma_correct( float* c ) {
+	// Rec. 709 gamma correction.
+	const float cc = 0.018f;
 
-	if( gamma == GAMMA_REC709 ) {
-		// Rec. 709 gamma correction.
-		float cc = 0.018f;
-
-		if( *c < cc ) {
-			*c *= native_divide( 1.099f * pow( cc, 0.45f ) - 0.099f, cc );
-		}
-		else {
-			*c = 1.099f * pow( *c, 0.45f ) - 0.099f;
-		}
+	if( *c < cc ) {
+		*c *= native_divide( 1.099f * pow( cc, 0.45f ) - 0.099f, cc );
 	}
 	else {
-		// Nonlinear colour = (Linear colour)^(1/gamma)
-		*c = pow( *c, native_recip( gamma ) );
+		*c = 1.099f * pow( *c, 0.45f ) - 0.099f;
 	}
 }
 
 
 /**
  * Gamma correct each rgb component.
- * @param {const colorSystem} cs
- * @param {float*}            r
- * @param {float*}            g
- * @param {float*}            b
+ * @param {float*} r
+ * @param {float*} g
+ * @param {float*} b
  */
-void gamma_correct_rgb( const colorSystem cs, float4* rgb ) {
+void gamma_correct_rgb( float4* rgb ) {
 	float r = rgb->x;
 	float g = rgb->y;
 	float b = rgb->z;
-	gamma_correct( cs, &r );
-	gamma_correct( cs, &g );
-	gamma_correct( cs, &b );
+	gamma_correct( &r );
+	gamma_correct( &g );
+	gamma_correct( &b );
 	rgb->x = r;
 	rgb->y = g;
 	rgb->z = b;
@@ -412,18 +302,16 @@ void gamma_correct_rgb( const colorSystem cs, float4* rgb ) {
  * arguments which respect the identity:
  *         x + y + z = 1.
  *
- * @param {float*} spd Spectral power distribution.
- * @param {float*} x
- * @param {float*} y
- * @param {float*} z
+ * @param {const float*} spd Spectral power distribution.
+ * @param {float4*}      x
  */
-float spectrum_to_xyz( float spd[SPEC], float4* xyz ) {
+float spectrum_to_xyz( const float spd[SPEC], float4* xyz ) {
 	float me;
 	float X = 0.0f,
 	      Y = 0.0f,
 	      Z = 0.0f;
 	float4 maxPossible = (float4)( 0.0f );
-	int stepI = 80 / SPEC;
+	const uint stepI = 80 / SPEC;
 
 	for( int i = 0, j = 0; j < SPEC; i += stepI, j++ ) {
 		me = spd[j];
@@ -436,13 +324,13 @@ float spectrum_to_xyz( float spd[SPEC], float4* xyz ) {
 		maxPossible.z += cie_colour_match[i][2];
 	}
 
-	float XYZmax = maxPossible.x + maxPossible.y + maxPossible.z;
-	float XYZsum = X + Y + Z;
-	float intensity = 1.0f - ( XYZmax - XYZsum ) / XYZmax;
+	const float XYZmax = maxPossible.x + maxPossible.y + maxPossible.z;
+	const float XYZsum = X + Y + Z;
+	const float intensity = 1.0f - native_divide( XYZmax - XYZsum, XYZmax );
 
-	xyz->x = X / XYZsum;
-	xyz->y = Y / XYZsum;
-	xyz->z = Z / XYZsum;
+	xyz->x = native_divide( X, XYZsum );
+	xyz->y = native_divide( Y, XYZsum );
+	xyz->z = native_divide( Z, XYZsum );
 
 	return intensity;
 }
@@ -455,7 +343,8 @@ float spectrum_to_xyz( float spd[SPEC], float4* xyz ) {
  */
 void scaleSPD( float spd[SPEC] ) {
 	float maxVal = 0.0f;
-	for( int i = 0; i < SPEC; i++ ) {
+
+	for( uint i = 0; i < SPEC; i++ ) {
 		maxVal = fmax( maxVal, spd[i] );
 	}
 
@@ -463,8 +352,8 @@ void scaleSPD( float spd[SPEC] ) {
 		return;
 	}
 
-	for( int j = 0; j < SPEC; j++ ) {
-		spd[j] /= maxVal;
+	for( uint j = 0; j < SPEC; j++ ) {
+		spd[j] = native_divide( spd[j], maxVal );
 	}
 }
 
@@ -479,10 +368,10 @@ float4 spectrumToRGB( float spd[SPEC] ) {
 	float4 xyz = (float4)( 0.0f );
 
 	scaleSPD( spd );
-	float intensity = spectrum_to_xyz( spd, &xyz );
-	xyz_to_rgb( CS, xyz, &rgb );
+	const float intensity = spectrum_to_xyz( spd, &xyz );
+	xyz_to_rgb( xyz, &rgb );
 	rgb *= intensity;
-	gamma_correct_rgb( CS, &rgb );
+	gamma_correct_rgb( &rgb );
 	constrain_rgb( &rgb );
 
 	return rgb;

@@ -87,11 +87,11 @@
 		// Shoot shadow rays to generate implicit paths.
 		// 0: disable
 		// 1: enable
-		"implicit": 1,
+		"implicit": 0,
 		// Extend the path if a reflective or transparent surface is hit
 		"max_added_depth": 3,
 		// Maximum path length
-		"max_depth": 3,
+		"max_depth": 2,
 		// Phong Tessellation
 		// 0.0: disabled
 		// 1.0: maximum
