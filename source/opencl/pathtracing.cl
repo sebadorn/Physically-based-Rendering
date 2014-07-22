@@ -200,9 +200,10 @@ void updateSPD(
  * @param {write_only image2d_t}   imageOut
  */
 kernel void pathTracing(
-	float seed, float pixelWeight, const float pxDim, global const float* eyeIn,
+	float seed, const float pixelWeight, const float4 sunPos,
+	const float pxDim, global const float* eyeIn,
 	global const face_t* faces, global const bvhNode* bvh, global const uint* bvhFaces,
-	constant const material* materials, constant const float* specPowerDists,
+	global const material* materials, constant const float* specPowerDists,
 	read_only image2d_t imageIn, write_only image2d_t imageOut
 ) {
 	float spd[SPEC], spdTotal[SPEC];
@@ -258,10 +259,9 @@ kernel void pathTracing(
 				if( mtl.d > 0.0f ) {
 					lightRay.origin = fma( ray.t, ray.dir, ray.origin ) + ray.normal * EPSILON5;
 					const float rnd2 = rand( &seed );
-					lightRay.dir = fast_normalize( (float4)( 6.0f, 20.0f, 0.0f, 0.0f ) - lightRay.origin );
-					// lightRay.dir = jitter( ray.normal, PI_X2 * rand( &seed ), native_sqrt( rnd2 ), native_sqrt( 1.0f - rnd2 ) );
+					lightRay.dir = fast_normalize( sunPos - lightRay.origin );
 
-					traverseBVH_shadowRay( bvh, &lightRay, faces );
+					traverseBVH_shadowRay( bvh, bvhFaces, &lightRay, faces );
 
 					if( lightRay.t == INFINITY ) {
 						lightRaySource = SKY_LIGHT * SPEC;

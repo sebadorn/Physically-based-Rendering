@@ -74,6 +74,7 @@ class PathTracer {
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
 			ModelLoader* ml, BVH* bvh
 		);
+		void moveSun( const int key );
 		void resetSampleCount();
 		void setCamera( Camera* camera );
 		void setFOV( cl_float fov );
@@ -100,6 +101,7 @@ class PathTracer {
 		cl_uint mWidth;
 		cl_float mFOV;
 		cl_uint mSampleCount;
+		cl_float4 mSunPos;
 
 		vector<cl_float> mTextureOut;
 

@@ -141,38 +141,37 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
  * @return {rayPlanes}       The planes describing the ray.
  */
 rayPlanes getPlanesFromRay( const ray4* ray ) {
-	float3 planeNormal1 = ray->dir.zxy;
+	float3 pn1 = ray->origin.xyz;
 
 	if( fabs( ray->dir.x ) > fabs( ray->dir.y ) ) {
 		if( fabs( ray->dir.x ) > fabs( ray->dir.z ) ) {
-			planeNormal1.x = native_divide(
-				-planeNormal1.y * ray->dir.y - planeNormal1.z * ray->dir.z, ray->dir.x
+			pn1.x = native_divide(
+				-pn1.y * ray->dir.y - pn1.z * ray->dir.z, ray->dir.x
 			);
 		}
 		else {
-			planeNormal1.z = native_divide(
-				-planeNormal1.x * ray->dir.x - planeNormal1.y * ray->dir.y, ray->dir.z
+			pn1.z = native_divide(
+				-pn1.x * ray->dir.x - pn1.y * ray->dir.y, ray->dir.z
 			);
 		}
 	}
 	else {
 		if( fabs( ray->dir.y ) > fabs( ray->dir.z ) ) {
-			planeNormal1.y = native_divide(
-				-planeNormal1.x * ray->dir.x - planeNormal1.z * ray->dir.z, ray->dir.y
+			pn1.y = native_divide(
+				-pn1.x * ray->dir.x - pn1.z * ray->dir.z, ray->dir.y
 			);
 		}
 		else {
-			planeNormal1.z = native_divide(
-				-planeNormal1.x * ray->dir.x - planeNormal1.y * ray->dir.y, ray->dir.z
+			pn1.z = native_divide(
+				-pn1.x * ray->dir.x - pn1.y * ray->dir.y, ray->dir.z
 			);
 		}
 	}
 
 	rayPlanes rp;
 
-	rp.n1 = fast_normalize( planeNormal1 );
-	rp.n2 = cross( rp.n1, ray->dir.xyz );
-	rp.n2 = fast_normalize( rp.n2 );
+	rp.n1 = fast_normalize( pn1 );
+	rp.n2 = fast_normalize( cross( rp.n1, ray->dir.xyz ) );
 
 	rp.o1 = dot( rp.n1, ray->origin.xyz );
 	rp.o2 = dot( rp.n2, ray->origin.xyz );
@@ -192,6 +191,18 @@ inline float4 getTriangleNormal( const face_t* face, const float u, const float 
 }
 
 
+/**
+ *
+ * @param  {const float}  u
+ * @param  {const float}  v
+ * @param  {const float}  w
+ * @param  {const float3} C12
+ * @param  {const float3} C23
+ * @param  {const float3} C31
+ * @param  {const float3} E23
+ * @param  {const float3} E31
+ * @return {float3}
+ */
 inline float3 getTriangleNormalS(
 	const float u, const float v, const float w,
 	const float3 C12, const float3 C23, const float3 C31, const float3 E23, const float3 E31
@@ -203,11 +214,31 @@ inline float3 getTriangleNormalS(
 }
 
 
+/**
+ *
+ * @param  {const float3} view
+ * @param  {const float3} np
+ * @return {float3}
+ */
 inline float3 getTriangleReflectionVec( const float3 view, const float3 np ) {
 	return view - 2.0f * np * dot( view, np );
 }
 
 
+/**
+ *
+ * @param  {const face_t*} face
+ * @param  {const float3}  rayDir
+ * @param  {const float}   u
+ * @param  {const float}   v
+ * @param  {const float}   w
+ * @param  {const float3}  C1
+ * @param  {const float3}  C2
+ * @param  {const float3}  C3
+ * @param  {const float3}  E12
+ * @param  {const float3}  E20
+ * @return {float4}
+ */
 inline float4 getPhongTessNormal(
 	const face_t* face, const float3 rayDir, const float u, const float v, const float w,
 	const float3 C1, const float3 C2, const float3 C3, const float3 E12, const float3 E20

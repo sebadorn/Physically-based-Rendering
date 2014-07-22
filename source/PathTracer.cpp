@@ -19,6 +19,11 @@ PathTracer::PathTracer( GLWidget* parent ) {
 	mFOV = Cfg::get().value<cl_float>( Cfg::PERS_FOV );
 	mSampleCount = 0;
 	mTimeSinceStart = boost::posix_time::microsec_clock::local_time();
+
+	mSunPos.x = 6.0f;
+	mSunPos.y = 20.0f;
+	mSunPos.z = 0.0f;
+	mSunPos.w = 0.0f;
 }
 
 
@@ -39,6 +44,7 @@ void PathTracer::clPathTracing( cl_float timeSinceStart ) {
 
 	mCL->setKernelArg( mKernelPathTracing, 0, sizeof( cl_float ), &timeSinceStart );
 	mCL->setKernelArg( mKernelPathTracing, 1, sizeof( cl_float ), &pixelWeight );
+	mCL->setKernelArg( mKernelPathTracing, 2, sizeof( cl_float4 ), &mSunPos );
 
 	mCL->execute( mKernelPathTracing );
 	mCL->finish();
@@ -90,6 +96,7 @@ void PathTracer::initArgsKernelPathTracing() {
 	cl_uint i = 0;
 	i++; // 0: timeSinceStart
 	i++; // 1: pixelWeight
+	i++; // 2: sun position
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_float ), &pxDim );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufEye );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufFaces );
@@ -401,6 +408,43 @@ size_t PathTracer::initOpenCLBuffers_Textures() {
 	mBufTextureOut = mCL->createImage2DWriteOnly( mWidth, mHeight );
 
 	return sizeof( cl_float ) * mTextureOut.size();
+}
+
+
+/**
+ * Move the position of the sun. This will also reset the sample count.
+ * @param {const int} key Pressed key.
+ */
+void PathTracer::moveSun( const int key ) {
+	switch( key ) {
+
+		case Qt::Key_W:
+			mSunPos.x += 0.25f;
+			break;
+
+		case Qt::Key_S:
+			mSunPos.x -= 0.25f;
+			break;
+
+		case Qt::Key_A:
+			mSunPos.z -= 0.25f;
+			break;
+
+		case Qt::Key_D:
+			mSunPos.z += 0.25f;
+			break;
+
+		case Qt::Key_Q:
+			mSunPos.y += 0.25f;
+			break;
+
+		case Qt::Key_E:
+			mSunPos.y -= 0.25f;
+			break;
+
+	}
+
+	this->resetSampleCount();
 }
 
 

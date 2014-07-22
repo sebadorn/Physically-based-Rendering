@@ -17,6 +17,7 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mFrameCount = 0;
 	mPreviousTime = 0;
 
+	mMoveSun = false;
 	mViewBVH = false;
 	mViewOverlay = false;
 	mViewTracer = true;
@@ -381,6 +382,11 @@ void GLWidget::moveCamera( const int key ) {
 		return;
 	}
 
+	if( mMoveSun ) {
+		mPathTracer->moveSun( key );
+		return;
+	}
+
 	switch( key ) {
 
 		case Qt::Key_W:
@@ -687,6 +693,14 @@ void GLWidget::stopRendering() {
 		mTimer->stop();
 		( (Window*) parentWidget() )->updateStatus( "Stopped." );
 	}
+}
+
+
+/**
+ * Toggle movement of the sun position.
+ */
+void GLWidget::toggleSunMovement() {
+	mMoveSun = !mMoveSun;
 }
 
 

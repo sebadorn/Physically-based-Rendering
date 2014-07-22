@@ -14,7 +14,7 @@ Ni 1.0
 d 1.0
 
 newmtl Sphere
-Ni 1.0
+Ni 1.5
 d 1.0
 rough 0.1
 p 0.01

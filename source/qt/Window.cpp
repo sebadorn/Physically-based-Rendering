@@ -174,6 +174,10 @@ void Window::keyPressEvent( QKeyEvent* e ) {
 			mGLWidget->moveCamera( e->key() );
 			break;
 
+		case Qt::Key_L:
+			mGLWidget->toggleSunMovement();
+			break;
+
 		case Qt::Key_F11:
 			this->toggleFullscreen();
 			break;

@@ -3,8 +3,8 @@
 		"Sphere": { "diff": "white", "spec": "white" },
 		"Balken": { "diff": "red", "spec": "white" },
 		"Wall": { "diff": "white", "spec": "white" },
-		"LeftWall": { "diff": "white", "spec": "white" },
-		"RightWall": { "diff": "white", "spec": "white" },
+		"LeftWall": { "diff": "orange", "spec": "white" },
+		"RightWall": { "diff": "green", "spec": "white" },
 		"Bottom": { "diff": "white", "spec": "white" }
 	},
 

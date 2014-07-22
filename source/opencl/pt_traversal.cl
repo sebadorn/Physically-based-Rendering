@@ -28,7 +28,7 @@ ray4 getNewRay(
 	ray4 newRay;
 	newRay.t = INFINITY;
 	newRay.origin = fma( ray->t, ray->dir, ray->origin );
-	newRay.origin += ray->normal * EPSILON7;
+	// newRay.origin += ray->normal * EPSILON7;
 
 	// Transparency and refraction
 	bool doTransRefr = ( mtl->d < 1.0f && mtl->d <= rand( seed ) );
@@ -486,7 +486,6 @@ void traverseBVH(
 			tBest > tNearL
 		);
 
-
 		float tNearR = 0.0f;
 		float tFarR = INFINITY;
 		childNode = bvh[(int) node.bbMax.w];
@@ -529,7 +528,8 @@ void traverseBVH(
  * @param {const global face_t*}  faces
  */
 void traverseBVH_shadowRay(
-	const global bvhNode* bvh, const global uint* bvhFaces, ray4* ray, const global face_t* faces
+	const global bvhNode* bvh, const global uint* bvhFaces,
+	ray4* ray, const global face_t* faces
 ) {
 	bool addLeftToStack, addRightToStack, rightThenLeft;
 	float tFarL, tFarR, tNearL, tNearR;
@@ -558,21 +558,17 @@ void traverseBVH_shadowRay(
 			continue;
 		}
 
-		tNearR = 0.0f;
-		tFarR = INFINITY;
-		addLeftToStack = false;
-		addRightToStack = false;
-
 		// Add child nodes to stack, if hit by ray
-		if( node.bbMin.w > 0.0f ) {
-			const bvhNode childNode = bvh[(int) node.bbMin.w];
-			addLeftToStack = intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL );
-		}
 
-		if( node.bbMax.w > 0.0f ) {
-			const bvhNode childNode = bvh[(int) node.bbMax.w];
-			addRightToStack = intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR );
-		}
+		bvhNode childNode = bvh[(int) node.bbMin.w];
+
+		bool addLeftToStack = intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL );
+
+		float tNearR = 0.0f;
+		float tFarR = INFINITY;
+		childNode = bvh[(int) node.bbMax.w];
+
+		bool addRightToStack = intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR );
 
 
 		// The node that is pushed on the stack first will be evaluated last.
