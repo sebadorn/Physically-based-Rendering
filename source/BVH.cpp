@@ -35,7 +35,13 @@ struct sortFacesCmp {
 
 
 /**
- * Build a sphere tree for each object in the scene and combine them into one big tree.
+ * Constructor.
+ */
+BVH::BVH() {}
+
+
+/**
+ * Build a BVH tree for each object in the scene and combine them into one big tree.
  * @param  {std::vector<object3D>} sceneObjects
  * @param  {std::vector<cl_float>} vertices
  * @param  {std::vector<cl_float>} normals
@@ -970,28 +976,7 @@ void BVH::splitFaces(
 		}
 	}
 
-	// One group has no children. We cannot allow that.
-	// Try again with the triangle center instead of the centroid.
-	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
-		Logger::logDebugVerbose( "[BVH] Dividing faces by triangle AABB center left one side empty. Trying again with triangle centroid." );
-
-		leftFaces->clear();
-		rightFaces->clear();
-
-		for( cl_uint i = 0; i < faces.size(); i++ ) {
-			Tri tri = faces[i];
-			glm::vec3 cen = 0.5f * ( tri.bbMin + tri.bbMax );
-
-			if( cen[axis] < midpoint ) {
-				leftFaces->push_back( tri );
-			}
-			else {
-				rightFaces->push_back( tri );
-			}
-		}
-	}
-
-	// Just do it 50:50 then.
+	// Just do it 50:50.
 	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
 		Logger::logDebugVerbose( "[BVH] Dividing faces by center left one side empty. Just doing it 50:50 now." );
 

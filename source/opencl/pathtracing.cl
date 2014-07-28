@@ -56,7 +56,8 @@ void setColors(
 	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 	const float4 imagePixel = read_imagef( imageIn, sampler, pos );
 	const float4 accumulatedColor = spectrumToRGB( spdLight );
-	const float4 color = mix(
+
+	float4 color = mix(
 		clamp( accumulatedColor, 0.0f, 1.0f ),
 		imagePixel, pixelWeight
 	);
@@ -212,7 +213,6 @@ kernel void pathTracing(
 	float focus;
 	bool addDepth;
 	uint secondaryPaths = 1; // Start at 1 instead of 0, because we are going to divide through it.
-
 
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
 		setArray( spd, 1.0f );

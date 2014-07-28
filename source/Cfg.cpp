@@ -1,6 +1,7 @@
 #include "Cfg.h"
 
 
+const char* Cfg::ACCEL_STRUCT = "accel_struct";
 const char* Cfg::BVH_MAXFACES = "bvh.max_faces";
 const char* Cfg::BVH_SAHFACESLIMIT = "bvh.sah_faces_limit";
 const char* Cfg::BVH_SPATIALSPLITS = "bvh.spatial_splits";
@@ -13,6 +14,9 @@ const char* Cfg::CAM_EYE_Z = "camera.eye.z";
 const char* Cfg::CAM_SPEED = "camera.speed";
 const char* Cfg::IMPORT_PATH = "import_path";
 const char* Cfg::INFO_KERNELTIMES = "info.kernel_times";
+const char* Cfg::KDTREE_DEPTH = "kdtree.max_depth";
+const char* Cfg::KDTREE_MINFACES = "kdtree.min_faces";
+const char* Cfg::KDTREE_OPTIMIZEROPES = "kdtree.optimize_ropes";
 const char* Cfg::LOG_LEVEL = "logging.level";
 const char* Cfg::RENDER_ANTIALIAS = "render.antialiasing";
 const char* Cfg::RENDER_BRDF = "render.brdf";

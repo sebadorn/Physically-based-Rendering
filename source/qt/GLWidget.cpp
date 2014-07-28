@@ -309,25 +309,33 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	mNormals = ml->getObjParser()->getNormals();
 	mVertices = ml->getObjParser()->getVertices();
 
-	BVH* bvh = new BVH( ml->getObjParser()->getObjects(), mVertices, mNormals );
+	const short usedAccelStruct = Cfg::get().value<short>( Cfg::ACCEL_STRUCT );
+	AccelStructure* accelStruct;
+
+	if( usedAccelStruct == ACCELSTRUCT_BVH ) {
+		accelStruct = new BVH( ml->getObjParser()->getObjects(), mVertices, mNormals );
+	}
+	else if( usedAccelStruct == ACCELSTRUCT_KDTREE ) {
+		accelStruct = new BVHKdTree( ml->getObjParser()->getObjects(), mVertices, mNormals );
+	}
 
 	// Visualization of BVH
-	vector<GLfloat> verticesBVH;
-	vector<GLuint> indicesBVH;
-	bvh->visualize( &verticesBVH, &indicesBVH );
-	mBVHNumIndices = indicesBVH.size();
+	vector<GLfloat> visVertices;
+	vector<GLuint> visIndices;
+	accelStruct->visualize( &visVertices, &visIndices );
+	mBVHNumIndices = visIndices.size();
 
 	// Shader buffers
 	this->setShaderBuffersForOverlay( mVertices, mFaces );
-	this->setShaderBuffersForBVH( verticesBVH, indicesBVH );
+	this->setShaderBuffersForBVH( visVertices, visIndices );
 	this->setShaderBuffersForTracer();
 	this->initShaders();
 
 	// OpenCL buffers
-	mPathTracer->initOpenCLBuffers( mVertices, mFaces, mNormals, ml, bvh );
+	mPathTracer->initOpenCLBuffers( mVertices, mFaces, mNormals, ml, accelStruct );
 
 	delete ml;
-	delete bvh;
+	delete accelStruct;
 
 	// Ready
 	this->startRendering();

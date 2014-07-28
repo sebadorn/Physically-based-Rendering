@@ -2,17 +2,15 @@
 #define BVH_H
 
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <CL/cl.hpp>
 #include <glm/glm.hpp>
 #include <set>
-#include <vector>
 
+#include "AccelStructure.h"
 #include "Cfg.h"
 #include "Logger.h"
 #include "MathHelp.h"
 #include "ModelLoader.h"
 
-using std::set;
 using std::vector;
 
 
@@ -33,9 +31,10 @@ struct BVHNode {
 };
 
 
-class BVH {
+class BVH : public AccelStructure {
 
 	public:
+		BVH();
 		BVH(
 			const vector<object3D> sceneObjects,
 			const vector<cl_float> vertices,
@@ -47,7 +46,7 @@ class BVH {
 		vector<BVHNode*> getLeafNodes();
 		vector<BVHNode*> getNodes();
 		BVHNode* getRoot();
-		void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
+		virtual void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	protected:
 		void assignFacesToBins(
@@ -140,7 +139,6 @@ class BVH {
 			const BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices
 		);
 
-	private:
 		vector<BVHNode*> mContainerNodes;
 		vector<BVHNode*> mLeafNodes;
 		vector<BVHNode*> mNodes;

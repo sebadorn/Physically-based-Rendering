@@ -127,7 +127,7 @@ void PathTracer::initKernelArgs() {
  */
 void PathTracer::initOpenCLBuffers(
 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
-	ModelLoader* ml, BVH* bvh
+	ModelLoader* ml, AccelStructure* accelStruc
 ) {
 	boost::posix_time::ptime timerStart;
 	boost::posix_time::ptime timerEnd;
@@ -145,6 +145,7 @@ void PathTracer::initOpenCLBuffers(
 	Logger::logInfo( "[PathTracer] Initializing OpenCL buffers ..." );
 	Logger::indent( LOG_INDENT );
 
+
 	// Buffer: Faces
 	timerStart = boost::posix_time::microsec_clock::local_time();
 	bytes = this->initOpenCLBuffers_Faces( ml, vertices, faces, normals );
@@ -154,13 +155,23 @@ void PathTracer::initOpenCLBuffers(
 	snprintf( msg, 64, "[PathTracer] Created faces buffer in %g ms -- %.2f %s.", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
-	// Buffer: Bounding Volume Hierarchy
+	// Buffer: Acceleration Structure
 	timerStart = boost::posix_time::microsec_clock::local_time();
-	bytes = this->initOpenCLBuffers_BVH( bvh );
+	const short usedAccelStruct = Cfg::get().value<short>( Cfg::ACCEL_STRUCT );
+	uint bvhDepth = 0;
+
+	if( usedAccelStruct == ACCELSTRUCT_BVH ) {
+		bytes = this->initOpenCLBuffers_BVH( (BVH*) accelStruc );
+		bvhDepth = ( (BVH*) accelStruc )->getDepth();
+	}
+	else if( usedAccelStruct == ACCELSTRUCT_KDTREE ) {
+		bytes = this->initOpenCLBuffers_KdTree( (BVHKdTree*) accelStruc );
+	}
+
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, 64, "[PathTracer] Created BVH buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, 64, "[PathTracer] Created acceleration structure buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Material(s)
@@ -194,7 +205,7 @@ void PathTracer::initOpenCLBuffers(
 	Logger::logInfo( "[PathTracer] ... Done." );
 
 
-	snprintf( msg, 64, "%u", bvh->getDepth() );
+	snprintf( msg, 64, "%u", bvhDepth );
 	mCL->setReplacement( string( "#BVH_STACKSIZE#" ), string( msg ) );
 	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
 
@@ -241,6 +252,149 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 	mBufBVHFaces = mCL->createBuffer( bvhNodeFaces, bytesFaces );
 
 	return bytesBVH + bytesFaces;
+}
+
+
+/**
+* Init OpenCL buffers for the kD-tree.
+* @param {std::vector<cl_float>} vertices Vertices of the model.
+* @param {std::vector<cl_uint>}  faces    Faces (triangles) of the model.
+* @param {std::vector<kdNode_t>} kdNodes  Nodes of the kd-tree.
+* @param {kdNode_t*}             rootNode Root node of the kd-tree.
+*/
+size_t PathTracer::initOpenCLBuffers_KdTree( BVHKdTree* bvhKdTree ) {
+	vector<kdNode_t> kdNodes;
+	vector<kdNonLeaf_cl> kdNonLeaves;
+	vector<kdLeaf_cl> kdLeaves;
+	vector<cl_uint> kdFaces;
+	vector<BVHNode*> bvhLeaves = bvhKdTree->getLeafNodes();
+	map<cl_uint, KdTree*> nodeToKdTree = bvhKdTree->getMapNodeToKdTree();
+	cl_uint2 offset = { 0, 0 };
+
+	for( cl_uint i = 0; i < bvhLeaves.size(); i++ ) {
+		kdNodes = nodeToKdTree[bvhLeaves[i]->id]->getNodes();
+		this->kdNodesToVectors( kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, offset );
+		offset.x = kdNonLeaves.size();
+		offset.y = kdLeaves.size();
+	}
+
+	size_t bytesNonLeaves = sizeof( kdNonLeaf_cl ) * kdNonLeaves.size();
+	size_t bytesLeaves = sizeof( kdLeaf_cl ) * kdLeaves.size();
+	size_t bytesFaces = sizeof( cl_uint ) * kdFaces.size();
+	mBufKdNonLeaves = mCL->createBuffer( kdNonLeaves, bytesNonLeaves );
+	mBufKdLeaves = mCL->createBuffer( kdLeaves, bytesLeaves );
+	mBufKdFaces = mCL->createBuffer( kdFaces, bytesFaces );
+
+	return bytesNonLeaves + bytesLeaves + bytesFaces;
+}
+
+
+/**
+* Store the kd-nodes data in seperate lists for each data type
+* in order to pass it to OpenCL.
+* @param {std::vector<KdNode_t>}      kdNodes     All nodes of the kd-tree.
+* @param {std::vector<cl_float>*}     kdFaces     Data: [a, b, c ..., faceIndex]
+* @param {std::vector<kdNonLeaf_cl>*} kdNonLeaves Output: Nodes of the kd-tree, that aren't leaves.
+* @param {std::vector<kdLeaf_cl>*}    kdLeaves    Output: Leaf nodes of the kd-tree.
+* @param {cl_uint2}                   offset
+*/
+void PathTracer::kdNodesToVectors(
+	vector<kdNode_t> kdNodes, vector<cl_uint>* kdFaces, vector<kdNonLeaf_cl>* kdNonLeaves,
+	vector<kdLeaf_cl>* kdLeaves, cl_uint2 offset
+) {
+	cl_uint a, b, c;
+
+	for( cl_uint i = 0; i < kdNodes.size(); i++ ) {
+		// Non-leaf node
+		if( kdNodes[i].axis >= 0 ) {
+			kdNonLeaf_cl node;
+
+			cl_float4 split = {
+				kdNodes[i].pos[0],
+				kdNodes[i].pos[1],
+				kdNodes[i].pos[2],
+				(cl_float) kdNodes[i].axis
+			};
+			node.split = split;
+
+			cl_int4 children = {
+				kdNodes[i].left->index,
+				kdNodes[i].right->index,
+				( kdNodes[i].left->axis < 0 ), // Is node a leaf node
+				( kdNodes[i].right->axis < 0 )
+			};
+
+			children.x += ( kdNodes[i].left->axis < 0 ) ? offset.y : offset.x;
+			children.y += ( kdNodes[i].right->axis < 0 ) ? offset.y : offset.x;
+
+			node.children = children;
+			kdNonLeaves->push_back( node );
+
+			if( kdNodes[i].faces.size() > 0 ) {
+				Logger::logWarning( "[PathTracer] Converting kd-node data: Non-leaf node with faces." );
+			}
+		}
+		// Leaf node
+		else {
+			kdLeaf_cl node;
+			vector<kdNode_t*> nodeRopes = kdNodes[i].ropes;
+
+			cl_int8 ropes = {
+				( nodeRopes[0] == NULL ) ? 0 : nodeRopes[0]->index + 1,
+				( nodeRopes[1] == NULL ) ? 0 : nodeRopes[1]->index + 1,
+				( nodeRopes[2] == NULL ) ? 0 : nodeRopes[2]->index + 1,
+				( nodeRopes[3] == NULL ) ? 0 : nodeRopes[3]->index + 1,
+				( nodeRopes[4] == NULL ) ? 0 : nodeRopes[4]->index + 1,
+				( nodeRopes[5] == NULL ) ? 0 : nodeRopes[5]->index + 1,
+				0, 0
+			};
+
+			// Set highest bit as flag for being a leaf node. (Use a negative value.)
+			// The -1 isn't going to be a problem, because the entryDistance < exitDistance condition
+			// in the kernel will stop the loop.
+			ropes.s0 = ( ropes.s0 != 0 && nodeRopes[0]->axis < 0 ) ? -( ropes.s0 + offset.y ) : ropes.s0 + offset.x;
+			ropes.s1 = ( ropes.s1 != 0 && nodeRopes[1]->axis < 0 ) ? -( ropes.s1 + offset.y ) : ropes.s1 + offset.x;
+			ropes.s2 = ( ropes.s2 != 0 && nodeRopes[2]->axis < 0 ) ? -( ropes.s2 + offset.y ) : ropes.s2 + offset.x;
+			ropes.s3 = ( ropes.s3 != 0 && nodeRopes[3]->axis < 0 ) ? -( ropes.s3 + offset.y ) : ropes.s3 + offset.x;
+			ropes.s4 = ( ropes.s4 != 0 && nodeRopes[4]->axis < 0 ) ? -( ropes.s4 + offset.y ) : ropes.s4 + offset.x;
+			ropes.s5 = ( ropes.s5 != 0 && nodeRopes[5]->axis < 0 ) ? -( ropes.s5 + offset.y ) : ropes.s5 + offset.x;
+
+			// Index of faces of this node in kdFaces
+			ropes.s6 = kdFaces->size();
+
+			// Number of faces in this node
+			ropes.s7 = kdNodes[i].faces.size();
+
+			node.ropes = ropes;
+
+			// Bounding box
+			cl_float4 bbMin = {
+				kdNodes[i].bbMin[0],
+				kdNodes[i].bbMin[1],
+				kdNodes[i].bbMin[2],
+				0.0f
+			};
+			cl_float4 bbMax = {
+				kdNodes[i].bbMax[0],
+				kdNodes[i].bbMax[1],
+				kdNodes[i].bbMax[2],
+				0.0f
+			};
+			node.bbMin = bbMin;
+			node.bbMax = bbMax;
+
+			kdLeaves->push_back( node );
+
+			if( kdNodes[i].faces.size() == 0 ) {
+				Logger::logWarning( "[PathTracer] Converting kd-node data: Leaf node without any faces." );
+			}
+
+			// Faces
+			for( cl_uint j = 0; j < kdNodes[i].faces.size(); j++ ) {
+				kdFaces->push_back( kdNodes[i].faces[j].w );
+			}
+		}
+	}
 }
 
 

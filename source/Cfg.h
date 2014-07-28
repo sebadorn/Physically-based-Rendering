@@ -17,6 +17,7 @@ class Cfg {
 			return mPropTree.get<T>( key );
 		}
 
+		static const char* ACCEL_STRUCT;
 		static const char* BVH_MAXFACES;
 		static const char* BVH_SAHFACESLIMIT;
 		static const char* BVH_SPATIALSPLITS;
@@ -29,6 +30,9 @@ class Cfg {
 		static const char* CAM_SPEED;
 		static const char* IMPORT_PATH;
 		static const char* INFO_KERNELTIMES;
+		static const char* KDTREE_DEPTH;
+		static const char* KDTREE_MINFACES;
+		static const char* KDTREE_OPTIMIZEROPES;
 		static const char* LOG_LEVEL;
 		static const char* RENDER_ANTIALIAS;
 		static const char* RENDER_BRDF;

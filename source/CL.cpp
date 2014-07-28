@@ -593,6 +593,7 @@ string CL::setValues( string clProgramString ) {
 	// Integer replacement
 
 	valueReplace.clear();
+	valueReplace.push_back( "ACCEL_STRUCT" );
 	valueReplace.push_back( "BRDF" );
 	valueReplace.push_back( "IMG_HEIGHT" );
 	valueReplace.push_back( "IMG_WIDTH" );
@@ -604,6 +605,7 @@ string CL::setValues( string clProgramString ) {
 	valueReplace.push_back( "SPECTRAL_COLORSYSTEM" );
 
 	vector<cl_uint> configInt;
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::ACCEL_STRUCT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_BRDF ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH ) );

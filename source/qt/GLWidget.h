@@ -15,6 +15,7 @@
 #include <QGLWidget>
 
 #include "../BVH.h"
+#include "../BVHKdTree.h"
 #include "../Camera.h"
 #include "../CL.h"
 #include "../Cfg.h"

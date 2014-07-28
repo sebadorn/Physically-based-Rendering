@@ -141,36 +141,9 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
  * @return {rayPlanes}       The planes describing the ray.
  */
 rayPlanes getPlanesFromRay( const ray4* ray ) {
-	float3 pn1 = ray->origin.xyz;
-
-	if( fabs( ray->dir.x ) > fabs( ray->dir.y ) ) {
-		if( fabs( ray->dir.x ) > fabs( ray->dir.z ) ) {
-			pn1.x = native_divide(
-				-pn1.y * ray->dir.y - pn1.z * ray->dir.z, ray->dir.x
-			);
-		}
-		else {
-			pn1.z = native_divide(
-				-pn1.x * ray->dir.x - pn1.y * ray->dir.y, ray->dir.z
-			);
-		}
-	}
-	else {
-		if( fabs( ray->dir.y ) > fabs( ray->dir.z ) ) {
-			pn1.y = native_divide(
-				-pn1.x * ray->dir.x - pn1.z * ray->dir.z, ray->dir.y
-			);
-		}
-		else {
-			pn1.z = native_divide(
-				-pn1.x * ray->dir.x - pn1.y * ray->dir.y, ray->dir.z
-			);
-		}
-	}
-
 	rayPlanes rp;
 
-	rp.n1 = fast_normalize( pn1 );
+	rp.n1 = fast_normalize( cross( ray->origin.xyz, ray->dir.xyz ) );
 	rp.n2 = fast_normalize( cross( rp.n1, ray->dir.xyz ) );
 
 	rp.o1 = dot( rp.n1, ray->origin.xyz );

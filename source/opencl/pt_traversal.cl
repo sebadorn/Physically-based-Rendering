@@ -221,7 +221,7 @@ float4 phongTessTriAndRayIntersect(
 		const float tmp = mD * mD - mA * mB;
 
 		x = ( determinant > tmp ) ? xs[i] : x;
-		determinant = ( determinant > tmp ) ? tmp : determinant;
+		determinant = fmin( determinant, tmp );
 	}
 
 	if( 0.0f >= determinant ) {
@@ -301,7 +301,7 @@ float4 phongTessTriAndRayIntersect(
 			// ray->t -- best hit found in other AABBs so far
 			// tFar   -- far limit of this AABB
 			// tNear  -- near limit of this AABB
-			if( t >= fabs( tNear ) && t < fmin( tuv->x, fmin( ray->t, tFar ) ) ) {
+			if( t >= fabs( tNear ) && t <= fmin( tuv->x, fmin( ray->t, tFar ) ) ) {
 				tuv->x = t;
 				tuv->y = u;
 				tuv->z = v;
