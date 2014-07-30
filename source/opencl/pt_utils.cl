@@ -7,6 +7,9 @@
 #define bisect( v, w ) ( fast_normalize( ( v ) + ( w ) ) )
 
 
+constant uint MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
+
+
 /**
  * Fresnel factor.
  * @param  {const float} u
@@ -28,6 +31,22 @@ inline void swap( float* a, float* b ) {
 	const float tmp = *a;
 	*a = *b;
 	*b = tmp;
+}
+
+
+/**
+ *
+ * @param  {const material*} mtl
+ * @param  {float*}          seed
+ * @return {bool}
+ */
+inline bool extendDepth( const material* mtl, float* seed ) {
+	#if BRDF == 1
+		// TODO: Use rand() in some way instead of this fixed threshold value.
+		return ( fmax( mtl->nu, mtl->nv ) >= 50.0f );
+	#else
+		return ( mtl->rough < rand( seed ) );
+	#endif
 }
 
 

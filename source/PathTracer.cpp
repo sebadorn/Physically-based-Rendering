@@ -99,9 +99,28 @@ void PathTracer::initArgsKernelPathTracing() {
 	i++; // 2: sun position
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_float ), &pxDim );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufEye );
+
+	switch( Cfg::get().value<int>( Cfg::ACCEL_STRUCT ) ) {
+
+		case ACCELSTRUCT_BVH:
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVH );
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVHFaces );
+			break;
+
+		case ACCELSTRUCT_KDTREE:
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVH );
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdNonLeaves );
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdLeaves );
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdFaces );
+			break;
+
+		default:
+			Logger::logError( "[PathTracer] Unknown acceleration structure." );
+			exit( EXIT_FAILURE );
+
+	}
+
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufFaces );
-	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVH );
-	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVHFaces );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufMaterials );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufSPDs );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufTextureIn );
@@ -166,12 +185,13 @@ void PathTracer::initOpenCLBuffers(
 	}
 	else if( usedAccelStruct == ACCELSTRUCT_KDTREE ) {
 		bytes = this->initOpenCLBuffers_KdTree( (BVHKdTree*) accelStruc );
+		bvhDepth = ( (BVHKdTree*) accelStruc )->getDepth();
 	}
 
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, 64, "[PathTracer] Created acceleration structure buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, 128, "[PathTracer] Created acceleration structure buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Material(s)
@@ -263,12 +283,38 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 * @param {kdNode_t*}             rootNode Root node of the kd-tree.
 */
 size_t PathTracer::initOpenCLBuffers_KdTree( BVHKdTree* bvhKdTree ) {
+	map<cl_uint, KdTree*> nodeToKdTree = bvhKdTree->getMapNodeToKdTree();
+	vector<BVHNode*> bvhNodes = bvhKdTree->getNodes();
+	vector<bvhKdTreeNode_cl> bvhNodesCL;
+	cl_int offsetNonLeaves = 0;
+
+	for( cl_uint i = 0; i < bvhNodes.size(); i++ ) {
+		BVHNode* node = bvhNodes[i];
+
+		cl_float4 bbMin = { node->bbMin[0], node->bbMin[1], node->bbMin[2], 0.0f };
+		cl_float4 bbMax = { node->bbMax[0], node->bbMax[1], node->bbMax[2], 0.0f };
+
+		bvhKdTreeNode_cl sn;
+		sn.bbMin = bbMin;
+		sn.bbMax = bbMax;
+		sn.bbMin.w = ( node->leftChild == NULL ) ? 0.0f : (cl_float) ( node->leftChild->id + 1 );
+		sn.bbMax.w = ( node->rightChild == NULL ) ? 0.0f : (cl_float) ( node->rightChild->id + 1 );
+
+		if( nodeToKdTree.find( node->id ) != nodeToKdTree.end() ) {
+			sn.bbMin.w = (cl_float) -( offsetNonLeaves + 1 ); // Offset for the index of the kD-tree root node
+			KdTree* kdTree = nodeToKdTree[node->id];
+			offsetNonLeaves += kdTree->getNonLeaves().size();
+		}
+
+		bvhNodesCL.push_back( sn );
+	}
+
+
 	vector<kdNode_t> kdNodes;
 	vector<kdNonLeaf_cl> kdNonLeaves;
 	vector<kdLeaf_cl> kdLeaves;
 	vector<cl_uint> kdFaces;
 	vector<BVHNode*> bvhLeaves = bvhKdTree->getLeafNodes();
-	map<cl_uint, KdTree*> nodeToKdTree = bvhKdTree->getMapNodeToKdTree();
 	cl_uint2 offset = { 0, 0 };
 
 	for( cl_uint i = 0; i < bvhLeaves.size(); i++ ) {
@@ -278,14 +324,17 @@ size_t PathTracer::initOpenCLBuffers_KdTree( BVHKdTree* bvhKdTree ) {
 		offset.y = kdLeaves.size();
 	}
 
+
+	size_t bytesBVH = sizeof( bvhKdTreeNode_cl ) * bvhNodesCL.size();
 	size_t bytesNonLeaves = sizeof( kdNonLeaf_cl ) * kdNonLeaves.size();
 	size_t bytesLeaves = sizeof( kdLeaf_cl ) * kdLeaves.size();
 	size_t bytesFaces = sizeof( cl_uint ) * kdFaces.size();
+	mBufBVH = mCL->createBuffer( bvhNodesCL, bytesBVH );
 	mBufKdNonLeaves = mCL->createBuffer( kdNonLeaves, bytesNonLeaves );
 	mBufKdLeaves = mCL->createBuffer( kdLeaves, bytesLeaves );
 	mBufKdFaces = mCL->createBuffer( kdFaces, bytesFaces );
 
-	return bytesNonLeaves + bytesLeaves + bytesFaces;
+	return bytesBVH + bytesNonLeaves + bytesLeaves + bytesFaces;
 }
 
 

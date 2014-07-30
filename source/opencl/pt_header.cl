@@ -22,17 +22,6 @@
 
 
 typedef struct {
-	// vertices
-	global float4 a; // a.w = material index
-	global float4 b;
-	global float4 c;
-	// vertex normals
-	global float4 an;
-	global float4 bn;
-	global float4 cn;
-} face_t __attribute__((aligned));
-
-typedef struct {
 	float4 origin;
 	float4 dir;
 	float4 normal;
@@ -47,12 +36,49 @@ typedef struct {
 } rayPlanes;
 
 typedef struct {
-	global float4 bbMin; // bbMin.w = leftChild
-	global float4 bbMax; // bbMax.w = rightChild
-	global int2 facesInterval; // x = start index; y = number of faces
-} bvhNode __attribute__((aligned));
+	// vertices
+	global float4 a; // a.w = material index
+	global float4 b;
+	global float4 c;
+	// vertex normals
+	global float4 an;
+	global float4 bn;
+	global float4 cn;
+} face_t __attribute__((aligned));
 
 
+// BVH
+#if ACCEL_STRUCT == 0
+
+	typedef struct {
+		global float4 bbMin; // bbMin.w = leftChild
+		global float4 bbMax; // bbMax.w = rightChild
+		global int2 facesInterval; // x = start index; y = number of faces
+	} bvhNode __attribute__((aligned));
+
+// kD-tree
+#elif ACCEL_STRUCT == 1
+
+	typedef struct {
+		global float4 bbMin; // bbMin.w = leftChild
+		global float4 bbMax; // bbMax.w = rightChild
+	} bvhNode __attribute__((aligned));
+
+	typedef struct {
+		global float4 split;  // [x, y, z, (cl_int) axis]
+		global int4 children; // [left, right, isLeftLeaf, isRightLeaf]
+	} kdNonLeaf __attribute__((aligned));
+
+	typedef struct {
+		global int8 ropes; // [left, right, bottom, top, back, front, facesIndex, numFaces]
+		global float4 bbMin;
+		global float4 bbMax;
+	} kdLeaf __attribute__((aligned));
+
+#endif
+
+
+// Schlick
 #if BRDF == 0
 
 	typedef struct {
@@ -64,6 +90,7 @@ typedef struct {
 		constant char light
 	} material __attribute__((aligned));
 
+// Shirley-Ashikhmin
 #elif BRDF == 1
 
 	typedef struct {

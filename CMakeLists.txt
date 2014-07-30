@@ -3,8 +3,8 @@ project( PBR )
 set( TRUNK ${PROJECT_SOURCE_DIR}/source )
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake_modules/" )
 
-file( GLOB SOURCES_CPP ${TRUNK}/*.cpp ${TRUNK}/qt/*.cpp )
-file( GLOB HEADERS_QT ${TRUNK}/qt/*.h )
+file( GLOB SOURCES_CPP ${TRUNK}/*.cpp ${TRUNK}/qt/*.cpp ${TRUNK}/accelstructures/*.cpp )
+file( GLOB HEADERS_QT ${TRUNK}/qt/*.h ${TRUNK}/accelstructures/*.h )
 
 
 # OpenGL

@@ -17,8 +17,8 @@
 #include "Cfg.h"
 #include "MtlParser.h"
 #include "qt/GLWidget.h"
-#include "BVH.h"
-#include "KdTree.h"
+#include "accelstructures/BVH.h"
+#include "accelstructures/KdTree.h"
 
 using std::vector;
 
@@ -32,23 +32,6 @@ struct face_cl {
 	cl_float4 an;
 	cl_float4 bn;
 	cl_float4 cn;
-};
-
-struct bvhNode_cl {
-	cl_float4 bbMin; // bbMin.w = leftChild
-	cl_float4 bbMax; // bbMax.w = rightChild
-	cl_int2 facesInterval; // x = start index; y = number of faces
-};
-
-struct kdNonLeaf_cl {
-	cl_float4 split; // [x, y, z, (cl_int) axis]
-	cl_int4 children; // [left, right, isLeftLeaf, isRightLeaf]
-};
-
-struct kdLeaf_cl {
-	cl_int8 ropes; // [left, right, bottom, top, back, front, facesIndex, numFaces]
-	cl_float4 bbMin;
-	cl_float4 bbMax;
 };
 
 struct material_schlick {
@@ -69,6 +52,34 @@ struct material_shirley_ashikhmin {
 	cl_float Ni;
 	cl_ushort2 spd;
 	cl_char light;
+};
+
+
+// BVH
+
+struct bvhNode_cl {
+	cl_float4 bbMin; // bbMin.w = leftChild
+	cl_float4 bbMax; // bbMax.w = rightChild
+	cl_int2 facesInterval; // x = start index; y = number of faces
+};
+
+
+// kD-tree
+
+struct bvhKdTreeNode_cl {
+	cl_float4 bbMin; // bbMin.w = leftChild
+	cl_float4 bbMax; // bbMax.w = rightChild
+};
+
+struct kdNonLeaf_cl {
+	cl_float4 split; // [x, y, z, (cl_int) axis]
+	cl_int4 children; // [left, right, isLeftLeaf, isRightLeaf]
+};
+
+struct kdLeaf_cl {
+	cl_int8 ropes; // [left, right, bottom, top, back, front, facesIndex, numFaces]
+	cl_float4 bbMin;
+	cl_float4 bbMax;
 };
 
 

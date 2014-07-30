@@ -338,3 +338,49 @@
 
 #undef DIR
 #undef N
+
+
+/**
+ * Calculate the new ray depending on the current one and the hit surface.
+ * @param  {const ray4}     currentRay  The current ray
+ * @param  {const material} mtl         Material of the hit surface.
+ * @param  {float*}         seed        Seed for the random number generator.
+ * @param  {bool*}          addDepth    Flag.
+ * @return {ray4}                       The new ray.
+ */
+ray4 getNewRay(
+	const ray4* ray, const material* mtl, float* seed, bool* addDepth
+) {
+	ray4 newRay;
+	newRay.t = INFINITY;
+	newRay.origin = fma( ray->t, ray->dir, ray->origin );
+	// newRay.origin += ray->normal * EPSILON7;
+
+	// Transparency and refraction
+	bool doTransRefr = ( mtl->d < 1.0f && mtl->d <= rand( seed ) );
+
+	*addDepth = ( *addDepth || doTransRefr );
+
+	if( doTransRefr ) {
+		newRay.dir = refract( ray, mtl, seed );
+	}
+	else {
+
+		#if BRDF == 0
+
+			// BRDF: Schlick.
+			// Supports specular, diffuse, glossy, and anisotropic surfaces.
+			newRay.dir = newRaySchlick( ray, mtl, seed );
+
+		#elif BRDF == 1
+
+			// BRDF: Shirley-Ashikhmin.
+			// Supports specular, diffuse, glossy, and anisotropic surfaces.
+			newRay.dir = newRayShirleyAshikhmin( ray, mtl, seed );
+
+		#endif
+
+	}
+
+	return newRay;
+}

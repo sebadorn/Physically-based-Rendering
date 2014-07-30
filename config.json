@@ -33,8 +33,8 @@
 
 	// Acceleration structure
 	// 0: BVH with AABBs
-	// 1: kD-tree (TODO)
-	"accel_struct": 0,
+	// 1: kD-tree
+	"accel_struct": 1,
 
 	// Bounding Volume Hierarchy
 	"bvh": {
@@ -56,7 +56,7 @@
 		// Max depth of the tree.
 		// 0: no limit
 		"max_depth": 0,
-		"min_faces": 2,
+		"min_faces": 1,
 		// Optimize the ropes to speed up traversal
 		"optimize_ropes": true
 	},
@@ -110,7 +110,7 @@
 		// Phong Tessellation
 		// 0.0: disabled
 		// 1.0: maximum
-		"phong_tessellation": 0.6,
+		"phong_tessellation": 0.0,
 		// Samples of paths per frame
 		"samples": 1
 	},

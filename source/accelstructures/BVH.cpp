@@ -236,7 +236,6 @@ vector<BVHNode*> BVH::buildTreesFromObjects(
 
 	for( cl_uint i = 0; i < sceneObjects->size(); i++ ) {
 		vector<cl_uint4> facesThisObj;
-		vector<Tri> triFaces;
 		ModelLoader::getFacesOfObject( (*sceneObjects)[i], &facesThisObj, offset );
 		offset += facesThisObj.size();
 
@@ -251,12 +250,9 @@ vector<BVHNode*> BVH::buildTreesFromObjects(
 		ModelLoader::getFaceNormalsOfObject( (*sceneObjects)[i], &faceNormalsThisObj, offsetN );
 		offsetN += faceNormalsThisObj.size();
 
-		for( cl_uint j = 0; j < facesThisObj.size(); j++ ) {
-			Tri tri;
-			tri.face = facesThisObj[j];
-			this->triCalcAABB( &tri, faceNormalsThisObj[j], &vertices4, normals );
-			triFaces.push_back( tri );
-		}
+		vector<Tri> triFaces = this->facesToTriStructs(
+			&facesThisObj, &faceNormalsThisObj, &vertices4, normals
+		);
 
 
 		BVHNode* rootNode = this->makeNode( triFaces, true );
@@ -385,6 +381,23 @@ void BVH::createBinCombinations(
 		(*rightBin)[i][1] = glm::vec3( node->bbMax );
 		(*rightBin)[i][0][axis] = (*splitPos)[i];
 	}
+}
+
+
+vector<Tri> BVH::facesToTriStructs(
+	const vector<cl_uint4>* facesThisObj, const vector<cl_uint4>* faceNormalsThisObj,
+	const vector<cl_float4>* vertices, const vector<float>* normals
+) {
+	vector<Tri> triFaces;
+
+	for( uint j = 0; j < facesThisObj->size(); j++ ) {
+		Tri tri;
+		tri.face = (*facesThisObj)[j];
+		this->triCalcAABB( &tri, (*faceNormalsThisObj)[j], &vertices, normals );
+		triFaces.push_back( tri );
+	}
+
+	return triFaces;
 }
 
 

@@ -2,23 +2,16 @@
 #define BVH_H
 
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <glm/glm.hpp>
 #include <set>
 
 #include "AccelStructure.h"
-#include "Cfg.h"
-#include "Logger.h"
-#include "MathHelp.h"
-#include "ModelLoader.h"
+#include "../Cfg.h"
+#include "../Logger.h"
+#include "../MathHelp.h"
+#include "../ModelLoader.h"
 
 using std::vector;
 
-
-struct Tri {
-	cl_uint4 face;
-	glm::vec3 bbMin;
-	glm::vec3 bbMax;
-};
 
 struct BVHNode {
 	BVHNode* leftChild;
@@ -80,6 +73,10 @@ class BVH : public AccelStructure {
 		void createBinCombinations(
 			const BVHNode* node, const cl_uint axis, const vector<cl_float>* splitPos,
 			vector< vector<glm::vec3> >* leftBin, vector< vector<glm::vec3> >* rightBin
+		);
+		vector<Tri> facesToTriStructs(
+			const vector<cl_uint4>* facesThisObj, const vector<cl_uint4>* faceNormalsThisObj,
+			const vector<cl_float4>* vertices, const vector<float>* normals
 		);
 		cl_float getMean( const vector<Tri> faces, const cl_uint axis );
 		cl_float getMeanOfNodes( const vector<BVHNode*> nodes, const cl_uint axis );

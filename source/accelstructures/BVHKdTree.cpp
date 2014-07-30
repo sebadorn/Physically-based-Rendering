@@ -19,6 +19,7 @@ BVHKdTree::BVHKdTree(
 	glm::vec3 bbMin, bbMax;
 	MathHelp::getAABB( vertices4, &bbMin, &bbMax );
 	mCounterID = 0;
+	mDepthReached = 1;
 
 	mRoot = new BVHNode;
 	mRoot->id = mCounterID++;
@@ -27,10 +28,15 @@ BVHKdTree::BVHKdTree(
 	mRoot->bbMin = glm::vec3( bbMin );
 	mRoot->bbMax = glm::vec3( bbMax );
 
-	mLeafNodes = this->createKdTrees( &sceneObjects, &vertices );
+	mLeafNodes = this->createKdTrees( &sceneObjects, &vertices, &normals );
 	mNodes.assign( mLeafNodes.begin(), mLeafNodes.end() );
 
-	this->groupTreesToNodes( mNodes, mRoot, 0 );
+	this->groupTreesToNodes( mNodes, mRoot, mDepthReached );
+
+	for( cl_uint i = 0; i < mContainerNodes.size(); i++ ) {
+		mContainerNodes[i]->id = mCounterID++;
+	}
+
 	mNodes.insert( mNodes.begin(), mContainerNodes.begin(), mContainerNodes.end() );
 	mNodes.insert( mNodes.begin(), mRoot );
 
@@ -38,8 +44,8 @@ BVHKdTree::BVHKdTree(
 	cl_float timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	char msg[128];
 	snprintf(
-		msg, 128, "[BVH] Generated in %g ms. Contains %lu nodes and %lu kD-tree(s).",
-		timeDiff, mNodes.size(), mLeafNodes.size()
+		msg, 128, "[BVH] Generated in %g ms. Contains %lu nodes and %lu kD-tree(s). Max depth at %u.",
+		timeDiff, mNodes.size(), mLeafNodes.size(), mDepthReached
 	);
 	Logger::logInfo( msg );
 }
@@ -66,46 +72,38 @@ BVHKdTree::~BVHKdTree() {
 */
 vector<BVHNode*> BVHKdTree::createKdTrees(
 	const vector<object3D>* sceneObjects,
-	const vector<cl_float>* vertices
+	const vector<cl_float>* vertices,
+	const vector<cl_float>* normals
 ) {
 	vector<BVHNode*> BVHnodes;
 	glm::vec3 bbMin, bbMax;
-	vector<cl_float> ov;
-	vector<cl_uint4> of;
+
 	char msg[128];
-	uint globalFaceIndex = 0;
+	uint offset = 0;
+	uint offsetN = 0;
 
-
+	vector<cl_float4> vertices4 = this->packFloatAsFloat4( vertices );
 
 	for( cl_uint i = 0; i < sceneObjects->size(); i++ ) {
 		object3D o = (*sceneObjects)[i];
-		ov.clear();
-		of.clear();
+		vector<cl_float> ov;
+
+		vector<cl_uint4> facesThisObj;
+		vector<cl_uint4> faceNormalsThisObj;
+		ModelLoader::getFacesOfObject( o, &facesThisObj, offset );
+		ModelLoader::getFaceNormalsOfObject( o, &faceNormalsThisObj, offsetN );
+		offset += facesThisObj.size();
+		offsetN += faceNormalsThisObj.size();
+
+		vector<Tri> triFaces = this->facesToTriStructs(
+			&facesThisObj, &faceNormalsThisObj, &vertices4, normals
+		);
+
 
 		snprintf( msg, 128, "[BVH] Building kD-tree %u of %lu: \"%s\"", i + 1, sceneObjects->size(), o.oName.c_str() );
 		Logger::indent( 0 );
 		Logger::logInfo( msg );
 		Logger::indent( LOG_INDENT );
-
-		for( cl_uint j = 0; j < o.facesV.size(); j += 3 ) {
-			ov.push_back( (*vertices)[o.facesV[j] * 3] );
-			ov.push_back( (*vertices)[o.facesV[j] * 3 + 1] );
-			ov.push_back( (*vertices)[o.facesV[j] * 3 + 2] );
-
-			ov.push_back( (*vertices)[o.facesV[j + 1] * 3] );
-			ov.push_back( (*vertices)[o.facesV[j + 1] * 3 + 1] );
-			ov.push_back( (*vertices)[o.facesV[j + 1] * 3 + 2] );
-
-			ov.push_back( (*vertices)[o.facesV[j + 2] * 3] );
-			ov.push_back( (*vertices)[o.facesV[j + 2] * 3 + 1] );
-			ov.push_back( (*vertices)[o.facesV[j + 2] * 3 + 2] );
-
-			cl_uint4 face = { j, j + 1, j + 2, globalFaceIndex++ };
-			of.push_back( face );
-		}
-
-		vector<cl_float4> ov4 = KdTree::verticesToFloat4( ov );
-		MathHelp::getAABB( ov4, &bbMin, &bbMax );
 
 		BVHNode* node = new BVHNode;
 		node->id = mCounterID++;
@@ -115,7 +113,7 @@ vector<BVHNode*> BVHKdTree::createKdTrees(
 		node->bbMax = glm::vec3( bbMax );
 		BVHnodes.push_back( node );
 
-		mNodeToKdTree[node->id] = new KdTree( ov, of, bbMin, bbMax );
+		mNodeToKdTree[node->id] = new KdTree( triFaces );
 	}
 
 	Logger::indent( 0 );
@@ -126,4 +124,14 @@ vector<BVHNode*> BVHKdTree::createKdTrees(
 
 map<cl_uint, KdTree*> BVHKdTree::getMapNodeToKdTree() {
 	return mNodeToKdTree;
+}
+
+
+void BVHKdTree::visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) {
+	map<cl_uint, KdTree*>::iterator it = mNodeToKdTree.begin();
+
+	while( it != mNodeToKdTree.end() ) {
+		it->second->visualize( vertices, indices );
+		it++;
+	}
 }

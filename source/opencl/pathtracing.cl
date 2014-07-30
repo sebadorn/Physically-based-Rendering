@@ -2,7 +2,14 @@
 #FILE:pt_utils.cl:FILE#
 #FILE:pt_spectral_precalc.cl:FILE#
 #FILE:pt_brdf.cl:FILE#
-#FILE:pt_traversal.cl:FILE#
+#FILE:pt_phongtess.cl:FILE#
+#FILE:pt_intersect.cl:FILE#
+
+#if ACCEL_STRUCT == 0
+	#FILE:pt_bvh.cl:FILE#
+#elif ACCEL_STRUCT == 1
+	#FILE:pt_kdtree.cl:FILE#
+#endif
 
 
 
@@ -68,16 +75,17 @@ void setColors(
 
 
 /**
- *
- * @param ray
- * @param newRay
- * @param mtl
- * @param lightRay
- * @param lightMTL
- * @param specPowerDists
- * @param spd
- * @param spdTotal
- * @param maxValSpd
+ * Update the spectral power distribution according to the hit material and BRDF.
+ * @param {const ray4*}           ray
+ * @param {const ray4*}           newRay
+ * @param {const material*}       mtl
+ * @param {const ray4*}           lightRay
+ * @param {const int}             lightRaySource
+ * @param {uint*}                 secondaryPaths
+ * @param {constant const float*} specPowerDists
+ * @param {float*}                spd
+ * @param {float*}                spdTotal
+ * @param {float*}                maxValSpd
  */
 void updateSPD(
 	const ray4* ray, const ray4* newRay, const material* mtl,
@@ -201,11 +209,38 @@ void updateSPD(
  * @param {write_only image2d_t}   imageOut
  */
 kernel void pathTracing(
-	float seed, const float pixelWeight, const float4 sunPos,
-	const float pxDim, global const float* eyeIn,
-	global const face_t* faces, global const bvhNode* bvh, global const uint* bvhFaces,
-	global const material* materials, constant const float* specPowerDists,
-	read_only image2d_t imageIn, write_only image2d_t imageOut
+	// changing values
+	float seed,
+	const float pixelWeight,
+	const float4 sunPos,
+
+	// view
+	const float pxDim,
+	global const float* eyeIn,
+
+	// acceleration structure
+	#if ACCEL_STRUCT == 0
+
+		global const bvhNode* bvh,
+		global const uint* bvhFaces,
+
+	#elif ACCEL_STRUCT == 1
+
+		global const bvhNode* bvh,
+		global const kdNonLeaf* kdNonLeaves,
+		global const kdLeaf* kdLeaves,
+		global const uint* kdFaces,
+
+	#endif
+
+	// geometry and color related
+	global const face_t* faces,
+	global const material* materials,
+	constant const float* specPowerDists,
+
+	// old and new frame
+	read_only image2d_t imageIn,
+	write_only image2d_t imageOut
 ) {
 	float spd[SPEC], spdTotal[SPEC];
 	setArray( spdTotal, 0.0f );
@@ -222,7 +257,7 @@ kernel void pathTracing(
 		int depthAdded = 0;
 
 		for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
-			traverseBVH( bvh, bvhFaces, &ray, faces );
+			CALL_TRAVERSE
 
 			if( ray.t == INFINITY ) {
 				light = SKY_LIGHT * SPEC;
@@ -261,7 +296,7 @@ kernel void pathTracing(
 					const float rnd2 = rand( &seed );
 					lightRay.dir = fast_normalize( sunPos - lightRay.origin );
 
-					traverseBVH_shadowRay( bvh, bvhFaces, &lightRay, faces );
+					CALL_TRAVERSE_SHADOW
 
 					if( lightRay.t == INFINITY ) {
 						lightRaySource = SKY_LIGHT * SPEC;

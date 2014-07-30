@@ -18,11 +18,13 @@ class BVHKdTree : public BVH {
 		);
 		~BVHKdTree();
 		map<cl_uint, KdTree*> getMapNodeToKdTree();
+		virtual void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
 	protected:
 		vector<BVHNode*> createKdTrees(
 			const vector<object3D>* objects,
-			const vector<cl_float>* vertices
+			const vector<cl_float>* vertices,
+			const vector<cl_float>* normals
 		);
 
 	private:
