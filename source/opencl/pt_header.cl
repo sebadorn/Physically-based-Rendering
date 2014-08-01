@@ -65,8 +65,9 @@ typedef struct {
 	} bvhNode __attribute__((aligned));
 
 	typedef struct {
-		global float4 split;  // [x, y, z, (cl_int) axis]
+		global float split;
 		global int4 children; // [left, right, isLeftLeaf, isRightLeaf]
+		global short axis;
 	} kdNonLeaf __attribute__((aligned));
 
 	typedef struct {

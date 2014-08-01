@@ -393,7 +393,7 @@ vector<Tri> BVH::facesToTriStructs(
 	for( uint j = 0; j < facesThisObj->size(); j++ ) {
 		Tri tri;
 		tri.face = (*facesThisObj)[j];
-		this->triCalcAABB( &tri, (*faceNormalsThisObj)[j], &vertices, normals );
+		this->triCalcAABB( &tri, (*faceNormalsThisObj)[j], vertices, normals );
 		triFaces.push_back( tri );
 	}
 

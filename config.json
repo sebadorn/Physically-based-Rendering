@@ -56,7 +56,7 @@
 		// Max depth of the tree.
 		// 0: no limit
 		"max_depth": 0,
-		"min_faces": 1,
+		"min_faces": 2,
 		// Optimize the ropes to speed up traversal
 		"optimize_ropes": true
 	},

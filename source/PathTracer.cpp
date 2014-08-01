@@ -178,20 +178,23 @@ void PathTracer::initOpenCLBuffers(
 	timerStart = boost::posix_time::microsec_clock::local_time();
 	const short usedAccelStruct = Cfg::get().value<short>( Cfg::ACCEL_STRUCT );
 	uint bvhDepth = 0;
+	string accelName;
 
 	if( usedAccelStruct == ACCELSTRUCT_BVH ) {
 		bytes = this->initOpenCLBuffers_BVH( (BVH*) accelStruc );
 		bvhDepth = ( (BVH*) accelStruc )->getDepth();
+		accelName = "BVH";
 	}
 	else if( usedAccelStruct == ACCELSTRUCT_KDTREE ) {
 		bytes = this->initOpenCLBuffers_KdTree( (BVHKdTree*) accelStruc );
 		bvhDepth = ( (BVHKdTree*) accelStruc )->getDepth();
+		accelName = "BVH/kD-tree";
 	}
 
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, 128, "[PathTracer] Created acceleration structure buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, 128, "[PathTracer] Created %s buffer in %g ms -- %.2f %s", accelName.c_str(), timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Material(s)
@@ -317,7 +320,7 @@ size_t PathTracer::initOpenCLBuffers_KdTree( BVHKdTree* bvhKdTree ) {
 	vector<BVHNode*> bvhLeaves = bvhKdTree->getLeafNodes();
 	cl_uint2 offset = { 0, 0 };
 
-	for( cl_uint i = 0; i < bvhLeaves.size(); i++ ) {
+	for( uint i = 0; i < bvhLeaves.size(); i++ ) {
 		kdNodes = nodeToKdTree[bvhLeaves[i]->id]->getNodes();
 		this->kdNodesToVectors( kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, offset );
 		offset.x = kdNonLeaves.size();
@@ -351,42 +354,35 @@ void PathTracer::kdNodesToVectors(
 	vector<kdNode_t> kdNodes, vector<cl_uint>* kdFaces, vector<kdNonLeaf_cl>* kdNonLeaves,
 	vector<kdLeaf_cl>* kdLeaves, cl_uint2 offset
 ) {
-	cl_uint a, b, c;
+	for( uint i = 0; i < kdNodes.size(); i++ ) {
+		kdNode_t kdNode = kdNodes[i];
 
-	for( cl_uint i = 0; i < kdNodes.size(); i++ ) {
 		// Non-leaf node
-		if( kdNodes[i].axis >= 0 ) {
-			kdNonLeaf_cl node;
-
-			cl_float4 split = {
-				kdNodes[i].pos[0],
-				kdNodes[i].pos[1],
-				kdNodes[i].pos[2],
-				(cl_float) kdNodes[i].axis
-			};
-			node.split = split;
-
+		if( kdNode.axis >= 0 ) {
 			cl_int4 children = {
-				kdNodes[i].left->index,
-				kdNodes[i].right->index,
-				( kdNodes[i].left->axis < 0 ), // Is node a leaf node
-				( kdNodes[i].right->axis < 0 )
+				kdNode.left->index,
+				kdNode.right->index,
+				( kdNode.left->axis < 0 ), // Is node a leaf node
+				( kdNode.right->axis < 0 )
 			};
 
-			children.x += ( kdNodes[i].left->axis < 0 ) ? offset.y : offset.x;
-			children.y += ( kdNodes[i].right->axis < 0 ) ? offset.y : offset.x;
+			children.x += ( kdNode.left->axis < 0 ) ? offset.y : offset.x;
+			children.y += ( kdNode.right->axis < 0 ) ? offset.y : offset.x;
 
+			kdNonLeaf_cl node;
+			node.axis = kdNode.axis;
+			node.split = kdNode.split;
 			node.children = children;
 			kdNonLeaves->push_back( node );
 
-			if( kdNodes[i].faces.size() > 0 ) {
+			if( kdNode.faces.size() > 0 ) {
 				Logger::logWarning( "[PathTracer] Converting kd-node data: Non-leaf node with faces." );
 			}
 		}
 		// Leaf node
 		else {
-			kdLeaf_cl node;
-			vector<kdNode_t*> nodeRopes = kdNodes[i].ropes;
+			kdLeaf_cl leaf;
+			vector<kdNode_t*> nodeRopes = kdNode.ropes;
 
 			cl_int8 ropes = {
 				( nodeRopes[0] == NULL ) ? 0 : nodeRopes[0]->index + 1,
@@ -412,35 +408,35 @@ void PathTracer::kdNodesToVectors(
 			ropes.s6 = kdFaces->size();
 
 			// Number of faces in this node
-			ropes.s7 = kdNodes[i].faces.size();
+			ropes.s7 = kdNode.faces.size();
 
-			node.ropes = ropes;
+			leaf.ropes = ropes;
 
 			// Bounding box
 			cl_float4 bbMin = {
-				kdNodes[i].bbMin[0],
-				kdNodes[i].bbMin[1],
-				kdNodes[i].bbMin[2],
+				kdNode.bbMin[0],
+				kdNode.bbMin[1],
+				kdNode.bbMin[2],
 				0.0f
 			};
 			cl_float4 bbMax = {
-				kdNodes[i].bbMax[0],
-				kdNodes[i].bbMax[1],
-				kdNodes[i].bbMax[2],
+				kdNode.bbMax[0],
+				kdNode.bbMax[1],
+				kdNode.bbMax[2],
 				0.0f
 			};
-			node.bbMin = bbMin;
-			node.bbMax = bbMax;
+			leaf.bbMin = bbMin;
+			leaf.bbMax = bbMax;
 
-			kdLeaves->push_back( node );
+			kdLeaves->push_back( leaf );
 
-			if( kdNodes[i].faces.size() == 0 ) {
+			if( kdNode.faces.size() == 0 ) {
 				Logger::logWarning( "[PathTracer] Converting kd-node data: Leaf node without any faces." );
 			}
 
 			// Faces
-			for( cl_uint j = 0; j < kdNodes[i].faces.size(); j++ ) {
-				kdFaces->push_back( kdNodes[i].faces[j].w );
+			for( uint j = 0; j < kdNode.faces.size(); j++ ) {
+				kdFaces->push_back( kdNode.faces[j].face.w );
 			}
 		}
 	}

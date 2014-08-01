@@ -72,8 +72,9 @@ struct bvhKdTreeNode_cl {
 };
 
 struct kdNonLeaf_cl {
-	cl_float4 split; // [x, y, z, (cl_int) axis]
+	cl_float split;
 	cl_int4 children; // [left, right, isLeftLeaf, isRightLeaf]
+	cl_short axis;
 };
 
 struct kdLeaf_cl {

@@ -11,16 +11,16 @@
 void checkFaces(
 	ray4* ray, const int faceIndex, const int numFaces,
 	const global uint* kdFaces, const global face_t* faces,
-	const float entryDistance, float* exitDistance
+	const float tNear, float tFar
 ) {
 	for( uint i = faceIndex; i < faceIndex + numFaces; i++ ) {
 		float3 tuv;
 		uint j = kdFaces[i];
 
-		float4 normal = checkFaceIntersection( ray, faces[j], &tuv, entryDistance, *exitDistance );
+		float4 normal = checkFaceIntersection( ray, faces[j], &tuv, tNear, tFar );
 
 		if( tuv.x < INFINITY ) {
-			*exitDistance = tuv.x;
+			tFar = tuv.x;
 
 			if( ray->t > tuv.x ) {
 				ray->normal = normal;
@@ -39,28 +39,21 @@ void checkFaces(
  * @param  {const float3}            hitNear
  * @return {int}
  */
-int goToLeafNode( uint nodeIndex, const global kdNonLeaf* kdNonLeaves, const float3 hitNear ) {
-	float4 split;
-	int4 children;
-
-	int axis = kdNonLeaves[nodeIndex].split.w;
-	float* hitPos = (float*) &hitNear;
-	float* splitPos;
+int goToLeafNode( uint nodeIndex, const global kdNonLeaf* kdNonLeaves, float3 hitNear ) {
+	const float* hitPos = (float*) &hitNear;
 	bool isOnLeft;
 
 	while( true ) {
-		children = kdNonLeaves[nodeIndex].children;
-		split = kdNonLeaves[nodeIndex].split;
-		splitPos = (float*) &split;
+		const short axis = kdNonLeaves[nodeIndex].axis;
+		const int4 children = kdNonLeaves[nodeIndex].children;
+		const float split = kdNonLeaves[nodeIndex].split;
 
-		isOnLeft = ( hitPos[axis] < splitPos[axis] );
+		isOnLeft = ( hitPos[axis] <= split );
 		nodeIndex = isOnLeft ? children.x : children.y;
 
 		if( ( isOnLeft && children.z ) || ( !isOnLeft && children.w ) ) {
 			return nodeIndex;
 		}
-
-		axis = MOD_3[axis + 1];
 	}
 
 	return -1;
@@ -80,13 +73,13 @@ int goToLeafNode( uint nodeIndex, const global kdNonLeaf* kdNonLeaves, const flo
 void updateEntryDistanceAndExitRope(
 	const ray4* ray, const float4 bbMin, const float4 bbMax, float* tFar, int* exitRope
 ) {
-	const float4 invDir = native_recip( ray->dir );
+	const float3 invDir = native_recip( ray->dir.xyz );
 	const bool signX = signbit( invDir.x );
 	const bool signY = signbit( invDir.y );
 	const bool signZ = signbit( invDir.z );
 
-	float4 t1 = native_divide( bbMin - ray->origin, ray->dir );
-	float4 tMax = native_divide( bbMax - ray->origin, ray->dir );
+	float3 t1 = ( bbMin.xyz - ray->origin.xyz ) * invDir;
+	float3 tMax = ( bbMax.xyz - ray->origin.xyz ) * invDir;
 	tMax = fmax( t1, tMax );
 
 	*tFar = fmin( fmin( tMax.x, tMax.y ), tMax.z );
@@ -102,25 +95,23 @@ void updateEntryDistanceAndExitRope(
 void traverseKdTree(
 	ray4* ray, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global uint* kdFaces, const global face_t* faces,
-	float tNear, float tFar, uint kdRoot
+	float tNear, float tFar, const uint kdRoot
 ) {
-	kdLeaf currentNode;
-	int8 ropes;
 	int exitRope;
 	int nodeIndex = goToLeafNode( kdRoot, kdNonLeaves, ray->origin.xyz + tNear * ray->dir.xyz );
 
 	while( nodeIndex >= 0 && tNear < tFar ) {
-		currentNode = kdLeaves[nodeIndex];
-		ropes = currentNode.ropes;
+		kdLeaf currentNode = kdLeaves[nodeIndex];
+		int8 ropes = currentNode.ropes;
 
-		checkFaces( ray, ropes.s6, ropes.s7, kdFaces, faces, tNear, &tFar );
+		checkFaces( ray, ropes.s6, ropes.s7, kdFaces, faces, tNear, tFar );
 
 		// Exit leaf node
 		updateEntryDistanceAndExitRope(
 			ray, currentNode.bbMin, currentNode.bbMax, &tNear, &exitRope
 		);
 
-		if( tNear >= tFar ) {
+		if( tNear > tFar ) {
 			break;
 		}
 
@@ -147,37 +138,35 @@ void traverse(
 	const global kdLeaf* kdLeaves, const global uint* kdFaces,
 	ray4* ray, const global face_t* faces
 ) {
-	int leftChildIndex, rightChildIndex;
 	uint bvhStack[BVH_STACKSIZE];
 	int stackIndex = 0;
 	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
 
 	const float3 invDir = native_recip( ray->dir.xyz );
-	float tBest = INFINITY;
 
 	while( stackIndex >= 0 ) {
 		bvhNode node = bvh[bvhStack[stackIndex--]];
 		float tNearL = 0.0f;
 		float tFarL = INFINITY;
 
-		leftChildIndex = (int) node.bbMin.w;
+		int leftChildIndex = (int) node.bbMin.w;
 
 
 		// Is a leaf node and contains a kD-tree
 		if( leftChildIndex < 0 ) {
 			if(
 				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
-				tBest > tNearL
+				ray->t > tNearL
 			) {
 				traverseKdTree(
-					ray, kdNonLeaves, kdLeaves, kdFaces, faces, tNearL, tFarL, -( leftChildIndex + 1 )
+					ray, kdNonLeaves, kdLeaves, kdFaces, faces,
+					tNearL, tFarL, -( leftChildIndex + 1 )
 				);
-				tBest = fmin( ray->t, tBest );
-				ray->t = tBest;
 			}
 
 			continue;
 		}
+
 
 		// Add child nodes to stack, if hit by ray
 
@@ -185,7 +174,7 @@ void traverse(
 
 		bool addLeftToStack = (
 			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL ) &&
-			tBest > tNearL
+			ray->t > tNearL
 		);
 
 		float tNearR = 0.0f;
@@ -194,7 +183,7 @@ void traverse(
 
 		bool addRightToStack = (
 			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR ) &&
-			tBest > tNearR
+			ray->t > tNearR
 		);
 
 

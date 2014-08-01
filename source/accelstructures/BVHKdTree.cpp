@@ -76,11 +76,10 @@ vector<BVHNode*> BVHKdTree::createKdTrees(
 	const vector<cl_float>* normals
 ) {
 	vector<BVHNode*> BVHnodes;
-	glm::vec3 bbMin, bbMax;
 
 	char msg[128];
-	uint offset = 0;
-	uint offsetN = 0;
+	uint offsetFaces = 0;
+	uint offsetNormals = 0;
 
 	vector<cl_float4> vertices4 = this->packFloatAsFloat4( vertices );
 
@@ -90,10 +89,10 @@ vector<BVHNode*> BVHKdTree::createKdTrees(
 
 		vector<cl_uint4> facesThisObj;
 		vector<cl_uint4> faceNormalsThisObj;
-		ModelLoader::getFacesOfObject( o, &facesThisObj, offset );
-		ModelLoader::getFaceNormalsOfObject( o, &faceNormalsThisObj, offsetN );
-		offset += facesThisObj.size();
-		offsetN += faceNormalsThisObj.size();
+		ModelLoader::getFacesOfObject( o, &facesThisObj, offsetFaces );
+		ModelLoader::getFaceNormalsOfObject( o, &faceNormalsThisObj, offsetNormals );
+		offsetFaces += facesThisObj.size();
+		offsetNormals += faceNormalsThisObj.size();
 
 		vector<Tri> triFaces = this->facesToTriStructs(
 			&facesThisObj, &faceNormalsThisObj, &vertices4, normals
@@ -105,15 +104,17 @@ vector<BVHNode*> BVHKdTree::createKdTrees(
 		Logger::logInfo( msg );
 		Logger::indent( LOG_INDENT );
 
+		KdTree* kdTree = new KdTree( triFaces );
+
 		BVHNode* node = new BVHNode;
 		node->id = mCounterID++;
 		node->leftChild = NULL;
 		node->rightChild = NULL;
-		node->bbMin = glm::vec3( bbMin );
-		node->bbMax = glm::vec3( bbMax );
+		node->bbMin = glm::vec3( kdTree->getBoundingBoxMin() );
+		node->bbMax = glm::vec3( kdTree->getBoundingBoxMax() );
 		BVHnodes.push_back( node );
 
-		mNodeToKdTree[node->id] = new KdTree( triFaces );
+		mNodeToKdTree[node->id] = kdTree;
 	}
 
 	Logger::indent( 0 );

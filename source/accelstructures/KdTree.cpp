@@ -5,34 +5,37 @@ using std::vector;
 
 
 /**
- * Comparison object for sorting algorithm.
+ * Struct to use as comparator in std::sort() for the faces (cl_uint4).
  */
-struct kdSortFloat4 {
-	cl_int axis;
+struct sortFacesCmp {
 
-	kdSortFloat4( cl_int axis ) : axis( axis ) {};
+	cl_uint axis;
 
-	bool operator () ( cl_float4 a, cl_float4 b ) const {
-		return ( ( (cl_float*) &a )[axis] < ( (cl_float*) &b )[axis] );
-	}
-};
+	/**
+	 * Constructor.
+	 * @param {const cl_uint} axis Axis to compare the faces on.
+	 */
+	sortFacesCmp( const cl_uint axis ) {
+		this->axis = axis;
+	};
 
+	/**
+	 * Compare two faces by their centroids.
+	 * @param  {const Tri} a Indizes for vertices that describe a face.
+	 * @param  {const Tri} b Indizes for vertices that describe a face.
+	 * @return {bool}        a < b
+	 */
+	bool operator()( const Tri a, const Tri b ) {
+		float aMin = a.bbMin[this->axis];
+		float bMin = b.bbMin[this->axis];
 
-/**
- * Comparison object for searching algorithm.
- */
-struct kdSearchFloat4 {
-	cl_float4 v;
+		if( aMin == bMin ) {
+			return a.bbMax[this->axis] < b.bbMin[this->axis];
+		}
 
-	kdSearchFloat4( cl_float4 v ) : v( v ) {};
+		return aMin < bMin;
+	};
 
-	bool operator () ( cl_float4 cmp ) const {
-		return (
-			v.x == cmp.x &&
-			v.y == cmp.y &&
-			v.z == cmp.z
-		);
-	}
 };
 
 
@@ -42,7 +45,7 @@ struct kdSearchFloat4 {
  */
 KdTree::KdTree( vector<Tri> faces ) {
 	if( faces.size() <= 0 ) {
-		Logger::logError( "[KdTree] Didn't receive any faces. No kd-tree could be constructed." );
+		Logger::logError( "[KdTree] Didn't receive any faces. No kD-tree could be constructed." );
 		return;
 	}
 
@@ -60,18 +63,13 @@ KdTree::KdTree( vector<Tri> faces ) {
 	mBBmin = bbMin;
 	mBBmax = bbMax;
 
-
-	// vector<cl_float4> vertsForNodes = this->packFloatAsFloat4( &vertices );
-
-	vector< vector<cl_float> > splitsByAxis;
-	splitsByAxis.push_back( vector<cl_float>() );
-	splitsByAxis.push_back( vector<cl_float>() );
-	splitsByAxis.push_back( vector<cl_float>() );
-
-	mMinFaces = Cfg::get().value<cl_uint>( Cfg::KDTREE_MINFACES );
+	mMinFaces = fmax( Cfg::get().value<cl_uint>( Cfg::KDTREE_MINFACES ), 1 );
 	this->setDepthLimit( faces.size() );
 
-	mRoot = this->makeTree( faces, bbMin, bbMax, splitsByAxis, 0, 1 );
+	mRoot = this->makeTree( faces, bbMin, bbMax, 1 );
+	if( mRoot->left == NULL && mRoot->right == NULL ) {
+		Logger::logWarning( "[KdTree] Root node is a leaf. This isn't supported." );
+	}
 	this->createRopes( mRoot, vector<kdNode_t*>( 6, NULL ) );
 	this->printLeafFacesStat();
 
@@ -105,10 +103,7 @@ KdTree::~KdTree() {
  * @param  {std::vector<cl_uint4>} faces    List of all faces assigned to this node.
  * @return {kdNode_t*}                      The leaf node with the given bounding box.
  */
-kdNode_t* KdTree::createLeafNode(
-	glm::vec3 bbMin, glm::vec3 bbMax,
-	vector<cl_float> vertices, vector<Tri> faces
-) {
+kdNode_t* KdTree::createLeafNode( glm::vec3 bbMin, glm::vec3 bbMax, vector<Tri> faces ) {
 	kdNode_t* leaf = new kdNode_t;
 	leaf->index = mLeaves.size();
 	leaf->axis = -1;
@@ -158,95 +153,153 @@ void KdTree::createRopes( kdNode_t* node, vector<kdNode_t*> ropes ) {
  * @return {kdNode_t*}                             The object that is the median.
  */
 kdNode_t* KdTree::getSplit(
-	vector<Tri>* faces, short axis,
+	vector<Tri>* faces, glm::vec3 bbMinNode, glm::vec3 bbMaxNode,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces
 ) {
-	std::sort( faces->begin(), faces->end(), sortFacesCmp( axis ) );
 	const cl_uint numFaces = faces->size();
-
-	vector<cl_float> leftSA( numFaces - 1 );
-	vector<cl_float> rightSA( numFaces - 1 );
-	vector< vector<glm::vec3> > leftBB( numFaces - 1 ), rightBB( numFaces - 1 );
-
-
-	vector<glm::vec3> bbMins, bbMaxs;
-	const cl_uint numFaces = faces->size();
-
-
-	// Grow a bounding box face by face starting from the left.
-	// Save the growing surface area for each step.
-
-	for( int i = 0; i < numFaces - 1; i++ ) {
-		glm::vec3 bbMin, bbMax;
-
-		bbMins.push_back( (*faces)[i].bbMin );
-		bbMaxs.push_back( (*faces)[i].bbMax );
-		MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
-
-		leftBB[i] = vector<glm::vec3>( 2 );
-		leftBB[i][0] = bbMin;
-		leftBB[i][1] = bbMax;
-		leftSA[i] = MathHelp::getSurfaceArea( bbMin, bbMax );
-	}
-
-
-	// Grow a bounding box face by face starting from the right.
-	// Save the growing surface area for each step.
-
-	bbMins.clear();
-	bbMaxs.clear();
-
-	for( int i = numFaces - 2; i >= 0; i-- ) {
-		glm::vec3 bbMin, bbMax;
-
-		bbMins.push_back( (*faces)[i + 1].bbMin );
-		bbMaxs.push_back( (*faces)[i + 1].bbMax );
-		MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
-
-		rightBB[i] = vector<glm::vec3>( 2 );
-		rightBB[i][0] = bbMin;
-		rightBB[i][1] = bbMax;
-		rightSA[i] = MathHelp::getSurfaceArea( bbMin, bbMax );
-	}
-
-
-	// Compute the SAH for each split position and choose the one with the lowest cost.
-	// SAH = SA of node * ( SA left of split * faces left of split + SA right of split * faces right of split )
-
-	int indexSplit = -1;
-	float newSAH, numFacesLeft, numFacesRight;
 	float bestSAH = FLT_MAX;
+	float nodeSA = 1.0f / MathHelp::getSurfaceArea( bbMinNode, bbMaxNode );
+	short axisFinal = 0;
+	float pos;
 
-	for( uint i = 0; i < numFaces - 1; i++ ) {
-		newSAH = nodeSA * ( leftSA[i] * (float) ( i + 1 ) + rightSA[i] * (float) ( numFaces - i - 1 ) );
+	for( short axis = 0; axis <= 2; axis++ ) {
+		std::sort( faces->begin(), faces->end(), sortFacesCmp( axis ) );
 
-		// Better split position found
-		if( newSAH < bestSAH ) {
-			bestSAH = newSAH;
-			// Exclusive this index, up to this face it is preferable to split
-			indexSplit = i + 1;
+		vector<cl_float> leftSA( numFaces - 1 );
+		vector<cl_float> rightSA( numFaces - 1 );
+		vector< vector<glm::vec3> > leftBB( numFaces - 1 ), rightBB( numFaces - 1 );
+		vector<glm::vec3> bbMins, bbMaxs;
+		vector<uint> numFacesLeft, numFacesRight;
+
+
+		// Grow a bounding box face by face starting from the left.
+		// Save the growing surface area for each step.
+
+		for( int i = 0; i < numFaces - 1; i++ ) {
+			glm::vec3 bbMin, bbMax;
+
+			bbMins.push_back( (*faces)[i].bbMin );
+			bbMaxs.push_back( (*faces)[i].bbMax );
+			MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
+
+			leftBB[i] = vector<glm::vec3>( 2 );
+			leftBB[i][0] = bbMin;
+			leftBB[i][1] = bbMax;
+			leftSA[i] = MathHelp::getSurfaceArea( bbMin, bbMax );
+		}
+
+
+		// Grow a bounding box face by face starting from the right.
+		// Save the growing surface area for each step.
+
+		bbMins.clear();
+		bbMaxs.clear();
+
+		for( int i = numFaces - 2; i >= 0; i-- ) {
+			glm::vec3 bbMin, bbMax;
+
+			bbMins.push_back( (*faces)[i + 1].bbMin );
+			bbMaxs.push_back( (*faces)[i + 1].bbMax );
+			MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
+
+			rightBB[i] = vector<glm::vec3>( 2 );
+			rightBB[i][0] = bbMin;
+			rightBB[i][1] = bbMax;
+			rightSA[i] = MathHelp::getSurfaceArea( bbMin, bbMax );
+		}
+
+
+		for( uint i = 0; i < numFaces - 1; i++ ) {
+			float split = leftBB[i][1][axis];
+			numFacesLeft.push_back( 0 );
+			numFacesRight.push_back( 0 );
+
+			for( uint j = 0; j < numFaces; j++ ) {
+				if( (*faces)[j].bbMin[axis] <= split ) {
+					numFacesLeft[i] += 1;
+				}
+				if( (*faces)[j].bbMin[axis] > split ) {
+					numFacesRight[i] += 1;
+				}
+			}
+		}
+
+
+		// Compute the SAH for each split position and choose the one with the lowest cost.
+		// SAH = SA of node * ( SA left of split * faces left of split + SA right of split * faces right of split )
+
+		float newSAH;
+
+		for( uint i = 0; i < numFaces - 1; i++ ) {
+			if(
+				leftBB[i][1][axis] == bbMinNode[axis] ||
+				leftBB[i][1][axis] == bbMaxNode[axis] ||
+				numFacesLeft[i] == numFaces ||
+				numFacesRight[i] == numFaces
+			) {
+				continue;
+			}
+
+			newSAH = nodeSA * ( leftSA[i] * (float) numFacesLeft[i] + rightSA[i] * (float) numFacesRight[i] );
+
+			// Better split position found
+			if( newSAH < bestSAH ) {
+				bestSAH = newSAH;
+				// Exclusive this index, up to this face it is preferable to split
+				axisFinal = axis;
+				pos = leftBB[i][1][axisFinal];
+			}
 		}
 	}
 
 
-	// Split the faces into two groups.
+	if( bestSAH == FLT_MAX ) {
+		glm::vec3 nodeLen = bbMaxNode - bbMinNode;
 
-	for( uint i = 0; i < indexSplit; i++ ) {
-		leftFaces->push_back( faces[i] );
+		for( short axis = 0; axis <= 2; axis++ ) {
+			leftFaces->clear();
+			rightFaces->clear();
+			pos = 0.5f * ( bbMinNode[axis] + bbMaxNode[axis] );
+
+			for( uint i = 0; i < numFaces; i++ ) {
+				if( (*faces)[i].bbMin[axis] <= pos ) {
+					leftFaces->push_back( (*faces)[i] );
+				}
+				if( (*faces)[i].bbMax[axis] > pos ) {
+					rightFaces->push_back( (*faces)[i] );
+				}
+			}
+
+			if( leftFaces->size() < numFaces && rightFaces->size() < numFaces ) {
+				axisFinal = axis;
+				break;
+			}
+		}
+	}
+	else {
+		for( uint i = 0; i < numFaces; i++ ) {
+			if( (*faces)[i].bbMin[axisFinal] <= pos ) {
+				leftFaces->push_back( (*faces)[i] );
+			}
+			if( (*faces)[i].bbMax[axisFinal] > pos ) {
+				rightFaces->push_back( (*faces)[i] );
+			}
+		}
 	}
 
-	for( uint i = indexSplit; i < numFaces; i++ ) {
-		rightFaces->push_back( faces[i] );
+	if( leftFaces->size() == faces->size() || rightFaces->size() == faces->size() ) {
+		leftFaces->clear();
+		rightFaces->clear();
 	}
 
-	Tri triAtSplit = faces[indexSplit];
+	kdNode_t* node = new kdNode_t;
+	node->index = mNonLeaves.size();
+	node->axis = axisFinal;
+	node->split = pos;
+	node->bbMin = glm::vec3( bbMinNode );
+	node->bbMax = glm::vec3( bbMaxNode );
 
-	kdNode_t* median = new kdNode_t;
-	median->index = mNonLeaves.size();
-	median->axis = axis;
-	median->pos = glm::vec3( tri.bbMin );
-
-	return median;
+	return node;
 }
 
 
@@ -306,43 +359,6 @@ kdNode_t* KdTree::getRootNode() {
 }
 
 
-bool KdTree::hasSameCoordinates( cl_float* a, cl_float* b ) const {
-	return (
-		a[0] == b[0] &&
-		a[1] == b[1] &&
-		a[2] == b[2]
-	);
-}
-
-
-bool KdTree::isVertexOnLeft(
-	cl_float* v, cl_uint axis, glm::vec3 medianPos,
-	vector<cl_float4> vertsForNodes, vector<cl_float4>* leftNodes
-) const {
-	cl_float4 clV = { v[0], v[1], v[2], 0.0f };
-
-	return (
-		v[axis] <= medianPos[axis] &&
-		std::find_if( vertsForNodes.begin(), vertsForNodes.end(), kdSearchFloat4( clV ) ) != vertsForNodes.end() &&
-		std::find_if( leftNodes->begin(), leftNodes->end(), kdSearchFloat4( clV ) ) == leftNodes->end()
-	);
-}
-
-
-bool KdTree::isVertexOnRight(
-	cl_float* v, cl_uint axis, glm::vec3 medianPos,
-	vector<cl_float4> vertsForNodes, vector<cl_float4>* rightNodes
-) const {
-	cl_float4 clV = { v[0], v[1], v[2], 0.0f };
-
-	return (
-		v[axis] >= medianPos[axis] &&
-		std::find_if( vertsForNodes.begin(), vertsForNodes.end(), kdSearchFloat4( clV ) ) != vertsForNodes.end() &&
-		std::find_if( rightNodes->begin(), rightNodes->end(), kdSearchFloat4( clV ) ) == rightNodes->end()
-	);
-}
-
-
 /**
  * Build a kd-tree.
  * @param  {std::vector<cl_float4>}               vertsForNodes Vertices to make kd-nodes from.
@@ -356,60 +372,40 @@ bool KdTree::isVertexOnRight(
  * @return {kdNode_t*}                                          Top element for this part of the tree.
  */
 kdNode_t* KdTree::makeTree(
-	vector<Tri> faces, glm::vec3 bbMin, glm::vec3 bbMax, short axis, uint depth
+	vector<Tri> faces, glm::vec3 bbMin, glm::vec3 bbMax, uint depth
 ) {
 	// Depth or faces limit reached
-	if( ( mDepthLimit > 0 && depth > mDepthLimit ) || faces.size() < mMinFaces ) {
+	if( ( mDepthLimit > 0 && depth > mDepthLimit ) || faces.size() <= mMinFaces ) {
 		return this->createLeafNode( bbMin, bbMax, faces );
 	}
 
-
-	// Build node from found median
+	// Build node from found split position
 	// Not decided yet if a leaf or not
 	vector<Tri> leftFaces, rightFaces;
-	kdNode_t* median = this->getSplit( &faces, axis, &leftFaces, &rightFaces );
-
-	if( median == NULL ) {
-		Logger::logDebugVerbose( "[KdTree] No more unused coordinates for this axis. Making this node a leaf." );
-		return this->createLeafNode( bbMin, bbMax, faces );
-	}
-
-	median->bbMin = glm::vec3( bbMin );
-	median->bbMax = glm::vec3( bbMax );
-
-
-	// Bounding box of the "left" part
-	glm::vec3 bbMinLeft = glm::vec3( bbMin );
-	glm::vec3 bbMaxLeft = glm::vec3( bbMax );
-	bbMaxLeft[axis] = median->pos[axis];
-
-	// Bounding box of the "right" part
-	glm::vec3 bbMinRight = glm::vec3( bbMin );
-	glm::vec3 bbMaxRight = glm::vec3( bbMax );
-	bbMinRight[axis] = median->pos[axis];
-
-	// this->splitVerticesAndFacesAtMedian(
-	// 	axis, median->pos, faces,
-	// 	&leftFaces, &rightFaces, &leftNodes, &rightNodes
-	// );
-
+	kdNode_t* node = this->getSplit( &faces, bbMin, bbMax, &leftFaces, &rightFaces );
 
 	// Keep limit for minimum faces per node
-	if( depth > 1 && mMinFaces > glm::min( leftFaces.size(), rightFaces.size() ) ) {
-		Logger::logDebugVerbose( "[KdTree] Left and/or right child node would have less faces than set as minimum. Making this node a leaf." );
-		return this->createLeafNode( bbMin, bbMax, vertices, faces );
+	if( mMinFaces > glm::min( leftFaces.size(), rightFaces.size() ) ) {
+		return this->createLeafNode( bbMin, bbMax, faces );
 	}
 
 	// Decided: Not a leaf node
-	mNodes.push_back( median );
-	mNonLeaves.push_back( median );
+	mNodes.push_back( node );
+	mNonLeaves.push_back( node );
+
+	// Bounding box of the "left" part
+	glm::vec3 bbMaxLeft = glm::vec3( bbMax );
+	bbMaxLeft[node->axis] = node->split;
+
+	// Bounding box of the "right" part
+	glm::vec3 bbMinRight = glm::vec3( bbMin );
+	bbMinRight[node->axis] = node->split;
 
 	// Proceed with child nodes
-	axis = ( axis + 1 ) % 3;
-	median->left = this->makeTree( leftFaces, bbMinLeft, bbMaxLeft, axis, depth + 1 );
-	median->right = this->makeTree( rightFaces, bbMinRight, bbMaxRight, axis, depth + 1 );
+	node->left = this->makeTree( leftFaces, bbMin, bbMaxLeft, depth + 1 );
+	node->right = this->makeTree( rightFaces, bbMinRight, bbMax, depth + 1 );
 
-	return median;
+	return node;
 }
 
 
@@ -426,7 +422,7 @@ void KdTree::optimizeRope( vector<kdNode_t*>* ropes, glm::vec3 bbMin, glm::vec3 
 	}
 
 	kdNode_t* sideNode;
-	cl_uint axis;
+	uint axis;
 
 	for( short side = 0; side < 6; side++ ) {
 		if( (*ropes)[side] == NULL ) {
@@ -438,7 +434,7 @@ void KdTree::optimizeRope( vector<kdNode_t*>* ropes, glm::vec3 bbMin, glm::vec3 
 			axis = sideNode->axis;
 
 			if( side % 2 == 0 ) { // left, bottom, back
-				if( axis == side / 2 || sideNode->pos[axis] <= bbMin[axis] ) {
+				if( axis == side / 2 || sideNode->split <= bbMin[axis] ) {
 					(*ropes)[side] = sideNode->right;
 				}
 				else {
@@ -446,7 +442,7 @@ void KdTree::optimizeRope( vector<kdNode_t*>* ropes, glm::vec3 bbMin, glm::vec3 
 				}
 			}
 			else { // right, top, front
-				if( axis == ( side - 1 ) / 2 || sideNode->pos[axis] >= bbMax[axis] ) {
+				if( axis == ( side - 1 ) / 2 || sideNode->split >= bbMax[axis] ) {
 					(*ropes)[side] = sideNode->left;
 				}
 				else {
@@ -462,9 +458,9 @@ void KdTree::optimizeRope( vector<kdNode_t*>* ropes, glm::vec3 bbMin, glm::vec3 
  * Print statistic of average number of faces per leaf node.
  */
 void KdTree::printLeafFacesStat() {
-	cl_uint facesTotal = 0;
+	uint facesTotal = 0;
 
-	for( cl_uint i = 0; i < mLeaves.size(); i++ ) {
+	for( uint i = 0; i < mLeaves.size(); i++ ) {
 		facesTotal += mLeaves[i]->faces.size();
 	}
 
@@ -494,87 +490,45 @@ void KdTree::setDepthLimit( uint numFaces ) {
 
 
 /**
- * Assign vertices and faces to each side, depending on how the face bounding box
- * reaches into the area. Vertices and faces can be assigned to both sides, if the
- * face lies directly on the split axis.
- * @param {cl_uint}                 axis       Axis where the split occurs.
- * @param {cl_float}                axisSplit  The coordinate for the split on the axis.
- * @param {std::vector<cl_float>}   vertices   All vertices of the model.
- * @param {std::vector<cl_uint>}    faces      Faces of the current node.
- * @param {std::vector<cl_uint>*}   leftFaces  Output. Faces for the left child node.
- * @param {std::vector<cl_uint>*}   rightFaces Output. Faces for the right child node.
- * @param {std::vector<cl_float4>*} leftNodes  Output. Vertices for the left child node.
- * @param {std::vector<cl_float4>*} rightNodes Output. Vertices for the right child node.
- */
-void KdTree::splitVerticesAndFacesAtMedian(
-	cl_uint axis, glm::vec3 medianPos, vector<cl_float4> vertsForNodes,
-	vector<cl_float> vertices, vector<Tri> faces,
-	vector<Tri>* leftFaces, vector<Tri>* rightFaces,
-	vector<cl_float4>* leftNodes, vector<cl_float4>* rightNodes
-) {
-	cl_float axisSplit = medianPos[axis];
-	cl_uint a, b, c;
-	bool isFaceOnPlane;
-
-	for( int i = 0; i < faces.size(); i++ ) {
-		Tri tri = faces[i];
-		a = tri.face.x * 3;
-		b = tri.face.y * 3;
-		c = tri.face.z * 3;
-
-		cl_float v0[3] = { vertices[a], vertices[a + 1], vertices[a + 2] };
-		cl_float v1[3] = { vertices[b], vertices[b + 1], vertices[b + 2] };
-		cl_float v2[3] = { vertices[c], vertices[c + 1], vertices[c + 2] };
-
-		cl_float4 clV0 = { v0[0], v0[1], v0[2], 0.0f };
-		cl_float4 clV1 = { v1[0], v1[1], v1[2], 0.0f };
-		cl_float4 clV2 = { v2[0], v2[1], v2[2], 0.0f };
-
-		isFaceOnPlane = (
-			v0[axis] == axisSplit &&
-			v1[axis] == axisSplit &&
-			v2[axis] == axisSplit
-		);
-
-		// Bounding box of face reaches into area "left" of split
-		if( isFaceOnPlane || tri.bbMin[axis] < axisSplit ) {
-			leftFaces->push_back( tri );
-
-			if( this->isVertexOnLeft( v0, axis, medianPos, vertsForNodes, leftNodes ) ) {
-				leftNodes->push_back( clV0 );
-			}
-			if( this->isVertexOnLeft( v1, axis, medianPos, vertsForNodes, leftNodes ) ) {
-				leftNodes->push_back( clV1 );
-			}
-			if( this->isVertexOnLeft( v2, axis, medianPos, vertsForNodes, leftNodes ) ) {
-				leftNodes->push_back( clV2 );
-			}
-		}
-
-		// Bounding box of face reaches into area "right" of split
-		if( isFaceOnPlane || tri.bbMax[axis] > axisSplit ) {
-			rightFaces->push_back( tri );
-
-			if( this->isVertexOnRight( v0, axis, medianPos, vertsForNodes, rightNodes ) ) {
-				rightNodes->push_back( clV0 );
-			}
-			if( this->isVertexOnRight( v1, axis, medianPos, vertsForNodes, rightNodes ) ) {
-				rightNodes->push_back( clV1 );
-			}
-			if( this->isVertexOnRight( v2, axis, medianPos, vertsForNodes, rightNodes ) ) {
-				rightNodes->push_back( clV2 );
-			}
-		}
-	}
-}
-
-
-/**
  * Get vertices and indices to draw a 3D visualization of the kd-tree.
  * @param {std::vector<cl_float>*} vertices Vector to put the vertices into.
  * @param {std::vector<cl_uint>*}  indices  Vector to put the indices into.
  */
 void KdTree::visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) {
+	uint i = vertices->size() / 3;
+
+	// bottom
+	vertices->push_back( mBBmin[0] ); vertices->push_back( mBBmin[1] ); vertices->push_back( mBBmin[2] );
+	vertices->push_back( mBBmin[0] ); vertices->push_back( mBBmin[1] ); vertices->push_back( mBBmax[2] );
+	vertices->push_back( mBBmax[0] ); vertices->push_back( mBBmin[1] ); vertices->push_back( mBBmax[2] );
+	vertices->push_back( mBBmax[0] ); vertices->push_back( mBBmin[1] ); vertices->push_back( mBBmin[2] );
+
+	// top
+	vertices->push_back( mBBmin[0] ); vertices->push_back( mBBmax[1] ); vertices->push_back( mBBmin[2] );
+	vertices->push_back( mBBmin[0] ); vertices->push_back( mBBmax[1] ); vertices->push_back( mBBmax[2] );
+	vertices->push_back( mBBmax[0] ); vertices->push_back( mBBmax[1] ); vertices->push_back( mBBmax[2] );
+	vertices->push_back( mBBmax[0] ); vertices->push_back( mBBmax[1] ); vertices->push_back( mBBmin[2] );
+
+	uint newIndices[24] = {
+		// bottom
+		i + 0, i + 1,
+		i + 1, i + 2,
+		i + 2, i + 3,
+		i + 3, i + 0,
+		// top
+		i + 4, i + 5,
+		i + 5, i + 6,
+		i + 6, i + 7,
+		i + 7, i + 4,
+		// back
+		i + 0, i + 4,
+		i + 3, i + 7,
+		// front
+		i + 1, i + 5,
+		i + 2, i + 6
+	};
+	indices->insert( indices->end(), newIndices, newIndices + 24 );
+
 	this->visualizeNextNode( mRoot, vertices, indices );
 }
 
@@ -591,7 +545,7 @@ void KdTree::visualizeNextNode( kdNode_t* node, vector<cl_float>* vertices, vect
 	}
 
 	cl_float a[3], b[3], c[3], d[3];
-	a[node->axis] = b[node->axis] = c[node->axis] = d[node->axis] = node->pos[node->axis];
+	a[node->axis] = b[node->axis] = c[node->axis] = d[node->axis] = node->split;
 
 	switch( node->axis ) {
 

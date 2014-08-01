@@ -11,6 +11,7 @@
 
 #include "AccelStructure.h"
 #include "../Logger.h"
+#include "../MathHelp.h"
 
 using std::map;
 using std::vector;
@@ -22,11 +23,11 @@ using std::vector;
 struct kdNode_t {
 	vector<Tri> faces;
 	vector<kdNode_t*> ropes;
-	glm::vec3 pos;
 	glm::vec3 bbMin;
 	glm::vec3 bbMax;
-	cl_int axis;
-	cl_int index;
+	float split;
+	int index;
+	short axis;
 	kdNode_t* left;
 	kdNode_t* right;
 };
@@ -48,35 +49,19 @@ class KdTree : public AccelStructure {
 
 	protected:
 		kdNode_t* createLeafNode(
-			glm::vec3 bbMin, glm::vec3 bbMax,
-			vector<cl_float> vertices, vector<cl_uint4> faces
+			glm::vec3 bbMin, glm::vec3 bbMax, vector<Tri> faces
 		);
 		void createRopes( kdNode_t* node, vector<kdNode_t*> ropes );
 		kdNode_t* getSplit(
-			vector<Tri>* faces, short axis,
+			vector<Tri>* faces, glm::vec3 bbMinNode, glm::vec3 bbMaxNode,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces
 		);
-		bool hasSameCoordinates( cl_float* a, cl_float* b ) const;
-		bool isVertexOnLeft(
-			cl_float* v, cl_uint axis, glm::vec3 medianPos,
-			vector<cl_float4> vertsForNodes, vector<cl_float4>* leftNodes
-		) const;
-		bool isVertexOnRight(
-			cl_float* v, cl_uint axis, glm::vec3 medianPos,
-			vector<cl_float4> vertsForNodes, vector<cl_float4>* rightNodes
-		) const;
 		kdNode_t* makeTree(
-			vector<Tri> faces, glm::vec3 bbMin, glm::vec3 bbMax, short axis, uint depth
+			vector<Tri> faces, glm::vec3 bbMin, glm::vec3 bbMax, uint depth
 		);
 		void optimizeRope( vector<kdNode_t*>* ropes, glm::vec3 bbMin, glm::vec3 bbMax );
 		void printLeafFacesStat();
 		void setDepthLimit( uint numFaces );
-		void splitVerticesAndFacesAtMedian(
-			cl_uint axis, glm::vec3 medianPos, vector<cl_float4> vertsForNodes,
-			vector<cl_float> vertices, vector<Tri> faces,
-			vector<Tri>* leftFaces, vector<Tri>* rightFaces,
-			vector<cl_float4>* leftNodes, vector<cl_float4>* rightNodes
-		);
 		void visualizeNextNode(
 			kdNode_t* node, vector<cl_float>* vertices, vector<cl_uint>* indices
 		);

@@ -19,8 +19,8 @@ struct BVHNode {
 	vector<Tri> faces;
 	glm::vec3 bbMin;
 	glm::vec3 bbMax;
-	cl_uint id;
-	cl_uint depth;
+	uint id;
+	uint depth;
 };
 
 

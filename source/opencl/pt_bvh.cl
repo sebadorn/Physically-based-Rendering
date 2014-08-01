@@ -14,7 +14,8 @@
  * @param {float tFar}           tFar
  */
 void intersectFaces(
-	ray4* ray, const bvhNode* node, global const uint* bvhFaces, const global face_t* faces, const float tNear, float tFar
+	ray4* ray, const bvhNode* node, global const uint* bvhFaces, const global face_t* faces,
+	const float tNear, float tFar
 ) {
 	for( char i = 0; i < node->facesInterval.y; i++ ) {
 		float3 tuv;
@@ -49,7 +50,6 @@ void traverse(
 	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
 
 	const float3 invDir = native_recip( ray->dir.xyz );
-	float tBest = INFINITY;
 
 	while( stackIndex >= 0 ) {
 		bvhNode node = bvh[bvhStack[stackIndex--]];
@@ -60,11 +60,9 @@ void traverse(
 		if( node.bbMin.w < 0.0f ) {
 			if(
 				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
-				tBest > tNearL
+				ray->t > tNearL
 			) {
 				intersectFaces( ray, &node, bvhFaces, faces, tNearL, tFarL );
-				tBest = fmin( ray->t, tBest );
-				ray->t = tBest;
 			}
 
 			continue;
@@ -77,7 +75,7 @@ void traverse(
 
 		bool addLeftToStack = (
 			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL ) &&
-			tBest > tNearL
+			ray->t > tNearL
 		);
 
 		float tNearR = 0.0f;
@@ -86,7 +84,7 @@ void traverse(
 
 		bool addRightToStack = (
 			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR ) &&
-			tBest > tNearR
+			ray->t > tNearR
 		);
 
 
