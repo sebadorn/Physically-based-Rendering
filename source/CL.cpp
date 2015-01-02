@@ -415,12 +415,19 @@ void CL::getDefaultDevice() {
 void CL::getDefaultPlatform() {
 	char* value;
 	size_t valueSize;
-	cl_uint platformCount;
+	cl_uint platformCount = 0;
 	cl_platform_id* platforms;
 
-	clGetPlatformIDs( 0, NULL, &platformCount );
+	cl_int result = clGetPlatformIDs( 0, NULL, &platformCount );
 
-	if( platformCount < 0 ) {
+	if( result != CL_SUCCESS ) {
+		char msg[64];
+		snprintf( msg, 64, "[OpenCL] clGetPlatformIDs() returned error code: %d", result );
+		Logger::logError( msg );
+		exit( EXIT_FAILURE );
+	}
+
+	if( platformCount == 0 ) {
 		Logger::logError( "[OpenCL] No platforms found." );
 		exit( EXIT_FAILURE );
 	}

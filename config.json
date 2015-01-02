@@ -34,12 +34,12 @@
 	// Acceleration structure
 	// 0: BVH with AABBs
 	// 1: kD-tree
-	"accel_struct": 1,
+	"accel_struct": 0,
 
 	// Bounding Volume Hierarchy
 	"bvh": {
 		// Maximum of faces per leaf node (>= 1).
-		"max_faces": 1,
+		"max_faces": 2,
 		// Using a surface area heuristic to build the BVH takes
 		// some time. To speed it up only use SAH for nodes with
 		// a number of faces less or equal to this setting.

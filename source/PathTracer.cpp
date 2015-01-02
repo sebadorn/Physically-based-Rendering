@@ -138,11 +138,11 @@ void PathTracer::initKernelArgs() {
 
 /**
  * Init the needed OpenCL buffers: Faces, vertices, camera eye and rays.
- * @param {std::vector<cl_float>} vertices Vertices of the model.
- * @param {std::vector<cl_uint>}  faces    Faces (triangles) of the model.
- * @param {std::vector<cl_float>} normals  Normals of the model.
- * @param {ModelLoader*}          ml       Model loader already holding the needed model data.
- * @param {BVH*}                  bvh      The generated Bounding Volume Hierarchy.
+ * @param {std::vector<cl_float>} vertices   Vertices of the model.
+ * @param {std::vector<cl_uint>}  faces      Faces (triangles) of the model.
+ * @param {std::vector<cl_float>} normals    Normals of the model.
+ * @param {ModelLoader*}          ml         Model loader already holding the needed model data.
+ * @param {AccelStructure*}       accelStruc The generated acceleration structure.
  */
 void PathTracer::initOpenCLBuffers(
 	vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
@@ -154,7 +154,7 @@ void PathTracer::initOpenCLBuffers(
 	size_t bytes;
 	float bytesFloat;
 	string unit;
-	char msg[64];
+	char msg[128];
 
 	if( mCL != NULL ) {
 		delete mCL;
@@ -171,7 +171,7 @@ void PathTracer::initOpenCLBuffers(
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, 64, "[PathTracer] Created faces buffer in %g ms -- %.2f %s.", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, 128, "[PathTracer] Created faces buffer in %g ms -- %.2f %s.", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Acceleration Structure
@@ -203,7 +203,7 @@ void PathTracer::initOpenCLBuffers(
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, 64, "[PathTracer] Created material buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, 128, "[PathTracer] Created material buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Rays
@@ -212,7 +212,7 @@ void PathTracer::initOpenCLBuffers(
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, 64, "[PathTracer] Created ray buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, 128, "[PathTracer] Created ray buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Textures
@@ -221,14 +221,14 @@ void PathTracer::initOpenCLBuffers(
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, 64, "[PathTracer] Created texture buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, 128, "[PathTracer] Created texture buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	Logger::indent( 0 );
 	Logger::logInfo( "[PathTracer] ... Done." );
 
 
-	snprintf( msg, 64, "%u", bvhDepth );
+	snprintf( msg, 128, "%u", bvhDepth );
 	mCL->setReplacement( string( "#BVH_STACKSIZE#" ), string( msg ) );
 	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
 

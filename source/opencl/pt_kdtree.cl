@@ -70,7 +70,7 @@ int goToLeafNode( uint nodeIndex, const global kdNonLeaf* kdNonLeaves, float3 hi
 * @param {float*} tFar
 * @param {int*} exitRope
 */
-void updateEntryDistanceAndExitRope(
+void getEntryDistanceAndExitRope(
 	const ray4* ray, const float4 bbMin, const float4 bbMax, float* tFar, int* exitRope
 ) {
 	const float3 invDir = native_recip( ray->dir.xyz );
@@ -100,16 +100,14 @@ void traverseKdTree(
 	int exitRope;
 	int nodeIndex = goToLeafNode( kdRoot, kdNonLeaves, ray->origin.xyz + tNear * ray->dir.xyz );
 
-	while( nodeIndex >= 0 && tNear < tFar ) {
-		kdLeaf currentNode = kdLeaves[nodeIndex];
-		int8 ropes = currentNode.ropes;
+	while( nodeIndex >= 0 && tNear <= tFar ) {
+		const kdLeaf currentNode = kdLeaves[nodeIndex];
+		const int8 ropes = currentNode.ropes;
 
 		checkFaces( ray, ropes.s6, ropes.s7, kdFaces, faces, tNear, tFar );
 
 		// Exit leaf node
-		updateEntryDistanceAndExitRope(
-			ray, currentNode.bbMin, currentNode.bbMax, &tNear, &exitRope
-		);
+		getEntryDistanceAndExitRope( ray, currentNode.bbMin, currentNode.bbMax, &tNear, &exitRope );
 
 		if( tNear > tFar ) {
 			break;
@@ -156,7 +154,7 @@ void traverse(
 		if( leftChildIndex < 0 ) {
 			if(
 				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
-				ray->t > tNearL
+				ray->t >= tNearL
 			) {
 				traverseKdTree(
 					ray, kdNonLeaves, kdLeaves, kdFaces, faces,
@@ -174,7 +172,7 @@ void traverse(
 
 		bool addLeftToStack = (
 			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL ) &&
-			ray->t > tNearL
+			ray->t >= tNearL
 		);
 
 		float tNearR = 0.0f;
@@ -183,7 +181,7 @@ void traverse(
 
 		bool addRightToStack = (
 			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR ) &&
-			ray->t > tNearR
+			ray->t >= tNearR
 		);
 
 

@@ -44,7 +44,7 @@ BVHKdTree::BVHKdTree(
 	cl_float timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	char msg[128];
 	snprintf(
-		msg, 128, "[BVH] Generated in %g ms. Contains %lu nodes and %lu kD-tree(s). Max depth at %u.",
+		msg, 128, "[BVHKdTree] Generated in %g ms. Contains %lu nodes and %lu kD-tree(s). Max depth at %u.",
 		timeDiff, mNodes.size(), mLeafNodes.size(), mDepthReached
 	);
 	Logger::logInfo( msg );
@@ -99,7 +99,7 @@ vector<BVHNode*> BVHKdTree::createKdTrees(
 		);
 
 
-		snprintf( msg, 128, "[BVH] Building kD-tree %u of %lu: \"%s\"", i + 1, sceneObjects->size(), o.oName.c_str() );
+		snprintf( msg, 128, "[BVHKdTree] Building kD-tree %u of %lu: \"%s\"", i + 1, sceneObjects->size(), o.oName.c_str() );
 		Logger::indent( 0 );
 		Logger::logInfo( msg );
 		Logger::indent( LOG_INDENT );

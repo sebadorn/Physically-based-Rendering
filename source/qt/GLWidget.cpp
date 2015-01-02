@@ -263,6 +263,9 @@ void GLWidget::initShaders() {
 	glDetachShader( mGLProgramSimple, shaderFrag );
 	glDeleteShader( shaderVert );
 	glDeleteShader( shaderFrag );
+
+
+	Logger::logInfo( "[GLWidget] Initialized OpenGL shaders." );
 }
 
 
@@ -305,18 +308,20 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	ModelLoader* ml = new ModelLoader();
 	ml->loadModel( filepath, filename );
 
-    mFaces = ml->getObjParser()->getFacesV();
-	mNormals = ml->getObjParser()->getNormals();
-	mVertices = ml->getObjParser()->getVertices();
+	ObjParser* op = ml->getObjParser();
+
+    mFaces = op->getFacesV();
+	mNormals = op->getNormals();
+	mVertices = op->getVertices();
 
 	const short usedAccelStruct = Cfg::get().value<short>( Cfg::ACCEL_STRUCT );
 	AccelStructure* accelStruct;
 
 	if( usedAccelStruct == ACCELSTRUCT_BVH ) {
-		accelStruct = new BVH( ml->getObjParser()->getObjects(), mVertices, mNormals );
+		accelStruct = new BVH( op->getObjects(), mVertices, mNormals );
 	}
 	else if( usedAccelStruct == ACCELSTRUCT_KDTREE ) {
-		accelStruct = new BVHKdTree( ml->getObjParser()->getObjects(), mVertices, mNormals );
+		accelStruct = new BVHKdTree( op->getObjects(), mVertices, mNormals );
 	}
 
 	// Visualization of BVH
