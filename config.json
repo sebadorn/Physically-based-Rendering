@@ -98,7 +98,7 @@
 		// 1: Shirley-Ashikhmin
 		"brdf": 1,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
-		"interval": 200.0,
+		"interval": 50.0,
 		// Shoot shadow rays to generate implicit paths.
 		// 0: disable
 		// 1: enable
@@ -112,7 +112,11 @@
 		// 1.0: maximum
 		"phong_tessellation": 0.0,
 		// Samples of paths per frame
-		"samples": 1
+		"samples": 1,
+		// Use spectral color definitions.
+		// 0: disable, use RGB
+		// 1: enable
+		"use_spectral": 0
 	},
 
 	"shader": {

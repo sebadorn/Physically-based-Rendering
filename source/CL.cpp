@@ -577,6 +577,11 @@ void CL::setKernelArg( cl_kernel kernel, cl_uint index, size_t size, void* data 
 }
 
 
+/**
+ * Set a string replacement to apply it later to the CL code.
+ * @param {std::string} before Old value.
+ * @param {std::string} after  New value.
+ */
 void CL::setReplacement( string before, string after ) {
 	mReplaceString[before] = after;
 }
@@ -607,9 +612,10 @@ string CL::setValues( string clProgramString ) {
 	valueReplace.push_back( "IMPLICIT" );
 	valueReplace.push_back( "MAX_DEPTH" );
 	valueReplace.push_back( "MAX_ADDED_DEPTH" );
-	valueReplace.push_back( "PHONG_TESS" );
+	valueReplace.push_back( "PHONGTESS" );
 	valueReplace.push_back( "SAMPLES" );
 	valueReplace.push_back( "SPECTRAL_COLORSYSTEM" );
+	valueReplace.push_back( "USE_SPECTRAL" );
 
 	vector<cl_uint> configInt;
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::ACCEL_STRUCT ) );
@@ -622,6 +628,7 @@ string CL::setValues( string clProgramString ) {
 	configInt.push_back( PhongTess_ALPHA > 0.0f ? 1 : 0 );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SAMPLES ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::SPECTRAL_COLORSYSTEM ) );
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::USE_SPECTRAL ) );
 
 	for( int i = 0; i < valueReplace.size(); i++ ) {
 		search = "#" + valueReplace[i] + "#";
@@ -638,7 +645,7 @@ string CL::setValues( string clProgramString ) {
 
 	valueReplace.clear();
 	valueReplace.push_back( "ANTI_ALIASING" );
-	valueReplace.push_back( "PHONG_TESS_ALPHA" );
+	valueReplace.push_back( "PHONGTESS_ALPHA" );
 
 	vector<cl_float> configFloat;
 	configFloat.push_back( Cfg::get().value<cl_float>( Cfg::RENDER_ANTIALIAS ) );
