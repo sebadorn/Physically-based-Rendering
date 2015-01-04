@@ -224,7 +224,12 @@ kernel void pathTracing(
 	// geometry and color related
 	global const face_t* faces,
 	global const material* materials,
-	constant const float* specPowerDists,
+
+	#if USE_SPECTRAL == 1
+
+		constant const float* specPowerDists,
+
+	#endif
 
 	// old and new frame
 	read_only image2d_t imageIn,
