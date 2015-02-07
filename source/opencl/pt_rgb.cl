@@ -15,7 +15,7 @@ void setColors(
 	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 	const float4 imagePixel = read_imagef( imageIn, sampler, pos );
 
-	float4 color = mix( finalColor, imagePixel, pixelWeight );
+	float4 color = mix( clamp( finalColor, 0.0f, 1.0f ), imagePixel, pixelWeight );
 	color.w = focus;
 
 	write_imagef( imageOut, pos, color );

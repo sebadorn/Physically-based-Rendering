@@ -531,9 +531,17 @@ size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials 
 			mtl.p = materials[i].p;
 			mtl.rough = materials[i].rough;
 			mtl.light = materials[i].light;
-			mtl.rgb = materials[i].Kd;
+			mtl.rgbDiff = materials[i].Kd;
+			mtl.rgbSpec = materials[i].Ks;
 
 			materialsCL.push_back( mtl );
+
+			if( materials[i].mtlName == "sky_light" && materials[i].light == 1 ) {
+				cl_float4 Kd = materials[i].Kd;
+				char msg[128];
+				snprintf( msg, 128, "(float4)( %f, %f, %f, 0.0f )", Kd.x, Kd.y, Kd.z );
+				mCL->setReplacement( string( "#SKY_LIGHT#" ), string( msg ) );
+			}
 		}
 
 		bytesMTL = sizeof( material_schlick_rgb ) * materialsCL.size();
@@ -552,9 +560,17 @@ size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials 
 			mtl.nv = materials[i].nv;
 			mtl.Rs = materials[i].Rs;
 			mtl.Rd = materials[i].Rd;
-			mtl.rgb = materials[i].Kd;
+			mtl.rgbDiff = materials[i].Kd;
+			mtl.rgbSpec = materials[i].Ks;
 
 			materialsCL.push_back( mtl );
+
+			if( materials[i].mtlName == "sky_light" && materials[i].light == 1 ) {
+				cl_float4 Kd = materials[i].Kd;
+				char msg[128];
+				snprintf( msg, 128, "(float4)( %f, %f, %f, 0.0f )", Kd.x, Kd.y, Kd.z );
+				mCL->setReplacement( string( "#SKY_LIGHT#" ), string( msg ) );
+			}
 		}
 
 		bytesMTL = sizeof( material_shirley_ashikhmin_rgb ) * materialsCL.size();

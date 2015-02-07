@@ -65,17 +65,15 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 #if USE_SPECTRAL == 0
 
 	/**
-	 * Update the spectral power distribution according to the hit material and BRDF.
+	 * Update the accumulated RGB color according to the hit material and BRDF.
 	 * @param {const ray4*}           ray
 	 * @param {const ray4*}           newRay
 	 * @param {const material*}       mtl
 	 * @param {const ray4*}           lightRay
 	 * @param {const int}             lightRaySource
 	 * @param {uint*}                 secondaryPaths
-	 * @param {constant const float*} specPowerDists
-	 * @param {float*}                spd
-	 * @param {float*}                spdTotal
-	 * @param {float*}                maxValSpd
+	 * @param {float4*}               color
+	 * @param {float4*}               finalColor
 	 */
 	void updateColor(
 		const ray4* ray, const ray4* newRay, const material* mtl,
@@ -96,8 +94,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 						brdf *= lambert( ray->normal, lightRay->dir );
 						brdf = native_divide( brdf, pdf );
 
-						*finalColor += *color * lightRaySource * mtl->rgb *
-							( fresnel4( u, mtl->rgb ) * brdf * mtl->d + ( 1.0f - mtl->d ) );
+						*finalColor += *color * lightRaySource * mtl->rgbDiff *
+							( fresnel4( u, mtl->rgbSpec ) * brdf * mtl->d + ( 1.0f - mtl->d ) );
 
 						*secondaryPaths += 1;
 					}
@@ -109,7 +107,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 			brdf *= lambert( ray->normal, newRay->dir );
 			brdf = native_divide( brdf, pdf );
 
-			*color *= mtl->rgb * ( fresnel4( u, mtl->rgb ) * brdf * mtl->d + ( 1.0f - mtl->d ) );
+			*color *= mtl->rgbDiff * ( fresnel4( u, mtl->rgbSpec ) * brdf * mtl->d + ( 1.0f - mtl->d ) );
 
 		// BRDF: Shirley/Ashikhmin
 		#elif BRDF == 1
@@ -130,8 +128,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 						brdfSpec = native_divide( brdfSpec, pdf );
 						brdfDiff = native_divide( brdfDiff, pdf );
 
-						brdf_s = brdfSpec * fresnel4( dotHK1, mtl->Rs * mtl->rgb );
-						brdf_d = brdfDiff * mtl->rgb * ( 1.0f - mtl->Rs * mtl->rgb );
+						brdf_s = brdfSpec * fresnel4( dotHK1, mtl->Rs * mtl->rgbSpec );
+						brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->Rs * mtl->rgbSpec );
 
 						*finalColor += *color * lightRaySource * ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
 
@@ -149,8 +147,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 			brdfSpec = native_divide( brdfSpec, pdf );
 			brdfDiff = native_divide( brdfDiff, pdf );
 
-			brdf_s = brdfSpec * fresnel4( dotHK1, mtl->Rs * mtl->rgb );
-			brdf_d = brdfDiff * mtl->rgb * ( 1.0f - mtl->Rs * mtl->rgb );
+			brdf_s = brdfSpec * fresnel4( dotHK1, mtl->Rs * mtl->rgbSpec );
+			brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->Rs * mtl->rgbSpec );
 
 			*color *= ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
 
@@ -507,7 +505,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 				CALL_TRAVERSE
 
 				if( ray.t == INFINITY ) {
-					light = (float4)( 1.0f ); // TODO: define sky light color
+					light = SKY_LIGHT;
 					break;
 				}
 
@@ -518,7 +516,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 
 				// Implicit connection to a light found
 				if( mtl.light == 1 ) {
-					light = mtl.rgb;
+					light = mtl.rgbDiff;
 					break;
 				}
 
@@ -546,7 +544,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 						CALL_TRAVERSE_SHADOW
 
 						if( lightRay.t == INFINITY ) {
-							lightRaySource = (float4)( 1.0f ); // TODO:
+							lightRaySource = SKY_LIGHT;
 						}
 						else {
 							material lightMTL = materials[(uint) faces[(uint) lightRay.normal.w].a.w];

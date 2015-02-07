@@ -83,12 +83,12 @@ typedef struct {
 // Color mode: RGB
 #if USE_SPECTRAL == 0
 
-	#define MTL_COLOR float4 rgb
+	#define MTL_COLOR constant float4 rgbDiff; constant float4 rgbSpec;
 
 // Color mode: SPD
 #elif USE_SPECTRAL == 1
 
-	#define MTL_COLOR ushort2 spd
+	#define MTL_COLOR constant ushort2 spd;
 
 #endif
 
@@ -101,7 +101,7 @@ typedef struct {
 		constant float Ni;
 		constant float p;
 		constant float rough;
-		constant MTL_COLOR;
+		MTL_COLOR
 		constant char light
 	} material __attribute__((aligned));
 
@@ -115,7 +115,7 @@ typedef struct {
 		constant float Rd;
 		constant float d;
 		constant float Ni;
-		constant MTL_COLOR;
+		MTL_COLOR
 		constant char light
 	} material __attribute__((aligned));
 

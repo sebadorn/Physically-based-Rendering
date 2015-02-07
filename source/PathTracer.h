@@ -48,7 +48,8 @@ struct material_schlick_rgb {
 	cl_float Ni;
 	cl_float p;
 	cl_float rough;
-	cl_float4 rgb;
+	cl_float4 rgbDiff;
+	cl_float4 rgbSpec;
 	cl_char light;
 };
 
@@ -70,7 +71,8 @@ struct material_shirley_ashikhmin_rgb {
 	cl_float Rd;
 	cl_float d;
 	cl_float Ni;
-	cl_float4 rgb;
+	cl_float4 rgbDiff;
+	cl_float4 rgbSpec;
 	cl_char light;
 };
 
