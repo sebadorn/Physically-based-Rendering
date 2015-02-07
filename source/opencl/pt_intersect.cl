@@ -43,7 +43,7 @@ float4 flatTriAndRayIntersect(
 float4 checkFaceIntersection(
 	const ray4* ray, const face_t face, float3* tuv, const float tNear, const float tFar
 ) {
-	#if PhongTess == 1
+	#if PHONGTESS == 1
 
 		const int3 cmp = ( face.an.xyz == face.bn.xyz ) + ( face.bn.xyz == face.cn.xyz );
 
@@ -59,7 +59,7 @@ float4 checkFaceIntersection(
 
 	// Phong Tessellation
 	// Based on: "Direct Ray Tracing of Phong Tessellation" by Shinji Ogaki, Yusuke Tokuyoshi
-	#if PhongTess == 1
+	#if PHONGTESS == 1
 
 		return phongTessTriAndRayIntersect( &face, ray, tuv, tNear, tFar );
 

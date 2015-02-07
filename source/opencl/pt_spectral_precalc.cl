@@ -359,6 +359,26 @@ void scaleSPD( float spd[SPEC] ) {
 
 
 /**
+ * Convert a given spectrum into RGB.
+ * @param  {float*} spd Spectral power distribution.
+ * @return {float4}     RGB.
+ */
+float4 spectrumToRGB( float spd[SPEC] ) {
+	float4 rgb = (float4)( 0.0f );
+	float4 xyz = (float4)( 0.0f );
+
+	scaleSPD( spd );
+	const float intensity = spectrum_to_xyz( spd, &xyz );
+	xyz_to_rgb( xyz, &rgb );
+	rgb *= intensity;
+	gamma_correct_rgb( &rgb );
+	constrain_rgb( &rgb );
+
+	return rgb;
+}
+
+
+/**
  * Write the final color to the output image.
  * @param {const int2}           pos         Pixel coordinate in the image to read from/write to.
  * @param {read_only image2d_t}  imageIn     The previously generated image.
@@ -383,24 +403,4 @@ void setColors(
 	color.w = focus;
 
 	write_imagef( imageOut, pos, color );
-}
-
-
-/**
- * Convert a given spectrum into RGB.
- * @param  {float*} spd Spectral power distribution.
- * @return {float4}     RGB.
- */
-float4 spectrumToRGB( float spd[SPEC] ) {
-	float4 rgb = (float4)( 0.0f );
-	float4 xyz = (float4)( 0.0f );
-
-	scaleSPD( spd );
-	const float intensity = spectrum_to_xyz( spd, &xyz );
-	xyz_to_rgb( xyz, &rgb );
-	rgb *= intensity;
-	gamma_correct_rgb( &rgb );
-	constrain_rgb( &rgb );
-
-	return rgb;
 }

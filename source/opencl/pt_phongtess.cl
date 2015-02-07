@@ -22,7 +22,7 @@ float3 phongTessellation(
 			v * projectOnPlane( pBary, P2, N2 ) +
 			w * projectOnPlane( pBary, P3, N3 );
 
-	return ( 1.0f - PhongTess_ALPHA ) * pBary + PhongTess_ALPHA * pTessellated;
+	return ( 1.0f - PHONGTESS_ALPHA ) * pBary + PHONGTESS_ALPHA * pTessellated;
 }
 
 
@@ -70,9 +70,9 @@ float4 phongTessTriAndRayIntersect(
 	const float3 E12 = P3 - P2;
 	const float3 E20 = P1 - P3;
 
-	const float3 C1 = PhongTess_ALPHA * ( dot( N2, E01 ) * N2 - dot( N1, E01 ) * N1 );
-	const float3 C2 = PhongTess_ALPHA * ( dot( N3, E12 ) * N3 - dot( N2, E12 ) * N2 );
-	const float3 C3 = PhongTess_ALPHA * ( dot( N1, E20 ) * N1 - dot( N3, E20 ) * N3 );
+	const float3 C1 = PHONGTESS_ALPHA * ( dot( N2, E01 ) * N2 - dot( N1, E01 ) * N1 );
+	const float3 C2 = PHONGTESS_ALPHA * ( dot( N3, E12 ) * N3 - dot( N2, E12 ) * N2 );
+	const float3 C3 = PHONGTESS_ALPHA * ( dot( N1, E20 ) * N1 - dot( N3, E20 ) * N3 );
 
 	float a, b, c, d, e, f, l, m, n, o, p, q;
 
