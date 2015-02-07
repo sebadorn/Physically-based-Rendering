@@ -10,6 +10,7 @@
 constant uint MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
 
 
+
 /**
  * Fresnel factor.
  * @param  {const float} u
@@ -17,6 +18,17 @@ constant uint MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
  * @return {float}
  */
 inline float fresnel( const float u, const float c ) {
+	const float v = 1.0f - u;
+	return c + ( 1.0f - c ) * v * v * v * v * v;
+}
+
+/**
+ * Fresnel factor.
+ * @param  {const float} u
+ * @param  {const float} c Reflection factor.
+ * @return {float}
+ */
+inline float4 fresnel4( const float u, const float4 c ) {
 	const float v = 1.0f - u;
 	return c + ( 1.0f - c ) * v * v * v * v * v;
 }
