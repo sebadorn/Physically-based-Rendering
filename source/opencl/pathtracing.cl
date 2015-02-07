@@ -489,14 +489,14 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 		read_only image2d_t imageIn,
 		write_only image2d_t imageOut
 	) {
-		float4 finalColor = (float4)( 1.0f );
+		float4 finalColor = (float4)( 0.0f );
 
 		float focus;
 		bool addDepth;
 		uint secondaryPaths = 1; // Start at 1 instead of 0, because we are going to divide through it.
 
 		for( uint sample = 0; sample < SAMPLES; sample++ ) {
-			float4 color = (float4)( 0.0f );
+			float4 color = (float4)( 1.0f );
 			float4 light = (float4)( -1.0f );
 
 			ray4 ray = initRay( pxDim, eyeIn, &seed );
@@ -578,6 +578,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 
 			if( light.x > -1.0f ) {
 				color *= light;
+				finalColor += color;
 			}
 		} // end samples
 
