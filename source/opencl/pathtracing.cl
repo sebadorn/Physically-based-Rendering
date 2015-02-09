@@ -150,7 +150,11 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 			brdf_s = brdfSpec * fresnel4( dotHK1, mtl->Rs * mtl->rgbSpec );
 			brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->Rs * mtl->rgbSpec );
 
-			*color *= ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
+			float4 brdfColor = ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
+			float maxRGB = max( 1.0f, max( brdfColor.x, max( brdfColor.y, brdfColor.z ) ) );
+			brdfColor /= maxRGB;
+
+			*color *= clamp( brdfColor, 0.0f, 1.0f );
 
 		#endif
 	}
