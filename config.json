@@ -110,7 +110,7 @@
 		// Phong Tessellation
 		// 0.0: disabled
 		// 1.0: maximum
-		"phong_tessellation": 0.7,
+		"phong_tessellation": 0.0,
 		// Samples of paths per frame
 		"samples": 1,
 		// Use spectral color definitions.

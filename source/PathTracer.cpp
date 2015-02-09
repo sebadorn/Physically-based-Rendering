@@ -506,7 +506,6 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 		bytesMTL = this->initOpenCLBuffers_MaterialsRGB( materials );
 	}
 
-
 	return bytesMTL;
 }
 
@@ -519,6 +518,7 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials ) {
 	int brdf = Cfg::get().value<int>( Cfg::RENDER_BRDF );
 	size_t bytesMTL;
+	bool foundSkyLight = false;
 
 	// BRDF: Schlick
 	if( brdf == 0 ) {
@@ -541,6 +541,7 @@ size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials 
 				char msg[128];
 				snprintf( msg, 128, "(float4)( %f, %f, %f, 0.0f )", Kd.x, Kd.y, Kd.z );
 				mCL->setReplacement( string( "#SKY_LIGHT#" ), string( msg ) );
+				foundSkyLight = true;
 			}
 		}
 
@@ -570,6 +571,7 @@ size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials 
 				char msg[128];
 				snprintf( msg, 128, "(float4)( %f, %f, %f, 0.0f )", Kd.x, Kd.y, Kd.z );
 				mCL->setReplacement( string( "#SKY_LIGHT#" ), string( msg ) );
+				foundSkyLight = true;
 			}
 		}
 
@@ -579,6 +581,10 @@ size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials 
 	else {
 		Logger::logError( "[PathTracer] Unknown BRDF selected." );
 		exit( EXIT_FAILURE );
+	}
+
+	if( !foundSkyLight ) {
+		mCL->setReplacement( string( "#SKY_LIGHT#" ), string( "(float4)( 1.0f, 1.0f, 1.0f, 0.0f )" ) );
 	}
 
 	return bytesMTL;
