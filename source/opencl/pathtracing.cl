@@ -128,10 +128,14 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 						brdfSpec = native_divide( brdfSpec, pdf );
 						brdfDiff = native_divide( brdfDiff, pdf );
 
-						brdf_s = brdfSpec * fresnel4( dotHK1, mtl->Rs * mtl->rgbSpec );
-						brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->Rs * mtl->rgbSpec );
+						brdf_s = brdfSpec * mtl->rgbSpec * fresnel( dotHK1, mtl->Rs );
+						brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->Rs );
 
-						*finalColor += *color * lightRaySource * ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
+						float4 brdfColor = ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
+						float maxRGB = max( 1.0f, max( brdfColor.x, max( brdfColor.y, brdfColor.z ) ) );
+						brdfColor /= maxRGB;
+
+						*finalColor += clamp( brdfColor, 0.0f, 1.0f ) * lightRaySource * mtl->d + ( 1.0f - mtl->d );
 
 						*secondaryPaths += 1;
 					}
@@ -147,8 +151,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 			brdfSpec = native_divide( brdfSpec, pdf );
 			brdfDiff = native_divide( brdfDiff, pdf );
 
-			brdf_s = brdfSpec * fresnel4( dotHK1, mtl->Rs * mtl->rgbSpec );
-			brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->Rs * mtl->rgbSpec );
+			brdf_s = brdfSpec * mtl->rgbSpec * fresnel( dotHK1, mtl->Rs );
+			brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->Rs );
 
 			float4 brdfColor = ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
 			float maxRGB = max( 1.0f, max( brdfColor.x, max( brdfColor.y, brdfColor.z ) ) );
@@ -240,8 +244,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 						brdfDiff = native_divide( brdfDiff, pdf );
 
 						for( int i = 0; i < SPEC; i++ ) {
-							brdf_s = brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC );
-							brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs * COLOR_SPEC );
+							brdf_s = brdfSpec * COLOR_SPEC * fresnel( dotHK1, mtl->Rs );
+							brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs );
 
 							spdTotal[i] += spd[i] * specPowerDists[lightRaySource + i] *
 							               ( brdf_s + brdf_d ) *
@@ -263,8 +267,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 			brdfDiff = native_divide( brdfDiff, pdf );
 
 			for( int i = 0; i < SPEC; i++ ) {
-				brdf_s = brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC );
-				brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs * COLOR_SPEC );
+				brdf_s = brdfSpec * COLOR_SPEC * fresnel( dotHK1, mtl->Rs );
+				brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs );
 
 				spd[i] *= ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
 				*maxValSpd = fmax( spd[i], *maxValSpd );
