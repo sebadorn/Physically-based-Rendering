@@ -82,7 +82,7 @@ struct material_shirley_ashikhmin_rgb {
 struct bvhNode_cl {
 	cl_float4 bbMin; // bbMin.w = leftChild
 	cl_float4 bbMax; // bbMax.w = rightChild
-	cl_int2 faces;
+	cl_int4 faces;
 };
 
 

@@ -264,6 +264,8 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 		cl_uint fvecLen = facesVec.size();
 		sn.faces.x = ( fvecLen > 0 ) ? facesVec[0].face.w : -1;
 		sn.faces.y = ( fvecLen > 1 ) ? facesVec[1].face.w : -1;
+		sn.faces.z = ( fvecLen > 2 ) ? facesVec[2].face.w : -1;
+		sn.faces.w = ( fvecLen > 3 ) ? facesVec[3].face.w : -1;
 
 		bvhNodesCL.push_back( sn );
 	}

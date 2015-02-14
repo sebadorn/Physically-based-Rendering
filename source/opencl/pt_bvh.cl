@@ -45,6 +45,38 @@ void intersectFaces(
 			ray->t = tuv.x;
 		}
 	}
+
+	if( node->faces.z == -1 ) {
+		return;
+	}
+
+	normal = checkFaceIntersection( ray, faces[node->faces.z], &tuv, tNear, tFar );
+
+	if( tuv.x < INFINITY ) {
+		tFar = tuv.x;
+
+		if( ray->t > tuv.x ) {
+			ray->normal = normal;
+			ray->normal.w = (float) node->faces.z;
+			ray->t = tuv.x;
+		}
+	}
+
+	if( node->faces.w == -1 ) {
+		return;
+	}
+
+	normal = checkFaceIntersection( ray, faces[node->faces.w], &tuv, tNear, tFar );
+
+	if( tuv.x < INFINITY ) {
+		tFar = tuv.x;
+
+		if( ray->t > tuv.x ) {
+			ray->normal = normal;
+			ray->normal.w = (float) node->faces.w;
+			ray->t = tuv.x;
+		}
+	}
 }
 
 
