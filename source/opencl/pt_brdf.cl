@@ -227,9 +227,8 @@
 	 * @param  {float*}        brdfDiff
 	 * @param  {float*}        dotHK1
 	 * @param  {float*}        pdf
-	 * @return {float}
 	 */
-	float brdfShirleyAshikhmin(
+	void brdfShirleyAshikhmin(
 		const float nu, const float nv, const float Rs, const float Rd,
 		const ray4* rayLightOut, const ray4* rayLightIn, const float4* normal,
 		float* brdfSpec, float* brdfDiff, float* dotHK1, float* pdf
@@ -365,7 +364,6 @@ ray4 getNewRay(
 		newRay.dir = refract( ray, mtl, seed );
 	}
 	else {
-
 		#if BRDF == 0
 
 			// BRDF: Schlick.
@@ -379,7 +377,6 @@ ray4 getNewRay(
 			newRay.dir = newRayShirleyAshikhmin( ray, mtl, seed );
 
 		#endif
-
 	}
 
 	return newRay;

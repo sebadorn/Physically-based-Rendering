@@ -122,7 +122,11 @@ void PathTracer::initArgsKernelPathTracing() {
 
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufFaces );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufMaterials );
-	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufSPDs );
+
+	if( Cfg::get().value<bool>( Cfg::USE_SPECTRAL ) ) {
+		mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufSPDs );
+	}
+
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufTextureIn );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufTextureOut );
 }
@@ -492,9 +496,111 @@ size_t PathTracer::initOpenCLBuffers_Faces(
  */
 size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 	vector<material_t> materials = ml->getObjParser()->getMaterials();
-	map< string, map<string, string> > mtl2spd = ml->getSpecParser()->getMaterialToSPD();
-	map< string, vector<cl_float> > spectra = ml->getSpecParser()->getSpectralPowerDistributions();
-	string sky = ml->getSpecParser()->getSkySPDName();
+	bool useSPD = Cfg::get().value<bool>( Cfg::USE_SPECTRAL );
+	size_t bytesMTL;
+
+	if( useSPD ) {
+		bytesMTL = this->initOpenCLBuffers_MaterialsSPD( materials, ml->getSpecParser() );
+	}
+	else {
+		bytesMTL = this->initOpenCLBuffers_MaterialsRGB( materials );
+	}
+
+	return bytesMTL;
+}
+
+
+/**
+ * Init OpenCL buffer for the materials (RGB mode).
+ * @param  {std::vector<material_t>} materials Loaded materials.
+ * @return {size_t}                            Size of the created buffer in bytes.
+ */
+size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials ) {
+	int brdf = Cfg::get().value<int>( Cfg::RENDER_BRDF );
+	size_t bytesMTL;
+	bool foundSkyLight = false;
+
+	// BRDF: Schlick
+	if( brdf == 0 ) {
+		vector<material_schlick_rgb> materialsCL;
+
+		for( int i = 0; i < materials.size(); i++ ) {
+			material_schlick_rgb mtl;
+			mtl.d = materials[i].d;
+			mtl.Ni = materials[i].Ni;
+			mtl.p = materials[i].p;
+			mtl.rough = materials[i].rough;
+			mtl.light = materials[i].light;
+			mtl.rgbDiff = materials[i].Kd;
+			mtl.rgbSpec = materials[i].Ks;
+
+			materialsCL.push_back( mtl );
+
+			if( materials[i].mtlName == "sky_light" && materials[i].light == 1 ) {
+				cl_float4 Kd = materials[i].Kd;
+				char msg[128];
+				snprintf( msg, 128, "(float4)( %f, %f, %f, 0.0f )", Kd.x, Kd.y, Kd.z );
+				mCL->setReplacement( string( "#SKY_LIGHT#" ), string( msg ) );
+				foundSkyLight = true;
+			}
+		}
+
+		bytesMTL = sizeof( material_schlick_rgb ) * materialsCL.size();
+		mBufMaterials = mCL->createBuffer( materialsCL, bytesMTL );
+	}
+	// BRDF: Shirley-Ashikhmin
+	else if( brdf == 1 ) {
+		vector<material_shirley_ashikhmin_rgb> materialsCL;
+
+		for( int i = 0; i < materials.size(); i++ ) {
+			material_shirley_ashikhmin_rgb mtl;
+			mtl.d = materials[i].d;
+			mtl.Ni = materials[i].Ni;
+			mtl.light = materials[i].light;
+			mtl.nu = materials[i].nu;
+			mtl.nv = materials[i].nv;
+			mtl.Rs = materials[i].Rs;
+			mtl.Rd = materials[i].Rd;
+			mtl.rgbDiff = materials[i].Kd;
+			mtl.rgbSpec = materials[i].Ks;
+
+			materialsCL.push_back( mtl );
+
+			if( materials[i].mtlName == "sky_light" && materials[i].light == 1 ) {
+				cl_float4 Kd = materials[i].Kd;
+				char msg[128];
+				snprintf( msg, 128, "(float4)( %f, %f, %f, 0.0f )", Kd.x, Kd.y, Kd.z );
+				mCL->setReplacement( string( "#SKY_LIGHT#" ), string( msg ) );
+				foundSkyLight = true;
+			}
+		}
+
+		bytesMTL = sizeof( material_shirley_ashikhmin_rgb ) * materialsCL.size();
+		mBufMaterials = mCL->createBuffer( materialsCL, bytesMTL );
+	}
+	else {
+		Logger::logError( "[PathTracer] Unknown BRDF selected." );
+		exit( EXIT_FAILURE );
+	}
+
+	if( !foundSkyLight ) {
+		mCL->setReplacement( string( "#SKY_LIGHT#" ), string( "(float4)( 1.0f, 1.0f, 1.0f, 0.0f )" ) );
+	}
+
+	return bytesMTL;
+}
+
+
+/**
+ * Init OpenCL buffer for the materials (SPD mode).
+ * @param  {std::vector<material_t>} materials Loaded materials.
+ * @param  {SpecParser*}             sp        SpecParser that holds data about loaded SPDs.
+ * @return {size_t}                            Size of the created buffer in bytes.
+ */
+size_t PathTracer::initOpenCLBuffers_MaterialsSPD( vector<material_t> materials, SpecParser* sp ) {
+	map< string, map<string, string> > mtl2spd = sp->getMaterialToSPD();
+	map< string, vector<cl_float> > spectra = sp->getSpectralPowerDistributions();
+	string sky = sp->getSkySPDName();
 
 
 	// Spectral Power Distributions
@@ -527,15 +633,15 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 	// Materials
 
 	int brdf = Cfg::get().value<int>( Cfg::RENDER_BRDF );
-	size_t bytesMTL;
 	string spdName;
+	size_t bytesMTL;
 
 	// BRDF: Schlick
 	if( brdf == 0 ) {
-		vector<material_schlick> materialsCL;
+		vector<material_schlick_spd> materialsCL;
 
 		for( int i = 0; i < materials.size(); i++ ) {
-			material_schlick mtl;
+			material_schlick_spd mtl;
 			mtl.d = materials[i].d;
 			mtl.Ni = materials[i].Ni;
 			mtl.p = materials[i].p;
@@ -550,15 +656,15 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 			materialsCL.push_back( mtl );
 		}
 
-		bytesMTL = sizeof( material_schlick ) * materialsCL.size();
+		bytesMTL = sizeof( material_schlick_spd ) * materialsCL.size();
 		mBufMaterials = mCL->createBuffer( materialsCL, bytesMTL );
 	}
 	// BRDF: Shirley-Ashikhmin
 	else if( brdf == 1 ) {
-		vector<material_shirley_ashikhmin> materialsCL;
+		vector<material_shirley_ashikhmin_spd> materialsCL;
 
 		for( int i = 0; i < materials.size(); i++ ) {
-			material_shirley_ashikhmin mtl;
+			material_shirley_ashikhmin_spd mtl;
 			mtl.d = materials[i].d;
 			mtl.Ni = materials[i].Ni;
 			mtl.light = materials[i].light;
@@ -575,7 +681,7 @@ size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 			materialsCL.push_back( mtl );
 		}
 
-		bytesMTL = sizeof( material_shirley_ashikhmin ) * materialsCL.size();
+		bytesMTL = sizeof( material_shirley_ashikhmin_spd ) * materialsCL.size();
 		mBufMaterials = mCL->createBuffer( materialsCL, bytesMTL );
 	}
 	else {

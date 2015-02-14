@@ -34,7 +34,7 @@ struct face_cl {
 	cl_float4 cn;
 };
 
-struct material_schlick {
+struct material_schlick_spd {
 	cl_float d;
 	cl_float Ni;
 	cl_float p;
@@ -43,7 +43,17 @@ struct material_schlick {
 	cl_char light;
 };
 
-struct material_shirley_ashikhmin {
+struct material_schlick_rgb {
+	cl_float d;
+	cl_float Ni;
+	cl_float p;
+	cl_float rough;
+	cl_float4 rgbDiff;
+	cl_float4 rgbSpec;
+	cl_char light;
+};
+
+struct material_shirley_ashikhmin_spd {
 	cl_float nu;
 	cl_float nv;
 	cl_float Rs;
@@ -51,6 +61,18 @@ struct material_shirley_ashikhmin {
 	cl_float d;
 	cl_float Ni;
 	cl_ushort2 spd;
+	cl_char light;
+};
+
+struct material_shirley_ashikhmin_rgb {
+	cl_float nu;
+	cl_float nv;
+	cl_float Rs;
+	cl_float Rd;
+	cl_float d;
+	cl_float Ni;
+	cl_float4 rgbDiff;
+	cl_float4 rgbSpec;
 	cl_char light;
 };
 
@@ -117,6 +139,8 @@ class PathTracer {
 		);
 		size_t initOpenCLBuffers_KdTree( BVHKdTree* bvhKdTree );
 		size_t initOpenCLBuffers_Materials( ModelLoader* ml );
+		size_t initOpenCLBuffers_MaterialsRGB( vector<material_t> materials );
+		size_t initOpenCLBuffers_MaterialsSPD( vector<material_t> materials, SpecParser* sp );
 		size_t initOpenCLBuffers_Rays();
 		size_t initOpenCLBuffers_Textures();
 		void kdNodesToVectors(

@@ -11,12 +11,36 @@ constant uint MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
 
 
 /**
+ *
+ * @param  {float*} seed
+ * @return {float}
+ */
+inline const float rand( float* seed ) {
+	float i;
+	*seed += 1.0f;
+
+	return fract( native_sin( *seed ) * 43758.5453123f, &i );
+}
+
+
+/**
  * Fresnel factor.
  * @param  {const float} u
  * @param  {const float} c Reflection factor.
  * @return {float}
  */
 inline float fresnel( const float u, const float c ) {
+	const float v = 1.0f - u;
+	return c + ( 1.0f - c ) * v * v * v * v * v;
+}
+
+/**
+ * Fresnel factor.
+ * @param  {const float} u
+ * @param  {const float} c Reflection factor.
+ * @return {float}
+ */
+inline float4 fresnel4( const float u, const float4 c ) {
 	const float v = 1.0f - u;
 	return c + ( 1.0f - c ) * v * v * v * v * v;
 }
@@ -295,32 +319,6 @@ inline float3 projectOnPlane( const float3 q, const float3 p, const float3 n ) {
  * @return {float3}         Projection of h onto n.
  */
 #define projection( h, n ) ( dot( ( h ).xyz, ( n ).xyz ) * ( n ) )
-
-
-/**
- *
- * @param  {float*} seed
- * @return {float}
- */
-inline const float rand( float* seed ) {
-	float i;
-	*seed += 1.0f;
-
-	return fract( native_sin( *seed ) * 43758.5453123f, &i );
-}
-
-
-// #define RAND_A 16807.0f
-// #define RAND_M 2147483647.0f
-// #define RAND_MRECIP 4.656612875245797e-10
-
-// // Park-Miller RNG
-// inline const float rand( int* seed ) {
-// 	const float temp = (*seed) * RAND_A;
-// 	*seed = (int)( temp - RAND_M * floor( temp * RAND_MRECIP ) );
-
-// 	return (*seed) * RAND_MRECIP;
-// }
 
 
 /**

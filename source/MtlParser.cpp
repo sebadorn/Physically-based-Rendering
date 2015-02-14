@@ -9,13 +9,13 @@ using std::vector;
  * @return {material_t} Default material.
  */
 material_t MtlParser::getEmptyMaterial() {
-	cl_float4 zeros = { 0.0f, 0.0f, 0.0f, 0.0f };
+	cl_float4 white = { 1.0f, 1.0f, 1.0f, 0.0f };
 
 	material_t mtl;
 	mtl.mtlName = "";
-	mtl.Ka = zeros;
-	mtl.Kd = zeros;
-	mtl.Ks = zeros;
+	mtl.Ka = white;
+	mtl.Kd = white;
+	mtl.Ks = white;
 	mtl.Ns = 100.0f;
 	mtl.Ni = 1.0f;
 	mtl.d = 1.0f;

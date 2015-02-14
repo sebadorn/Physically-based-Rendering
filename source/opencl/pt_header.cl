@@ -11,14 +11,15 @@
 #define MAX_ADDED_DEPTH #MAX_ADDED_DEPTH#
 #define MAX_DEPTH #MAX_DEPTH#
 #define NI_AIR 1.00028f
-#define PhongTess #PHONG_TESS#
-#define PhongTess_ALPHA #PHONG_TESS_ALPHA#
+#define PHONGTESS #PHONGTESS#
+#define PHONGTESS_ALPHA #PHONGTESS_ALPHA#
 #define PI_X2 6.28318530718f
 #define SAMPLES #SAMPLES#
 #define SKY_LIGHT #SKY_LIGHT#
 // TODO: Using any other value than 40 doesn't really work.
 #define SPEC 40
 #define SPECTRAL_COLORSYSTEM #SPECTRAL_COLORSYSTEM#
+#define USE_SPECTRAL #USE_SPECTRAL#
 
 
 typedef struct {
@@ -79,6 +80,19 @@ typedef struct {
 #endif
 
 
+// Color mode: RGB
+#if USE_SPECTRAL == 0
+
+	#define MTL_COLOR constant float4 rgbDiff; constant float4 rgbSpec;
+
+// Color mode: SPD
+#elif USE_SPECTRAL == 1
+
+	#define MTL_COLOR constant ushort2 spd;
+
+#endif
+
+
 // Schlick
 #if BRDF == 0
 
@@ -87,7 +101,7 @@ typedef struct {
 		constant float Ni;
 		constant float p;
 		constant float rough;
-		constant ushort2 spd;
+		MTL_COLOR
 		constant char light
 	} material __attribute__((aligned));
 
@@ -101,7 +115,7 @@ typedef struct {
 		constant float Rd;
 		constant float d;
 		constant float Ni;
-		constant ushort2 spd;
+		MTL_COLOR
 		constant char light
 	} material __attribute__((aligned));
 
