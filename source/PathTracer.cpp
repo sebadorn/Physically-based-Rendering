@@ -104,7 +104,6 @@ void PathTracer::initArgsKernelPathTracing() {
 
 		case ACCELSTRUCT_BVH:
 			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVH );
-			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVHFaces );
 			break;
 
 		case ACCELSTRUCT_KDTREE:
@@ -250,7 +249,6 @@ void PathTracer::initOpenCLBuffers(
 size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 	vector<BVHNode*> bvhNodes = bvh->getNodes();
 	vector<bvhNode_cl> bvhNodesCL;
-	vector<cl_uint> bvhNodeFaces;
 
 	for( cl_uint i = 0; i < bvhNodes.size(); i++ ) {
 		cl_float4 bbMin = { bvhNodes[i]->bbMin[0], bvhNodes[i]->bbMin[1], bvhNodes[i]->bbMin[2], 0.0f };
@@ -263,22 +261,17 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 		sn.bbMax.w = ( bvhNodes[i]->rightChild == NULL ) ? -1.0f : (cl_float) bvhNodes[i]->rightChild->id;
 
 		vector<Tri> facesVec = bvhNodes[i]->faces;
-		sn.facesInterval.x = bvhNodeFaces.size();
-		sn.facesInterval.y = facesVec.size();
-
-		for( cl_uint i = 0; i < facesVec.size(); i++ ) {
-			bvhNodeFaces.push_back( facesVec[i].face.w );
-		}
+		cl_uint fvecLen = facesVec.size();
+		sn.faces.x = ( fvecLen > 0 ) ? facesVec[0].face.w : -1;
+		sn.faces.y = ( fvecLen > 1 ) ? facesVec[1].face.w : -1;
 
 		bvhNodesCL.push_back( sn );
 	}
 
 	size_t bytesBVH = sizeof( bvhNode_cl ) * bvhNodesCL.size();
-	size_t bytesFaces = sizeof( cl_uint ) * bvhNodeFaces.size();
 	mBufBVH = mCL->createBuffer( bvhNodesCL, bytesBVH );
-	mBufBVHFaces = mCL->createBuffer( bvhNodeFaces, bytesFaces );
 
-	return bytesBVH + bytesFaces;
+	return bytesBVH;
 }
 
 

@@ -1,8 +1,8 @@
 // Traversal for the acceleration structure.
 // Type: Bounding Volume Hierarchy (BVH)
 
-#define CALL_TRAVERSE         traverse( bvh, bvhFaces, &ray, faces );
-#define CALL_TRAVERSE_SHADOWS traverse_shadows( bvh, bvhFaces, &lightRay, faces );
+#define CALL_TRAVERSE         traverse( bvh, &ray, faces );
+#define CALL_TRAVERSE_SHADOWS traverse_shadows( bvh, &lightRay, faces );
 
 
 /**
@@ -14,21 +14,35 @@
  * @param {float tFar}           tFar
  */
 void intersectFaces(
-	ray4* ray, const bvhNode* node, global const uint* bvhFaces, const global face_t* faces,
+	ray4* ray, const bvhNode* node, const global face_t* faces,
 	const float tNear, float tFar
 ) {
-	for( char i = 0; i < node->facesInterval.y; i++ ) {
-		float3 tuv;
-		float4 normal = checkFaceIntersection( ray, faces[bvhFaces[node->facesInterval.x + i]], &tuv, tNear, tFar );
+	float3 tuv;
+	float4 normal = checkFaceIntersection( ray, faces[node->faces.x], &tuv, tNear, tFar );
 
-		if( tuv.x < INFINITY ) {
-			tFar = tuv.x;
+	if( tuv.x < INFINITY ) {
+		tFar = tuv.x;
 
-			if( ray->t > tuv.x ) {
-				ray->normal = normal;
-				ray->normal.w = (float) bvhFaces[node->facesInterval.x + i];
-				ray->t = tuv.x;
-			}
+		if( ray->t > tuv.x ) {
+			ray->normal = normal;
+			ray->normal.w = (float) node->faces.x;
+			ray->t = tuv.x;
+		}
+	}
+
+	if( node->faces.y == -1 ) {
+		return;
+	}
+
+	normal = checkFaceIntersection( ray, faces[node->faces.y], &tuv, tNear, tFar );
+
+	if( tuv.x < INFINITY ) {
+		tFar = tuv.x;
+
+		if( ray->t > tuv.x ) {
+			ray->normal = normal;
+			ray->normal.w = (float) node->faces.y;
+			ray->t = tuv.x;
 		}
 	}
 }
@@ -42,7 +56,7 @@ void intersectFaces(
  * @param {global const face_t*}  faces
  */
 void traverse(
-	global const bvhNode* bvh, global const uint* bvhFaces,
+	global const bvhNode* bvh,
 	ray4* ray, global const face_t* faces
 ) {
 	uint bvhStack[BVH_STACKSIZE];
@@ -62,7 +76,7 @@ void traverse(
 				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
 				ray->t > tNearL
 			) {
-				intersectFaces( ray, &node, bvhFaces, faces, tNearL, tFarL );
+				intersectFaces( ray, &node, faces, tNearL, tFarL );
 			}
 
 			continue;
@@ -118,7 +132,7 @@ void traverse(
  * @param {const global face_t*}  faces
  */
 void traverse_shadows(
-	const global bvhNode* bvh, const global uint* bvhFaces,
+	const global bvhNode* bvh,
 	ray4* ray, const global face_t* faces
 ) {
 	bool addLeftToStack, addRightToStack, rightThenLeft;
@@ -138,7 +152,7 @@ void traverse_shadows(
 		// Is a leaf node with faces
 		if( node.bbMin.w < 0.0f && node.bbMax.w < 0.0f ) {
 			if( intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) ) {
-				intersectFaces( ray, &node, bvhFaces, faces, tNearL, tFarL );
+				intersectFaces( ray, &node, faces, tNearL, tFarL );
 
 				if( ray->t < INFINITY ) {
 					break;

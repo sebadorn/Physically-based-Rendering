@@ -54,7 +54,7 @@ typedef struct {
 	typedef struct {
 		global float4 bbMin; // bbMin.w = leftChild
 		global float4 bbMax; // bbMax.w = rightChild
-		global int2 facesInterval; // x = start index; y = number of faces
+		global int2 faces;
 	} bvhNode __attribute__((aligned));
 
 // kD-tree

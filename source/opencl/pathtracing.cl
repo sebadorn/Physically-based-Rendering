@@ -316,7 +316,6 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 		#if ACCEL_STRUCT == 0
 
 			global const bvhNode* bvh,
-			global const uint* bvhFaces,
 
 		#elif ACCEL_STRUCT == 1
 
@@ -476,7 +475,6 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 		#if ACCEL_STRUCT == 0
 
 			global const bvhNode* bvh,
-			global const uint* bvhFaces,
 
 		#elif ACCEL_STRUCT == 1
 
