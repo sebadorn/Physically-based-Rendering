@@ -103,11 +103,12 @@ void PathTracer::initArgsKernelPathTracing() {
 	switch( Cfg::get().value<int>( Cfg::ACCEL_STRUCT ) ) {
 
 		case ACCELSTRUCT_BVH:
-			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVH );
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVHNodes );
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVHLeaves );
 			break;
 
 		case ACCELSTRUCT_KDTREE:
-			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVH );
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVHNodes );
 			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdNonLeaves );
 			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdLeaves );
 			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdFaces );
@@ -249,31 +250,64 @@ void PathTracer::initOpenCLBuffers(
 size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 	vector<BVHNode*> bvhNodes = bvh->getNodes();
 	vector<bvhNode_cl> bvhNodesCL;
+	vector<bvhLeaf_cl> bvhLeavesCL;
 
 	for( cl_uint i = 0; i < bvhNodes.size(); i++ ) {
-		cl_float4 bbMin = { bvhNodes[i]->bbMin[0], bvhNodes[i]->bbMin[1], bvhNodes[i]->bbMin[2], 0.0f };
-		cl_float4 bbMax = { bvhNodes[i]->bbMax[0], bvhNodes[i]->bbMax[1], bvhNodes[i]->bbMax[2], 0.0f };
+		BVHNode* node = bvhNodes[i];
 
-		bvhNode_cl sn;
-		sn.bbMin = bbMin;
-		sn.bbMax = bbMax;
-		sn.bbMin.w = ( bvhNodes[i]->leftChild == NULL ) ? -1.0f : (cl_float) bvhNodes[i]->leftChild->id;
-		sn.bbMax.w = ( bvhNodes[i]->rightChild == NULL ) ? -1.0f : (cl_float) bvhNodes[i]->rightChild->id;
+		cl_float4 bbMin = { node->bbMin[0], node->bbMin[1], node->bbMin[2], 0.0f };
+		cl_float4 bbMax = { node->bbMax[0], node->bbMax[1], node->bbMax[2], 0.0f };
 
-		vector<Tri> facesVec = bvhNodes[i]->faces;
+		vector<Tri> facesVec = node->faces;
 		cl_uint fvecLen = facesVec.size();
-		sn.faces.x = ( fvecLen > 0 ) ? facesVec[0].face.w : -1;
-		sn.faces.y = ( fvecLen > 1 ) ? facesVec[1].face.w : -1;
-		sn.faces.z = ( fvecLen > 2 ) ? facesVec[2].face.w : -1;
-		sn.faces.w = ( fvecLen > 3 ) ? facesVec[3].face.w : -1;
 
-		bvhNodesCL.push_back( sn );
+		// leaf node
+		if( fvecLen > 0 ) {
+			bvhLeaf_cl l;
+			l.bbMin = bbMin;
+			l.bbMax = bbMax;
+
+			l.faces.x = ( fvecLen > 0 ) ? facesVec[0].face.w : -1;
+			l.faces.y = ( fvecLen > 1 ) ? facesVec[1].face.w : -1;
+			l.faces.z = ( fvecLen > 2 ) ? facesVec[2].face.w : -1;
+			l.faces.w = ( fvecLen > 3 ) ? facesVec[3].face.w : -1;
+
+			bvhLeavesCL.push_back( l );
+		}
+		// non-leaf node
+		else {
+			bool hasLeftChild = ( node->leftChild != NULL );
+			bool hasRightChild = ( node->rightChild != NULL );
+			bool isLeftChildLeaf = false;
+			bool isRightChildLeaf = false;
+			cl_float leftId = 0.0f;
+			cl_float rightId = 0.0f;
+
+			if( hasLeftChild ) {
+				isLeftChildLeaf = ( node->leftChild->faces.size() > 0 );
+				leftId = (cl_float) ( node->leftChild->id + 1 );
+			}
+			if( hasRightChild ) {
+				isRightChildLeaf = ( node->rightChild->faces.size() > 0 );
+				rightId = (cl_float) ( node->rightChild->id + 1 );
+			}
+
+			bvhNode_cl n;
+			n.bbMin = bbMin;
+			n.bbMax = bbMax;
+			n.bbMin.w = isLeftChildLeaf ? -leftId : leftId;
+			n.bbMax.w = isRightChildLeaf ? -rightId : rightId;
+
+			bvhNodesCL.push_back( n );
+		}
 	}
 
-	size_t bytesBVH = sizeof( bvhNode_cl ) * bvhNodesCL.size();
-	mBufBVH = mCL->createBuffer( bvhNodesCL, bytesBVH );
+	size_t bytesNodes = sizeof( bvhNode_cl ) * bvhNodesCL.size();
+	size_t bytesLeaves = sizeof( bvhLeaf_cl ) * bvhLeavesCL.size();
+	mBufBVHNodes = mCL->createBuffer( bvhNodesCL, bytesNodes );
+	mBufBVHLeaves = mCL->createBuffer( bvhLeavesCL, bytesLeaves );
 
-	return bytesBVH;
+	return bytesNodes + bytesLeaves;
 }
 
 
@@ -331,7 +365,7 @@ size_t PathTracer::initOpenCLBuffers_KdTree( BVHKdTree* bvhKdTree ) {
 	size_t bytesNonLeaves = sizeof( kdNonLeaf_cl ) * kdNonLeaves.size();
 	size_t bytesLeaves = sizeof( kdLeaf_cl ) * kdLeaves.size();
 	size_t bytesFaces = sizeof( cl_uint ) * kdFaces.size();
-	mBufBVH = mCL->createBuffer( bvhNodesCL, bytesBVH );
+	mBufBVHNodes = mCL->createBuffer( bvhNodesCL, bytesBVH );
 	mBufKdNonLeaves = mCL->createBuffer( kdNonLeaves, bytesNonLeaves );
 	mBufKdLeaves = mCL->createBuffer( kdLeaves, bytesLeaves );
 	mBufKdFaces = mCL->createBuffer( kdFaces, bytesFaces );

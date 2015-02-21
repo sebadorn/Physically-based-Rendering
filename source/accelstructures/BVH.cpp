@@ -60,6 +60,7 @@ BVH::BVH(
 	mRoot = this->makeContainerNode( subTrees, true );
 	this->groupTreesToNodes( subTrees, mRoot, mDepthReached );
 	this->combineNodes( subTrees.size() );
+
 	this->logStats( timerStart );
 }
 
@@ -349,10 +350,13 @@ void BVH::combineNodes( const cl_uint numSubTrees ) {
 	mNodes.insert( mNodes.end(), mContainerNodes.begin(), mContainerNodes.end() );
 
 	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
-		mNodes[i]->id = i;
-
 		if( mNodes[i]->faces.size() > 0 ) {
+			mNodes[i]->id = mLeafNodes.size();
 			mLeafNodes.push_back( mNodes[i] );
+		}
+		else {
+			mNodes[i]->id = mNonLeafNodes.size();
+			mNonLeafNodes.push_back( mNodes[i] );
 		}
 	}
 }
@@ -497,6 +501,16 @@ cl_float BVH::getMeanOfNodes( const vector<BVHNode*> nodes, const cl_uint axis )
  */
 vector<BVHNode*> BVH::getNodes() {
 	return mNodes;
+}
+
+
+/**
+ * Get all non-leaf nodes.
+ * The first node in the list is the root node.
+ * @return {std::vector<BVHNode*>} List of all non-leaf nodes.
+ */
+vector<BVHNode*> BVH::getNonLeafNodes() {
+	return mNonLeafNodes;
 }
 
 

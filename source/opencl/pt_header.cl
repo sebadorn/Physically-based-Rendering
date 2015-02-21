@@ -38,44 +38,49 @@ typedef struct {
 
 typedef struct {
 	// vertices
-	global float4 a; // a.w = material index
-	global float4 b;
-	global float4 c;
+	float4 a; // a.w = material index
+	float4 b;
+	float4 c;
 	// vertex normals
-	global float4 an;
-	global float4 bn;
-	global float4 cn;
-} face_t __attribute__((aligned));
+	float4 an;
+	float4 bn;
+	float4 cn;
+} face_t;
 
 
 // BVH
 #if ACCEL_STRUCT == 0
 
 	typedef struct {
-		global float4 bbMin; // bbMin.w = leftChild
-		global float4 bbMax; // bbMax.w = rightChild
-		global int4 faces;
-	} bvhNode __attribute__((aligned));
+		float4 bbMin; // bbMin.w = leftChild
+		float4 bbMax; // bbMax.w = rightChild
+	} bvhNode;
+
+	typedef struct {
+		float4 bbMin;
+		float4 bbMax;
+		int4 faces;
+	} bvhLeaf;
 
 // kD-tree
 #elif ACCEL_STRUCT == 1
 
 	typedef struct {
-		global float4 bbMin; // bbMin.w = leftChild
-		global float4 bbMax; // bbMax.w = rightChild
-	} bvhNode __attribute__((aligned));
+		float4 bbMin; // bbMin.w = leftChild
+		float4 bbMax; // bbMax.w = rightChild
+	} bvhNode;
 
 	typedef struct {
-		global float split;
-		global int4 children; // [left, right, isLeftLeaf, isRightLeaf]
-		global short axis;
-	} kdNonLeaf __attribute__((aligned));
+		float split;
+		int4 children; // [left, right, isLeftLeaf, isRightLeaf]
+		short axis;
+	} kdNonLeaf;
 
 	typedef struct {
-		global int8 ropes; // [left, right, bottom, top, back, front, facesIndex, numFaces]
-		global float4 bbMin;
-		global float4 bbMax;
-	} kdLeaf __attribute__((aligned));
+		int8 ropes; // [left, right, bottom, top, back, front, facesIndex, numFaces]
+		float4 bbMin;
+		float4 bbMax;
+	} kdLeaf;
 
 #endif
 
@@ -83,12 +88,12 @@ typedef struct {
 // Color mode: RGB
 #if USE_SPECTRAL == 0
 
-	#define MTL_COLOR constant float4 rgbDiff; constant float4 rgbSpec;
+	#define MTL_COLOR float4 rgbDiff; float4 rgbSpec;
 
 // Color mode: SPD
 #elif USE_SPECTRAL == 1
 
-	#define MTL_COLOR constant ushort2 spd;
+	#define MTL_COLOR ushort2 spd;
 
 #endif
 
@@ -97,26 +102,26 @@ typedef struct {
 #if BRDF == 0
 
 	typedef struct {
-		constant float d;
-		constant float Ni;
-		constant float p;
-		constant float rough;
+		float d;
+		float Ni;
+		float p;
+		float rough;
 		MTL_COLOR
-		constant char light
-	} material __attribute__((aligned));
+		char light
+	} material;
 
 // Shirley-Ashikhmin
 #elif BRDF == 1
 
 	typedef struct {
-		constant float nu;
-		constant float nv;
-		constant float Rs;
-		constant float Rd;
-		constant float d;
-		constant float Ni;
+		float nu;
+		float nv;
+		float Rs;
+		float Rd;
+		float d;
+		float Ni;
 		MTL_COLOR
-		constant char light
-	} material __attribute__((aligned));
+		char light
+	} material;
 
 #endif

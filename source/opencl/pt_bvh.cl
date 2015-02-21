@@ -1,8 +1,8 @@
 // Traversal for the acceleration structure.
 // Type: Bounding Volume Hierarchy (BVH)
 
-#define CALL_TRAVERSE         traverse( bvh, &ray, faces );
-#define CALL_TRAVERSE_SHADOWS traverse_shadows( bvh, &lightRay, faces );
+#define CALL_TRAVERSE         traverse( bvhNodes, bvhLeaves, &ray, faces );
+#define CALL_TRAVERSE_SHADOWS traverse_shadows( bvhNodes, bvhLeaves, &lightRay, faces );
 
 
 /**
@@ -14,66 +14,66 @@
  * @param {float tFar}           tFar
  */
 void intersectFaces(
-	ray4* ray, const bvhNode* node, const global face_t* faces,
+	ray4* ray, const int4 nodeFaces, const global face_t* faces,
 	const float tNear, float tFar
 ) {
 	float3 tuv;
-	float4 normal = checkFaceIntersection( ray, faces[node->faces.x], &tuv, tNear, tFar );
+	float4 normal = checkFaceIntersection( ray, faces[nodeFaces.x], &tuv, tNear, tFar );
 
 	if( tuv.x < INFINITY ) {
 		tFar = tuv.x;
 
 		if( ray->t > tuv.x ) {
 			ray->normal = normal;
-			ray->normal.w = (float) node->faces.x;
+			ray->normal.w = (float) nodeFaces.x;
 			ray->t = tuv.x;
 		}
 	}
 
-	if( node->faces.y == -1 ) {
+	if( nodeFaces.y == -1 ) {
 		return;
 	}
 
-	normal = checkFaceIntersection( ray, faces[node->faces.y], &tuv, tNear, tFar );
+	normal = checkFaceIntersection( ray, faces[nodeFaces.y], &tuv, tNear, tFar );
 
 	if( tuv.x < INFINITY ) {
 		tFar = tuv.x;
 
 		if( ray->t > tuv.x ) {
 			ray->normal = normal;
-			ray->normal.w = (float) node->faces.y;
+			ray->normal.w = (float) nodeFaces.y;
 			ray->t = tuv.x;
 		}
 	}
 
-	if( node->faces.z == -1 ) {
+	if( nodeFaces.z == -1 ) {
 		return;
 	}
 
-	normal = checkFaceIntersection( ray, faces[node->faces.z], &tuv, tNear, tFar );
+	normal = checkFaceIntersection( ray, faces[nodeFaces.z], &tuv, tNear, tFar );
 
 	if( tuv.x < INFINITY ) {
 		tFar = tuv.x;
 
 		if( ray->t > tuv.x ) {
 			ray->normal = normal;
-			ray->normal.w = (float) node->faces.z;
+			ray->normal.w = (float) nodeFaces.z;
 			ray->t = tuv.x;
 		}
 	}
 
-	if( node->faces.w == -1 ) {
+	if( nodeFaces.w == -1 ) {
 		return;
 	}
 
-	normal = checkFaceIntersection( ray, faces[node->faces.w], &tuv, tNear, tFar );
+	normal = checkFaceIntersection( ray, faces[nodeFaces.w], &tuv, tNear, tFar );
 
 	if( tuv.x < INFINITY ) {
 		tFar = tuv.x;
 
 		if( ray->t > tuv.x ) {
 			ray->normal = normal;
-			ray->normal.w = (float) node->faces.w;
+			ray->normal.w = (float) nodeFaces.w;
 			ray->t = tuv.x;
 		}
 	}
@@ -88,69 +88,72 @@ void intersectFaces(
  * @param {global const face_t*}  faces
  */
 void traverse(
-	global const bvhNode* bvh,
+	global const bvhNode* bvhNodes, global const bvhLeaf* bvhLeaves,
 	ray4* ray, global const face_t* faces
 ) {
-	uint bvhStack[BVH_STACKSIZE];
+	int bvhStack[BVH_STACKSIZE];
 	int stackIndex = 0;
 	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
 
 	const float3 invDir = native_recip( ray->dir.xyz );
 
 	while( stackIndex >= 0 ) {
-		bvhNode node = bvh[bvhStack[stackIndex--]];
-		float tNearL = 0.0f;
-		float tFarL = INFINITY;
+		bvhNode node = bvhNodes[bvhStack[stackIndex--]];
+		float tNear = 0.0f;
+		float tFar = INFINITY;
 
-		// Is a leaf node
-		if( node.bbMin.w < 0.0f ) {
-			if(
-				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
-				ray->t > tNearL
-			) {
-				intersectFaces( ray, &node, faces, tNearL, tFarL );
-			}
-
+		// Check if node is hit by ray
+		if(
+			!intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNear, &tFar ) ||
+			ray->t <= tNear
+		) {
+			// Not hit, continue with next one on the stack.
 			continue;
 		}
 
 
-		// Add child nodes to stack, if hit by ray
+		int leftChildIndex = (int) node.bbMin.w;
 
-		bvhNode childNode = bvh[(int) node.bbMin.w];
+		// Left child node is a leaf
+		if( leftChildIndex < 0 ) {
+			int leafIndex = ( leftChildIndex * -1 ) - 1;
+			bvhLeaf leaf = bvhLeaves[leafIndex];
 
-		bool addLeftToStack = (
-			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL ) &&
-			ray->t > tNearL
-		);
-
-		float tNearR = 0.0f;
-		float tFarR = INFINITY;
-		childNode = bvh[(int) node.bbMax.w];
-
-		bool addRightToStack = (
-			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR ) &&
-			ray->t > tNearR
-		);
-
-
-		// The node that is pushed on the stack first will be evaluated last.
-		// So the nearer one should be pushed last, because it will be popped first then.
-		const bool rightThenLeft = ( tNearR > tNearL );
-
-		if( rightThenLeft && addRightToStack ) {
-			bvhStack[++stackIndex] = (uint) node.bbMax.w;
+			if(
+				intersectBox( ray, &invDir, leaf.bbMin, leaf.bbMax, &tNear, &tFar ) &&
+				ray->t > tNear
+			) {
+				intersectFaces( ray, leaf.faces, faces, tNear, tFar );
+			}
 		}
-		if( rightThenLeft && addLeftToStack ) {
-			bvhStack[++stackIndex] = (uint) node.bbMin.w;
+		// Left child is not a leaf
+		else if( leftChildIndex > 0 ) {
+			bvhStack[++stackIndex] = leftChildIndex - 1;
 		}
+		// Otherwise there is no left child node
 
-		if( !rightThenLeft && addLeftToStack ) {
-			bvhStack[++stackIndex] = (uint) node.bbMin.w;
+
+		tNear = 0.0f;
+		tFar = INFINITY;
+		int rightChildIndex = (int) node.bbMax.w;
+
+		// Right child node is a leaf
+		if( rightChildIndex < 0 ) {
+			int leafIndex = ( rightChildIndex * -1 ) - 1;
+			bvhLeaf leaf = bvhLeaves[leafIndex];
+
+			if(
+				intersectBox( ray, &invDir, leaf.bbMin, leaf.bbMax, &tNear, &tFar ) &&
+				ray->t > tNear
+			) {
+				intersectFaces( ray, leaf.faces, faces, tNear, tFar );
+			}
 		}
-		if( !rightThenLeft && addRightToStack ) {
-			bvhStack[++stackIndex] = (uint) node.bbMax.w;
+		// Right child node is not a leaf
+		else if( rightChildIndex > 0 ) {
+			bvhStack[++stackIndex] = rightChildIndex - 1;
 		}
+		// Otherwise there is no right child node
 	}
 }
 
@@ -164,65 +167,105 @@ void traverse(
  * @param {const global face_t*}  faces
  */
 void traverse_shadows(
-	const global bvhNode* bvh,
+	const global bvhNode* bvhNodes, const global bvhLeaf* bvhLeaves,
 	ray4* ray, const global face_t* faces
 ) {
-	bool addLeftToStack, addRightToStack, rightThenLeft;
+	// bool addLeftToStack, addRightToStack, rightThenLeft;
 	float tFarL, tFarR, tNearL, tNearR;
 
-	uint bvhStack[BVH_STACKSIZE];
+	int bvhStack[BVH_STACKSIZE];
 	int stackIndex = 0;
 	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
 
 	const float3 invDir = native_recip( ray->dir.xyz );
 
 	while( stackIndex >= 0 ) {
-		bvhNode node = bvh[bvhStack[stackIndex--]];
+		bvhNode node = bvhNodes[bvhStack[stackIndex--]];
 		tNearL = 0.0f;
 		tFarL = INFINITY;
 
-		// Is a leaf node with faces
-		if( node.bbMin.w < 0.0f && node.bbMax.w < 0.0f ) {
-			if( intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) ) {
-				intersectFaces( ray, &node, faces, tNearL, tFarL );
+		// Check if node is hit by ray
+		if( !intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) ) {
+			// Not hit, continue with next one on the stack.
+			continue;
+		}
+
+		// Is left child node a leaf node?
+		if( node.bbMin.w < 0.0f ) {
+			int leafIndex = ( ( (int) node.bbMin.w ) * -1 ) - 1;
+			bvhLeaf leaf = bvhLeaves[leafIndex];
+
+			if( intersectBox( ray, &invDir, leaf.bbMin, leaf.bbMax, &tNearL, &tFarL ) ) {
+				intersectFaces( ray, leaf.faces, faces, tNearL, tFarL );
 
 				if( ray->t < INFINITY ) {
 					break;
 				}
 			}
-
-			continue;
+		}
+		else {
+			bvhStack[++stackIndex] = (int) node.bbMin.w - 1;
 		}
 
-		// Add child nodes to stack, if hit by ray
+		// Is right child node a leaf node?
+		if( node.bbMax.w < 0.0f ) {
+			int leafIndex = ( ( (int) node.bbMax.w ) * -1 ) - 1;
+			bvhLeaf leaf = bvhLeaves[leafIndex];
 
-		bvhNode childNode = bvh[(int) node.bbMin.w];
+			if( intersectBox( ray, &invDir, leaf.bbMin, leaf.bbMax, &tNearL, &tFarL ) ) {
+				intersectFaces( ray, leaf.faces, faces, tNearL, tFarL );
 
-		bool addLeftToStack = intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL );
-
-		float tNearR = 0.0f;
-		float tFarR = INFINITY;
-		childNode = bvh[(int) node.bbMax.w];
-
-		bool addRightToStack = intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR );
-
-
-		// The node that is pushed on the stack first will be evaluated last.
-		// So the nearer one should be pushed last, because it will be popped first then.
-		rightThenLeft = ( tNearR > tNearL );
-
-		if( rightThenLeft && addRightToStack) {
-			bvhStack[++stackIndex] = (int) node.bbMax.w;
+				if( ray->t < INFINITY ) {
+					break;
+				}
+			}
 		}
-		if( rightThenLeft && addLeftToStack) {
-			bvhStack[++stackIndex] = (int) node.bbMin.w;
+		else {
+			bvhStack[++stackIndex] = (int) node.bbMax.w - 1;
 		}
 
-		if( !rightThenLeft && addLeftToStack) {
-			bvhStack[++stackIndex] = (int) node.bbMin.w;
-		}
-		if( !rightThenLeft && addRightToStack) {
-			bvhStack[++stackIndex] = (int) node.bbMax.w;
-		}
+		// // Is a leaf node with faces
+		// if( node.bbMin.w < 0.0f && node.bbMax.w < 0.0f ) {
+		// 	if( intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) ) {
+		// 		intersectFaces( ray, node.faces, faces, tNearL, tFarL );
+
+		// 		if( ray->t < INFINITY ) {
+		// 			break;
+		// 		}
+		// 	}
+
+		// 	continue;
+		// }
+
+		// // Add child nodes to stack, if hit by ray
+
+		// bvhNode childNode = bvh[(int) node.bbMin.w];
+
+		// bool addLeftToStack = intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL );
+
+		// float tNearR = 0.0f;
+		// float tFarR = INFINITY;
+		// childNode = bvh[(int) node.bbMax.w];
+
+		// bool addRightToStack = intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR );
+
+
+		// // The node that is pushed on the stack first will be evaluated last.
+		// // So the nearer one should be pushed last, because it will be popped first then.
+		// rightThenLeft = ( tNearR > tNearL );
+
+		// if( rightThenLeft && addRightToStack) {
+		// 	bvhStack[++stackIndex] = (int) node.bbMax.w;
+		// }
+		// if( rightThenLeft && addLeftToStack) {
+		// 	bvhStack[++stackIndex] = (int) node.bbMin.w;
+		// }
+
+		// if( !rightThenLeft && addLeftToStack) {
+		// 	bvhStack[++stackIndex] = (int) node.bbMin.w;
+		// }
+		// if( !rightThenLeft && addRightToStack) {
+		// 	bvhStack[++stackIndex] = (int) node.bbMax.w;
+		// }
 	}
 }

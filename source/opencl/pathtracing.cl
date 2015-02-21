@@ -128,7 +128,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 						brdfSpec = native_divide( brdfSpec, pdf );
 						brdfDiff = native_divide( brdfDiff, pdf );
 
-						brdf_s = brdfSpec * mtl->rgbSpec * fresnel( dotHK1, mtl->Rs );
+						brdf_s = brdfSpec * fresnel4( dotHK1, mtl->Rs * mtl->rgbSpec );
 						brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->Rs );
 
 						float4 brdfColor = ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
@@ -151,7 +151,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 			brdfSpec = native_divide( brdfSpec, pdf );
 			brdfDiff = native_divide( brdfDiff, pdf );
 
-			brdf_s = brdfSpec * mtl->rgbSpec * fresnel( dotHK1, mtl->Rs );
+			brdf_s = brdfSpec * fresnel4( dotHK1, mtl->Rs * mtl->rgbSpec );
 			brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->Rs );
 
 			float4 brdfColor = ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
@@ -244,7 +244,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 						brdfDiff = native_divide( brdfDiff, pdf );
 
 						for( int i = 0; i < SPEC; i++ ) {
-							brdf_s = brdfSpec * COLOR_SPEC * fresnel( dotHK1, mtl->Rs );
+							brdf_s = brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC );
 							brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs );
 
 							spdTotal[i] += spd[i] * specPowerDists[lightRaySource + i] *
@@ -267,7 +267,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 			brdfDiff = native_divide( brdfDiff, pdf );
 
 			for( int i = 0; i < SPEC; i++ ) {
-				brdf_s = brdfSpec * COLOR_SPEC * fresnel( dotHK1, mtl->Rs );
+				brdf_s = brdfSpec * fresnel( dotHK1, mtl->Rs * COLOR_SPEC );
 				brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs );
 
 				spd[i] *= ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
@@ -315,7 +315,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 		// acceleration structure
 		#if ACCEL_STRUCT == 0
 
-			global const bvhNode* bvh,
+			global const bvhNode* bvhNodes,
+			global const bvhLeaves* bvhLeaves,
 
 		#elif ACCEL_STRUCT == 1
 
@@ -474,7 +475,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 		// acceleration structure
 		#if ACCEL_STRUCT == 0
 
-			global const bvhNode* bvh,
+			global const bvhNode* bvhNodes,
+			global const bvhLeaf* bvhLeaves,
 
 		#elif ACCEL_STRUCT == 1
 
