@@ -82,11 +82,6 @@ struct material_shirley_ashikhmin_rgb {
 struct bvhNode_cl {
 	cl_float4 bbMin; // bbMin.w = leftChild
 	cl_float4 bbMax; // bbMax.w = rightChild
-};
-
-struct bvhLeaf_cl {
-	cl_float4 bbMin;
-	cl_float4 bbMax;
 	cl_int4 faces;
 };
 
@@ -166,8 +161,8 @@ class PathTracer {
 		cl_kernel mKernelPathTracing;
 		cl_kernel mKernelRays;
 
-		cl_mem mBufBVHNodes;
-		cl_mem mBufBVHLeaves;
+		cl_mem mBufBVH;
+		cl_mem mBufBVHFaces;
 		cl_mem mBufFaces;
 		cl_mem mBufMaterials;
 		cl_mem mBufSPDs;

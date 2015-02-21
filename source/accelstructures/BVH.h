@@ -38,7 +38,6 @@ class BVH : public AccelStructure {
 		cl_uint getDepth();
 		vector<BVHNode*> getLeafNodes();
 		vector<BVHNode*> getNodes();
-		vector<BVHNode*> getNonLeafNodes();
 		BVHNode* getRoot();
 		virtual void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
 
@@ -139,7 +138,6 @@ class BVH : public AccelStructure {
 
 		vector<BVHNode*> mContainerNodes;
 		vector<BVHNode*> mLeafNodes;
-		vector<BVHNode*> mNonLeafNodes;
 		vector<BVHNode*> mNodes;
 		BVHNode* mRoot;
 
