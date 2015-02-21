@@ -83,19 +83,18 @@ void intersectFaces(
 /**
  * Traverse the BVH and test the faces against the given ray.
  * @param {global const bvhNode*} bvh
- * @param {global const int4*}    bvhFaces
  * @param {ray4*}                 ray
  * @param {global const face_t*}  faces
  */
-void traverse(
-	global const bvhNode* bvh,
-	ray4* ray, global const face_t* faces
-) {
-	uint bvhStack[BVH_STACKSIZE];
+void traverse( global const bvhNode* bvh, ray4* ray, global const face_t* faces ) {
+	int bvhStack[BVH_STACKSIZE];
 	int stackIndex = 0;
 	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
 
 	const float3 invDir = native_recip( ray->dir.xyz );
+
+	#define LEFTCHILDINDEX (int) node.bbMin.w
+	#define RIGHTCHILDINDEX (int) node.bbMax.w
 
 	while( stackIndex >= 0 ) {
 		bvhNode node = bvh[bvhStack[stackIndex--]];
@@ -117,7 +116,7 @@ void traverse(
 
 		// Add child nodes to stack, if hit by ray
 
-		bvhNode childNode = bvh[(int) node.bbMin.w];
+		bvhNode childNode = bvh[LEFTCHILDINDEX];
 
 		bool addLeftToStack = (
 			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL ) &&
@@ -126,7 +125,7 @@ void traverse(
 
 		float tNearR = 0.0f;
 		float tFarR = INFINITY;
-		childNode = bvh[(int) node.bbMax.w];
+		childNode = bvh[RIGHTCHILDINDEX];
 
 		bool addRightToStack = (
 			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR ) &&
@@ -139,19 +138,22 @@ void traverse(
 		const bool rightThenLeft = ( tNearR > tNearL );
 
 		if( rightThenLeft && addRightToStack ) {
-			bvhStack[++stackIndex] = (uint) node.bbMax.w;
+			bvhStack[++stackIndex] = RIGHTCHILDINDEX;
 		}
 		if( rightThenLeft && addLeftToStack ) {
-			bvhStack[++stackIndex] = (uint) node.bbMin.w;
+			bvhStack[++stackIndex] = LEFTCHILDINDEX;
 		}
 
 		if( !rightThenLeft && addLeftToStack ) {
-			bvhStack[++stackIndex] = (uint) node.bbMin.w;
+			bvhStack[++stackIndex] = LEFTCHILDINDEX;
 		}
 		if( !rightThenLeft && addRightToStack ) {
-			bvhStack[++stackIndex] = (uint) node.bbMax.w;
+			bvhStack[++stackIndex] = RIGHTCHILDINDEX;
 		}
 	}
+
+	#undef LEFTCHILDINDEX
+	#undef RIGHTCHILDINDEX
 }
 
 
