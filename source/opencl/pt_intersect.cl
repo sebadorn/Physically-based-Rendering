@@ -10,10 +10,8 @@
 float3 flatTriAndRayIntersect(
 	const float3 a, const float3 b, const float3 c,
 	const uint4 fn, global const float4* normals,
-	const ray4* ray,
-	float3* tuv,
-	const float tNear,
-	const float tFar
+	const ray4* ray, float3* tuv,
+	const float tNear, const float tFar
 ) {
 	const float3 edge1 = b - a;
 	const float3 edge2 = c - a;
@@ -24,14 +22,22 @@ float3 flatTriAndRayIntersect(
 
 	tuv->x = dot( edge2, qVec ) * invDet;
 
-	if( tuv->x < EPSILON5 || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON5 ) {
+	if( tuv->x < EPSILON5 ) {
 		tuv->x = INFINITY;
 		return (float3)( 0.0f );
 	}
 
 	tuv->y = dot( tVec, pVec ) * invDet;
 	tuv->z = dot( ray->dir, qVec ) * invDet;
-	tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > 1.0f || tuv->y + tuv->z > 1.0f ) ? INFINITY : tuv->x;
+
+	if(
+		tuv->y > 1.0f ||
+		tuv->y + tuv->z > 1.0f ||
+		fmin( tuv->y, tuv->z ) < 0.0f
+	) {
+		tuv->x = INFINITY;
+		return (float3)( 0.0f );
+	}
 
 	const float3 an = normals[fn.x].xyz;
 	const float3 bn = normals[fn.y].xyz;
@@ -108,32 +114,4 @@ const bool intersectBox(
 	*tFar = fmin( fmin( tMax.x, tMax.y ), fmin( tMax.z, *tFar ) );
 
 	return ( *tNear <= *tFar );
-}
-
-
-/**
- * Calculate intersection of a ray with a sphere.
- * @param  {const ray4*}  ray          The ray.
- * @param  {const float4} sphereCenter Center of the sphere.
- * @param  {const float}  radius       Radius of the sphere.
- * @param  {float*}       tNear        <t> near of the intersection (ray entering the sphere).
- * @param  {float*}       tFar         <t> far of the intersection (ray leaving the sphere).
- * @return {const bool}                True, if ray intersects sphere, false otherwise.
- */
-const bool intersectSphere(
-	const ray4* ray, const float3 sphereCenter, const float radius, float* tNear, float* tFar
-) {
-	const float3 op = sphereCenter - ray->origin;
-	const float b = dot( op, ray->dir );
-	float det = b * b - dot( op, op ) + radius * radius;
-
-	if( det < 0.0f ) {
-		return false;
-	}
-
-	det = native_sqrt( det );
-	*tNear = b - det;
-	*tFar = b + det;
-
-	return ( fmax( *tNear, *tFar ) > 0.0f );
 }

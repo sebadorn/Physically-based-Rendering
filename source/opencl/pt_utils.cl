@@ -33,8 +33,8 @@ constant uint MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
 
 /**
  *
- * @param  {float*} seed
- * @return {float}
+ * @param  {float*}      seed
+ * @return {const float}
  */
 inline const float rand( float* seed ) {
 	float i;
@@ -218,17 +218,16 @@ rayPlanes getPlanesFromRay( const ray4* ray ) {
 
 
 /**
- *
- * @param  {const face_t} face
- * @param  {const float3} tuv
- * @return {float4}
+ * MACRO: Calculate the normal at the ray-triangle intersection.
+ * @param  {const float3} an
+ * @param  {const float3} bn
+ * @param  {const float3} cn
+ * @param  {const float}  u
+ * @param  {const float}  v
+ * @param  {const float}  w
+ * @return {float3}
  */
-inline float3 getTriangleNormal(
-	const float3 an, const float3 bn, const float3 cn,
-	const float u, const float v, const float w
-) {
-	return fast_normalize( an * u + bn * v + cn * w );
-}
+#define getTriangleNormal( an, bn, cn, u, v, w ) fast_normalize( ( an ) * ( u ) + ( bn ) * ( v ) + ( cn ) * ( w ) );
 
 
 /**

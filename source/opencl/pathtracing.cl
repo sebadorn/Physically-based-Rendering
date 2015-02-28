@@ -5,12 +5,12 @@
 #if USE_SPECTRAL == 0
 
 	#FILE:pt_rgb.cl:FILE#
-	#define SETCOLORS setColors( imageIn, imageOut, pixelWeight, finalColor, focus );
+	#define SETCOLORS setColors( imageIn, imageOut, pixelWeight, finalColor );
 
 #elif USE_SPECTRAL == 1
 
 	#FILE:pt_spectral_precalc.cl:FILE#
-	#define SETCOLORS setColors( imageIn, imageOut, pixelWeight, spdTotal, focus );
+	#define SETCOLORS setColors( imageIn, imageOut, pixelWeight, spdTotal );
 
 #endif
 
@@ -496,7 +496,6 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 	) {
 		float4 finalColor = (float4)( 0.0f );
 
-		float focus;
 		bool addDepth;
 		uint secondaryPaths = 1; // Start at 1 instead of 0, because we are going to divide through it.
 
@@ -515,8 +514,6 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 					light = SKY_LIGHT;
 					break;
 				}
-
-				focus = ( depth == 0 ) ? ray.t : focus;
 
 				material mtl = materials[faces[ray.hitFace].material];
 

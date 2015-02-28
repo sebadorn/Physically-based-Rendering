@@ -9,14 +9,13 @@
  */
 void setColors(
 	read_only image2d_t imageIn, write_only image2d_t imageOut,
-	const float pixelWeight, float4 finalColor, float focus
+	const float pixelWeight, float4 finalColor
 ) {
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 	const float4 imagePixel = read_imagef( imageIn, sampler, pos );
 
 	float4 color = mix( finalColor, imagePixel, pixelWeight );
-	color.w = focus;
 
 	write_imagef( imageOut, pos, color );
 }

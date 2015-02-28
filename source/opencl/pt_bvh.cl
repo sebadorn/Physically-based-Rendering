@@ -1,7 +1,7 @@
 // Traversal for the acceleration structure.
 // Type: Bounding Volume Hierarchy (BVH)
 
-#define CALL_TRAVERSE         traverseStackless( bvh, &ray, faces, vertices, normals );
+#define CALL_TRAVERSE         traverse( bvh, &ray, faces, vertices, normals );
 #define CALL_TRAVERSE_SHADOWS traverse_shadows( bvh, &lightRay, faces, vertices, normals );
 
 
@@ -20,25 +20,24 @@ void intersectFaces(
 	const global float4* normals,
 	const float tNear, float tFar
 ) {
+	face_t f;
 	float3 tuv;
+	float3 a, b, c;
+	float3 normal;
 
 	// First face. Always exists in a leaf node.
-	face_t face = faces[node->faces.x];
+	f = faces[node->faces.x];
+	a = vertices[f.vertices.x].xyz;
+	b = vertices[f.vertices.y].xyz;
+	c = vertices[f.vertices.z].xyz;
 
-	float3 a = vertices[face.vertices.x].xyz;
-	float3 b = vertices[face.vertices.y].xyz;
-	float3 c = vertices[face.vertices.z].xyz;
+	normal = checkFaceIntersection( ray, a, b, c, f.normals, normals, &tuv, tNear, tFar );
+	tFar = ( tuv.x < INFINITY ) ? tuv.x : tFar;
 
-	float3 normal = checkFaceIntersection( ray, a, b, c, face.normals, normals, &tuv, tNear, tFar );
-
-	if( tuv.x < INFINITY ) {
-		tFar = tuv.x;
-
-		if( ray->t > tuv.x ) {
-			ray->normal = normal;
-			ray->hitFace = node->faces.x;
-			ray->t = tuv.x;
-		}
+	if( ray->t > tuv.x ) {
+		ray->normal = normal;
+		ray->hitFace = node->faces.x;
+		ray->t = tuv.x;
 	}
 
 	// Second face, if existing.
@@ -46,22 +45,18 @@ void intersectFaces(
 		return;
 	}
 
-	face = faces[node->faces.y];
+	f = faces[node->faces.y];
+	a = vertices[f.vertices.x].xyz;
+	b = vertices[f.vertices.y].xyz;
+	c = vertices[f.vertices.z].xyz;
 
-	a = vertices[face.vertices.x].xyz;
-	b = vertices[face.vertices.y].xyz;
-	c = vertices[face.vertices.z].xyz;
+	normal = checkFaceIntersection( ray, a, b, c, f.normals, normals, &tuv, tNear, tFar );
+	tFar = ( tuv.x < INFINITY ) ? tuv.x : tFar;
 
-	normal = checkFaceIntersection( ray, a, b, c, face.normals, normals, &tuv, tNear, tFar );
-
-	if( tuv.x < INFINITY ) {
-		tFar = tuv.x;
-
-		if( ray->t > tuv.x ) {
-			ray->normal = normal;
-			ray->hitFace = node->faces.y;
-			ray->t = tuv.x;
-		}
+	if( ray->t > tuv.x ) {
+		ray->normal = normal;
+		ray->hitFace = node->faces.y;
+		ray->t = tuv.x;
 	}
 
 	// Third face, if existing.
@@ -69,22 +64,18 @@ void intersectFaces(
 		return;
 	}
 
-	face = faces[node->faces.z];
+	f = faces[node->faces.z];
+	a = vertices[f.vertices.x].xyz;
+	b = vertices[f.vertices.y].xyz;
+	c = vertices[f.vertices.z].xyz;
 
-	a = vertices[face.vertices.x].xyz;
-	b = vertices[face.vertices.y].xyz;
-	c = vertices[face.vertices.z].xyz;
+	normal = checkFaceIntersection( ray, a, b, c, f.normals, normals, &tuv, tNear, tFar );
+	tFar = ( tuv.x < INFINITY ) ? tuv.x : tFar;
 
-	normal = checkFaceIntersection( ray, a, b, c, face.normals, normals, &tuv, tNear, tFar );
-
-	if( tuv.x < INFINITY ) {
-		tFar = tuv.x;
-
-		if( ray->t > tuv.x ) {
-			ray->normal = normal;
-			ray->hitFace = node->faces.z;
-			ray->t = tuv.x;
-		}
+	if( ray->t > tuv.x ) {
+		ray->normal = normal;
+		ray->hitFace = node->faces.z;
+		ray->t = tuv.x;
 	}
 }
 
@@ -117,7 +108,7 @@ void traverse(
 		if( node.faces.x >= 0 ) {
 			if(
 				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
-				ray->t > tNearL
+				tFarL > EPSILON5 && ray->t > tNearL
 			) {
 				intersectFaces( ray, &node, faces, vertices, normals, tNearL, tFarL );
 			}
@@ -140,7 +131,7 @@ void traverse(
 
 		if(
 			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearR, &tFarR ) &&
-			ray->t > tNearR
+			tFarR > EPSILON5 && ray->t > tNearR
 		) {
 			bvhStack[++stackIndex] = rightChildIndex;
 		}
@@ -150,7 +141,7 @@ void traverse(
 
 		if(
 			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
-			ray->t > tNearL
+			tFarL > EPSILON5 && ray->t > tNearL
 		) {
 			bvhStack[++stackIndex] = leftChildIndex;
 		}
@@ -182,7 +173,7 @@ void traverseStackless(
 
 		bool isNodeHit = (
 			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNear, &tFar ) &&
-			ray->t > tNear
+			tFar > EPSILON5 && ray->t > tNear
 		);
 
 		// In case of no hit: Go right or up.
