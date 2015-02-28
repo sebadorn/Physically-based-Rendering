@@ -13,31 +13,123 @@ float3 flatTriAndRayIntersect(
 	const ray4* ray, float3* tuv,
 	const float tNear, const float tFar
 ) {
-	const float3 edge1 = b - a;
-	const float3 edge2 = c - a;
-	const float3 tVec = ray->origin - a;
-	const float3 pVec = cross( ray->dir, edge2 );
-	const float3 qVec = cross( tVec, edge1 );
-	const float invDet = native_recip( dot( edge1, pVec ) );
+	const float3 Q1 = ray->origin;
+	const float3 Q2 = fma( ray->dir, tFar + EPSILON5, ray->origin );
 
-	tuv->x = dot( edge2, qVec ) * invDet;
+	const float3 A = Q1 - c;
+	const float3 B = a - c;
+	const float3 C = b - c;
+	const float3 W1 = cross( B, C );
+	const float w = dot( A, W1 );
+	const float3 D = Q2 - c;
+	const float s = dot( D, W1 );
 
-	if( tuv->x < EPSILON5 ) {
-		tuv->x = INFINITY;
-		return (float3)( 0.0f );
+	float t, u;
+
+	tuv->x = INFINITY;
+
+	if( w > EPSILON5 ) {
+		if( s > EPSILON5 ) {
+			return (float3)( 0.0f );
+		}
+
+		const float3 W2 = cross( A, D );
+		t = dot( W2, C );
+
+		if( t < -EPSILON5 ) {
+			return (float3)( 0.0f );
+		}
+
+		u = dot( -W2, B );
+
+		if( u < -EPSILON5 || w < s + t + u ) {
+			return (float3)( 0.0f );
+		}
+	}
+	else if( w < -EPSILON5 ) {
+		if( s < -EPSILON5 ) {
+			return (float3)( 0.0f );
+		}
+
+		const float3 W2 = cross( A, D );
+		t = dot( W2, C );
+
+		if( t > EPSILON5 ) {
+			return (float3)( 0.0f );
+		}
+
+		u = dot( -W2, B );
+
+		if( u > EPSILON5 || w > s + t + u ) {
+			return (float3)( 0.0f );
+		}
+	}
+	else { // w == 0.0f
+		if( s > EPSILON5 ) {
+			const float3 W2 = cross( D, A );
+			t = dot( W2, C );
+
+			if( t < -EPSILON5 ) {
+				return (float3)( 0.0f );
+			}
+
+			u = dot( -W2, B );
+
+			if( u < -EPSILON5 || -s < t + u ) {
+				return (float3)( 0.0f );
+			}
+		}
+		else if( s < -EPSILON5 ) {
+			const float3 W2 = cross( D, A );
+			t = dot( W2, C );
+
+			if( t > EPSILON5 ) {
+				return (float3)( 0.0f );
+			}
+
+			u = dot( -W2, B );
+
+			if( u > EPSILON5 || -s > t + u ) {
+				return (float3)( 0.0f );
+			}
+		}
+		else {
+			return (float3)( 0.0f );
+		}
 	}
 
-	tuv->y = dot( tVec, pVec ) * invDet;
-	tuv->z = dot( ray->dir, qVec ) * invDet;
+	const float tt = native_recip( s - w );
+	const float3 P = fma( tt * w, Q2 - Q1, Q1 );
+	tuv->x = native_divide( fast_length( P - ray->origin ), fast_length( ray->dir ) );
 
-	if(
-		tuv->y > 1.0f ||
-		tuv->y + tuv->z > 1.0f ||
-		fmin( tuv->y, tuv->z ) < 0.0f
-	) {
-		tuv->x = INFINITY;
-		return (float3)( 0.0f );
-	}
+	tuv->y = tt * t;
+	tuv->z = tt * u;
+
+	// const float3 edge1 = b - a;
+	// const float3 edge2 = c - a;
+	// const float3 tVec = ray->origin - a;
+	// const float3 pVec = cross( ray->dir, edge2 );
+	// const float3 qVec = cross( tVec, edge1 );
+	// const float invDet = native_recip( dot( edge1, pVec ) );
+
+	// tuv->x = dot( edge2, qVec ) * invDet;
+
+	// if( tuv->x < EPSILON5 ) {
+	// 	tuv->x = INFINITY;
+	// 	return (float3)( 0.0f );
+	// }
+
+	// tuv->y = dot( tVec, pVec ) * invDet;
+	// tuv->z = dot( ray->dir, qVec ) * invDet;
+
+	// if(
+	// 	tuv->y > 1.0f ||
+	// 	tuv->y + tuv->z > 1.0f ||
+	// 	fmin( tuv->y, tuv->z ) < 0.0f
+	// ) {
+	// 	tuv->x = INFINITY;
+	// 	return (float3)( 0.0f );
+	// }
 
 	const float3 an = normals[fn.x].xyz;
 	const float3 bn = normals[fn.y].xyz;
