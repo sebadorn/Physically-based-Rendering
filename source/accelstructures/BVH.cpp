@@ -351,12 +351,24 @@ void BVH::combineNodes( const cl_uint numSubTrees ) {
 	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
 		mNodes[i]->id = i;
 
+		// Leaf node
 		if( mNodes[i]->faces.size() > 0 ) {
 			mLeafNodes.push_back( mNodes[i] );
 		}
+		// Not a leaf node
 		else {
 			mNodes[i]->leftChild->parent = mNodes[i];
 			mNodes[i]->rightChild->parent = mNodes[i];
+
+			// Set the node with the bigger surface area as the left one
+			cl_float leftSA = MathHelp::getSurfaceArea( mNodes[i]->leftChild->bbMin, mNodes[i]->leftChild->bbMax );
+			cl_float rightSA = MathHelp::getSurfaceArea( mNodes[i]->rightChild->bbMin, mNodes[i]->rightChild->bbMax );
+
+			if( rightSA > leftSA ) {
+				BVHNode* tmp = mNodes[i]->leftChild;
+				mNodes[i]->leftChild = mNodes[i]->rightChild;
+				mNodes[i]->rightChild = tmp;
+			}
 		}
 	}
 }

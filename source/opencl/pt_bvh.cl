@@ -77,9 +77,6 @@ void traverse( global const bvhNode* bvh, ray4* ray, global const face_t* faces 
 
 	const float3 invDir = native_recip( ray->dir.xyz );
 
-	#define LEFTCHILDINDEX (int) node.bbMin.w
-	#define RIGHTCHILDINDEX (int) node.bbMax.w
-
 	while( stackIndex >= 0 ) {
 		bvhNode node = bvh[bvhStack[stackIndex--]];
 		float tNearL = 0.0f;
@@ -98,46 +95,35 @@ void traverse( global const bvhNode* bvh, ray4* ray, global const face_t* faces 
 		}
 
 
-		// Add child nodes to stack, if hit by ray
+		// The node that is pushed on the stack first will be evaluated last.
+		// We want the left node to be tested first, so we push it last.
 
-		bvhNode childNode = bvh[LEFTCHILDINDEX];
-
-		bool addLeftToStack = (
-			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL ) &&
-			ray->t > tNearL
-		);
+		int leftChildIndex = (int) node.bbMin.w;
+		int rightChildIndex = (int) node.bbMax.w;
 
 		float tNearR = 0.0f;
 		float tFarR = INFINITY;
-		childNode = bvh[RIGHTCHILDINDEX];
 
-		bool addRightToStack = (
-			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR ) &&
+		// Right child node
+		node = bvh[rightChildIndex];
+
+		if(
+			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearR, &tFarR ) &&
 			ray->t > tNearR
-		);
-
-
-		// The node that is pushed on the stack first will be evaluated last.
-		// So the nearer one should be pushed last, because it will be popped first then.
-		const bool rightThenLeft = ( tNearR > tNearL );
-
-		if( rightThenLeft && addRightToStack ) {
-			bvhStack[++stackIndex] = RIGHTCHILDINDEX;
-		}
-		if( rightThenLeft && addLeftToStack ) {
-			bvhStack[++stackIndex] = LEFTCHILDINDEX;
+		) {
+			bvhStack[++stackIndex] = rightChildIndex;
 		}
 
-		if( !rightThenLeft && addLeftToStack ) {
-			bvhStack[++stackIndex] = LEFTCHILDINDEX;
-		}
-		if( !rightThenLeft && addRightToStack ) {
-			bvhStack[++stackIndex] = RIGHTCHILDINDEX;
+		// Left child node
+		node = bvh[leftChildIndex];
+
+		if(
+			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
+			ray->t > tNearL
+		) {
+			bvhStack[++stackIndex] = leftChildIndex;
 		}
 	}
-
-	#undef LEFTCHILDINDEX
-	#undef RIGHTCHILDINDEX
 }
 
 
