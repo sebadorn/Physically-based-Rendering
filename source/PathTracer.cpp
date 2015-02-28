@@ -251,21 +251,62 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 	vector<bvhNode_cl> bvhNodesCL;
 
 	for( cl_uint i = 0; i < bvhNodes.size(); i++ ) {
-		cl_float4 bbMin = { bvhNodes[i]->bbMin[0], bvhNodes[i]->bbMin[1], bvhNodes[i]->bbMin[2], 0.0f };
-		cl_float4 bbMax = { bvhNodes[i]->bbMax[0], bvhNodes[i]->bbMax[1], bvhNodes[i]->bbMax[2], 0.0f };
+		BVHNode* node = bvhNodes[i];
+
+		cl_float4 bbMin = { node->bbMin[0], node->bbMin[1], node->bbMin[2], 0.0f };
+		cl_float4 bbMax = { node->bbMax[0], node->bbMax[1], node->bbMax[2], 0.0f };
 
 		bvhNode_cl sn;
 		sn.bbMin = bbMin;
 		sn.bbMax = bbMax;
-		sn.bbMin.w = ( bvhNodes[i]->leftChild == NULL ) ? -1.0f : (cl_float) bvhNodes[i]->leftChild->id;
-		sn.bbMax.w = ( bvhNodes[i]->rightChild == NULL ) ? -1.0f : (cl_float) bvhNodes[i]->rightChild->id;
+		sn.bbMin.w = ( node->leftChild == NULL ) ? -1.0f : (cl_float) node->leftChild->id;
+		sn.bbMax.w = ( node->rightChild == NULL ) ? -1.0f : (cl_float) node->rightChild->id;
 
-		vector<Tri> facesVec = bvhNodes[i]->faces;
+		vector<Tri> facesVec = node->faces;
 		cl_uint fvecLen = facesVec.size();
 		sn.faces.x = ( fvecLen > 0 ) ? facesVec[0].face.w : -1;
 		sn.faces.y = ( fvecLen > 1 ) ? facesVec[1].face.w : -1;
 		sn.faces.z = ( fvecLen > 2 ) ? facesVec[2].face.w : -1;
-		sn.faces.w = ( fvecLen > 3 ) ? facesVec[3].face.w : -1;
+
+		// No parent means it's the root node.
+		if( node->parent == NULL ) {
+			sn.faces.w = 0;
+		}
+		// Otherwise it is some other node, including leaves.
+		else {
+			bool isLeftNode = ( node->parent->leftChild == node );
+
+			if( !isLeftNode ) {
+				if( node->parent->parent == NULL ) {
+					sn.faces.w = 0;
+				}
+				else {
+					// As long as we are on the right side of a (sub)tree,
+					// skip parents until we either are at the root or
+					// our parent has a true sibling again.
+					while( node->parent->parent->rightChild == node->parent ) {
+						node->parent = node->parent->parent;
+
+						if( node->parent->parent == NULL ) {
+							break;
+						}
+					}
+
+					// Reached the root node.
+					if( node->parent->parent == NULL ) {
+						sn.faces.w = 0;
+					}
+					// Reached a parent with a true sibling.
+					else {
+						sn.faces.w = node->parent->parent->rightChild->id * -1;
+					}
+				}
+			}
+			// Node on the left, go to the right sibling.
+			else {
+				sn.faces.w = node->parent->rightChild->id;
+			}
+		}
 
 		bvhNodesCL.push_back( sn );
 	}

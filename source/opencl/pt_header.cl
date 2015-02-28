@@ -54,7 +54,10 @@ typedef struct {
 	typedef struct {
 		float4 bbMin; // bbMin.w = leftChild
 		float4 bbMax; // bbMax.w = rightChild
-		int4 faces;
+		int4 faces;   // w: relation with
+		              // -> positive: right sibling
+		              // -> negative: parent
+		              // -> 0: root node
 	} bvhNode;
 
 // kD-tree

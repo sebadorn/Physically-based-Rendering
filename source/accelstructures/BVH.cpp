@@ -354,6 +354,10 @@ void BVH::combineNodes( const cl_uint numSubTrees ) {
 		if( mNodes[i]->faces.size() > 0 ) {
 			mLeafNodes.push_back( mNodes[i] );
 		}
+		else {
+			mNodes[i]->leftChild->parent = mNodes[i];
+			mNodes[i]->rightChild->parent = mNodes[i];
+		}
 	}
 }
 
@@ -650,6 +654,7 @@ BVHNode* BVH::makeContainerNode( const vector<BVHNode*> subTrees, const bool isR
 
 	node->leftChild = NULL;
 	node->rightChild = NULL;
+	node->parent = NULL;
 	node->depth = 0;
 	node->bbMin = glm::vec3( subTrees[0]->bbMin );
 	node->bbMax = glm::vec3( subTrees[0]->bbMax );
@@ -677,6 +682,7 @@ BVHNode* BVH::makeNode( const vector<Tri> tris, const bool ignore ) {
 	BVHNode* node = new BVHNode;
 	node->leftChild = NULL;
 	node->rightChild = NULL;
+	node->parent = NULL;
 	node->depth = 0;
 
 	vector<glm::vec3> bbMins, bbMaxs;

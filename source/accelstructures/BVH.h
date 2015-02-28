@@ -16,6 +16,7 @@ using std::vector;
 struct BVHNode {
 	BVHNode* leftChild;
 	BVHNode* rightChild;
+	BVHNode* parent;
 	vector<Tri> faces;
 	glm::vec3 bbMin;
 	glm::vec3 bbMax;

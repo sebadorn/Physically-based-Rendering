@@ -1,7 +1,7 @@
 // Traversal for the acceleration structure.
 // Type: Bounding Volume Hierarchy (BVH)
 
-#define CALL_TRAVERSE         traverse( bvh, &ray, faces );
+#define CALL_TRAVERSE         traverseStackless( bvh, &ray, faces );
 #define CALL_TRAVERSE_SHADOWS traverse_shadows( bvh, &lightRay, faces );
 
 
@@ -58,22 +58,6 @@ void intersectFaces(
 		if( ray->t > tuv.x ) {
 			ray->normal = normal;
 			ray->normal.w = (float) node->faces.z;
-			ray->t = tuv.x;
-		}
-	}
-
-	if( node->faces.w == -1 ) {
-		return;
-	}
-
-	normal = checkFaceIntersection( ray, faces[node->faces.w], &tuv, tNear, tFar );
-
-	if( tuv.x < INFINITY ) {
-		tFar = tuv.x;
-
-		if( ray->t > tuv.x ) {
-			ray->normal = normal;
-			ray->normal.w = (float) node->faces.w;
 			ray->t = tuv.x;
 		}
 	}
@@ -154,6 +138,54 @@ void traverse( global const bvhNode* bvh, ray4* ray, global const face_t* faces 
 
 	#undef LEFTCHILDINDEX
 	#undef RIGHTCHILDINDEX
+}
+
+
+/**
+ * Traverse the BVH and test the faces against the given ray.
+ * @param {global const bvhNode*} bvh
+ * @param {ray4*}                 ray
+ * @param {global const face_t*}  faces
+ */
+void traverseStackless( global const bvhNode* bvh, ray4* ray, global const face_t* faces ) {
+	const float3 invDir = native_recip( ray->dir.xyz );
+
+	int index = 0;
+	bool isLeft = true;
+	bool justStarted = true;
+
+	while( justStarted || index > 0 ) {
+		justStarted = false;
+		const bvhNode node = bvh[index];
+
+		bool isLeaf = ( node.bbMin.w < 0.0f );
+		float tNear = 0.0f;
+		float tFar = INFINITY;
+
+		isLeft = ( node.faces.w > 0 );
+
+		// See if node has been hit.
+		if(
+			!isLeaf &&
+			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNear, &tFar ) &&
+			ray->t > tNear
+		) {
+			index = (int) node.bbMin.w;
+		}
+		// No hit. Go right or up.
+		else {
+			index = isLeft ? node.faces.w : node.faces.w * -1;
+		}
+
+		// Node is leaf node.
+		if(
+			isLeaf &&
+			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNear, &tFar ) &&
+			ray->t > tNear
+		) {
+			intersectFaces( ray, &node, faces, tNear, tFar );
+		}
+	}
 }
 
 
