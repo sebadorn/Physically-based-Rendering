@@ -281,24 +281,27 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 					sn.faces.w = 0;
 				}
 				else {
+					BVHNode* dummy = new BVHNode();
+					dummy->parent = node->parent;
+
 					// As long as we are on the right side of a (sub)tree,
 					// skip parents until we either are at the root or
 					// our parent has a true sibling again.
-					while( node->parent->parent->rightChild == node->parent ) {
-						node->parent = node->parent->parent;
+					while( dummy->parent->parent->rightChild == dummy->parent ) {
+						dummy->parent = dummy->parent->parent;
 
-						if( node->parent->parent == NULL ) {
+						if( dummy->parent->parent == NULL ) {
 							break;
 						}
 					}
 
 					// Reached the root node.
-					if( node->parent->parent == NULL ) {
+					if( dummy->parent->parent == NULL ) {
 						sn.faces.w = 0;
 					}
 					// Reached a parent with a true sibling.
 					else {
-						sn.faces.w = node->parent->parent->rightChild->id * -1;
+						sn.faces.w = dummy->parent->parent->rightChild->id * -1;
 					}
 				}
 			}

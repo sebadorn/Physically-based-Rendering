@@ -86,7 +86,7 @@ void traverse( global const bvhNode* bvh, ray4* ray, global const face_t* faces 
 		float tFarL = INFINITY;
 
 		// Is a leaf node
-		if( node.bbMin.w < 0.0f ) {
+		if( node.faces.x >= 0 ) {
 			if(
 				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
 				ray->t > tNearL
@@ -158,7 +158,7 @@ void traverseStackless( global const bvhNode* bvh, ray4* ray, global const face_
 		justStarted = false;
 		const bvhNode node = bvh[index];
 
-		bool isLeaf = ( node.bbMin.w < 0.0f );
+		bool isLeaf = ( node.faces.x >= 0 );
 		float tNear = 0.0f;
 		float tFar = INFINITY;
 
@@ -216,7 +216,7 @@ void traverse_shadows(
 		tFarL = INFINITY;
 
 		// Is a leaf node with faces
-		if( node.bbMin.w < 0.0f && node.bbMax.w < 0.0f ) {
+		if( node.faces.x >= 0 ) {
 			if( intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) ) {
 				intersectFaces( ray, &node, faces, tNearL, tFarL );
 
