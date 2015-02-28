@@ -7,13 +7,18 @@
  * @param  {const float}   tFar
  * @return {float4}
  */
-float4 flatTriAndRayIntersect(
-	const face_t* face, const ray4* ray, float3* tuv, const float tNear, const float tFar
+float3 flatTriAndRayIntersect(
+	const float3 a, const float3 b, const float3 c,
+	const uint4 fn, global const float4* normals,
+	const ray4* ray,
+	float3* tuv,
+	const float tNear,
+	const float tFar
 ) {
-	const float3 edge1 = face->b.xyz - face->a.xyz;
-	const float3 edge2 = face->c.xyz - face->a.xyz;
-	const float3 tVec = ray->origin.xyz - face->a.xyz;
-	const float3 pVec = cross( ray->dir.xyz, edge2 );
+	const float3 edge1 = b - a;
+	const float3 edge2 = c - a;
+	const float3 tVec = ray->origin - a;
+	const float3 pVec = cross( ray->dir, edge2 );
 	const float3 qVec = cross( tVec, edge1 );
 	const float invDet = native_recip( dot( edge1, pVec ) );
 
@@ -21,14 +26,18 @@ float4 flatTriAndRayIntersect(
 
 	if( tuv->x < EPSILON5 || fmax( tuv->x - tFar, tNear - tuv->x ) > EPSILON5 ) {
 		tuv->x = INFINITY;
-		return (float4)( 0.0f );
+		return (float3)( 0.0f );
 	}
 
 	tuv->y = dot( tVec, pVec ) * invDet;
-	tuv->z = dot( ray->dir.xyz, qVec ) * invDet;
+	tuv->z = dot( ray->dir, qVec ) * invDet;
 	tuv->x = ( fmin( tuv->y, tuv->z ) < 0.0f || tuv->y > 1.0f || tuv->y + tuv->z > 1.0f ) ? INFINITY : tuv->x;
 
-	return getTriangleNormal( face, 1.0f - tuv->y - tuv->z, tuv->y, tuv->z );
+	const float3 an = normals[fn.x].xyz;
+	const float3 bn = normals[fn.y].xyz;
+	const float3 cn = normals[fn.z].xyz;
+
+	return getTriangleNormal( an, bn, cn, 1.0f - tuv->y - tuv->z, tuv->y, tuv->z );
 }
 
 
@@ -39,13 +48,21 @@ float4 flatTriAndRayIntersect(
  * @param  {float4*}       tuv
  * @param  {const float}   tNear
  * @param  {const float}   tFar
+ * @return {float3}
  */
-float4 checkFaceIntersection(
-	const ray4* ray, const face_t face, float3* tuv, const float tNear, const float tFar
+float3 checkFaceIntersection(
+	const ray4* ray,
+	const float3 a, const float3 b, const float3 c,
+	const uint4 fn, global const float4* normals,
+	float3* tuv,
+	const float tNear, const float tFar
 ) {
 	#if PHONGTESS == 1
 
-		const int3 cmp = ( face.an.xyz == face.bn.xyz ) + ( face.bn.xyz == face.cn.xyz );
+		const float3 an = normals[fn.x].xyz;
+		const float3 bn = normals[fn.y].xyz;
+		const float3 cn = normals[fn.z].xyz;
+		const int3 cmp = ( an == bn ) + ( bn == cn );
 
 		// Comparing vectors in OpenCL: 0/false/not equal; -1/true/equal
 		if( cmp.x + cmp.y + cmp.z == -6 )
@@ -53,7 +70,7 @@ float4 checkFaceIntersection(
 	#endif
 
 	{
-		return flatTriAndRayIntersect( &face, ray, tuv, tNear, tFar );
+		return flatTriAndRayIntersect( a, b, c, fn, normals, ray, tuv, tNear, tFar );
 	}
 
 
@@ -61,7 +78,7 @@ float4 checkFaceIntersection(
 	// Based on: "Direct Ray Tracing of Phong Tessellation" by Shinji Ogaki, Yusuke Tokuyoshi
 	#if PHONGTESS == 1
 
-		return phongTessTriAndRayIntersect( &face, ray, tuv, tNear, tFar );
+		return phongTessTriAndRayIntersect( a, b, c, an, bn, cn, ray, tuv, tNear, tFar );
 
 	#endif
 }
@@ -70,6 +87,7 @@ float4 checkFaceIntersection(
 /**
  * Based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
  * @param  {const ray4*}   ray
+ * @param  {const float4*} invDir
  * @param  {const float*}  bbMin
  * @param  {const float*}  bbMax
  * @param  {float*}        tNear
@@ -77,11 +95,12 @@ float4 checkFaceIntersection(
  * @return {const bool}          True, if ray intersects box, false otherwise.
  */
 const bool intersectBox(
-	const ray4* ray, const float3* invDir, const float4 bbMin, const float4 bbMax,
+	const ray4* ray, const float3* invDir,
+	const float4 bbMin, const float4 bbMax,
 	float* tNear, float* tFar
 ) {
-	const float3 t1 = ( bbMin.xyz - ray->origin.xyz ) * (*invDir);
-	float3 tMax = ( bbMax.xyz - ray->origin.xyz ) * (*invDir);
+	const float3 t1 = ( bbMin.xyz - ray->origin ) * (*invDir);
+	float3 tMax = ( bbMax.xyz - ray->origin ) * (*invDir);
 	const float3 tMin = fmin( t1, tMax );
 	tMax = fmax( t1, tMax );
 
@@ -102,10 +121,10 @@ const bool intersectBox(
  * @return {const bool}                True, if ray intersects sphere, false otherwise.
  */
 const bool intersectSphere(
-	const ray4* ray, const float4 sphereCenter, const float radius, float* tNear, float* tFar
+	const ray4* ray, const float3 sphereCenter, const float radius, float* tNear, float* tFar
 ) {
-	const float3 op = sphereCenter.xyz - ray->origin.xyz;
-	const float b = dot( op, ray->dir.xyz );
+	const float3 op = sphereCenter - ray->origin;
+	const float b = dot( op, ray->dir );
 	float det = b * b - dot( op, op ) + radius * radius;
 
 	if( det < 0.0f ) {

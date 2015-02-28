@@ -120,6 +120,8 @@ void PathTracer::initArgsKernelPathTracing() {
 	}
 
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufFaces );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufVertices );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufNormals );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufMaterials );
 
 	if( Cfg::get().value<bool>( Cfg::USE_SPECTRAL ) ) {
@@ -301,7 +303,7 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 					}
 					// Reached a parent with a true sibling.
 					else {
-						sn.faces.w = dummy->parent->parent->rightChild->id * -1;
+						sn.faces.w = dummy->parent->parent->rightChild->id;
 					}
 				}
 			}
@@ -499,33 +501,46 @@ size_t PathTracer::initOpenCLBuffers_Faces(
 	vector<cl_uint> facesVN = ml->getObjParser()->getFacesVN();
 	vector<cl_int> facesMtl = ml->getObjParser()->getFacesMtl();
 	vector<face_cl> faceStructs;
+	vector<cl_float4> vertices4;
+	vector<cl_float4> normals4;
 
 	// Convert array of face indices to own face struct.
 	for( int i = 0; i < faces.size(); i += 3 ) {
 		face_cl face;
 
-		cl_float4 a = { vertices[faces[i + 0] * 3], vertices[faces[i + 0] * 3 + 1], vertices[faces[i + 0] * 3 + 2], 0.0f };
-		cl_float4 b = { vertices[faces[i + 1] * 3], vertices[faces[i + 1] * 3 + 1], vertices[faces[i + 1] * 3 + 2], 0.0f };
-		cl_float4 c = { vertices[faces[i + 2] * 3], vertices[faces[i + 2] * 3 + 1], vertices[faces[i + 2] * 3 + 2], 0.0f };
-		face.a = a;
-		face.b = b;
-		face.c = c;
+		face.vertices.x = faces[i];
+		face.vertices.y = faces[i + 1];
+		face.vertices.z = faces[i + 2];
+		face.vertices.w = 0;
 
-		cl_float4 an = { normals[facesVN[i + 0] * 3], normals[facesVN[i + 0] * 3 + 1], normals[facesVN[i + 0] * 3 + 2], 0.0f };
-		cl_float4 bn = { normals[facesVN[i + 1] * 3], normals[facesVN[i + 1] * 3 + 1], normals[facesVN[i + 1] * 3 + 2], 0.0f };
-		cl_float4 cn = { normals[facesVN[i + 2] * 3], normals[facesVN[i + 2] * 3 + 1], normals[facesVN[i + 2] * 3 + 2], 0.0f };
-		face.an = an;
-		face.bn = bn;
-		face.cn = cn;
+		face.normals.x = facesVN[i];
+		face.normals.y = facesVN[i + 1];
+		face.normals.z = facesVN[i + 2];
+		face.normals.w = 0;
 
-		face.a.w = (cl_float) facesMtl[i / 3];
+		face.material = facesMtl[i / 3];
 		faceStructs.push_back( face );
 	}
 
-	size_t bytes = sizeof( face_cl ) * faceStructs.size();
-	mBufFaces = mCL->createBuffer( faceStructs, bytes );
+	for( int i = 0; i < vertices.size(); i += 3 ) {
+		cl_float4 v = { vertices[i], vertices[i + 1], vertices[i + 2], 0.0f };
+		vertices4.push_back( v );
+	}
 
-	return bytes;
+	for( int i = 0; i < normals.size(); i += 3 ) {
+		cl_float4 n = { normals[i], normals[i + 1], normals[i + 2], 0.0f };
+		normals4.push_back( n );
+	}
+
+	size_t bytesF = sizeof( face_cl ) * faceStructs.size();
+	size_t bytesV = sizeof( cl_float4 ) * vertices4.size();
+	size_t bytesN = sizeof( cl_float4 ) * normals4.size();
+
+	mBufFaces = mCL->createBuffer( faceStructs, bytesF );
+	mBufVertices = mCL->createBuffer( vertices4, bytesV );
+	mBufNormals = mCL->createBuffer( normals4, bytesN );
+
+	return bytesF + bytesV + bytesN;
 }
 
 

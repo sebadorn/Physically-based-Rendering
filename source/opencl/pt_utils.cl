@@ -186,11 +186,11 @@ char solveCubic( const float a0, const float a1, const float a2, const float a3,
 rayPlanes getPlanesFromRay( const ray4* ray ) {
 	rayPlanes rp;
 
-	rp.n1 = fast_normalize( cross( ray->origin.xyz, ray->dir.xyz ) );
-	rp.n2 = fast_normalize( cross( rp.n1, ray->dir.xyz ) );
+	rp.n1 = fast_normalize( cross( ray->origin, ray->dir ) );
+	rp.n2 = fast_normalize( cross( rp.n1, ray->dir ) );
 
-	rp.o1 = dot( rp.n1, ray->origin.xyz );
-	rp.o2 = dot( rp.n2, ray->origin.xyz );
+	rp.o1 = dot( rp.n1, ray->origin );
+	rp.o2 = dot( rp.n2, ray->origin );
 
 	return rp;
 }
@@ -202,8 +202,11 @@ rayPlanes getPlanesFromRay( const ray4* ray ) {
  * @param  {const float3} tuv
  * @return {float4}
  */
-inline float4 getTriangleNormal( const face_t* face, const float u, const float v, const float w ) {
-	return (float4)( fast_normalize( face->an.xyz * u + face->bn.xyz * v + face->cn.xyz * w ), 0.0f );
+inline float3 getTriangleNormal(
+	const float3 an, const float3 bn, const float3 cn,
+	const float u, const float v, const float w
+) {
+	return fast_normalize( an * u + bn * v + cn * w );
 }
 
 
@@ -255,15 +258,18 @@ inline float3 getTriangleReflectionVec( const float3 view, const float3 np ) {
  * @param  {const float3}  E20
  * @return {float4}
  */
-inline float4 getPhongTessNormal(
-	const face_t* face, const float3 rayDir, const float u, const float v, const float w,
-	const float3 C1, const float3 C2, const float3 C3, const float3 E12, const float3 E20
+inline float3 getPhongTessNormal(
+	const float3 an, const float3 bn, const float3 cn,
+	const float3 rayDir,
+	const float u, const float v, const float w,
+	const float3 C1, const float3 C2, const float3 C3,
+	const float3 E12, const float3 E20
 ) {
 	const float3 ns = getTriangleNormalS( u, v, w, C1, C2, C3, E12, E20 );
-	const float4 np = getTriangleNormal( face, u, v, w );
+	const float3 np = getTriangleNormal( an, bn, cn, u, v, w );
 	const float3 r = getTriangleReflectionVec( rayDir, np.xyz );
 
-	return ( dot( ns, r ) < 0.0f ) ? (float4)( ns, 0.0f ) : np;
+	return ( dot( ns, r ) < 0.0f ) ? ns : np;
 }
 
 
@@ -276,11 +282,11 @@ inline float4 getPhongTessNormal(
  * @param  {const float}  cosa
  * @return {float4}
  */
-float4 jitter(
-	const float4 nl, const float phi, const float sina, const float cosa
+float3 jitter(
+	const float3 nl, const float phi, const float sina, const float cosa
 ) {
-	const float4 u = fast_normalize( cross( nl.yzxw, nl ) );
-	const float4 v = fast_normalize( cross( nl, u ) );
+	const float3 u = fast_normalize( cross( nl.yzx, nl ) );
+	const float3 v = fast_normalize( cross( nl, u ) );
 
 	return fast_normalize(
 		fast_normalize(
@@ -309,7 +315,7 @@ inline float3 projectOnPlane( const float3 q, const float3 p, const float3 n ) {
  * @param  {float4} l Normalized direction to the light source.
  * @return {float}
  */
-#define lambert( n, l ) ( fmax( dot( ( n ).xyz, ( l ).xyz ), 0.0f ) )
+#define lambert( n, l ) ( fmax( dot( ( n ), ( l ) ), 0.0f ) )
 
 
 /**
@@ -318,7 +324,7 @@ inline float3 projectOnPlane( const float3 q, const float3 p, const float3 n ) {
  * @param  {const float3} n
  * @return {float3}         Projection of h onto n.
  */
-#define projection( h, n ) ( dot( ( h ).xyz, ( n ).xyz ) * ( n ) )
+#define projection( h, n ) ( dot( ( h ), ( n ) ) * ( n ) )
 
 
 /**
@@ -327,7 +333,7 @@ inline float3 projectOnPlane( const float3 q, const float3 p, const float3 n ) {
  * @param  {float4} normal Normal of surface.
  * @return {float4}        Reflected ray.
  */
-#define reflect( dir, normal ) ( ( dir ) - 2.0f * dot( ( normal ).xyz, ( dir ).xyz ) * ( normal ) )
+#define reflect( dir, normal ) ( ( dir ) - 2.0f * dot( ( normal ), ( dir ) ) * ( normal ) )
 
 
 /**
@@ -337,18 +343,18 @@ inline float3 projectOnPlane( const float3 q, const float3 p, const float3 n ) {
  * @param  {float*}          seed       Seed for the random number generator.
  * @return {float4}                     A new direction for the ray.
  */
-float4 refract( const ray4* ray, const material* mtl, float* seed ) {
+float3 refract( const ray4* ray, const material* mtl, float* seed ) {
 	#define DIR ( ray->dir )
 	#define N ( ray->normal )
 
-	const bool into = ( dot( N.xyz, DIR.xyz ) < 0.0f );
-	const float4 nl = into ? N : -N;
+	const bool into = ( dot( N, DIR ) < 0.0f );
+	const float3 nl = into ? N : -N;
 
 	const float m1 = into ? NI_AIR : mtl->Ni;
 	const float m2 = into ? mtl->Ni : NI_AIR;
 	const float m = native_divide( m1, m2 );
 
-	const float cosI = -dot( DIR.xyz, nl.xyz );
+	const float cosI = -dot( DIR, nl );
 	const float sinT2 = m * m * ( 1.0f - cosI * cosI );
 
 	// Critical angle. Total internal reflection.
@@ -367,7 +373,7 @@ float4 refract( const ray4* ray, const material* mtl, float* seed ) {
 	#define COS_T ( native_sqrt( 1.0f - sinT2 ) )
 	#define DO_REFRACT ( reflectance < rand( seed ) )
 
-	const float4 newRay = DO_REFRACT
+	const float3 newRay = DO_REFRACT
 	                    ? m * DIR + ( m * cosI - COS_T ) * nl
 	                    : reflect( DIR, nl );
 

@@ -17,14 +17,14 @@ void checkFaces(
 		float3 tuv;
 		uint j = kdFaces[i];
 
-		float4 normal = checkFaceIntersection( ray, faces[j], &tuv, tNear, tFar );
+		float3 normal = checkFaceIntersection( ray, faces[j], &tuv, tNear, tFar );
 
 		if( tuv.x < INFINITY ) {
 			tFar = tuv.x;
 
 			if( ray->t > tuv.x ) {
 				ray->normal = normal;
-				ray->normal.w = (float) j;
+				ray->hitFace = j;
 				ray->t = tuv.x;
 			}
 		}
@@ -73,13 +73,13 @@ int goToLeafNode( uint nodeIndex, const global kdNonLeaf* kdNonLeaves, float3 hi
 void getEntryDistanceAndExitRope(
 	const ray4* ray, const float4 bbMin, const float4 bbMax, float* tFar, int* exitRope
 ) {
-	const float3 invDir = native_recip( ray->dir.xyz );
+	const float3 invDir = native_recip( ray->dir );
 	const bool signX = signbit( invDir.x );
 	const bool signY = signbit( invDir.y );
 	const bool signZ = signbit( invDir.z );
 
-	float3 t1 = ( bbMin.xyz - ray->origin.xyz ) * invDir;
-	float3 tMax = ( bbMax.xyz - ray->origin.xyz ) * invDir;
+	float3 t1 = ( bbMin.xyz - ray->origin ) * invDir;
+	float3 tMax = ( bbMax.xyz - ray->origin ) * invDir;
 	tMax = fmax( t1, tMax );
 
 	*tFar = fmin( fmin( tMax.x, tMax.y ), tMax.z );
@@ -98,7 +98,7 @@ void traverseKdTree(
 	float tNear, float tFar, const uint kdRoot
 ) {
 	int exitRope;
-	int nodeIndex = goToLeafNode( kdRoot, kdNonLeaves, ray->origin.xyz + tNear * ray->dir.xyz );
+	int nodeIndex = goToLeafNode( kdRoot, kdNonLeaves, ray->origin + tNear * ray->dir );
 
 	while( nodeIndex >= 0 && tNear <= tFar ) {
 		const kdLeaf currentNode = kdLeaves[nodeIndex];
@@ -116,7 +116,7 @@ void traverseKdTree(
 		nodeIndex = ( (int*) &ropes )[exitRope];
 		nodeIndex = ( nodeIndex < 1 )
 		          ? -( nodeIndex + 1 )
-		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, ray->origin.xyz + tNear * ray->dir.xyz );
+		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, ray->origin + tNear * ray->dir );
 	}
 }
 
@@ -140,7 +140,7 @@ void traverse(
 	int stackIndex = 0;
 	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
 
-	const float3 invDir = native_recip( ray->dir.xyz );
+	const float3 invDir = native_recip( ray->dir );
 
 	while( stackIndex >= 0 ) {
 		bvhNode node = bvh[bvhStack[stackIndex--]];

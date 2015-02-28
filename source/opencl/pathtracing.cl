@@ -39,12 +39,12 @@
 ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 
-	const float4 eye = { eyeIn[0], eyeIn[1], eyeIn[2], 0.0f };
-	const float4 w = { eyeIn[3], eyeIn[4], eyeIn[5], 0.0f };
-	const float4 u = { eyeIn[6], eyeIn[7], eyeIn[8], 0.0f };
-	const float4 v = { eyeIn[9], eyeIn[10], eyeIn[11], 0.0f };
+	const float3 eye = { eyeIn[0], eyeIn[1], eyeIn[2] };
+	const float3 w = { eyeIn[3], eyeIn[4], eyeIn[5] };
+	const float3 u = { eyeIn[6], eyeIn[7], eyeIn[8] };
+	const float3 v = { eyeIn[9], eyeIn[10], eyeIn[11] };
 
-	const float4 initialRay = w + pxDim * 0.5f * (
+	const float3 initialRay = w + pxDim * 0.5f * (
 		u - IMG_WIDTH * u + 2.0f * pos.x * u +
 		v - IMG_HEIGHT * v + 2.0f * pos.y * v
 	);
@@ -55,7 +55,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 	ray.dir = fast_normalize( initialRay );
 
 	const float rnd = rand( seed );
-	const float4 aaDir = jitter( ray.dir, PI_X2 * rand( seed ), native_sqrt( rnd ), native_sqrt( 1.0f - rnd ) );
+	const float3 aaDir = jitter( ray.dir, PI_X2 * rand( seed ), native_sqrt( rnd ), native_sqrt( 1.0f - rnd ) );
 	ray.dir = fast_normalize( ray.dir +	aaDir * pxDim * ANTI_ALIASING );
 
 	return ray;
@@ -359,8 +359,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 
 				focus = ( depth == 0 ) ? ray.t : focus;
 
-				material mtl = materials[(uint) faces[(uint) ray.normal.w].a.w];
-				ray.normal.w = 0.0f;
+				material mtl = materials[faces[ray.hitFace].material];
 
 				// Implicit connection to a light found
 				if( mtl.light == 1 ) {
@@ -395,11 +394,9 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 							lightRaySource = SKY_LIGHT * SPEC;
 						}
 						else {
-							material lightMTL = materials[(uint) faces[(uint) lightRay.normal.w].a.w];
+							material lightMTL = materials[faces[lightRay.hitFace].material];
 							lightRaySource = ( lightMTL.light == 1 ) ? lightMTL.spd.x : -1;
 						}
-
-						lightRay.normal.w = 0.0f;
 					}
 
 				#endif
@@ -487,6 +484,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 
 		// geometry and color related
 		global const face_t* faces,
+		global const float4* vertices,
+		global const float4* normals,
 		global const material* materials,
 
 		// old and new frame
@@ -517,8 +516,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 
 				focus = ( depth == 0 ) ? ray.t : focus;
 
-				material mtl = materials[(uint) faces[(uint) ray.normal.w].a.w];
-				ray.normal.w = 0.0f;
+				material mtl = materials[faces[ray.hitFace].material];
 
 				// Implicit connection to a light found
 				if( mtl.light == 1 ) {
@@ -553,11 +551,9 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 							lightRaySource = SKY_LIGHT;
 						}
 						else {
-							material lightMTL = materials[(uint) faces[(uint) lightRay.normal.w].a.w];
+							material lightMTL = materials[faces[lightRay.hitFace].material];
 							lightRaySource = ( lightMTL.light == 1 ) ? lightMTL.rgb : (float4)( -1.0f );
 						}
-
-						lightRay.normal.w = 0.0f;
 					}
 
 				#endif

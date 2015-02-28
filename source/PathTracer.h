@@ -24,14 +24,9 @@ using std::vector;
 
 
 struct face_cl {
-	// vertices
-	cl_float4 a; // a.w = material index
-	cl_float4 b;
-	cl_float4 c;
-	// vertex normals
-	cl_float4 an;
-	cl_float4 bn;
-	cl_float4 cn;
+	cl_uint4 vertices;
+	cl_uint4 normals;
+	cl_uint material;
 };
 
 struct material_schlick_spd {
@@ -164,6 +159,8 @@ class PathTracer {
 		cl_mem mBufBVH;
 		cl_mem mBufBVHFaces;
 		cl_mem mBufFaces;
+		cl_mem mBufVertices;
+		cl_mem mBufNormals;
 		cl_mem mBufMaterials;
 		cl_mem mBufSPDs;
 

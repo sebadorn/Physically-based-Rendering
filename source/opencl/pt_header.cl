@@ -22,13 +22,16 @@
 #define USE_SPECTRAL #USE_SPECTRAL#
 
 
+// Only used inside kernel.
 typedef struct {
-	float4 origin;
-	float4 dir;
-	float4 normal;
+	float3 origin;
+	float3 dir;
+	float3 normal;
 	float t;
+	int hitFace;
 } ray4;
 
+// Only used inside kernel.
 typedef struct {
 	float3 n1; // Normal of plane 1
 	float3 n2; // Normal of plane 2
@@ -36,15 +39,11 @@ typedef struct {
 	float o2;  // Distance of plane 2 to the origin
 } rayPlanes;
 
+// Passed from outside.
 typedef struct {
-	// vertices
-	float4 a; // a.w = material index
-	float4 b;
-	float4 c;
-	// vertex normals
-	float4 an;
-	float4 bn;
-	float4 cn;
+	uint4 vertices;
+	uint4 normals;
+	uint material;
 } face_t;
 
 
@@ -54,10 +53,7 @@ typedef struct {
 	typedef struct {
 		float4 bbMin; // bbMin.w = leftChild
 		float4 bbMax; // bbMax.w = rightChild
-		int4 faces;   // w: relation with
-		              // -> positive: right sibling
-		              // -> negative: parent
-		              // -> 0: root node
+		int4 faces;   // w: either the right sibling or the parent
 	} bvhNode;
 
 // kD-tree

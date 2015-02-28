@@ -53,17 +53,13 @@ inline char getBestRayDomain( const float3 rd ) {
  * @param  {const float}   tFar
  * @return {float4}
  */
-float4 phongTessTriAndRayIntersect(
-	const face_t* face, const ray4* ray, float3* tuv, const float tNear, const float tFar
+float3 phongTessTriAndRayIntersect(
+	const float3 P1, const float3 P2, const float3 P3,
+	const float3 N1, const float3 N2, const float3 N3,
+	const ray4* ray,
+	float3* tuv, const float tNear, const float tFar
 ) {
-	#define P1 ( face->a.xyz )
-	#define P2 ( face->b.xyz )
-	#define P3 ( face->c.xyz )
-	#define N1 ( face->an.xyz )
-	#define N2 ( face->bn.xyz )
-	#define N3 ( face->cn.xyz )
-
-	float4 normal = (float4)( 0.0f );
+	float3 normal = (float3)( 0.0f );
 	tuv->x = INFINITY;
 
 	const float3 E01 = P2 - P1;
@@ -133,7 +129,7 @@ float4 phongTessTriAndRayIntersect(
 	}
 
 
-	const char domain = getBestRayDomain( ray->dir.xyz );
+	const char domain = getBestRayDomain( ray->dir );
 
 	mA = a * x + l;
 	mB = b * x + m;
@@ -195,7 +191,7 @@ float4 phongTessTriAndRayIntersect(
 				swap( &u, &v );
 			}
 
-			const float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w ) - ray->origin.xyz;
+			const float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w ) - ray->origin;
 			const float t = native_divide(
 				( (float*) &pTessellated )[domain],
 				( (float*) &(ray->dir) )[domain]
@@ -209,17 +205,10 @@ float4 phongTessTriAndRayIntersect(
 				tuv->x = t;
 				tuv->y = u;
 				tuv->z = v;
-				normal = getPhongTessNormal( face, ray->dir.xyz, u, v, w, C1, C2, C3, E12, E20 );
+				normal = getPhongTessNormal( N1, N2, N3, ray->dir, u, v, w, C1, C2, C3, E12, E20 );
 			}
 		}
 	}
 
 	return normal;
-
-	#undef P1
-	#undef P2
-	#undef P3
-	#undef N1
-	#undef N2
-	#undef N3
 }
