@@ -116,7 +116,7 @@
 		// Use spectral color definitions.
 		// 0: disable, use RGB
 		// 1: enable
-		"use_spectral": 0
+		"use_spectral": 1
 	},
 
 	"shader": {

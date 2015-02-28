@@ -328,6 +328,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 
 		// geometry and color related
 		global const face_t* faces,
+		global const float4* vertices,
+		global const float4* normals,
 		global const material* materials,
 		constant const float* specPowerDists,
 

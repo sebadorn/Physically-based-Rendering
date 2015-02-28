@@ -10,6 +10,27 @@
 constant uint MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
 
 
+// // PCG - random number generator
+
+// typedef struct {
+// 	ulong state;
+// 	ulong inc;
+// } pcg32_random_t;
+
+// uint pcg32_random_r( pcg32_random_t* rng ) {
+// 	ulong oldstate = rng->state;
+
+// 	// Advance internal state
+// 	rng->state = oldstate * 6364136223846793005 + ( rng->inc | 1 );
+
+// 	// Calculate output function (XSH RR), uses old state for max ILP
+// 	uint xorshifted = ( ( oldstate >> 18u ) ^ oldstate ) >> 27u;
+// 	uint rot = oldstate >> 59u;
+
+// 	return ( xorshifted >> rot ) | ( xorshifted << ( (-rot) & 31 ) );
+// }
+
+
 /**
  *
  * @param  {float*} seed
