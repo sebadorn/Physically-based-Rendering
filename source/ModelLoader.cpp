@@ -88,8 +88,13 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 	Logger::logInfo( msg );
 
 	Logger::indent( LOG_INDENT );
+
 	mObjParser->load( filepath, filename );
-	mSpecParser->load( filepath, filename );
+
+	if( Cfg::get().value<bool>( Cfg::USE_SPECTRAL ) ) {
+		mSpecParser->load( filepath, filename );
+	}
+
 	Logger::indent( 0 );
 
 	vector<cl_uint> facesV = mObjParser->getFacesV();
