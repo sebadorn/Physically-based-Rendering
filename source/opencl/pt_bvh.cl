@@ -1,7 +1,7 @@
 // Traversal for the acceleration structure.
 // Type: Bounding Volume Hierarchy (BVH)
 
-#define CALL_TRAVERSE         traverse( bvh, &ray, faces, vertices, normals );
+#define CALL_TRAVERSE         traverseStackless( bvh, &ray, faces, vertices, normals );
 #define CALL_TRAVERSE_SHADOWS traverse_shadows( bvh, &lightRay, faces, vertices, normals );
 
 
