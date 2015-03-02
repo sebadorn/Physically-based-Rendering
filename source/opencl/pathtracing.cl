@@ -87,7 +87,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 
 			#if IMPLICIT == 1
 
-				if( lightRaySource >= 0 ) {
+				if( lightRaySource.x >= 0 ) {
 					brdf = brdfSchlick( mtl, ray, lightRay, &( ray->normal ), &u, &pdf );
 
 					if( fabs( pdf ) > 0.00001f ) {
@@ -118,7 +118,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 
 			#if IMPLICIT == 1
 
-				if( lightRaySource >= 0 ) {
+				if( lightRaySource.x >= 0 ) {
 					brdfShirleyAshikhmin(
 						mtl->nu, mtl->nv, mtl->Rs, mtl->Rd,
 						ray, lightRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1, &pdf
@@ -388,9 +388,9 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 					if( mtl.d > 0.0f ) {
 						lightRay.origin = fma( ray.t, ray.dir, ray.origin ) + ray.normal * EPSILON5;
 						const float rnd2 = rand( &seed );
-						lightRay.dir = fast_normalize( sunPos - lightRay.origin );
+						lightRay.dir = fast_normalize( sunPos.xyz - lightRay.origin );
 
-						CALL_TRAVERSE_SHADOW
+						CALL_TRAVERSE_SHADOWS
 
 						if( lightRay.t == INFINITY ) {
 							lightRaySource = SKY_LIGHT * SPEC;
@@ -504,7 +504,6 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 			float4 light = (float4)( -1.0f );
 
 			ray4 ray = initRay( pxDim, eyeIn, &seed );
-			float maxValSpd = 0.0f;
 			int depthAdded = 0;
 
 			for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
@@ -542,16 +541,16 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 					if( mtl.d > 0.0f ) {
 						lightRay.origin = fma( ray.t, ray.dir, ray.origin ) + ray.normal * EPSILON5;
 						const float rnd2 = rand( &seed );
-						lightRay.dir = fast_normalize( sunPos - lightRay.origin );
+						lightRay.dir = fast_normalize( sunPos.xyz - lightRay.origin );
 
-						CALL_TRAVERSE_SHADOW
+						CALL_TRAVERSE_SHADOWS
 
 						if( lightRay.t == INFINITY ) {
 							lightRaySource = SKY_LIGHT;
 						}
 						else {
 							material lightMTL = materials[faces[lightRay.hitFace].material];
-							lightRaySource = ( lightMTL.light == 1 ) ? lightMTL.rgb : (float4)( -1.0f );
+							lightRaySource = ( lightMTL.light == 1 ) ? lightMTL.rgbDiff : (float4)( -1.0f );
 						}
 					}
 
@@ -568,7 +567,9 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 				depthAdded += ( addDepth && depthAdded < MAX_ADDED_DEPTH );
 
 				// Russian roulette termination
-				if( depth > 2 + depthAdded && maxValSpd < rand( &seed ) ) {
+				float maxValRGB = fmax( color.x, fmax( color.y, color.z ) );
+
+				if( depth > 2 + depthAdded && maxValRGB < rand( &seed ) ) {
 					break;
 				}
 

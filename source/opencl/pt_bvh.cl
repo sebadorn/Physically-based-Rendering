@@ -2,7 +2,7 @@
 // Type: Bounding Volume Hierarchy (BVH)
 
 #define CALL_TRAVERSE         traverseStackless( bvh, &ray, faces, vertices, normals );
-#define CALL_TRAVERSE_SHADOWS traverse_shadows( bvh, &lightRay, faces, vertices, normals );
+#define CALL_TRAVERSE_SHADOWS traverseShadowsStackless( bvh, &lightRay, faces, vertices, normals );
 
 
 /**
@@ -203,17 +203,14 @@ void traverseStackless(
  * @param {ray4*}                 ray
  * @param {const global face_t*}  faces
  */
-void traverse_shadows(
+void traverseShadows(
 	const global bvhNode* bvh,
 	ray4* ray,
 	const global face_t* faces,
 	const global float4* vertices,
 	const global float4* normals
 ) {
-	bool addLeftToStack, addRightToStack, rightThenLeft;
-	float tFarL, tFarR, tNearL, tNearR;
-
-	uint bvhStack[BVH_STACKSIZE];
+	int bvhStack[BVH_STACKSIZE];
 	int stackIndex = 0;
 	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
 
@@ -221,14 +218,19 @@ void traverse_shadows(
 
 	while( stackIndex >= 0 ) {
 		bvhNode node = bvh[bvhStack[stackIndex--]];
-		tNearL = 0.0f;
-		tFarL = INFINITY;
+		float tNearL = 0.0f;
+		float tFarL = INFINITY;
 
-		// Is a leaf node with faces
+		// Is a leaf node
 		if( node.faces.x >= 0 ) {
-			if( intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) ) {
+			if(
+				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
+				tFarL > EPSILON5
+			) {
 				intersectFaces( ray, &node, faces, vertices, normals, tNearL, tFarL );
 
+				// It's enough to know that something blocks the way. It doesn't matter what or where.
+				// TODO: It *does* matter what and where, if the material has transparency.
 				if( ray->t < INFINITY ) {
 					break;
 				}
@@ -237,35 +239,88 @@ void traverse_shadows(
 			continue;
 		}
 
-		// Add child nodes to stack, if hit by ray
 
-		bvhNode childNode = bvh[(int) node.bbMin.w];
+		// The node that is pushed on the stack first will be evaluated last.
+		// We want the left node to be tested first, so we push it last.
 
-		bool addLeftToStack = intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL );
+		int leftChildIndex = (int) node.bbMin.w;
+		int rightChildIndex = (int) node.bbMax.w;
 
 		float tNearR = 0.0f;
 		float tFarR = INFINITY;
-		childNode = bvh[(int) node.bbMax.w];
 
-		bool addRightToStack = intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR );
+		// Right child node
+		node = bvh[rightChildIndex];
 
-
-		// The node that is pushed on the stack first will be evaluated last.
-		// So the nearer one should be pushed last, because it will be popped first then.
-		rightThenLeft = ( tNearR > tNearL );
-
-		if( rightThenLeft && addRightToStack) {
-			bvhStack[++stackIndex] = (int) node.bbMax.w;
-		}
-		if( rightThenLeft && addLeftToStack) {
-			bvhStack[++stackIndex] = (int) node.bbMin.w;
+		if(
+			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearR, &tFarR ) &&
+			tFarR > EPSILON5
+		) {
+			bvhStack[++stackIndex] = rightChildIndex;
 		}
 
-		if( !rightThenLeft && addLeftToStack) {
-			bvhStack[++stackIndex] = (int) node.bbMin.w;
-		}
-		if( !rightThenLeft && addRightToStack) {
-			bvhStack[++stackIndex] = (int) node.bbMax.w;
+		// Left child node
+		node = bvh[leftChildIndex];
+
+		if(
+			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
+			tFarL > EPSILON5
+		) {
+			bvhStack[++stackIndex] = leftChildIndex;
 		}
 	}
+}
+
+
+/**
+ * Traverse the BVH and test the faces against the given ray.
+ * This version is for the shadow ray test, so it only checks IF there
+ * is an intersection and terminates on the first hit.
+ * @param {const global bvhNode*} bvh
+ * @param {ray4*}                 ray
+ * @param {const global face_t*}  faces
+ */
+void traverseShadowsStackless(
+	const global bvhNode* bvh,
+	ray4* ray,
+	const global face_t* faces,
+	const global float4* vertices,
+	const global float4* normals
+) {
+	const float3 invDir = native_recip( ray->dir );
+	int index = 0;
+
+	do {
+		const bvhNode node = bvh[index];
+
+		float tNear = 0.0f;
+		float tFar = INFINITY;
+
+		bool isNodeHit = (
+			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNear, &tFar ) &&
+			tFar > EPSILON5
+		);
+
+		// In case of no hit: Go right or up.
+		index = node.faces.w;
+
+		if( !isNodeHit ) {
+			continue;
+		}
+
+		// Not a leaf node, progress further down to the left.
+		if( node.faces.x == -1 ) {
+			index = (int) node.bbMin.w;
+		}
+		// Node is leaf node.
+		else {
+			intersectFaces( ray, &node, faces, vertices, normals, tNear, tFar );
+
+			// It's enough to know that something blocks the way. It doesn't matter what or where.
+			// TODO: It *does* matter what and where, if the material has transparency.
+			if( ray->t < INFINITY ) {
+				break;
+			}
+		}
+	} while( index > 0 );
 }
