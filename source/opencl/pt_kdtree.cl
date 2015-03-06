@@ -1,8 +1,8 @@
 // Traversal for the acceleration structure.
 // Type: Combination of kD-tree (each object) and BVH (objects in the scene).
 
-#define CALL_TRAVERSE         traverse( bvh, kdNonLeaves, kdLeaves, kdFaces, &ray, faces );
-#define CALL_TRAVERSE_SHADOWS traverse_shadows( bvh, kdNonLeaves, kdLeaves, kdFaces, &lightRay, faces );
+#define CALL_TRAVERSE         traverse( bvh, kdNonLeaves, kdLeaves, kdFaces, &ray, faces, vertices, normals );
+#define CALL_TRAVERSE_SHADOWS traverse_shadows( bvh, kdNonLeaves, kdLeaves, kdFaces, &lightRay, faces, vertices, normals );
 
 
 /**
@@ -11,13 +11,18 @@
 void checkFaces(
 	ray4* ray, const int faceIndex, const int numFaces,
 	const global uint* kdFaces, const global face_t* faces,
+	const global float4* vertices, const global float4* normals,
 	const float tNear, float tFar
 ) {
 	for( uint i = faceIndex; i < faceIndex + numFaces; i++ ) {
 		float3 tuv;
-		uint j = kdFaces[i];
+		const uint j = kdFaces[i];
+		const face_t f = faces[j];
+		const float3 a = vertices[f.vertices.x].xyz;
+		const float3 b = vertices[f.vertices.y].xyz;
+		const float3 c = vertices[f.vertices.z].xyz;
 
-		float3 normal = checkFaceIntersection( ray, faces[j], &tuv, tNear, tFar );
+		float3 normal = checkFaceIntersection( ray, a, b, c, f.normals, normals, &tuv, tNear, tFar );
 
 		if( tuv.x < INFINITY ) {
 			tFar = tuv.x;
@@ -95,6 +100,7 @@ void getEntryDistanceAndExitRope(
 void traverseKdTree(
 	ray4* ray, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global uint* kdFaces, const global face_t* faces,
+	const global float4* vertices, const global float4* normals,
 	float tNear, float tFar, const uint kdRoot
 ) {
 	int exitRope;
@@ -104,7 +110,7 @@ void traverseKdTree(
 		const kdLeaf currentNode = kdLeaves[nodeIndex];
 		const int8 ropes = currentNode.ropes;
 
-		checkFaces( ray, ropes.s6, ropes.s7, kdFaces, faces, tNear, tFar );
+		checkFaces( ray, ropes.s6, ropes.s7, kdFaces, faces, vertices, normals, tNear, tFar );
 
 		// Exit leaf node
 		getEntryDistanceAndExitRope( ray, currentNode.bbMin, currentNode.bbMax, &tNear, &exitRope );
@@ -134,7 +140,8 @@ void traverseKdTree(
 void traverse(
 	const global bvhNode* bvh, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global uint* kdFaces,
-	ray4* ray, const global face_t* faces
+	ray4* ray, const global face_t* faces,
+	const global float4* vertices, const global float4* normals
 ) {
 	uint bvhStack[BVH_STACKSIZE];
 	int stackIndex = 0;
@@ -158,6 +165,7 @@ void traverse(
 			) {
 				traverseKdTree(
 					ray, kdNonLeaves, kdLeaves, kdFaces, faces,
+					vertices, normals,
 					tNearL, tFarL, -( leftChildIndex + 1 )
 				);
 			}

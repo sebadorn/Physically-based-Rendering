@@ -269,20 +269,15 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 		sn.faces.x = ( fvecLen > 0 ) ? facesVec[0].face.w : -1;
 		sn.faces.y = ( fvecLen > 1 ) ? facesVec[1].face.w : -1;
 		sn.faces.z = ( fvecLen > 2 ) ? facesVec[2].face.w : -1;
+		sn.faces.w = 0;
 
 		// No parent means it's the root node.
-		if( node->parent == NULL ) {
-			sn.faces.w = 0;
-		}
 		// Otherwise it is some other node, including leaves.
-		else {
+		if( node->parent != NULL ) {
 			bool isLeftNode = ( node->parent->leftChild == node );
 
 			if( !isLeftNode ) {
-				if( node->parent->parent == NULL ) {
-					sn.faces.w = 0;
-				}
-				else {
+				if( node->parent->parent != NULL ) {
 					BVHNode* dummy = new BVHNode();
 					dummy->parent = node->parent;
 
@@ -297,12 +292,8 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 						}
 					}
 
-					// Reached the root node.
-					if( dummy->parent->parent == NULL ) {
-						sn.faces.w = 0;
-					}
 					// Reached a parent with a true sibling.
-					else {
+					if( dummy->parent->parent != NULL ) {
 						sn.faces.w = dummy->parent->parent->rightChild->id;
 					}
 				}

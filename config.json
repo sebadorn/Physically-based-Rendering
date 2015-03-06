@@ -34,7 +34,7 @@
 	// Acceleration structure
 	// 0: BVH with AABBs
 	// 1: kD-tree
-	"accel_struct": 0,
+	"accel_struct": 1,
 
 	// Bounding Volume Hierarchy
 	"bvh": {
