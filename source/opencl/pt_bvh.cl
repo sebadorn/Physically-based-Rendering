@@ -1,8 +1,8 @@
 // Traversal for the acceleration structure.
 // Type: Bounding Volume Hierarchy (BVH)
 
-#define CALL_TRAVERSE         traverseStackless( bvh, &ray, faces, vertices, normals );
-#define CALL_TRAVERSE_SHADOWS traverseShadowsStackless( bvh, &lightRay, faces, vertices, normals );
+#define CALL_TRAVERSE         traverseStackless( &scene, &ray );
+#define CALL_TRAVERSE_SHADOWS traverseShadowsStackless( &scene, &lightRay );
 
 
 /**
@@ -13,26 +13,12 @@
  * @param {const float tNear}    tNear
  * @param {float tFar}           tFar
  */
-void intersectFaces(
-	ray4* ray, const bvhNode* node,
-	const global face_t* faces,
-	const global float4* vertices,
-	const global float4* normals,
-	const float tNear, float tFar
-) {
-	face_t f;
+void intersectFaces( const Scene* scene, ray4* ray, const bvhNode* node, const float tNear, float tFar ) {
 	float3 tuv;
-	float3 a, b, c;
 	float3 normal;
 
-	// First face. Always exists in a leaf node.
-	f = faces[node->faces.x];
-	a = vertices[f.vertices.x].xyz;
-	b = vertices[f.vertices.y].xyz;
-	c = vertices[f.vertices.z].xyz;
 
-	normal = checkFaceIntersection( ray, a, b, c, f.normals, normals, &tuv, tNear, tFar );
-	tFar = ( tuv.x < INFINITY ) ? tuv.x : tFar;
+	normal = checkFaceIntersection( scene, ray, node->faces.x, &tuv, tNear, tFar );
 
 	if( ray->t > tuv.x ) {
 		ray->normal = normal;
@@ -45,13 +31,8 @@ void intersectFaces(
 		return;
 	}
 
-	f = faces[node->faces.y];
-	a = vertices[f.vertices.x].xyz;
-	b = vertices[f.vertices.y].xyz;
-	c = vertices[f.vertices.z].xyz;
 
-	normal = checkFaceIntersection( ray, a, b, c, f.normals, normals, &tuv, tNear, tFar );
-	tFar = ( tuv.x < INFINITY ) ? tuv.x : tFar;
+	normal = checkFaceIntersection( scene, ray, node->faces.y, &tuv, tNear, tFar );
 
 	if( ray->t > tuv.x ) {
 		ray->normal = normal;
@@ -64,13 +45,8 @@ void intersectFaces(
 		return;
 	}
 
-	f = faces[node->faces.z];
-	a = vertices[f.vertices.x].xyz;
-	b = vertices[f.vertices.y].xyz;
-	c = vertices[f.vertices.z].xyz;
 
-	normal = checkFaceIntersection( ray, a, b, c, f.normals, normals, &tuv, tNear, tFar );
-	tFar = ( tuv.x < INFINITY ) ? tuv.x : tFar;
+	normal = checkFaceIntersection( scene, ray, node->faces.z, &tuv, tNear, tFar );
 
 	if( ray->t > tuv.x ) {
 		ray->normal = normal;
@@ -86,13 +62,7 @@ void intersectFaces(
  * @param {ray4*}                 ray
  * @param {global const face_t*}  faces
  */
-void traverse(
-	global const bvhNode* bvh,
-	ray4* ray,
-	global const face_t* faces,
-	const global float4* vertices,
-	const global float4* normals
-) {
+void traverse( const Scene* scene, global const bvhNode* bvh, ray4* ray ) {
 	int bvhStack[BVH_STACKSIZE];
 	int stackIndex = 0;
 	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
@@ -100,7 +70,7 @@ void traverse(
 	const float3 invDir = native_recip( ray->dir );
 
 	while( stackIndex >= 0 ) {
-		bvhNode node = bvh[bvhStack[stackIndex--]];
+		bvhNode node = scene->bvh[bvhStack[stackIndex--]];
 		float tNearL = 0.0f;
 		float tFarL = INFINITY;
 
@@ -110,7 +80,7 @@ void traverse(
 				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
 				tFarL > EPSILON5 && ray->t > tNearL
 			) {
-				intersectFaces( ray, &node, faces, vertices, normals, tNearL, tFarL );
+				intersectFaces( scene, ray, &node, tNearL, tFarL );
 			}
 
 			continue;
@@ -127,7 +97,7 @@ void traverse(
 		float tFarR = INFINITY;
 
 		// Right child node
-		node = bvh[rightChildIndex];
+		node = scene->bvh[rightChildIndex];
 
 		if(
 			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearR, &tFarR ) &&
@@ -137,7 +107,7 @@ void traverse(
 		}
 
 		// Left child node
-		node = bvh[leftChildIndex];
+		node = scene->bvh[leftChildIndex];
 
 		if(
 			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
@@ -155,18 +125,12 @@ void traverse(
  * @param {ray4*}                 ray
  * @param {global const face_t*}  faces
  */
-void traverseStackless(
-	global const bvhNode* bvh,
-	ray4* ray,
-	global const face_t* faces,
-	global const float4* vertices,
-	global const float4* normals
-) {
+void traverseStackless( const Scene* scene, ray4* ray ) {
 	const float3 invDir = native_recip( ray->dir );
 	int index = 0;
 
 	do {
-		const bvhNode node = bvh[index];
+		const bvhNode node = scene->bvh[index];
 
 		float tNear = 0.0f;
 		float tFar = INFINITY;
@@ -189,7 +153,7 @@ void traverseStackless(
 		}
 		// Node is leaf node.
 		else {
-			intersectFaces( ray, &node, faces, vertices, normals, tNear, tFar );
+			intersectFaces( scene, ray, &node, tNear, tFar );
 		}
 	} while( index > 0 );
 }
@@ -203,13 +167,7 @@ void traverseStackless(
  * @param {ray4*}                 ray
  * @param {const global face_t*}  faces
  */
-void traverseShadows(
-	const global bvhNode* bvh,
-	ray4* ray,
-	const global face_t* faces,
-	const global float4* vertices,
-	const global float4* normals
-) {
+void traverseShadows( const Scene* scene, const global bvhNode* bvh, ray4* ray ) {
 	int bvhStack[BVH_STACKSIZE];
 	int stackIndex = 0;
 	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
@@ -217,7 +175,7 @@ void traverseShadows(
 	const float3 invDir = native_recip( ray->dir );
 
 	while( stackIndex >= 0 ) {
-		bvhNode node = bvh[bvhStack[stackIndex--]];
+		bvhNode node = scene->bvh[bvhStack[stackIndex--]];
 		float tNearL = 0.0f;
 		float tFarL = INFINITY;
 
@@ -227,7 +185,7 @@ void traverseShadows(
 				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
 				tFarL > EPSILON5
 			) {
-				intersectFaces( ray, &node, faces, vertices, normals, tNearL, tFarL );
+				intersectFaces( scene, ray, &node, tNearL, tFarL );
 
 				// It's enough to know that something blocks the way. It doesn't matter what or where.
 				// TODO: It *does* matter what and where, if the material has transparency.
@@ -250,7 +208,7 @@ void traverseShadows(
 		float tFarR = INFINITY;
 
 		// Right child node
-		node = bvh[rightChildIndex];
+		node = scene->bvh[rightChildIndex];
 
 		if(
 			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearR, &tFarR ) &&
@@ -260,7 +218,7 @@ void traverseShadows(
 		}
 
 		// Left child node
-		node = bvh[leftChildIndex];
+		node = scene->bvh[leftChildIndex];
 
 		if(
 			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
@@ -280,18 +238,12 @@ void traverseShadows(
  * @param {ray4*}                 ray
  * @param {const global face_t*}  faces
  */
-void traverseShadowsStackless(
-	const global bvhNode* bvh,
-	ray4* ray,
-	const global face_t* faces,
-	const global float4* vertices,
-	const global float4* normals
-) {
+void traverseShadowsStackless( const Scene* scene, const global bvhNode* bvh, ray4* ray ) {
 	const float3 invDir = native_recip( ray->dir );
 	int index = 0;
 
 	do {
-		const bvhNode node = bvh[index];
+		const bvhNode node = scene->bvh[index];
 
 		float tNear = 0.0f;
 		float tFar = INFINITY;
@@ -314,7 +266,7 @@ void traverseShadowsStackless(
 		}
 		// Node is leaf node.
 		else {
-			intersectFaces( ray, &node, faces, vertices, normals, tNear, tFar );
+			intersectFaces( scene, ray, &node, tNear, tFar );
 
 			// It's enough to know that something blocks the way. It doesn't matter what or where.
 			// TODO: It *does* matter what and where, if the material has transparency.

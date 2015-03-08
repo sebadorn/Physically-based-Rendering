@@ -273,7 +273,7 @@
 	 * @param  {const ray4*}     ray
 	 * @param  {const material*} mtl
 	 * @param  {float*}          seed
-	 * @return {float4}
+	 * @return {float3}
 	 */
 	float3 newRayShirleyAshikhmin( const ray4* ray, const material* mtl, float* seed ) {
 		// // Just do it perfectly specular at such high and identical lobe values
@@ -347,7 +347,7 @@ ray4 getNewRay(
 	ray4 newRay;
 	newRay.t = INFINITY;
 	newRay.origin = fma( ray->t, ray->dir, ray->origin );
-	// newRay.origin += ray->normal * EPSILON7;
+	newRay.origin += ray->normal * EPSILON7;
 
 	// Transparency and refraction
 	bool doTransRefr = ( mtl->d < 1.0f && mtl->d <= rand( seed ) );

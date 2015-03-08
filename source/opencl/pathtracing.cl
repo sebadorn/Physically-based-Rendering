@@ -496,6 +496,12 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 	) {
 		float4 finalColor = (float4)( 0.0f );
 
+		#if ACCEL_STRUCT == 0
+			Scene scene = { bvh, faces, vertices, normals };
+		#elif ACCEL_STRUCT == 1
+			Scene scene = { bvh, kdNonLeaves, kdLeaves, kdFaces, faces, vertices, normals };
+		#endif
+
 		bool addDepth;
 		uint secondaryPaths = 1; // Start at 1 instead of 0, because we are going to divide through it.
 

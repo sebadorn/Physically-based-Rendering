@@ -56,6 +56,13 @@ typedef struct {
 		int4 faces;   // w: either the right sibling or the parent
 	} bvhNode;
 
+	typedef struct {
+		global const bvhNode* bvh;
+		global const face_t* faces;
+		global const float4* vertices;
+		global const float4* normals;
+	} Scene;
+
 // kD-tree
 #elif ACCEL_STRUCT == 1
 
@@ -75,6 +82,16 @@ typedef struct {
 		float4 bbMin;
 		float4 bbMax;
 	} kdLeaf;
+
+	typedef struct {
+		global const bvhNode* bvh;
+		global const kdNonLeaf* kdNonLeaves;
+		global const kdLeaf* kdLeaves;
+		global const uint* kdFaces;
+		global const face_t* faces;
+		global const float4* vertices;
+		global const float4* normals;
+	} Scene;
 
 #endif
 

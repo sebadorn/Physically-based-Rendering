@@ -8,15 +8,12 @@
  * @param  {global const float4*} normals
  * @param  {const ray4*}          ray
  * @param  {float3*}              tuv
- * @param  {const float}          tNear
- * @param  {const float}          tFar
  * @return {float3}
  */
 float3 flatTriAndRayIntersect(
 	const float3 a, const float3 b, const float3 c,
 	const uint4 fn, global const float4* normals,
-	const ray4* ray, float3* tuv,
-	const float tNear, const float tFar
+	const ray4* ray, float3* tuv
 ) {
 	const float3 edge1 = b - a;
 	const float3 edge2 = c - a;
@@ -27,7 +24,7 @@ float3 flatTriAndRayIntersect(
 
 	tuv->x = dot( edge2, qVec ) * invDet;
 
-	if( tuv->x < EPSILON5 ) {
+	if( tuv->x >= ray->t || tuv->x < EPSILON5 ) {
 		tuv->x = INFINITY;
 		return (float3)( 0.0f );
 	}
@@ -58,17 +55,19 @@ float3 flatTriAndRayIntersect(
  * @return {float3}
  */
 float3 checkFaceIntersection(
-	const ray4* ray,
-	const float3 a, const float3 b, const float3 c,
-	const uint4 fn, global const float4* normals,
-	float3* tuv,
+	const Scene* scene, const ray4* ray, const int fIndex, float3* tuv,
 	const float tNear, const float tFar
 ) {
+	const face_t f = scene->faces[fIndex];
+	const float3 a = scene->vertices[f.vertices.x].xyz;
+	const float3 b = scene->vertices[f.vertices.y].xyz;
+	const float3 c = scene->vertices[f.vertices.z].xyz;
+
 	#if PHONGTESS == 1
 
-		const float3 an = normals[fn.x].xyz;
-		const float3 bn = normals[fn.y].xyz;
-		const float3 cn = normals[fn.z].xyz;
+		const float3 an = normals[f.normals.x].xyz;
+		const float3 bn = normals[f.normals.y].xyz;
+		const float3 cn = normals[f.normals.z].xyz;
 		const int3 cmp = ( an == bn ) + ( bn == cn );
 
 		// Comparing vectors in OpenCL: 0/false/not equal; -1/true/equal
@@ -77,7 +76,7 @@ float3 checkFaceIntersection(
 	#endif
 
 	{
-		return flatTriAndRayIntersect( a, b, c, fn, normals, ray, tuv, tNear, tFar );
+		return flatTriAndRayIntersect( a, b, c, f.normals, scene->normals, ray, tuv );
 	}
 
 
