@@ -7,6 +7,9 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+#include "Cfg.h"
+#include "accelstructures/AccelStructure.h"
+
 using std::vector;
 
 #define MH_PI 3.14159265359
@@ -37,8 +40,19 @@ class MathHelp {
 		static glm::vec3 intersectLinePlane(
 			glm::vec3 p, glm::vec3 q, glm::vec3 x, glm::vec3 nl, bool* isParallel
 		);
+		static glm::vec3 phongTessellate(
+			const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
+			const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
+			const float alpha, const float u, const float v
+		);
 		static glm::vec3 projectOnPlane( glm::vec3 q, glm::vec3 p, glm::vec3 n );
 		static cl_float radToDeg( cl_float rad );
+		static void triCalcAABB( Tri* tri, const vector<cl_float4>* vertices, const vector<cl_float4>* normals );
+		static void triThicknessAndSidedrop(
+			const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
+			const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
+			float* thickness, glm::vec3* sidedropMin, glm::vec3* sidedropMax
+		);
 
 };
 

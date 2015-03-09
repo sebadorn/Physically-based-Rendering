@@ -77,7 +77,7 @@ class BVH : public AccelStructure {
 		);
 		vector<Tri> facesToTriStructs(
 			const vector<cl_uint4>* facesThisObj, const vector<cl_uint4>* faceNormalsThisObj,
-			const vector<cl_float4>* vertices, const vector<float>* normals
+			const vector<cl_float4>* vertices4, const vector<float>* normals
 		);
 		cl_float getMean( const vector<Tri> faces, const cl_uint axis );
 		cl_float getMeanOfNodes( const vector<BVHNode*> nodes, const cl_uint axis );
@@ -95,11 +95,6 @@ class BVH : public AccelStructure {
 		BVHNode* makeNode( const vector<Tri> faces, bool ignore );
 		BVHNode* makeContainerNode( const vector<BVHNode*> subTrees, const bool isRoot );
 		vector<cl_float4> packFloatAsFloat4( const vector<cl_float>* vertices );
-		glm::vec3 phongTessellate(
-			const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
-			const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
-			const float alpha, const float u, const float v
-		);
 		void resizeBinsToFaces(
 			const cl_uint splits,
 			const vector< vector<Tri> >* leftBinFaces, const vector< vector<Tri> >* rightBinFaces,
@@ -123,15 +118,6 @@ class BVH : public AccelStructure {
 		void splitNodes(
 			const vector<BVHNode*> nodes, const cl_float midpoint, const cl_uint axis,
 			vector<BVHNode*>* leftGroup, vector<BVHNode*>* rightGroup
-		);
-		void triCalcAABB(
-			Tri* tri, const cl_uint4 fn,
-			const vector<cl_float4>* vertices, const vector<cl_float>* normals
-		);
-		void triThicknessAndSidedrop(
-			const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
-			const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
-			float* thickness, glm::vec3* sidedropMin, glm::vec3* sidedropMax
 		);
 		void visualizeNextNode(
 			const BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices

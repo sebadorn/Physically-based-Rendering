@@ -85,6 +85,68 @@ KdTree::KdTree( vector<Tri> faces ) {
 }
 
 
+KdTree::KdTree(
+	vector<cl_uint> facesV, vector<cl_uint> facesVN,
+	vector<cl_float> vertices, vector<cl_float> normals
+) {
+	vector<cl_float4> vertices4 = this->packFloatAsFloat4( &vertices );
+	vector<cl_float4> normals4 = this->packFloatAsFloat4( &normals );
+
+	vector<Tri> triFaces;
+
+	for( uint i = 0; i < facesV.size(); i += 3 ) {
+		cl_uint4 fv = { facesV[i], facesV[i + 1], facesV[i + 2], -1 };
+		cl_uint4 fn = { facesVN[i], facesVN[i + 1], facesVN[i + 2], -1 };
+
+		Tri tri;
+		tri.face = fv;
+		tri.normals = fn;
+		MathHelp::triCalcAABB( &tri, &vertices4, &normals4 );
+		triFaces.push_back( tri );
+	}
+
+
+	if( triFaces.size() <= 0 ) {
+		Logger::logError( "[KdTree] Didn't receive any faces. No kD-tree could be constructed." );
+		return;
+	}
+
+	boost::posix_time::ptime timerStart = boost::posix_time::microsec_clock::local_time();
+
+
+	glm::vec3 bbMin = triFaces[0].bbMin;
+	glm::vec3 bbMax = triFaces[0].bbMax;
+
+	for( uint i = 1; i < triFaces.size(); i++ ) {
+		bbMin = glm::min( bbMin, triFaces[i].bbMin );
+		bbMax = glm::max( bbMax, triFaces[i].bbMax );
+	}
+
+	mBBmin = bbMin;
+	mBBmax = bbMax;
+
+	mMinFaces = fmax( Cfg::get().value<cl_uint>( Cfg::KDTREE_MINFACES ), 1 );
+	this->setDepthLimit( triFaces.size() );
+
+	mRoot = this->makeTree( triFaces, bbMin, bbMax, 1 );
+	if( mRoot->left == NULL && mRoot->right == NULL ) {
+		Logger::logWarning( "[KdTree] Root node is a leaf. This isn't supported." );
+	}
+	this->createRopes( mRoot, vector<kdNode_t*>( 6, NULL ) );
+	this->printLeafFacesStat();
+
+	boost::posix_time::ptime timerEnd = boost::posix_time::microsec_clock::local_time();
+	float timeDiff = ( timerEnd - timerStart ).total_milliseconds();
+
+	char msg[256];
+	snprintf(
+		msg, 256, "[KdTree] Generated kd-tree in %g ms. %lu nodes (%lu leaves).",
+		timeDiff, mNodes.size(), mLeaves.size()
+	);
+	Logger::logInfo( msg );
+}
+
+
 /**
  * Destructor.
  */

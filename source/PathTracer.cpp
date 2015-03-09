@@ -107,6 +107,10 @@ void PathTracer::initArgsKernelPathTracing() {
 			break;
 
 		case ACCELSTRUCT_KDTREE:
+			// TODO: kernel args for kd-tree
+			break;
+
+		case ACCELSTRUCT_BVHKDTREE:
 			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVH );
 			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdNonLeaves );
 			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdLeaves );

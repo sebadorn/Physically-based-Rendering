@@ -3,6 +3,7 @@
 
 #define ACCELSTRUCT_BVH 0
 #define ACCELSTRUCT_KDTREE 1
+#define ACCELSTRUCT_BVHKDTREE 2
 
 #include <CL/cl.hpp>
 #include <glm/glm.hpp>
@@ -13,6 +14,7 @@ using std::vector;
 
 struct Tri {
 	cl_uint4 face;
+	cl_uint4 normals;
 	glm::vec3 bbMin;
 	glm::vec3 bbMax;
 };

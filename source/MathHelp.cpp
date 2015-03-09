@@ -158,6 +158,35 @@ glm::vec3 MathHelp::intersectLinePlane( glm::vec3 p, glm::vec3 q, glm::vec3 x, g
 }
 
 
+/**
+ * Phong tessellate a given point.
+ * @param  {const glm::vec3} p1    Point 1 of the triangle.
+ * @param  {const glm::vec3} p2    Point 2 of the triangle.
+ * @param  {const glm::vec3} p3    Point 3 of the triangle.
+ * @param  {const glm::vec3} n1    Normal at point 1.
+ * @param  {const glm::vec3} n2    Normal at point 2.
+ * @param  {const glm::vec3} n3    Normal at point 3.
+ * @param  {const float}     alpha Phong Tessellation strength [0,1].
+ * @param  {const float}     u     Value for barycentric coordinate.
+ * @param  {const float}     v     Value for barycentric coordinate.
+ * @return {glm::vec3}       Phong tessellated point.
+ */
+glm::vec3 MathHelp::phongTessellate(
+	const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
+	const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
+	const float alpha, const float u, const float v
+) {
+	float w = 1.0f - u - v;
+	glm::vec3 pBary = p1 * u + p2 * v + p3 * w;
+	glm::vec3 pTessellated =
+		u * MathHelp::projectOnPlane( pBary, p1, n1 ) +
+		v * MathHelp::projectOnPlane( pBary, p2, n2 ) +
+		w * MathHelp::projectOnPlane( pBary, p3, n3 );
+
+	return ( 1.0f - alpha ) * pBary + alpha * pTessellated;
+}
+
+
 glm::vec3 MathHelp::projectOnPlane( glm::vec3 q, glm::vec3 p, glm::vec3 n ) {
 	return q - glm::dot( q - p, n ) * n;
 }
@@ -170,4 +199,141 @@ glm::vec3 MathHelp::projectOnPlane( glm::vec3 q, glm::vec3 p, glm::vec3 n ) {
  */
 cl_float MathHelp::radToDeg( cl_float rad ) {
 	return ( rad * 180.0f / MH_PI );
+}
+
+
+/**
+ * Calculate and set the AABB for a Tri (face).
+ * @param {Tri*}                          tri      The face/triangle.
+ * @param {const std::vector<cl_float4>*} vertices All vertices.
+ * @param {const std::vector<cl_float4>*} normals  All normals.
+ */
+void MathHelp::triCalcAABB(
+	Tri* tri, const vector<cl_float4>* vertices, const vector<cl_float4>* normals
+) {
+	vector<cl_float4> v;
+	v.push_back( (*vertices)[tri->face.x] );
+	v.push_back( (*vertices)[tri->face.y] );
+	v.push_back( (*vertices)[tri->face.z] );
+
+	glm::vec3 bbMin, bbMax;
+	MathHelp::getAABB( v, &bbMin, &bbMax );
+	tri->bbMin = bbMin;
+	tri->bbMax = bbMax;
+
+	// ALPHA <= 0.0, no Phong Tessellation
+	if( Cfg::get().value<float>( Cfg::RENDER_PHONGTESS ) <= 0.0f ) {
+		return;
+	}
+
+	glm::vec3 p1 = glm::vec3( v[0].x, v[0].y, v[0].z );
+	glm::vec3 p2 = glm::vec3( v[1].x, v[1].y, v[1].z );
+	glm::vec3 p3 = glm::vec3( v[2].x, v[2].y, v[2].z );
+
+	cl_float4 fn1 = (*normals)[tri->normals.x];
+	cl_float4 fn2 = (*normals)[tri->normals.y];
+	cl_float4 fn3 = (*normals)[tri->normals.z];
+
+	glm::vec3 n1 = glm::vec3( fn1.x, fn1.y, fn1.z );
+	glm::vec3 n2 = glm::vec3( fn2.x, fn2.y, fn2.z );
+	glm::vec3 n3 = glm::vec3( fn3.x, fn3.y, fn3.z );
+
+	// Normals are the same, which means no Phong Tessellation possible
+	glm::vec3 test = ( n1 - n2 ) + ( n2 - n3 );
+	if(
+		fabs( test.x ) <= 0.000001f &&
+		fabs( test.y ) <= 0.000001f &&
+		fabs( test.z ) <= 0.000001f
+	) {
+		return;
+	}
+
+
+	float thickness;
+	glm::vec3 sidedropMin, sidedropMax;
+	MathHelp::triThicknessAndSidedrop( p1, p2, p3, n1, n2, n3, &thickness, &sidedropMin, &sidedropMax );
+
+	// Grow bigger according to thickness and sidedrop
+	glm::vec3 e12 = p2 - p1;
+	glm::vec3 e13 = p3 - p1;
+	glm::vec3 e23 = p3 - p2;
+	glm::vec3 e31 = p1 - p3;
+	glm::vec3 ng = glm::normalize( glm::cross( e12, e13 ) );
+
+	glm::vec3 p1thick = p1 + thickness * ng;
+	glm::vec3 p2thick = p2 + thickness * ng;
+	glm::vec3 p3thick = p3 + thickness * ng;
+
+	tri->bbMin = glm::min( glm::min( tri->bbMin, p1thick ), glm::min( p2thick, p3thick ) );
+	tri->bbMax = glm::max( glm::max( tri->bbMax, p1thick ), glm::max( p2thick, p3thick ) );
+	tri->bbMin = glm::min( tri->bbMin, sidedropMin );
+	tri->bbMax = glm::max( tri->bbMax, sidedropMax );
+}
+
+
+/**
+ * Calculate thickness and sidedrops of the tessellated face.
+ * @param {const glm::vec3}  p1           Point 1 of the triangle.
+ * @param {const glm::vec3}  p2           Point 2 of the triangle.
+ * @param {const glm::vec3}  p3           Point 3 of the triangle.
+ * @param {const glm::vec3}  n1           Normal at point 1.
+ * @param {const glm::vec3}  n2           Normal at point 2.
+ * @param {const glm::vec3}  n3           Normal at point 3.
+ * @param {float*}           thickness    Thickness.
+ * @param {glm::vec3*}       sidedropMin  Sidedrops of all sides, minimum coordinates.
+ * @param {glm::vec3*}       sidedropMax  Sidedrops of all sides, maximum coordinates.
+ */
+void MathHelp::triThicknessAndSidedrop(
+	const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
+	const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
+	float* thickness, glm::vec3* sidedropMin, glm::vec3* sidedropMax
+) {
+	float alpha = Cfg::get().value<float>( Cfg::RENDER_PHONGTESS );
+
+	glm::vec3 e12 = p2 - p1;
+	glm::vec3 e13 = p3 - p1;
+	glm::vec3 e23 = p3 - p2;
+	glm::vec3 e31 = p1 - p3;
+	glm::vec3 c12 = alpha * ( glm::dot( n2, e12 ) * n2 - glm::dot( n1, e12 ) * n1 );
+	glm::vec3 c23 = alpha * ( glm::dot( n3, e23 ) * n3 - glm::dot( n2, e23 ) * n2 );
+	glm::vec3 c31 = alpha * ( glm::dot( n1, e31 ) * n1 - glm::dot( n3, e31 ) * n3 );
+	glm::vec3 ng = glm::normalize( glm::cross( e12, e13 ) );
+
+	float k_tmp = glm::dot( ng, c12 - c23 - c31 );
+	float k = 1.0f / ( 4.0f * glm::dot( ng, c23 ) * glm::dot( ng, c31 ) - k_tmp * k_tmp );
+
+	float u = k * (
+		2.0f * glm::dot( ng, c23 ) * glm::dot( ng, c31 + e31 ) +
+		glm::dot( ng, c23 - e23 ) * glm::dot( ng, c12 - c23 - c31 )
+	);
+	float v = k * (
+		2.0f * glm::dot( ng, c31 ) * glm::dot( ng, c23 - e23 ) +
+		glm::dot( ng, c31 + e31 ) * glm::dot( ng, c12 - c23 - c31 )
+	);
+
+	u = ( u < 0.0f || u > 1.0f ) ? 0.0f : u;
+	v = ( v < 0.0f || v > 1.0f ) ? 0.0f : v;
+
+	glm::vec3 pt = MathHelp::phongTessellate( p1, p2, p3, n1, n2, n3, alpha, u, v );
+	*thickness = glm::dot( ng, pt - p1 );
+
+	glm::vec3 ptsd[9] = {
+		MathHelp::phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.0f, 0.5f ),
+		MathHelp::phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.5f, 0.0f ),
+		MathHelp::phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.5f, 0.5f ),
+		MathHelp::phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.25f, 0.75f ),
+		MathHelp::phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.75f, 0.25f ),
+		MathHelp::phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.25f, 0.0f ),
+		MathHelp::phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.75f, 0.0f ),
+		MathHelp::phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.0f, 0.25f ),
+		MathHelp::phongTessellate( p1, p2, p3, n1, n2, n3, alpha, 0.0f, 0.75f )
+	};
+
+	*sidedropMin = ptsd[0];
+	*sidedropMax = ptsd[0];
+
+	for( cl_uint i = 1; i < 9; i++ ) {
+		*sidedropMin = glm::min( *sidedropMin, ptsd[i] );
+		*sidedropMax = glm::max( *sidedropMax, ptsd[i] );
+	}
 }

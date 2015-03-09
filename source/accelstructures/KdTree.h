@@ -37,6 +37,10 @@ class KdTree : public AccelStructure {
 
 	public:
 		KdTree( vector<Tri> faces );
+		KdTree(
+			vector<cl_uint> facesV, vector<cl_uint> facesVN,
+			vector<cl_float> vertices, vector<cl_float> normals
+		);
 		~KdTree();
 
 		glm::vec3 getBoundingBoxMax();
