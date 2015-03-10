@@ -63,8 +63,32 @@ typedef struct {
 		global const float4* normals;
 	} Scene;
 
-// kD-tree
+// kd-tree
 #elif ACCEL_STRUCT == 1
+
+	typedef struct {
+		float split;
+		int4 children; // [left, right, isLeftLeaf, isRightLeaf]
+		short axis;
+	} kdNonLeaf;
+
+	typedef struct {
+		int8 ropes; // [left, right, bottom, top, back, front, facesIndex, numFaces]
+		float4 bbMin;
+		float4 bbMax;
+	} kdLeaf;
+
+	typedef struct {
+		global const kdNonLeaf* kdNonLeaves;
+		global const kdLeaf* kdLeaves;
+		global const uint* kdFaces;
+		global const face_t* faces;
+		global const float4* vertices;
+		global const float4* normals;
+	} Scene;
+
+// BHV + kd-tree
+#elif ACCEL_STRUCT == 2
 
 	typedef struct {
 		float4 bbMin; // bbMin.w = leftChild

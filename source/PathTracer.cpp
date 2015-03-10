@@ -107,7 +107,9 @@ void PathTracer::initArgsKernelPathTracing() {
 			break;
 
 		case ACCELSTRUCT_KDTREE:
-			// TODO: kernel args for kd-tree
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdNonLeaves );
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdLeaves );
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdFaces );
 			break;
 
 		case ACCELSTRUCT_BVHKDTREE:
@@ -195,9 +197,13 @@ void PathTracer::initOpenCLBuffers(
 		accelName = "BVH";
 	}
 	else if( usedAccelStruct == ACCELSTRUCT_KDTREE ) {
-		bytes = this->initOpenCLBuffers_KdTree( (BVHKdTree*) accelStruc );
+		bytes = this->initOpenCLBuffers_KdTree( (KdTree*) accelStruc );
+		accelName = "kd-tree";
+	}
+	else if ( usedAccelStruct == ACCELSTRUCT_BVHKDTREE ) {
+		bytes = this->initOpenCLBuffers_BVHKdTree( (BVHKdTree*) accelStruc );
 		bvhDepth = ( (BVHKdTree*) accelStruc )->getDepth();
-		accelName = "BVH/kD-tree";
+		accelName = "BVH/kd-tree";
 	}
 
 	timerEnd = boost::posix_time::microsec_clock::local_time();
@@ -325,7 +331,7 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 * @param {std::vector<kdNode_t>} kdNodes  Nodes of the kd-tree.
 * @param {kdNode_t*}             rootNode Root node of the kd-tree.
 */
-size_t PathTracer::initOpenCLBuffers_KdTree( BVHKdTree* bvhKdTree ) {
+size_t PathTracer::initOpenCLBuffers_BVHKdTree( BVHKdTree* bvhKdTree ) {
 	map<cl_uint, KdTree*> nodeToKdTree = bvhKdTree->getMapNodeToKdTree();
 	vector<BVHNode*> bvhNodes = bvhKdTree->getNodes();
 	vector<bvhKdTreeNode_cl> bvhNodesCL;
@@ -372,12 +378,38 @@ size_t PathTracer::initOpenCLBuffers_KdTree( BVHKdTree* bvhKdTree ) {
 	size_t bytesNonLeaves = sizeof( kdNonLeaf_cl ) * kdNonLeaves.size();
 	size_t bytesLeaves = sizeof( kdLeaf_cl ) * kdLeaves.size();
 	size_t bytesFaces = sizeof( cl_uint ) * kdFaces.size();
+
 	mBufBVH = mCL->createBuffer( bvhNodesCL, bytesBVH );
 	mBufKdNonLeaves = mCL->createBuffer( kdNonLeaves, bytesNonLeaves );
 	mBufKdLeaves = mCL->createBuffer( kdLeaves, bytesLeaves );
 	mBufKdFaces = mCL->createBuffer( kdFaces, bytesFaces );
 
 	return bytesBVH + bytesNonLeaves + bytesLeaves + bytesFaces;
+}
+
+
+/**
+* Init OpenCL buffers for the kD-tree.
+* @param {KdTree*} kdTree
+*/
+size_t PathTracer::initOpenCLBuffers_KdTree( KdTree* kdTree ) {
+	vector<kdNode_t> kdNodes = kdTree->getNodes();
+	vector<kdNonLeaf_cl> kdNonLeaves;
+	vector<kdLeaf_cl> kdLeaves;
+	vector<cl_uint> kdFaces;
+	cl_uint2 offset = { 0, 0 };
+
+	this->kdNodesToVectors( kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, offset );
+
+	size_t bytesNonLeaves = sizeof( kdNonLeaf_cl ) * kdNonLeaves.size();
+	size_t bytesLeaves = sizeof( kdLeaf_cl ) * kdLeaves.size();
+	size_t bytesFaces = sizeof( cl_uint ) * kdFaces.size();
+
+	mBufKdNonLeaves = mCL->createBuffer( kdNonLeaves, bytesNonLeaves );
+	mBufKdLeaves = mCL->createBuffer( kdLeaves, bytesLeaves );
+	mBufKdFaces = mCL->createBuffer( kdFaces, bytesFaces );
+
+	return bytesNonLeaves + bytesLeaves + bytesFaces;
 }
 
 

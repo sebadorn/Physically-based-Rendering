@@ -85,6 +85,13 @@ KdTree::KdTree( vector<Tri> faces ) {
 }
 
 
+/**
+ *
+ * @param {std::vector<cl_uint>}  facesV
+ * @param {std::vector<cl_uint>}  facesVN
+ * @param {std::vector<cl_float>} vertices
+ * @param {std::vector<cl_float>} normals
+ */
 KdTree::KdTree(
 	vector<cl_uint> facesV, vector<cl_uint> facesVN,
 	vector<cl_float> vertices, vector<cl_float> normals

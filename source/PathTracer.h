@@ -128,11 +128,12 @@ class PathTracer {
 		void initArgsKernelPathTracing();
 		void initKernelArgs();
 		size_t initOpenCLBuffers_BVH( BVH* bvh );
+		size_t initOpenCLBuffers_BVHKdTree( BVHKdTree* bvhKdTree );
 		size_t initOpenCLBuffers_Faces(
 			ModelLoader* ml,
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
 		);
-		size_t initOpenCLBuffers_KdTree( BVHKdTree* bvhKdTree );
+		size_t initOpenCLBuffers_KdTree( KdTree* kdTree );
 		size_t initOpenCLBuffers_Materials( ModelLoader* ml );
 		size_t initOpenCLBuffers_MaterialsRGB( vector<material_t> materials );
 		size_t initOpenCLBuffers_MaterialsSPD( vector<material_t> materials, SpecParser* sp );

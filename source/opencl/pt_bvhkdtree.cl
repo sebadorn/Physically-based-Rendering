@@ -1,8 +1,8 @@
 // Traversal for the acceleration structure.
 // Type: Combination of kD-tree (each object) and BVH (objects in the scene).
 
-#define CALL_TRAVERSE         traverse( ray, kdNonLeaves, kdLeaves, kdFaces, faces, vertices, normals, tNear, tFar, kdRoot );
-#define CALL_TRAVERSE_SHADOWS traverse_shadows( kdNonLeaves, kdLeaves, kdFaces, &lightRay, faces, vertices, normals );
+#define CALL_TRAVERSE         traverse( bvh, kdNonLeaves, kdLeaves, kdFaces, &ray, faces, vertices, normals );
+#define CALL_TRAVERSE_SHADOWS traverse_shadows( bvh, kdNonLeaves, kdLeaves, kdFaces, &lightRay, faces, vertices, normals );
 
 
 /**
@@ -97,7 +97,7 @@ void getEntryDistanceAndExitRope(
  * Find the closest hit of the ray with a surface.
  * Uses stackless kd-tree traversal.
  */
-void traverse(
+void traverseKdTree(
 	ray4* ray, const global kdNonLeaf* kdNonLeaves,
 	const global kdLeaf* kdLeaves, const global uint* kdFaces, const global face_t* faces,
 	const global float4* vertices, const global float4* normals,
@@ -123,5 +123,92 @@ void traverse(
 		nodeIndex = ( nodeIndex < 1 )
 		          ? -( nodeIndex + 1 )
 		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, ray->origin + tNear * ray->dir );
+	}
+}
+
+
+/**
+ * Traverse the BVH and test the kD-trees against the given ray.
+ * @param {const global bvhNode*}   bvh
+ * @param {bvhNode}                 node        Root node of the BVH.
+ * @param {ray4*}                   ray
+ * @param {const global kdNonLeaf*} kdNonLeaves
+ * @param {const global kdLeaf*}    kdLeaves
+ * @param {const global uint*}      kdFaces
+ * @param {const global face_t*}    faces
+ */
+void traverse(
+	const global bvhNode* bvh, const global kdNonLeaf* kdNonLeaves,
+	const global kdLeaf* kdLeaves, const global uint* kdFaces,
+	ray4* ray, const global face_t* faces,
+	const global float4* vertices, const global float4* normals
+) {
+	uint bvhStack[BVH_STACKSIZE];
+	int stackIndex = 0;
+	bvhStack[stackIndex] = 0; // Node 0 is always the BVH root node
+
+	const float3 invDir = native_recip( ray->dir );
+
+	while( stackIndex >= 0 ) {
+		bvhNode node = bvh[bvhStack[stackIndex--]];
+		float tNearL = 0.0f;
+		float tFarL = INFINITY;
+
+		int leftChildIndex = (int) node.bbMin.w;
+
+
+		// Is a leaf node and contains a kD-tree
+		if( leftChildIndex < 0 ) {
+			if(
+				intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNearL, &tFarL ) &&
+				ray->t >= tNearL
+			) {
+				traverseKdTree(
+					ray, kdNonLeaves, kdLeaves, kdFaces, faces,
+					vertices, normals,
+					tNearL, tFarL, -( leftChildIndex + 1 )
+				);
+			}
+
+			continue;
+		}
+
+
+		// Add child nodes to stack, if hit by ray
+
+		bvhNode childNode = bvh[leftChildIndex - 1];
+
+		bool addLeftToStack = (
+			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearL, &tFarL ) &&
+			ray->t >= tNearL
+		);
+
+		float tNearR = 0.0f;
+		float tFarR = INFINITY;
+		childNode = bvh[(int) node.bbMax.w - 1];
+
+		bool addRightToStack = (
+			intersectBox( ray, &invDir, childNode.bbMin, childNode.bbMax, &tNearR, &tFarR ) &&
+			ray->t >= tNearR
+		);
+
+
+		// The node that is pushed on the stack first will be evaluated last.
+		// So the nearer one should be pushed last, because it will be popped first then.
+		const bool rightThenLeft = ( tNearR > tNearL );
+
+		if( rightThenLeft && addRightToStack ) {
+			bvhStack[++stackIndex] = (int) node.bbMax.w - 1;
+		}
+		if( rightThenLeft && addLeftToStack ) {
+			bvhStack[++stackIndex] = leftChildIndex - 1;
+		}
+
+		if( !rightThenLeft && addLeftToStack ) {
+			bvhStack[++stackIndex] = leftChildIndex - 1;
+		}
+		if( !rightThenLeft && addRightToStack ) {
+			bvhStack[++stackIndex] = (int) node.bbMax.w - 1;
+		}
 	}
 }

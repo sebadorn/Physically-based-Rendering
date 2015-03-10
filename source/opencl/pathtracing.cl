@@ -24,6 +24,8 @@
 	#FILE:pt_bvh.cl:FILE#
 #elif ACCEL_STRUCT == 1
 	#FILE:pt_kdtree.cl:FILE#
+#elif ACCEL_STRUCT == 2
+	#FILE:pt_bvhkdtree.cl:FILE#
 #endif
 
 
@@ -476,6 +478,12 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 			global const bvhNode* bvh,
 
 		#elif ACCEL_STRUCT == 1
+
+			global const kdNonleaf* kdNonLeaves,
+			global const kdLeaf* kdLeaves,
+			global const uint* kdFaces,
+
+		#elif ACCEL_STRUCT == 2
 
 			global const bvhNode* bvh,
 			global const kdNonLeaf* kdNonLeaves,
