@@ -79,6 +79,7 @@ typedef struct {
 	} kdLeaf;
 
 	typedef struct {
+		const kdLeaf kdRootNode;
 		global const kdNonLeaf* kdNonLeaves;
 		global const kdLeaf* kdLeaves;
 		global const uint* kdFaces;

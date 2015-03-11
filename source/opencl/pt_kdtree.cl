@@ -1,7 +1,7 @@
 // Traversal for the acceleration structure.
 // Type: Combination of kD-tree (each object) and BVH (objects in the scene).
 
-#define CALL_TRAVERSE         traverse( ray, kdNonLeaves, kdLeaves, kdFaces, faces, vertices, normals, tNear, tFar, kdRoot );
+#define CALL_TRAVERSE         traverse( &scene, &ray );
 #define CALL_TRAVERSE_SHADOWS traverse_shadows( kdNonLeaves, kdLeaves, kdFaces, &lightRay, faces, vertices, normals );
 
 
@@ -9,20 +9,15 @@
  * Check all faces of a leaf node for intersections with the given ray.
  */
 void checkFaces(
-	ray4* ray, const int faceIndex, const int numFaces,
-	const global uint* kdFaces, const global face_t* faces,
-	const global float4* vertices, const global float4* normals,
+	const Scene* scene, ray4* ray,
+	const int faceIndex, const int numFaces,
 	const float tNear, float tFar
 ) {
 	for( uint i = faceIndex; i < faceIndex + numFaces; i++ ) {
 		float3 tuv;
-		const uint j = kdFaces[i];
-		const face_t f = faces[j];
-		const float3 a = vertices[f.vertices.x].xyz;
-		const float3 b = vertices[f.vertices.y].xyz;
-		const float3 c = vertices[f.vertices.z].xyz;
+		const uint j = scene->kdFaces[i];
 
-		float3 normal = checkFaceIntersection( ray, a, b, c, f.normals, normals, &tuv, tNear, tFar );
+		float3 normal = checkFaceIntersection( scene, ray, j, &tuv, tNear, tFar );
 
 		if( tuv.x < INFINITY ) {
 			tFar = tuv.x;
@@ -96,21 +91,27 @@ void getEntryDistanceAndExitRope(
 /**
  * Find the closest hit of the ray with a surface.
  * Uses stackless kd-tree traversal.
+ * @param {const Scene*} scene
+ * @param {ray4*}        ray
  */
-void traverse(
-	ray4* ray, const global kdNonLeaf* kdNonLeaves,
-	const global kdLeaf* kdLeaves, const global uint* kdFaces, const global face_t* faces,
-	const global float4* vertices, const global float4* normals,
-	float tNear, float tFar, const uint kdRoot
-) {
+void traverse( const Scene* scene, ray4* ray ) {
+	float tNear = INFINITY;
+	float tFar = 0.0f;
 	int exitRope;
-	int nodeIndex = goToLeafNode( kdRoot, kdNonLeaves, ray->origin + tNear * ray->dir );
+
+	const float3 invDir = native_recip( ray->dir );
+
+	if( !intersectBox( ray, &invDir, scene->kdRootNode.bbMin, scene->kdRootNode.bbMax, &tNear, &tFar ) ) {
+		return;
+	}
+
+	int nodeIndex = goToLeafNode( 0, scene->kdNonLeaves, ray->origin + tNear * ray->dir );
 
 	while( nodeIndex >= 0 && tNear <= tFar ) {
-		const kdLeaf currentNode = kdLeaves[nodeIndex];
+		const kdLeaf currentNode = scene->kdLeaves[nodeIndex];
 		const int8 ropes = currentNode.ropes;
 
-		checkFaces( ray, ropes.s6, ropes.s7, kdFaces, faces, vertices, normals, tNear, tFar );
+		checkFaces( scene, ray, ropes.s6, ropes.s7, tNear, tFar );
 
 		// Exit leaf node
 		getEntryDistanceAndExitRope( ray, currentNode.bbMin, currentNode.bbMax, &tNear, &exitRope );
@@ -122,6 +123,6 @@ void traverse(
 		nodeIndex = ( (int*) &ropes )[exitRope];
 		nodeIndex = ( nodeIndex < 1 )
 		          ? -( nodeIndex + 1 )
-		          : goToLeafNode( nodeIndex - 1, kdNonLeaves, ray->origin + tNear * ray->dir );
+		          : goToLeafNode( nodeIndex - 1, scene->kdNonLeaves, ray->origin + tNear * ray->dir );
 	}
 }

@@ -107,6 +107,7 @@ void PathTracer::initArgsKernelPathTracing() {
 			break;
 
 		case ACCELSTRUCT_KDTREE:
+			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( kdLeaf_cl ), &mKdRootNode );
 			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdNonLeaves );
 			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdLeaves );
 			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdFaces );
@@ -398,6 +399,17 @@ size_t PathTracer::initOpenCLBuffers_KdTree( KdTree* kdTree ) {
 	vector<kdLeaf_cl> kdLeaves;
 	vector<cl_uint> kdFaces;
 	cl_uint2 offset = { 0, 0 };
+
+	// Root node. It's NOT a leaf node, but we want to pass the
+	// bounding box data, so we use the same struct.
+	glm::vec3 bbMax = kdTree->getBoundingBoxMax();
+	mKdRootNode.bbMax.x = bbMax[0];
+	mKdRootNode.bbMax.y = bbMax[1];
+	mKdRootNode.bbMax.z = bbMax[2];
+	glm::vec3 bbMin = kdTree->getBoundingBoxMin();
+	mKdRootNode.bbMin.x = bbMin[0];
+	mKdRootNode.bbMin.y = bbMin[1];
+	mKdRootNode.bbMin.z = bbMin[2];
 
 	this->kdNodesToVectors( kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, offset );
 

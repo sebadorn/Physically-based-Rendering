@@ -479,7 +479,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 
 		#elif ACCEL_STRUCT == 1
 
-			global const kdNonleaf* kdNonLeaves,
+			const kdLeaf kdRootNode,
+			global const kdNonLeaf* kdNonLeaves,
 			global const kdLeaf* kdLeaves,
 			global const uint* kdFaces,
 
@@ -507,6 +508,8 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 		#if ACCEL_STRUCT == 0
 			Scene scene = { bvh, faces, vertices, normals };
 		#elif ACCEL_STRUCT == 1
+			Scene scene = { kdRootNode, kdNonLeaves, kdLeaves, kdFaces, faces, vertices, normals };
+		#elif ACCEL_STRUCT == 2
 			Scene scene = { bvh, kdNonLeaves, kdLeaves, kdFaces, faces, vertices, normals };
 		#endif
 

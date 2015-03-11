@@ -165,6 +165,7 @@ class PathTracer {
 		cl_mem mBufMaterials;
 		cl_mem mBufSPDs;
 
+		kdLeaf_cl mKdRootNode;
 		cl_mem mBufKdNonLeaves;
 		cl_mem mBufKdLeaves;
 		cl_mem mBufKdFaces;

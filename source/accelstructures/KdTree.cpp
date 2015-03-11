@@ -372,16 +372,28 @@ kdNode_t* KdTree::getSplit(
 }
 
 
+/**
+ * Get the max component of the kd-tree bounding box.
+ * @return {glm::vec3}
+ */
 glm::vec3 KdTree::getBoundingBoxMax() {
 	return mBBmax;
 }
 
 
+/**
+ * Get the min component of the kd-tree bounding box.
+ * @return {glm::vec3}
+ */
 glm::vec3 KdTree::getBoundingBoxMin() {
 	return mBBmin;
 }
 
 
+/**
+ * Get the leaf nodes.
+ * @param {std::vector<kdNode_t>} The leaf nodes of the kd-tree.
+ */
 vector<kdNode_t> KdTree::getLeaves() {
 	vector<kdNode_t> leaves;
 
@@ -408,6 +420,10 @@ vector<kdNode_t> KdTree::getNodes() {
 }
 
 
+/**
+ * Get all non-leaf nodes.
+ * @return {std::vector<kdNode_t>} The non-leaf nodes of the kd-tree.
+ */
 vector<kdNode_t> KdTree::getNonLeaves() {
 	vector<kdNode_t> nonLeaves;
 
