@@ -15,7 +15,6 @@
 #include <QGLWidget>
 
 #include "../accelstructures/BVH.h"
-#include "../accelstructures/BVHKdTree.h"
 #include "../Camera.h"
 #include "../CL.h"
 #include "../Cfg.h"

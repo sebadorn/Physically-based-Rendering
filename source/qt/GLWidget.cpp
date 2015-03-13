@@ -323,9 +323,6 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	else if( usedAccelStruct == ACCELSTRUCT_KDTREE ) {
 		accelStruct = new KdTree( mFaces, op->getFacesVN(), mVertices, mNormals );
 	}
-	else if( usedAccelStruct == ACCELSTRUCT_BVHKDTREE ) {
-		accelStruct = new BVHKdTree( op->getObjects(), mVertices, mNormals );
-	}
 
 	// Visualization of BVH
 	vector<GLfloat> visVertices;

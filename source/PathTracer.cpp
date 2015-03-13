@@ -113,13 +113,6 @@ void PathTracer::initArgsKernelPathTracing() {
 			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdFaces );
 			break;
 
-		case ACCELSTRUCT_BVHKDTREE:
-			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVH );
-			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdNonLeaves );
-			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdLeaves );
-			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdFaces );
-			break;
-
 		default:
 			Logger::logError( "[PathTracer] Unknown acceleration structure." );
 			exit( EXIT_FAILURE );
@@ -200,11 +193,6 @@ void PathTracer::initOpenCLBuffers(
 	else if( usedAccelStruct == ACCELSTRUCT_KDTREE ) {
 		bytes = this->initOpenCLBuffers_KdTree( (KdTree*) accelStruc );
 		accelName = "kd-tree";
-	}
-	else if ( usedAccelStruct == ACCELSTRUCT_BVHKDTREE ) {
-		bytes = this->initOpenCLBuffers_BVHKdTree( (BVHKdTree*) accelStruc );
-		bvhDepth = ( (BVHKdTree*) accelStruc )->getDepth();
-		accelName = "BVH/kd-tree";
 	}
 
 	timerEnd = boost::posix_time::microsec_clock::local_time();
@@ -322,70 +310,6 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 	mBufBVH = mCL->createBuffer( bvhNodesCL, bytesBVH );
 
 	return bytesBVH;
-}
-
-
-/**
-* Init OpenCL buffers for the kD-tree.
-* @param {std::vector<cl_float>} vertices Vertices of the model.
-* @param {std::vector<cl_uint>}  faces    Faces (triangles) of the model.
-* @param {std::vector<kdNode_t>} kdNodes  Nodes of the kd-tree.
-* @param {kdNode_t*}             rootNode Root node of the kd-tree.
-*/
-size_t PathTracer::initOpenCLBuffers_BVHKdTree( BVHKdTree* bvhKdTree ) {
-	map<cl_uint, KdTree*> nodeToKdTree = bvhKdTree->getMapNodeToKdTree();
-	vector<BVHNode*> bvhNodes = bvhKdTree->getNodes();
-	vector<bvhKdTreeNode_cl> bvhNodesCL;
-	cl_int offsetNonLeaves = 0;
-
-	for( cl_uint i = 0; i < bvhNodes.size(); i++ ) {
-		BVHNode* node = bvhNodes[i];
-
-		cl_float4 bbMin = { node->bbMin[0], node->bbMin[1], node->bbMin[2], 0.0f };
-		cl_float4 bbMax = { node->bbMax[0], node->bbMax[1], node->bbMax[2], 0.0f };
-
-		bvhKdTreeNode_cl sn;
-		sn.bbMin = bbMin;
-		sn.bbMax = bbMax;
-		sn.bbMin.w = ( node->leftChild == NULL ) ? 0.0f : (cl_float) ( node->leftChild->id + 1 );
-		sn.bbMax.w = ( node->rightChild == NULL ) ? 0.0f : (cl_float) ( node->rightChild->id + 1 );
-
-		if( nodeToKdTree.find( node->id ) != nodeToKdTree.end() ) {
-			sn.bbMin.w = (cl_float) -( offsetNonLeaves + 1 ); // Offset for the index of the kD-tree root node
-			KdTree* kdTree = nodeToKdTree[node->id];
-			offsetNonLeaves += kdTree->getNonLeaves().size();
-		}
-
-		bvhNodesCL.push_back( sn );
-	}
-
-
-	vector<kdNode_t> kdNodes;
-	vector<kdNonLeaf_cl> kdNonLeaves;
-	vector<kdLeaf_cl> kdLeaves;
-	vector<cl_uint> kdFaces;
-	vector<BVHNode*> bvhLeaves = bvhKdTree->getLeafNodes();
-	cl_uint2 offset = { 0, 0 };
-
-	for( uint i = 0; i < bvhLeaves.size(); i++ ) {
-		kdNodes = nodeToKdTree[bvhLeaves[i]->id]->getNodes();
-		this->kdNodesToVectors( kdNodes, &kdFaces, &kdNonLeaves, &kdLeaves, offset );
-		offset.x = kdNonLeaves.size();
-		offset.y = kdLeaves.size();
-	}
-
-
-	size_t bytesBVH = sizeof( bvhKdTreeNode_cl ) * bvhNodesCL.size();
-	size_t bytesNonLeaves = sizeof( kdNonLeaf_cl ) * kdNonLeaves.size();
-	size_t bytesLeaves = sizeof( kdLeaf_cl ) * kdLeaves.size();
-	size_t bytesFaces = sizeof( cl_uint ) * kdFaces.size();
-
-	mBufBVH = mCL->createBuffer( bvhNodesCL, bytesBVH );
-	mBufKdNonLeaves = mCL->createBuffer( kdNonLeaves, bytesNonLeaves );
-	mBufKdLeaves = mCL->createBuffer( kdLeaves, bytesLeaves );
-	mBufKdFaces = mCL->createBuffer( kdFaces, bytesFaces );
-
-	return bytesBVH + bytesNonLeaves + bytesLeaves + bytesFaces;
 }
 
 
