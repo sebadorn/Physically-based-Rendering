@@ -1,8 +1,8 @@
 // Traversal for the acceleration structure.
-// Type: Combination of kD-tree (each object) and BVH (objects in the scene).
+// Type: kd-tree
 
 #define CALL_TRAVERSE         traverse( &scene, &ray );
-#define CALL_TRAVERSE_SHADOWS traverse_shadows( kdNonLeaves, kdLeaves, kdFaces, &lightRay, faces, vertices, normals );
+#define CALL_TRAVERSE_SHADOWS traverse_shadows( &scene, &lightRay );
 
 
 /**
@@ -65,10 +65,10 @@ int goToLeafNode( uint nodeIndex, const global kdNonLeaf* kdNonLeaves, float3 hi
 * Which is based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
 * @param {const float4*} origin
 * @param {const float4*} dir
-* @param {const float*} bbMin
-* @param {const float*} bbMax
-* @param {float*} tFar
-* @param {int*} exitRope
+* @param {const float*}  bbMin
+* @param {const float*}  bbMax
+* @param {float*}        tFar
+* @param {int*}          exitRope
 */
 void getEntryDistanceAndExitRope(
 	const ray4* ray, const float4 bbMin, const float4 bbMax, float* tFar, int* exitRope
@@ -95,8 +95,8 @@ void getEntryDistanceAndExitRope(
  * @param {ray4*}        ray
  */
 void traverse( const Scene* scene, ray4* ray ) {
-	float tNear = INFINITY;
-	float tFar = 0.0f;
+	float tNear = 0.0f;
+	float tFar = INFINITY;
 	int exitRope;
 
 	const float3 invDir = native_recip( ray->dir );
@@ -105,7 +105,7 @@ void traverse( const Scene* scene, ray4* ray ) {
 		return;
 	}
 
-	int nodeIndex = goToLeafNode( 0, scene->kdNonLeaves, ray->origin + tNear * ray->dir );
+	int nodeIndex = goToLeafNode( 0, scene->kdNonLeaves, fma( ray->dir, tNear, ray->origin ) );
 
 	while( nodeIndex >= 0 && tNear <= tFar ) {
 		const kdLeaf currentNode = scene->kdLeaves[nodeIndex];
@@ -123,6 +123,6 @@ void traverse( const Scene* scene, ray4* ray ) {
 		nodeIndex = ( (int*) &ropes )[exitRope];
 		nodeIndex = ( nodeIndex < 1 )
 		          ? -( nodeIndex + 1 )
-		          : goToLeafNode( nodeIndex - 1, scene->kdNonLeaves, ray->origin + tNear * ray->dir );
+		          : goToLeafNode( nodeIndex - 1, scene->kdNonLeaves, fma( ray->dir, tNear, ray->origin ) );
 	}
 }

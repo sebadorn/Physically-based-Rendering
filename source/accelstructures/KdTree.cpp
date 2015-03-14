@@ -41,52 +41,6 @@ struct sortFacesCmp {
 
 /**
  * Constructor.
- * @param {std::vector<Tri>} faces Indices describing the faces (triangles) of the model.
- */
-KdTree::KdTree( vector<Tri> faces ) {
-	if( faces.size() <= 0 ) {
-		Logger::logError( "[KdTree] Didn't receive any faces. No kD-tree could be constructed." );
-		return;
-	}
-
-	boost::posix_time::ptime timerStart = boost::posix_time::microsec_clock::local_time();
-
-
-	glm::vec3 bbMin = faces[0].bbMin;
-	glm::vec3 bbMax = faces[0].bbMax;
-
-	for( uint i = 1; i < faces.size(); i++ ) {
-		bbMin = glm::min( bbMin, faces[i].bbMin );
-		bbMax = glm::max( bbMax, faces[i].bbMax );
-	}
-
-	mBBmin = bbMin;
-	mBBmax = bbMax;
-
-	mMinFaces = fmax( Cfg::get().value<cl_uint>( Cfg::KDTREE_MINFACES ), 1 );
-	this->setDepthLimit( faces.size() );
-
-	mRoot = this->makeTree( faces, bbMin, bbMax, 1 );
-	if( mRoot->left == NULL && mRoot->right == NULL ) {
-		Logger::logWarning( "[KdTree] Root node is a leaf. This isn't supported." );
-	}
-	this->createRopes( mRoot, vector<kdNode_t*>( 6, NULL ) );
-	this->printLeafFacesStat();
-
-	boost::posix_time::ptime timerEnd = boost::posix_time::microsec_clock::local_time();
-	float timeDiff = ( timerEnd - timerStart ).total_milliseconds();
-
-	char msg[256];
-	snprintf(
-		msg, 256, "[KdTree] Generated kd-tree in %g ms. %lu nodes (%lu leaves).",
-		timeDiff, mNodes.size(), mLeaves.size()
-	);
-	Logger::logInfo( msg );
-}
-
-
-/**
- *
  * @param {std::vector<cl_uint>}  facesV
  * @param {std::vector<cl_uint>}  facesVN
  * @param {std::vector<cl_float>} vertices
@@ -102,8 +56,8 @@ KdTree::KdTree(
 	vector<Tri> triFaces;
 
 	for( uint i = 0; i < facesV.size(); i += 3 ) {
-		cl_uint4 fv = { facesV[i], facesV[i + 1], facesV[i + 2], -1 };
-		cl_uint4 fn = { facesVN[i], facesVN[i + 1], facesVN[i + 2], -1 };
+		cl_uint4 fv = { facesV[i], facesV[i + 1], facesV[i + 2], i / 3 };
+		cl_uint4 fn = { facesVN[i], facesVN[i + 1], facesVN[i + 2], i / 3 };
 
 		Tri tri;
 		tri.face = fv;

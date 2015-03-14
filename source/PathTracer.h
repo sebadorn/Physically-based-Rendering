@@ -139,8 +139,8 @@ class PathTracer {
 		size_t initOpenCLBuffers_Rays();
 		size_t initOpenCLBuffers_Textures();
 		void kdNodesToVectors(
-			vector<kdNode_t> kdNodes, vector<cl_uint>* kdFaces, vector<kdNonLeaf_cl>* kdNonLeaves,
-			vector<kdLeaf_cl>* kdLeaves, cl_uint2 offset
+			KdTree* kdTree, vector<cl_uint>* kdFaces,
+			vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves
 		);
 		void updateEyeBuffer();
 
