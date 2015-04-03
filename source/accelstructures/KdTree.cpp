@@ -87,12 +87,12 @@ KdTree::KdTree(
 	mBBmax = bbMax;
 
 	mMinFaces = fmax( Cfg::get().value<cl_uint>( Cfg::KDTREE_MINFACES ), 1 );
-	this->setDepthLimit( triFaces.size() );
 
 	mRoot = this->makeTree( triFaces, bbMin, bbMax, 1 );
 	if( mRoot->left == NULL && mRoot->right == NULL ) {
 		Logger::logWarning( "[KdTree] Root node is a leaf. This isn't supported." );
 	}
+
 	this->createRopes( mRoot, vector<kdNode_t*>( 6, NULL ) );
 	this->printLeafFacesStat();
 
@@ -170,7 +170,7 @@ void KdTree::createRopes( kdNode_t* node, vector<kdNode_t*> ropes ) {
 
 
 /**
- * Find the median object of the given nodes.
+ * Find a suitable split position using SAH.
  * @param  {std::vector<cl_float4>}  vertsForNodes Current list of vertices to pick the median from.
  * @param  {cl_int}                  axis          Index of the axis to compare.
  * @return {kdNode_t*}                             The object that is the median.
@@ -250,25 +250,23 @@ kdNode_t* KdTree::getSplit(
 
 		// Compute the SAH for each split position and choose the one with the lowest cost.
 		// SAH = SA of node * ( SA left of split * faces left of split + SA right of split * faces right of split )
-
-		float newSAH;
-
 		for( uint i = 0; i < numFaces - 1; i++ ) {
+			// Ignore splits where one side contains all faces or the
+			// left bounding box takes all the space or none at all.
 			if(
-				leftBB[i][1][axis] == bbMinNode[axis] ||
-				leftBB[i][1][axis] == bbMaxNode[axis] ||
+				// leftBB[i][1][axis] == bbMinNode[axis] ||
+				// leftBB[i][1][axis] == bbMaxNode[axis] ||
 				numFacesLeft[i] == numFaces ||
 				numFacesRight[i] == numFaces
 			) {
 				continue;
 			}
 
-			newSAH = nodeSA * ( leftSA[i] * (float) numFacesLeft[i] + rightSA[i] * (float) numFacesRight[i] );
+			float newSAH = nodeSA * ( leftSA[i] * (float) numFacesLeft[i] + rightSA[i] * (float) numFacesRight[i] );
 
 			// Better split position found
 			if( newSAH < bestSAH ) {
 				bestSAH = newSAH;
-				// Exclusive this index, up to this face it is preferable to split
 				axisFinal = axis;
 				pos = leftBB[i][1][axisFinal];
 			}
@@ -276,7 +274,11 @@ kdNode_t* KdTree::getSplit(
 	}
 
 
+	// Using the SAH didn't find a split position, so just split 50:50.
 	if( bestSAH == FLT_MAX ) {
+		char msg[128] = "[KdTree] Could not split node with SAH. Doing it 50:50 for the longest axis instead.";
+		Logger::logDebug( msg );
+
 		glm::vec3 nodeLen = bbMaxNode - bbMinNode;
 
 		for( short axis = 0; axis <= 2; axis++ ) {
@@ -299,6 +301,7 @@ kdNode_t* KdTree::getSplit(
 			}
 		}
 	}
+	// Split at the position found by the SAH.
 	else {
 		for( uint i = 0; i < numFaces; i++ ) {
 			if( (*faces)[i].bbMin[axisFinal] <= pos ) {
@@ -311,6 +314,12 @@ kdNode_t* KdTree::getSplit(
 	}
 
 	if( leftFaces->size() == faces->size() || rightFaces->size() == faces->size() ) {
+		Logger::logError( "[KdTree] All faces are on one side of the split!" );
+		leftFaces->clear();
+		rightFaces->clear();
+	}
+	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
+		Logger::logError( "[KdTree] One side of the split is empty!" );
 		leftFaces->clear();
 		rightFaces->clear();
 	}
@@ -413,22 +422,20 @@ kdNode_t* KdTree::getRootNode() {
 kdNode_t* KdTree::makeTree(
 	vector<Tri> faces, glm::vec3 bbMin, glm::vec3 bbMax, uint depth
 ) {
-	// Depth or faces limit reached
-	if( ( mDepthLimit > 0 && depth > mDepthLimit ) || faces.size() <= mMinFaces ) {
+	// Faces limit reached
+	if( faces.size() <= mMinFaces ) {
 		return this->createLeafNode( bbMin, bbMax, faces );
 	}
 
-	// Build node from found split position
-	// Not decided yet if a leaf or not
+	// Build node from found split position.
 	vector<Tri> leftFaces, rightFaces;
 	kdNode_t* node = this->getSplit( &faces, bbMin, bbMax, &leftFaces, &rightFaces );
 
 	// Keep limit for minimum faces per node
-	if( mMinFaces > glm::min( leftFaces.size(), rightFaces.size() ) ) {
+	if( mMinFaces >= glm::min( leftFaces.size(), rightFaces.size() ) ) {
 		return this->createLeafNode( bbMin, bbMax, faces );
 	}
 
-	// Decided: Not a leaf node
 	mNodes.push_back( node );
 	mNonLeaves.push_back( node );
 
@@ -506,24 +513,6 @@ void KdTree::printLeafFacesStat() {
 	char msg[128];
 	const char* text = "[KdTree] On average there are %.2f faces in the %lu leaf nodes.";
 	snprintf( msg, 128, text, facesTotal / (float) mLeaves.size(), mLeaves.size() );
-	Logger::logDebug( msg );
-}
-
-
-/**
- * Set the depth limit for the tree.
- * Read the limit from the config.
- * @param {std::vector<cl_float>} vertices
- */
-void KdTree::setDepthLimit( uint numFaces ) {
-	mDepthLimit = Cfg::get().value<cl_uint>( Cfg::KDTREE_DEPTH );
-
-	if( mDepthLimit == -1 ) {
-		mDepthLimit = round( log2( numFaces ) );
-	}
-
-	char msg[64];
-	snprintf( msg, 64, "[KdTree] Maximum depth set to %d.", mDepthLimit );
 	Logger::logDebug( msg );
 }
 

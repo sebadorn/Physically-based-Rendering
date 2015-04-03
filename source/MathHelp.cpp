@@ -159,6 +159,24 @@ glm::vec3 MathHelp::intersectLinePlane( glm::vec3 p, glm::vec3 q, glm::vec3 x, g
 
 
 /**
+ * Get the index of the longest axis.
+ * @param  {glm::vec3} bbMin
+ * @param  {glm::vec3} bbMax
+ * @return {short}           Index of the longest axis (X: 0, Y: 1, Z: 2).
+ */
+short MathHelp::longestAxis( glm::vec3 bbMin, glm::vec3 bbMax ) {
+	glm::vec3 sides = bbMax - bbMin;
+
+	if( sides[0] > sides[1] ) {
+		return ( sides[0] > sides[2] ) ? 0 : 2;
+	}
+	else { // sides[1] > sides[0]
+		return ( sides[1] > sides[2] ) ? 1 : 2;
+	}
+}
+
+
+/**
  * Phong tessellate a given point.
  * @param  {const glm::vec3} p1    Point 1 of the triangle.
  * @param  {const glm::vec3} p2    Point 2 of the triangle.

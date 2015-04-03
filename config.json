@@ -53,9 +53,7 @@
 
 	// kD-tree
 	"kdtree": {
-		// Max depth of the tree.
-		// 0: no limit
-		"max_depth": 0,
+		// Minimum of faces per leaf node.
 		"min_faces": 2,
 		// Optimize the ropes to speed up traversal
 		"optimize_ropes": true

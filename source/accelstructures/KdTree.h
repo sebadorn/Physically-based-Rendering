@@ -64,7 +64,6 @@ class KdTree : public AccelStructure {
 		);
 		void optimizeRope( vector<kdNode_t*>* ropes, glm::vec3 bbMin, glm::vec3 bbMax );
 		void printLeafFacesStat();
-		void setDepthLimit( uint numFaces );
 		void visualizeNextNode(
 			kdNode_t* node, vector<cl_float>* vertices, vector<cl_uint>* indices
 		);
@@ -76,7 +75,6 @@ class KdTree : public AccelStructure {
 		glm::vec3 mBBmax;
 		glm::vec3 mBBmin;
 		kdNode_t* mRoot;
-		cl_uint mDepthLimit;
 		cl_uint mMinFaces;
 
 };

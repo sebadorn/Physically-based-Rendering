@@ -71,15 +71,15 @@ int goToLeafNode( uint nodeIndex, const global kdNonLeaf* kdNonLeaves, float3 hi
 * @param {int*}          exitRope
 */
 void getEntryDistanceAndExitRope(
-	const ray4* ray, const float4 bbMin, const float4 bbMax, float* tFar, int* exitRope
+	const ray4* ray, const float3* invDir, const float4 bbMin, const float4 bbMax,
+	float* tFar, int* exitRope
 ) {
-	const float3 invDir = native_recip( ray->dir );
-	const bool signX = signbit( invDir.x );
-	const bool signY = signbit( invDir.y );
-	const bool signZ = signbit( invDir.z );
+	const bool signX = signbit( invDir->x );
+	const bool signY = signbit( invDir->y );
+	const bool signZ = signbit( invDir->z );
 
-	float3 t1 = ( bbMin.xyz - ray->origin ) * invDir;
-	float3 tMax = ( bbMax.xyz - ray->origin ) * invDir;
+	const float3 t1 = ( bbMin.xyz - ray->origin ) * (*invDir);
+	float3 tMax = ( bbMax.xyz - ray->origin ) * (*invDir);
 	tMax = fmax( t1, tMax );
 
 	*tFar = fmin( fmin( tMax.x, tMax.y ), tMax.z );
@@ -114,7 +114,7 @@ void traverse( const Scene* scene, ray4* ray ) {
 		checkFaces( scene, ray, ropes.s6, ropes.s7, tNear, tFar );
 
 		// Exit leaf node
-		getEntryDistanceAndExitRope( ray, currentNode.bbMin, currentNode.bbMax, &tNear, &exitRope );
+		getEntryDistanceAndExitRope( ray, &invDir, currentNode.bbMin, currentNode.bbMax, &tNear, &exitRope );
 
 		if( tNear > tFar ) {
 			break;

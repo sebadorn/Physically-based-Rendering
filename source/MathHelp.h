@@ -40,6 +40,7 @@ class MathHelp {
 		static glm::vec3 intersectLinePlane(
 			glm::vec3 p, glm::vec3 q, glm::vec3 x, glm::vec3 nl, bool* isParallel
 		);
+		static short longestAxis( glm::vec3 bbMin, glm::vec3 bbMax );
 		static glm::vec3 phongTessellate(
 			const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3,
 			const glm::vec3 n1, const glm::vec3 n2, const glm::vec3 n3,
