@@ -201,7 +201,7 @@
 		newRay = reflect( ray->dir, H );
 
 		if( dot( newRay, ray->normal ) <= 0.0f ) {
-			newRay = jitter( ray->normal, PI_X2 * rand( seed ) * 2.0f, native_sqrt( a ), native_sqrt( 1.0f - a ) );
+			newRay = jitter( ray->normal, PI_X2 * rand( seed ), native_sqrt( a ), native_sqrt( 1.0f - a ) );
 		}
 
 		return newRay;
@@ -320,7 +320,7 @@
 
 		const float3 h = jitter( normal, phi_full, native_sin( theta ), native_cos( theta ) );
 		const float3 spec = reflect( ray->dir, h );
-		const float3 diff = jitter( normal, 2.0f * M_PI * rand( seed ), native_sqrt( b ), native_sqrt( 1.0f - b ) );
+		const float3 diff = jitter( normal, PI_X2 * rand( seed ), native_sqrt( b ), native_sqrt( 1.0f - b ) );
 
 		// If new ray direction points under the hemisphere,
 		// use a cosine-weighted sample instead.

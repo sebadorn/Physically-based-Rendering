@@ -54,9 +54,31 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 	ray.origin = eye;
 	ray.dir = fast_normalize( initialRay );
 
-	const float rnd = rand( seed );
-	const float3 aaDir = jitter( ray.dir, PI_X2 * rand( seed ), native_sqrt( rnd ), native_sqrt( 1.0f - rnd ) );
-	ray.dir = fast_normalize( ray.dir +	aaDir * pxDim * ANTI_ALIASING );
+	// const float rnd = rand( seed );
+	// const float3 aaDir = jitter( ray.dir, PI_X2 * rand( seed ), native_sqrt( rnd ), native_sqrt( 1.0f - rnd ) );
+	// ray.dir = fast_normalize( ray.dir +	aaDir * pxDim * ANTI_ALIASING );
+
+	// thin lens
+	const float focalLength = 0.5f;
+	const float aperture = focalLength * 0.5f;
+	const float3 focalDir = fast_normalize( w + pxDim * 0.5f * (
+		u - IMG_WIDTH * u + 2.0f * IMG_WIDTH / 2.0f * u +
+		v - IMG_HEIGHT * v + 2.0f * IMG_HEIGHT / 2.0f * v
+	) );
+	const float3 focalPoint = eye + focalLength * focalDir;
+	const float radius = 0.5f * aperture;
+
+	const float3 r1 = ( cross( focalDir.yzx * radius, focalDir * radius ) );
+	const float3 r2 = ( cross( focalDir * radius, r1 ) );
+
+	const float phi = PI_X2 * rand( seed );
+	const float3 jitterMove = fast_normalize(
+		r1 * native_cos( phi ) +
+		r2 * native_sin( phi )
+	);
+
+	// ray.origin += jitterMove;
+	ray.dir = fast_normalize( focalPoint - ray.origin );
 
 	return ray;
 }
