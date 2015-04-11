@@ -5,12 +5,12 @@
 #if USE_SPECTRAL == 0
 
 	#FILE:pt_rgb.cl:FILE#
-	#define SETCOLORS setColors( imageIn, imageOut, pixelWeight, finalColor );
+	#define SETCOLORS setColors( imageIn, imageOut, pixelWeight, finalColor, focus );
 
 #elif USE_SPECTRAL == 1
 
 	#FILE:pt_spectral_precalc.cl:FILE#
-	#define SETCOLORS setColors( imageIn, imageOut, pixelWeight, spdTotal );
+	#define SETCOLORS setColors( imageIn, imageOut, pixelWeight, spdTotal, focus );
 
 #endif
 
@@ -36,9 +36,13 @@
  * @param  {float*}              seed         Seed for the random number generator.
  * @return {ray4}
  */
-ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
+ray4 initRay(
+	const float pxDim, const global float* eyeIn, float* seed,
+	const float tFocus, const float tObject
+) {
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 
+	// Camera position and vectors for the image projection plane.
 	const float3 eye = { eyeIn[0], eyeIn[1], eyeIn[2] };
 	const float3 w = { eyeIn[3], eyeIn[4], eyeIn[5] };
 	const float3 u = { eyeIn[6], eyeIn[7], eyeIn[8] };
@@ -54,31 +58,42 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 	ray.origin = eye;
 	ray.dir = fast_normalize( initialRay );
 
-	// const float rnd = rand( seed );
-	// const float3 aaDir = jitter( ray.dir, PI_X2 * rand( seed ), native_sqrt( rnd ), native_sqrt( 1.0f - rnd ) );
-	// ray.dir = fast_normalize( ray.dir +	aaDir * pxDim * ANTI_ALIASING );
+	// Anti-Aliasing by slightly jittering the ray.
+	if( ANTI_ALIASING > 0.0f ) {
+		const float rnd = rand( seed );
+		const float3 aaDir = jitter( ray.dir, PI_X2 * rand( seed ), native_sqrt( rnd ), native_sqrt( 1.0f - rnd ) );
+		ray.dir = fast_normalize( ray.dir + aaDir * pxDim * ANTI_ALIASING );
+	}
 
-	// thin lens
-	const float focalLength = 0.5f;
-	const float aperture = focalLength * 0.5f;
-	const float3 focalDir = fast_normalize( w + pxDim * 0.5f * (
-		u - IMG_WIDTH * u + 2.0f * IMG_WIDTH / 2.0f * u +
-		v - IMG_HEIGHT * v + 2.0f * IMG_HEIGHT / 2.0f * v
-	) );
-	const float3 focalPoint = eye + focalLength * focalDir;
-	const float radius = 0.5f * aperture;
+	// Depth-of-Field with a thin lense model.
+	if( tObject > 0.0f ) {
+		// Distance to focal plane.
+		float3 planeNormal = -w;
+		float3 pointOnPlane = ray.origin + planeNormal * tFocus;
+		float tPlane = -dot( ray.origin, planeNormal + pointOnPlane ) / dot( ray.dir, planeNormal );
 
-	const float3 r1 = ( cross( focalDir.yzx * radius, focalDir * radius ) );
-	const float3 r2 = ( cross( focalDir * radius, r1 ) );
+		// Thin lense settings.
+		const float focalLength = 0.035f;
+		const float aperture = focalLength / 0.5f;
 
-	const float phi = PI_X2 * rand( seed );
-	const float3 jitterMove = fast_normalize(
-		r1 * native_cos( phi ) +
-		r2 * native_sin( phi )
-	);
+		// Circle of confusion diameter on our image projection plane.
+		float tmp1 = focalLength * ( tObject - tPlane );
+		float tmp2 = tObject * ( tPlane - focalLength );
+		float cocLength = fabs( aperture * native_divide( tmp1, tmp2 ) );
 
-	// ray.origin += jitterMove;
-	ray.dir = fast_normalize( focalPoint - ray.origin );
+		// Choose a random point inside the circle of confusion.
+		float rand1 = rand( seed );
+		float rand2 = rand( seed );
+		float radius = rand1 * cocLength * 0.5f;
+		float angle = PI_X2 * rand2;
+		float x = radius * native_cos( angle );
+		float y = radius * native_sin( angle );
+		float3 cocPoint = ray.origin + x * u + y * v;
+
+		// Set the new ray direction.
+		float3 hitFocalPlane = fma( tPlane, ray.dir, ray.origin );
+		ray.dir = fast_normalize( hitFocalPlane - cocPoint );
+	}
 
 	return ray;
 }
@@ -524,14 +539,23 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 			Scene scene = { kdRootNode, kdNonLeaves, kdLeaves, kdFaces, faces, vertices, normals };
 		#endif
 
+		float focus = 0.0f;
 		bool addDepth;
 		uint secondaryPaths = 1; // Start at 1 instead of 0, because we are going to divide through it.
+
+
+		const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
+		const int2 posCenter = { (int) IMG_WIDTH * 0.5f, (int) IMG_HEIGHT * 0.5f };
+		const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+		const float4 thisRayPixel = read_imagef( imageIn, sampler, pos );
+		const float4 centerRayPixel = read_imagef( imageIn, sampler, posCenter );
+
 
 		for( uint sample = 0; sample < SAMPLES; sample++ ) {
 			float4 color = (float4)( 1.0f );
 			float4 light = (float4)( -1.0f );
 
-			ray4 ray = initRay( pxDim, eyeIn, &seed );
+			ray4 ray = initRay( pxDim, eyeIn, &seed, centerRayPixel.w, thisRayPixel.w );
 			int depthAdded = 0;
 
 			for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
@@ -542,6 +566,7 @@ ray4 initRay( const float pxDim, const global float* eyeIn, float* seed ) {
 					break;
 				}
 
+				focus = ( sample + depth == 0 ) ? ray.t : focus;
 				material mtl = materials[faces[ray.hitFace].material];
 
 				// Implicit connection to a light found

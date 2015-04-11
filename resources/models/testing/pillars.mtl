@@ -4,14 +4,17 @@
 newmtl BackWall
 Ni 1.0
 d 1.0
+Kd 0.9 0.9 0.9
 
 newmtl Ground
 Ni 1.0
 d 1.0
+Kd 0.7 0.7 0.7
 
 newmtl LeftWall
 Ni 1.0
 d 1.0
+Kd 0.47 0.65 0.13
 
 newmtl Pillar
 Ni 1.0
@@ -20,3 +23,4 @@ d 1.0
 newmtl RightWall
 Ni 1.0
 d 1.0
+Kd 0.31 0.62 0.78

@@ -90,17 +90,17 @@
 	"render": {
 		// AA through jittering.
 		// Disable: Set to "0.0"
-		"antialiasing": 0.7,
+		"antialiasing": 0.0,
 		// BRDF.
 		// 0: Schlick (specular, diffuse, glossy, refraction, anisotropic)
 		// 1: Shirley-Ashikhmin
 		"brdf": 1,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
-		"interval": 50.0,
+		"interval": 40.0,
 		// Shoot shadow rays to generate implicit paths.
 		// 0: disable
 		// 1: enable
-		"implicit": 0,
+		"implicit": 1,
 		// Extend the path if a reflective or transparent surface is hit
 		"max_added_depth": 3,
 		// Maximum path length

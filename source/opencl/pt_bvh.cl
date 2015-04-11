@@ -238,7 +238,7 @@ void traverseShadows( const Scene* scene, const global bvhNode* bvh, ray4* ray )
  * @param {ray4*}                 ray
  * @param {const global face_t*}  faces
  */
-void traverseShadowsStackless( const Scene* scene, const global bvhNode* bvh, ray4* ray ) {
+void traverseShadowsStackless( const Scene* scene, ray4* ray ) {
 	const float3 invDir = native_recip( ray->dir );
 	int index = 0;
 
