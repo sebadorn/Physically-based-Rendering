@@ -38,7 +38,7 @@
  */
 ray4 initRay(
 	const float pxDim, const global float* eyeIn, float* seed,
-	const float tFocus, const float tObject
+	float tFocus, float tObject
 ) {
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
 
@@ -65,34 +65,32 @@ ray4 initRay(
 		ray.dir = fast_normalize( ray.dir + aaDir * pxDim * ANTI_ALIASING );
 	}
 
+	if( tObject == INFINITY ) {
+		tObject = 1000.0f;
+	}
+	if( tFocus == INFINITY ) {
+		tFocus = 1000.0f;
+	}
+
 	// Depth-of-Field with a thin lense model.
 	if( tObject > 0.0f ) {
-		// Distance to focal plane.
-		float3 planeNormal = -w;
-		float3 pointOnPlane = ray.origin + planeNormal * tFocus;
-		float tPlane = -dot( ray.origin, planeNormal + pointOnPlane ) / dot( ray.dir, planeNormal );
-
 		// Thin lense settings.
 		const float focalLength = 0.035f;
-		const float aperture = focalLength / 0.5f;
-
-		// Circle of confusion diameter on our image projection plane.
-		float tmp1 = focalLength * ( tObject - tPlane );
-		float tmp2 = tObject * ( tPlane - focalLength );
-		float cocLength = fabs( aperture * native_divide( tmp1, tmp2 ) );
+		const float aperture = focalLength / 1.8f;
 
 		// Choose a random point inside the circle of confusion.
 		float rand1 = rand( seed );
 		float rand2 = rand( seed );
-		float radius = rand1 * cocLength * 0.5f;
+		float radius = rand1 * aperture * 0.5f;
 		float angle = PI_X2 * rand2;
 		float x = radius * native_cos( angle );
 		float y = radius * native_sin( angle );
 		float3 cocPoint = ray.origin + x * u + y * v;
 
 		// Set the new ray direction.
-		float3 hitFocalPlane = fma( tPlane, ray.dir, ray.origin );
-		ray.dir = fast_normalize( hitFocalPlane - cocPoint );
+		ray.origin = cocPoint;
+		float3 hitFocalPlane = fma( tFocus, ray.dir, eye );
+		ray.dir = fast_normalize( hitFocalPlane - ray.origin );
 	}
 
 	return ray;
@@ -561,12 +559,13 @@ ray4 initRay(
 			for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
 				CALL_TRAVERSE
 
+				focus = ( sample + depth == 0 ) ? ray.t : focus;
+
 				if( ray.t == INFINITY ) {
 					light = SKY_LIGHT;
 					break;
 				}
 
-				focus = ( sample + depth == 0 ) ? ray.t : focus;
 				material mtl = materials[faces[ray.hitFace].material];
 
 				// Implicit connection to a light found

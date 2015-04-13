@@ -90,7 +90,7 @@
 	"render": {
 		// AA through jittering.
 		// Disable: Set to "0.0"
-		"antialiasing": 0.0,
+		"antialiasing": 0.7,
 		// BRDF.
 		// 0: Schlick (specular, diffuse, glossy, refraction, anisotropic)
 		// 1: Shirley-Ashikhmin
@@ -100,7 +100,7 @@
 		// Shoot shadow rays to generate implicit paths.
 		// 0: disable
 		// 1: enable
-		"implicit": 1,
+		"implicit": 0,
 		// Extend the path if a reflective or transparent surface is hit
 		"max_added_depth": 3,
 		// Maximum path length

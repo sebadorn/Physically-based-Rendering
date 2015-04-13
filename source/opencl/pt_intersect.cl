@@ -65,9 +65,9 @@ float3 checkFaceIntersection(
 
 	#if PHONGTESS == 1
 
-		const float3 an = normals[f.normals.x].xyz;
-		const float3 bn = normals[f.normals.y].xyz;
-		const float3 cn = normals[f.normals.z].xyz;
+		const float3 an = scene->normals[f.normals.x].xyz;
+		const float3 bn = scene->normals[f.normals.y].xyz;
+		const float3 cn = scene->normals[f.normals.z].xyz;
 		const int3 cmp = ( an == bn ) + ( bn == cn );
 
 		// Comparing vectors in OpenCL: 0/false/not equal; -1/true/equal
