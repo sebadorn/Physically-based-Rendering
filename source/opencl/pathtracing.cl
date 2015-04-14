@@ -475,6 +475,8 @@ kernel void pathTracing(
 			}
 		#elif USE_SPECTRAL == 1
 			if( light >= 0 ) {
+				light *= SPEC;
+
 				for( int i = 0; i < SPEC; i++ ) {
 					spdTotal[i] += spd[i] * specPowerDists[light + i];
 				}
