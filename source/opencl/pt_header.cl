@@ -41,6 +41,15 @@ typedef struct {
 
 // Passed from outside.
 typedef struct {
+	float3 eye;
+	float3 w;
+	float3 u;
+	float3 v;
+	float focalLength;
+	float aperture;
+} camera;
+
+typedef struct {
 	uint4 vertices;
 	uint4 normals;
 	uint material;

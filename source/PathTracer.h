@@ -23,6 +23,15 @@
 using std::vector;
 
 
+struct camera_cl {
+	cl_float3 eye;
+	cl_float3 w;
+	cl_float3 u;
+	cl_float3 v;
+	cl_float focalLength;
+	cl_float aperture;
+};
+
 struct face_cl {
 	cl_uint4 vertices;
 	cl_uint4 normals;
@@ -136,7 +145,6 @@ class PathTracer {
 		size_t initOpenCLBuffers_Materials( ModelLoader* ml );
 		size_t initOpenCLBuffers_MaterialsRGB( vector<material_t> materials );
 		size_t initOpenCLBuffers_MaterialsSPD( vector<material_t> materials, SpecParser* sp );
-		size_t initOpenCLBuffers_Rays();
 		size_t initOpenCLBuffers_Textures();
 		void kdNodesToVectors(
 			KdTree* kdTree, vector<cl_uint>* kdFaces,
@@ -169,7 +177,7 @@ class PathTracer {
 		cl_mem mBufKdLeaves;
 		cl_mem mBufKdFaces;
 
-		cl_mem mBufEye;
+		camera_cl mStructCam;
 		cl_mem mBufTextureIn;
 		cl_mem mBufTextureOut;
 

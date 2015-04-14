@@ -55,6 +55,7 @@ inline float fresnel( const float u, const float c ) {
 	return c + ( 1.0f - c ) * v * v * v * v * v;
 }
 
+
 /**
  * Fresnel factor.
  * @param  {const float} u
@@ -314,6 +315,71 @@ float3 jitter(
 			v * native_sin( phi )
 		) * sina + nl * cosa
 	);
+}
+
+
+/**
+ * Anti-Aliasing by slightly jittering the ray.
+ * @param {ray4*}       ray   The ray.
+ * @param {const float} pxDim Pixel width and height.
+ * @param {float*}      seed  Seed for RNG.
+ */
+void antiAliasing( ray4* ray, const float pxDim, float* seed ) {
+	if( ANTI_ALIASING > 0.0f ) {
+		const float rnd = rand( seed );
+		const float3 aaDir = jitter( ray->dir, PI_X2 * rand( seed ), native_sqrt( rnd ), native_sqrt( 1.0f - rnd ) );
+		ray->dir = fast_normalize( ray->dir + aaDir * pxDim * ANTI_ALIASING );
+	}
+}
+
+
+/**
+ * Depth of Field by using a thin lense model.
+ * Depending on the focus, the ray origin and direction will be changed.
+ * @param {ray4*}         ray     The ray.
+ * @param {const camera*} cam     Camera model.
+ * @param {float}         tObject Distance to the object for this ray.
+ * @param {float}         tFocus  Focus distance for the image.
+ * @param {float*}        seed    Seed for RNG.
+ */
+void depthOfField( ray4* ray, const camera* cam, float tObject, float tFocus, float* seed ) {
+	if( tObject == INFINITY ) {
+		tObject = 1000.0f;
+	}
+	if( tFocus == INFINITY ) {
+		tFocus = 1000.0f;
+	}
+
+	// Depth-of-Field with a thin lense model.
+	if( tObject > 0.0f ) {
+		const float aperture = cam->focalLength / cam->aperture;
+
+		// Choose a random point inside the circle of confusion.
+		const float radius = rand( seed ) * aperture * 0.5f;
+		const float angle = PI_X2 * rand( seed );
+		const float x = radius * native_cos( angle );
+		const float y = radius * native_sin( angle );
+
+		ray->origin = ray->origin + x * cam->u + y * cam->v;
+
+		// Set the new ray direction.
+		const float3 hitFocalPlane = fma( tFocus, ray->dir, cam->eye );
+		ray->dir = fast_normalize( hitFocalPlane - ray->origin );
+	}
+}
+
+
+/**
+ * Russian roulette termination. The longer a path and the less
+ * energy it transports, the likelier it will be terminated.
+ * @param  {const int}   depth       Current depth of path.
+ * @param  {const int}   depthAdded  Number of path extensions so far.
+ * @param  {const float} maxValColor Maximum found energy (either in an RGB value or the SPD).
+ * @param  {float*}      seed        Seed for the RNG.
+ * @return {bool}                    True, if path should be terminated, false otherwise.
+ */
+inline bool russianRoulette( int depth, int depthAdded, float maxValColor, float* seed ) {
+	return ( depth > 2 + depthAdded && maxValColor < rand( seed ) );
 }
 
 

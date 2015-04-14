@@ -11,11 +11,14 @@
 			"y": 0.00,
 			"z": 1.00
 		},
-		// Perspective
 		"perspective": {
 			"fov": 45.0,
 			"zfar": 100.0,
 			"znear": 0.1
+		},
+		"thin_lense": {
+			"aperture": 1.8,
+			"focal_length": 0.035
 		},
 		// Step distance
 		"speed": 0.2
@@ -130,6 +133,12 @@
 		// 4: CIE (default)
 		// 5: Rec709
 		"color_system": 4
+	},
+
+	"sun": {
+		"x": 6.0,
+		"y": 20.0,
+		"z": 0.0
 	},
 
 	"window": {

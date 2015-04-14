@@ -20,9 +20,12 @@ PathTracer::PathTracer( GLWidget* parent ) {
 	mSampleCount = 0;
 	mTimeSinceStart = boost::posix_time::microsec_clock::local_time();
 
-	mSunPos.x = 6.0f;
-	mSunPos.y = 20.0f;
-	mSunPos.z = 0.0f;
+	mStructCam.focalLength = Cfg::get().value<cl_float>( Cfg::CAM_LENSE_FOCALLENGTH );
+	mStructCam.aperture = Cfg::get().value<cl_float>( Cfg::CAM_LENSE_APERTURE );
+
+	mSunPos.x = Cfg::get().value<cl_float>( Cfg::SUN_X );
+	mSunPos.y = Cfg::get().value<cl_float>( Cfg::SUN_Y );
+	mSunPos.z = Cfg::get().value<cl_float>( Cfg::SUN_Z );
 	mSunPos.w = 0.0f;
 }
 
@@ -45,6 +48,7 @@ void PathTracer::clPathTracing( cl_float timeSinceStart ) {
 	mCL->setKernelArg( mKernelPathTracing, 0, sizeof( cl_float ), &timeSinceStart );
 	mCL->setKernelArg( mKernelPathTracing, 1, sizeof( cl_float ), &pixelWeight );
 	mCL->setKernelArg( mKernelPathTracing, 2, sizeof( cl_float4 ), &mSunPos );
+	mCL->setKernelArg( mKernelPathTracing, 4, sizeof( camera_cl ), &mStructCam );
 
 	mCL->execute( mKernelPathTracing );
 	mCL->finish();
@@ -98,7 +102,7 @@ void PathTracer::initArgsKernelPathTracing() {
 	i++; // 1: pixelWeight
 	i++; // 2: sun position
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_float ), &pxDim );
-	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufEye );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( camera_cl ), &mStructCam );
 
 	switch( Cfg::get().value<int>( Cfg::ACCEL_STRUCT ) ) {
 
@@ -208,15 +212,6 @@ void PathTracer::initOpenCLBuffers(
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
 	snprintf( msg, 128, "[PathTracer] Created material buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
-	Logger::logInfo( msg );
-
-	// Buffer: Rays
-	timerStart = boost::posix_time::microsec_clock::local_time();
-	bytes = this->initOpenCLBuffers_Rays();
-	timerEnd = boost::posix_time::microsec_clock::local_time();
-	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
-	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, 128, "[PathTracer] Created ray buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Textures
@@ -607,17 +602,6 @@ size_t PathTracer::initOpenCLBuffers_MaterialsSPD( vector<material_t> materials,
 
 
 /**
- * Init OpenCL buffers of the rays.
- */
-size_t PathTracer::initOpenCLBuffers_Rays() {
-	cl_uint pixels = mWidth * mHeight;
-	mBufEye = mCL->createEmptyBuffer( sizeof( cl_float ) * 12, CL_MEM_READ_ONLY );
-
-	return sizeof( cl_float ) * 12;
-}
-
-
-/**
  * Init OpenCL buffers of the textures.
  */
 size_t PathTracer::initOpenCLBuffers_Textures() {
@@ -817,12 +801,19 @@ void PathTracer::updateEyeBuffer() {
 	glm::vec3 u = glm::normalize( glm::cross( w, up ) );
 	glm::vec3 v = glm::normalize( glm::cross( u, w ) );
 
-	cl_float eyeBuffer[12] = {
-		eye[0], eye[1], eye[2],
-		w[0], w[1], w[2],
-		u[0], u[1], u[2],
-		v[0], v[1], v[2]
-	};
+	mStructCam.eye.x = eye[0];
+	mStructCam.eye.y = eye[1];
+	mStructCam.eye.z = eye[2];
 
-	mCL->updateBuffer( mBufEye, sizeof( cl_float ) * 12, &eyeBuffer );
+	mStructCam.w.x = w[0];
+	mStructCam.w.y = w[1];
+	mStructCam.w.z = w[2];
+
+	mStructCam.u.x = u[0];
+	mStructCam.u.y = u[1];
+	mStructCam.u.z = u[2];
+
+	mStructCam.v.x = v[0];
+	mStructCam.v.y = v[1];
+	mStructCam.v.z = v[2];
 }

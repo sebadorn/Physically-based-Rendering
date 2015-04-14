@@ -27,6 +27,8 @@ class Cfg {
 		static const char* CAM_EYE_X;
 		static const char* CAM_EYE_Y;
 		static const char* CAM_EYE_Z;
+		static const char* CAM_LENSE_APERTURE;
+		static const char* CAM_LENSE_FOCALLENGTH;
 		static const char* CAM_SPEED;
 		static const char* IMPORT_PATH;
 		static const char* INFO_KERNELTIMES;
@@ -52,6 +54,9 @@ class Cfg {
 		static const char* SHADER_PATH;
 		static const char* SHADER_NAME;
 		static const char* SPECTRAL_COLORSYSTEM;
+		static const char* SUN_X;
+		static const char* SUN_Y;
+		static const char* SUN_Z;
 		static const char* USE_SPECTRAL;
 		static const char* WINDOW_HEIGHT;
 		static const char* WINDOW_WIDTH;
