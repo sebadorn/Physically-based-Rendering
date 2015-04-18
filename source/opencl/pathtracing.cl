@@ -387,16 +387,6 @@ kernel void pathTracing(
 
 			material mtl = materials[faces[ray.hitFace].material];
 
-			// Implicit connection to a light found
-			if( mtl.light == 1 ) {
-				#if USE_SPECTRAL == 0
-					light = mtl.rgbDiff;
-				#elif USE_SPECTRAL == 1
-					light = mtl.spd.x;
-				#endif
-				break;
-			}
-
 			// Last round, no need to calculate a new ray.
 			// Unless we hit a material that extends the path.
 			addDepth = extendDepth( &mtl, &seed );
@@ -427,15 +417,6 @@ kernel void pathTracing(
 
 					if( lightRay.t == INFINITY ) {
 						lightRaySource = SKY_LIGHT;
-					}
-					else {
-						material lightMTL = materials[faces[lightRay.hitFace].material];
-
-						#if USE_SPECTRAL == 0
-							lightRaySource = ( lightMTL.light == 1 ) ? lightMTL.rgbDiff : (float4)( -1.0f );
-						#elif USE_SPECTRAL == 1
-							lightRaySource = ( lightMTL.light == 1 ) ? lightMTL.spd.x : -1;
-						#endif
 					}
 				}
 

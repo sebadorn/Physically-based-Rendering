@@ -438,13 +438,12 @@ size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials 
 			mtl.Ni = materials[i].Ni;
 			mtl.p = materials[i].p;
 			mtl.rough = materials[i].rough;
-			mtl.light = materials[i].light;
 			mtl.rgbDiff = materials[i].Kd;
 			mtl.rgbSpec = materials[i].Ks;
 
 			materialsCL.push_back( mtl );
 
-			if( materials[i].mtlName == "sky_light" && materials[i].light == 1 ) {
+			if( materials[i].mtlName == "sky_light" ) {
 				cl_float4 Kd = materials[i].Kd;
 				char msg[128];
 				snprintf( msg, 128, "(float4)( %f, %f, %f, 0.0f )", Kd.x, Kd.y, Kd.z );
@@ -464,7 +463,6 @@ size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials 
 			material_shirley_ashikhmin_rgb mtl;
 			mtl.d = materials[i].d;
 			mtl.Ni = materials[i].Ni;
-			mtl.light = materials[i].light;
 			mtl.nu = materials[i].nu;
 			mtl.nv = materials[i].nv;
 			mtl.Rs = materials[i].Rs;
@@ -474,7 +472,7 @@ size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials 
 
 			materialsCL.push_back( mtl );
 
-			if( materials[i].mtlName == "sky_light" && materials[i].light == 1 ) {
+			if( materials[i].mtlName == "sky_light" ) {
 				cl_float4 Kd = materials[i].Kd;
 				char msg[128];
 				snprintf( msg, 128, "(float4)( %f, %f, %f, 0.0f )", Kd.x, Kd.y, Kd.z );
@@ -554,7 +552,6 @@ size_t PathTracer::initOpenCLBuffers_MaterialsSPD( vector<material_t> materials,
 			mtl.Ni = materials[i].Ni;
 			mtl.p = materials[i].p;
 			mtl.rough = materials[i].rough;
-			mtl.light = materials[i].light;
 
 			spdName = mtl2spd[materials[i].mtlName]["diff"];
 			mtl.spd.x = specID[spdName];
@@ -575,7 +572,6 @@ size_t PathTracer::initOpenCLBuffers_MaterialsSPD( vector<material_t> materials,
 			material_shirley_ashikhmin_spd mtl;
 			mtl.d = materials[i].d;
 			mtl.Ni = materials[i].Ni;
-			mtl.light = materials[i].light;
 			mtl.nu = materials[i].nu;
 			mtl.nv = materials[i].nv;
 			mtl.Rs = materials[i].Rs;

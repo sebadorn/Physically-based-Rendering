@@ -122,7 +122,6 @@ typedef struct {
 		float p;
 		float rough;
 		MTL_COLOR
-		char light
 	} material;
 
 // Shirley-Ashikhmin
@@ -136,7 +135,6 @@ typedef struct {
 		float d;
 		float Ni;
 		MTL_COLOR
-		char light
 	} material;
 
 #endif
