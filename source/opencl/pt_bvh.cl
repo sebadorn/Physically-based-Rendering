@@ -6,61 +6,58 @@
 
 
 /**
+ * Test face for intersections with the given ray and update the ray.
+ * @param {const Scene*}      scene
+ * @param {ray4*}             ray
+ * @param {const int}         faceIndex
+ * @param {float3*}           tuv
+ * @param {const float tNear} tNear
+ * @param {float tFar}        tFar
+ */
+void intersectFace( const Scene* scene, ray4* ray, const int faceIndex, float3* tuv, const float tNear, float tFar ) {
+	const float3 normal = checkFaceIntersection( scene, ray, faceIndex, tuv, tNear, tFar );
+
+	if( ray->t > tuv->x ) {
+		ray->normal = normal;
+		ray->hitFace = faceIndex;
+		ray->t = tuv->x;
+	}
+}
+
+
+/**
  * Test faces of the given node for intersections with the given ray.
- * @param {ray4*}                ray
- * @param {const bvhNode*}       node
- * @param {const global face_t*} faces
- * @param {const float tNear}    tNear
- * @param {float tFar}           tFar
+ * @param {const Scene*}      scene
+ * @param {ray4*}             ray
+ * @param {const bvhNode*}    node
+ * @param {const float tNear} tNear
+ * @param {float tFar}        tFar
  */
 void intersectFaces( const Scene* scene, ray4* ray, const bvhNode* node, const float tNear, float tFar ) {
 	float3 tuv;
-	float3 normal;
 
-
-	normal = checkFaceIntersection( scene, ray, node->faces.x, &tuv, tNear, tFar );
-
-	if( ray->t > tuv.x ) {
-		ray->normal = normal;
-		ray->hitFace = node->faces.x;
-		ray->t = tuv.x;
-	}
+	intersectFace( scene, ray, node->faces.x, &tuv, tNear, tFar );
 
 	// Second face, if existing.
 	if( node->faces.y == -1 ) {
 		return;
 	}
 
-
-	normal = checkFaceIntersection( scene, ray, node->faces.y, &tuv, tNear, tFar );
-
-	if( ray->t > tuv.x ) {
-		ray->normal = normal;
-		ray->hitFace = node->faces.y;
-		ray->t = tuv.x;
-	}
+	intersectFace( scene, ray, node->faces.y, &tuv, tNear, tFar );
 
 	// Third face, if existing.
 	if( node->faces.z == -1 ) {
 		return;
 	}
 
-
-	normal = checkFaceIntersection( scene, ray, node->faces.z, &tuv, tNear, tFar );
-
-	if( ray->t > tuv.x ) {
-		ray->normal = normal;
-		ray->hitFace = node->faces.z;
-		ray->t = tuv.x;
-	}
+	intersectFace( scene, ray, node->faces.z, &tuv, tNear, tFar );
 }
 
 
 /**
  * Traverse the BVH without using a stack and test the faces against the given ray.
- * @param {global const bvhNode*} bvh
- * @param {ray4*}                 ray
- * @param {global const face_t*}  faces
+ * @param {const Scene*} scene
+ * @param {ray4*}        ray
  */
 void traverse( const Scene* scene, ray4* ray ) {
 	const float3 invDir = native_recip( ray->dir );
@@ -100,9 +97,8 @@ void traverse( const Scene* scene, ray4* ray ) {
  * Traverse the BVH and test the faces against the given ray.
  * This version is for the shadow ray test, so it only checks IF there
  * is an intersection and terminates on the first hit.
- * @param {const global bvhNode*} bvh
- * @param {ray4*}                 ray
- * @param {const global face_t*}  faces
+ * @param {const Scene*} scene
+ * @param {ray4*}        ray
  */
 void traverseShadows( const Scene* scene, ray4* ray ) {
 	const float3 invDir = native_recip( ray->dir );

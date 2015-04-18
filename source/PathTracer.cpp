@@ -20,8 +20,8 @@ PathTracer::PathTracer( GLWidget* parent ) {
 	mSampleCount = 0;
 	mTimeSinceStart = boost::posix_time::microsec_clock::local_time();
 
-	mStructCam.focalLength = Cfg::get().value<cl_float>( Cfg::CAM_LENSE_FOCALLENGTH );
-	mStructCam.aperture = Cfg::get().value<cl_float>( Cfg::CAM_LENSE_APERTURE );
+	mStructCam.lense.x = Cfg::get().value<cl_float>( Cfg::CAM_LENSE_FOCALLENGTH );
+	mStructCam.lense.y = Cfg::get().value<cl_float>( Cfg::CAM_LENSE_APERTURE );
 
 	mSunPos.x = Cfg::get().value<cl_float>( Cfg::SUN_X );
 	mSunPos.y = Cfg::get().value<cl_float>( Cfg::SUN_Y );
@@ -365,14 +365,14 @@ size_t PathTracer::initOpenCLBuffers_Faces(
 		face.vertices.x = faces[i];
 		face.vertices.y = faces[i + 1];
 		face.vertices.z = faces[i + 2];
-		face.vertices.w = 0;
+		// Material of face
+		face.vertices.w = facesMtl[i / 3];
 
 		face.normals.x = facesVN[i];
 		face.normals.y = facesVN[i + 1];
 		face.normals.z = facesVN[i + 2];
 		face.normals.w = 0;
 
-		face.material = facesMtl[i / 3];
 		faceStructs.push_back( face );
 	}
 
@@ -434,10 +434,10 @@ size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials 
 
 		for( int i = 0; i < materials.size(); i++ ) {
 			material_schlick_rgb mtl;
-			mtl.d = materials[i].d;
-			mtl.Ni = materials[i].Ni;
-			mtl.p = materials[i].p;
-			mtl.rough = materials[i].rough;
+			mtl.data.s0 = materials[i].d;
+			mtl.data.s1 = materials[i].Ni;
+			mtl.data.s2 = materials[i].p;
+			mtl.data.s3 = materials[i].rough;
 			mtl.rgbDiff = materials[i].Kd;
 			mtl.rgbSpec = materials[i].Ks;
 
@@ -461,12 +461,12 @@ size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials 
 
 		for( int i = 0; i < materials.size(); i++ ) {
 			material_shirley_ashikhmin_rgb mtl;
-			mtl.d = materials[i].d;
-			mtl.Ni = materials[i].Ni;
-			mtl.nu = materials[i].nu;
-			mtl.nv = materials[i].nv;
-			mtl.Rs = materials[i].Rs;
-			mtl.Rd = materials[i].Rd;
+			mtl.data.s0 = materials[i].d;
+			mtl.data.s1 = materials[i].Ni;
+			mtl.data.s2 = materials[i].nu;
+			mtl.data.s3 = materials[i].nv;
+			mtl.data.s4 = materials[i].Rs;
+			mtl.data.s5 = materials[i].Rd;
 			mtl.rgbDiff = materials[i].Kd;
 			mtl.rgbSpec = materials[i].Ks;
 
@@ -548,10 +548,10 @@ size_t PathTracer::initOpenCLBuffers_MaterialsSPD( vector<material_t> materials,
 
 		for( int i = 0; i < materials.size(); i++ ) {
 			material_schlick_spd mtl;
-			mtl.d = materials[i].d;
-			mtl.Ni = materials[i].Ni;
-			mtl.p = materials[i].p;
-			mtl.rough = materials[i].rough;
+			mtl.data.s0 = materials[i].d;
+			mtl.data.s1 = materials[i].Ni;
+			mtl.data.s2 = materials[i].p;
+			mtl.data.s3 = materials[i].rough;
 
 			spdName = mtl2spd[materials[i].mtlName]["diff"];
 			mtl.spd.x = specID[spdName];
@@ -570,12 +570,12 @@ size_t PathTracer::initOpenCLBuffers_MaterialsSPD( vector<material_t> materials,
 
 		for( int i = 0; i < materials.size(); i++ ) {
 			material_shirley_ashikhmin_spd mtl;
-			mtl.d = materials[i].d;
-			mtl.Ni = materials[i].Ni;
-			mtl.nu = materials[i].nu;
-			mtl.nv = materials[i].nv;
-			mtl.Rs = materials[i].Rs;
-			mtl.Rd = materials[i].Rd;
+			mtl.data.s0 = materials[i].d;
+			mtl.data.s1 = materials[i].Ni;
+			mtl.data.s2 = materials[i].nu;
+			mtl.data.s3 = materials[i].nv;
+			mtl.data.s4 = materials[i].Rs;
+			mtl.data.s5 = materials[i].Rd;
 
 			spdName = mtl2spd[materials[i].mtlName]["diff"];
 			mtl.spd.x = specID[spdName];

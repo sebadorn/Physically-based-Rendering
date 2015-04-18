@@ -47,11 +47,12 @@ float3 flatTriAndRayIntersect(
 
 /**
  * Face intersection test after Möller and Trumbore.
- * @param  {const ray4*}   ray
- * @param  {const face_t}  face
- * @param  {float4*}       tuv
- * @param  {const float}   tNear
- * @param  {const float}   tFar
+ * @param  {const Scene*} scene
+ * @param  {const ray4*}  ray
+ * @param  {const int}    fIndex
+ * @param  {float3*}      tuv
+ * @param  {const float}  tNear
+ * @param  {const float}  tFar
  * @return {float3}
  */
 float3 checkFaceIntersection(
@@ -93,9 +94,9 @@ float3 checkFaceIntersection(
 /**
  * Based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
  * @param  {const ray4*}   ray
- * @param  {const float4*} invDir
- * @param  {const float*}  bbMin
- * @param  {const float*}  bbMax
+ * @param  {const float3*} invDir
+ * @param  {const float4*} bbMin
+ * @param  {const float4*} bbMax
  * @param  {float*}        tNear
  * @param  {float*}        tFar
  * @return {const bool}          True, if ray intersects box, false otherwise.

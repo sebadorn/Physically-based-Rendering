@@ -33,8 +33,8 @@
  * @param  {const float}  pxDim   Pixel width and height.
  * @param  {const camera} cam     The camera model.
  * @param  {float*}       seed    Seed for the random number generator.
- * @param  {float}        tObject Distance to the object for this ray.
  * @param  {float}        tFocus  Focus distance for the image.
+ * @param  {float}        tObject Distance to the object for this ray.
  * @return {ray4}                 The ray including adjustments for anti-aliasing and depth-of-field.
  */
 ray4 initRay(
@@ -63,14 +63,14 @@ ray4 initRay(
 
 	/**
 	 * Update the accumulated RGB color according to the hit material and BRDF.
-	 * @param {const ray4*}           ray
-	 * @param {const ray4*}           newRay
-	 * @param {const material*}       mtl
-	 * @param {const ray4*}           lightRay
-	 * @param {const int}             lightRaySource
-	 * @param {uint*}                 secondaryPaths
-	 * @param {float4*}               color
-	 * @param {float4*}               finalColor
+	 * @param {const ray4*}     ray
+	 * @param {const ray4*}     newRay
+	 * @param {const material*} mtl
+	 * @param {const ray4*}     lightRay
+	 * @param {const int}       lightRaySource
+	 * @param {uint*}           secondaryPaths
+	 * @param {float4*}         color
+	 * @param {float4*}         finalColor
 	 */
 	void updateColor(
 		const ray4* ray, const ray4* newRay, const material* mtl,
@@ -82,7 +82,7 @@ ray4 initRay(
 
 			float brdf, pdf, u;
 
-			#if IMPLICIT == 1
+			#if SHADOW_RAYS == 1
 
 				if( lightRaySource.x >= 0 ) {
 					brdf = brdfSchlick( mtl, ray, lightRay, &( ray->normal ), &u, &pdf );
@@ -92,7 +92,7 @@ ray4 initRay(
 						brdf = native_divide( brdf, pdf );
 
 						*finalColor += *color * lightRaySource * mtl->rgbDiff *
-							( fresnel4( u, mtl->rgbSpec ) * brdf * mtl->d + ( 1.0f - mtl->d ) );
+							( fresnel4( u, mtl->rgbSpec ) * brdf * mtl->data.s0 + ( 1.0f - mtl->data.s0 ) );
 
 						*secondaryPaths += 1;
 					}
@@ -104,7 +104,7 @@ ray4 initRay(
 			brdf *= lambert( ray->normal, newRay->dir );
 			brdf = native_divide( brdf, pdf );
 
-			*color *= mtl->rgbDiff * ( fresnel4( u, mtl->rgbSpec ) * brdf * mtl->d + ( 1.0f - mtl->d ) );
+			*color *= mtl->rgbDiff * ( fresnel4( u, mtl->rgbSpec ) * brdf * mtl->data.s0 + ( 1.0f - mtl->data.s0 ) );
 
 		// BRDF: Shirley/Ashikhmin
 		#elif BRDF == 1
@@ -113,11 +113,11 @@ ray4 initRay(
 			float4 brdf_d, brdf_s;
 			float dotHK1;
 
-			#if IMPLICIT == 1
+			#if SHADOW_RAYS == 1
 
 				if( lightRaySource.x >= 0 ) {
 					brdfShirleyAshikhmin(
-						mtl->nu, mtl->nv, mtl->Rs, mtl->Rd,
+						mtl->data.s2, mtl->data.s3, mtl->data.s4, mtl->data.s5,
 						ray, lightRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1, &pdf
 					);
 
@@ -125,14 +125,14 @@ ray4 initRay(
 						brdfSpec = native_divide( brdfSpec, pdf );
 						brdfDiff = native_divide( brdfDiff, pdf );
 
-						brdf_s = brdfSpec * mtl->rgbSpec * fresnel( dotHK1, mtl->Rs );
-						brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->Rs );
+						brdf_s = brdfSpec * mtl->rgbSpec * fresnel( dotHK1, mtl->data.s4 );
+						brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->data.s4 );
 
-						float4 brdfColor = ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
+						float4 brdfColor = ( brdf_s + brdf_d ) * mtl->data.s0 + ( 1.0f - mtl->data.s0 );
 						float maxRGB = max( 1.0f, max( brdfColor.x, max( brdfColor.y, brdfColor.z ) ) );
 						brdfColor /= maxRGB;
 
-						*finalColor += clamp( brdfColor, 0.0f, 1.0f ) * lightRaySource * mtl->d + ( 1.0f - mtl->d );
+						*finalColor += clamp( brdfColor, 0.0f, 1.0f ) * lightRaySource * mtl->data.s0 + ( 1.0f - mtl->data.s0 );
 
 						*secondaryPaths += 1;
 					}
@@ -141,17 +141,17 @@ ray4 initRay(
 			#endif
 
 			brdfShirleyAshikhmin(
-				mtl->nu, mtl->nv, mtl->Rs, mtl->Rd,
+				mtl->data.s2, mtl->data.s3, mtl->data.s4, mtl->data.s5,
 				ray, newRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1, &pdf
 			);
 
 			brdfSpec = native_divide( brdfSpec, pdf );
 			brdfDiff = native_divide( brdfDiff, pdf );
 
-			brdf_s = brdfSpec * mtl->rgbSpec * fresnel( dotHK1, mtl->Rs );
-			brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->Rs );
+			brdf_s = brdfSpec * mtl->rgbSpec * fresnel( dotHK1, mtl->data.s4 );
+			brdf_d = brdfDiff * mtl->rgbDiff * ( 1.0f - mtl->data.s4 );
 
-			float4 brdfColor = ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
+			float4 brdfColor = ( brdf_s + brdf_d ) * mtl->data.s0 + ( 1.0f - mtl->data.s0 );
 			float maxRGB = max( 1.0f, max( brdfColor.x, max( brdfColor.y, brdfColor.z ) ) );
 			brdfColor /= maxRGB;
 
@@ -194,7 +194,7 @@ ray4 initRay(
 
 			float brdf, pdf, u;
 
-			#if IMPLICIT == 1
+			#if SHADOW_RAYS == 1
 
 				if( lightRaySource >= 0 ) {
 					brdf = brdfSchlick( mtl, ray, lightRay, &( ray->normal ), &u, &pdf );
@@ -206,7 +206,7 @@ ray4 initRay(
 						for( int i = 0; i < SPEC; i++ ) {
 							spdTotal[i] += spd[i] * specPowerDists[lightRaySource + i] *
 							               COLOR_DIFF * ( fresnel( u, COLOR_SPEC ) * brdf *
-							               mtl->d + ( 1.0f - mtl->d ) );
+							               mtl->data.s0 + ( 1.0f - mtl->data.s0 ) );
 						}
 
 						*secondaryPaths += 1;
@@ -220,7 +220,7 @@ ray4 initRay(
 			brdf = native_divide( brdf, pdf );
 
 			for( int i = 0; i < SPEC; i++ ) {
-				spd[i] *= COLOR_DIFF * ( fresnel( u, COLOR_SPEC ) * brdf * mtl->d + ( 1.0f - mtl->d ) );
+				spd[i] *= COLOR_DIFF * ( fresnel( u, COLOR_SPEC ) * brdf * mtl->data.s0 + ( 1.0f - mtl->data.s0 ) );
 				*maxValSpd = fmax( spd[i], *maxValSpd );
 			}
 
@@ -230,11 +230,11 @@ ray4 initRay(
 			float brdf_d, brdf_s, brdfDiff, brdfSpec, pdf;
 			float dotHK1;
 
-			#if IMPLICIT == 1
+			#if SHADOW_RAYS == 1
 
 				if( lightRaySource >= 0 ) {
 					brdfShirleyAshikhmin(
-						mtl->nu, mtl->nv, mtl->Rs, mtl->Rd,
+						mtl->data.s2, mtl->data.s3, mtl->data.s4, mtl->data.s5,
 						ray, lightRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1, &pdf
 					);
 
@@ -243,12 +243,12 @@ ray4 initRay(
 						brdfDiff = native_divide( brdfDiff, pdf );
 
 						for( int i = 0; i < SPEC; i++ ) {
-							brdf_s = brdfSpec * COLOR_SPEC * fresnel( dotHK1, mtl->Rs );
-							brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs );
+							brdf_s = brdfSpec * COLOR_SPEC * fresnel( dotHK1, mtl->data.s4 );
+							brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->data.s4 );
 
 							spdTotal[i] += spd[i] * specPowerDists[lightRaySource + i] *
 							               ( brdf_s + brdf_d ) *
-							               mtl->d + ( 1.0f - mtl->d );
+							               mtl->data.s0 + ( 1.0f - mtl->data.s0 );
 						}
 
 						*secondaryPaths += 1;
@@ -258,7 +258,7 @@ ray4 initRay(
 			#endif
 
 			brdfShirleyAshikhmin(
-				mtl->nu, mtl->nv, mtl->Rs, mtl->Rd,
+				mtl->data.s2, mtl->data.s3, mtl->data.s4, mtl->data.s5,
 				ray, newRay, &( ray->normal ), &brdfSpec, &brdfDiff, &dotHK1, &pdf
 			);
 
@@ -266,10 +266,10 @@ ray4 initRay(
 			brdfDiff = native_divide( brdfDiff, pdf );
 
 			for( int i = 0; i < SPEC; i++ ) {
-				brdf_s = brdfSpec * COLOR_SPEC * fresnel( dotHK1, mtl->Rs );
-				brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->Rs );
+				brdf_s = brdfSpec * COLOR_SPEC * fresnel( dotHK1, mtl->data.s4 );
+				brdf_d = brdfDiff * COLOR_DIFF * ( 1.0f - mtl->data.s4 );
 
-				spd[i] *= ( brdf_s + brdf_d ) * mtl->d + ( 1.0f - mtl->d );
+				spd[i] *= ( brdf_s + brdf_d ) * mtl->data.s0 + ( 1.0f - mtl->data.s0 );
 				*maxValSpd = fmax( spd[i], *maxValSpd );
 			}
 
@@ -288,16 +288,6 @@ ray4 initRay(
 /**
  * KERNEL.
  * Do the path tracing and calculate the final color for the pixel.
- * @param {const uint2}            offset
- * @param {float}                  seed
- * @param {float}                  pixelWeight
- * @param {const global face_t*}   faces
- * @param {const global bvhNode*}  bvh
- * @param {const global rayBase*}  initRays
- * @param {const global material*} materials
- * @param {const global float*}    specPowerDists
- * @param {read_only image2d_t}    imageIn
- * @param {write_only image2d_t}   imageOut
  */
 kernel void pathTracing(
 	// changing values
@@ -311,16 +301,12 @@ kernel void pathTracing(
 
 	// acceleration structure
 	#if ACCEL_STRUCT == 0
-
 		global const bvhNode* bvh,
-
 	#elif ACCEL_STRUCT == 1
-
 		const kdLeaf kdRootNode,
 		global const kdNonLeaf* kdNonLeaves,
 		global const kdLeaf* kdLeaves,
 		global const uint* kdFaces,
-
 	#endif
 
 	// geometry and color related
@@ -385,13 +371,13 @@ kernel void pathTracing(
 				break;
 			}
 
-			material mtl = materials[faces[ray.hitFace].material];
+			material mtl = materials[faces[ray.hitFace].vertices.w];
 
 			// Last round, no need to calculate a new ray.
 			// Unless we hit a material that extends the path.
 			addDepth = extendDepth( &mtl, &seed );
 
-			if( mtl.d == 1.0f && !addDepth && depth == MAX_DEPTH + depthAdded - 1 ) {
+			if( mtl.data.s0 == 1.0f && !addDepth && depth == MAX_DEPTH + depthAdded - 1 ) {
 				break;
 			}
 
@@ -406,9 +392,8 @@ kernel void pathTracing(
 			ray4 lightRay;
 			lightRay.t = INFINITY;
 
-			#if IMPLICIT == 1
-
-				if( mtl.d > 0.0f ) {
+			#if SHADOW_RAYS == 1
+				if( mtl.data.s0 > 0.0f ) {
 					lightRay.origin = fma( ray.t, ray.dir, ray.origin ) + ray.normal * EPSILON5;
 					const float rnd2 = rand( &seed );
 					lightRay.dir = fast_normalize( sunPos.xyz - lightRay.origin );
@@ -419,7 +404,6 @@ kernel void pathTracing(
 						lightRaySource = SKY_LIGHT;
 					}
 				}
-
 			#endif
 
 			// New direction of the ray (bouncing of the hit surface)

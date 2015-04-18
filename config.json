@@ -36,7 +36,7 @@
 
 	// Acceleration structure
 	// 0: BVH with AABBs
-	// 1: kd-tree
+	// 1: kd-tree (needs optimization)
 	"accel_struct": 0,
 
 	// Bounding Volume Hierarchy
@@ -100,10 +100,6 @@
 		"brdf": 1,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
 		"interval": 50.0,
-		// Shoot shadow rays to generate implicit paths.
-		// 0: disable
-		// 1: enable
-		"implicit": 0,
 		// Extend the path if a reflective or transparent surface is hit
 		"max_added_depth": 3,
 		// Maximum path length
@@ -114,6 +110,10 @@
 		"phong_tessellation": 0.0,
 		// Samples of paths per frame
 		"samples": 1,
+		// Shoot shadow rays to generate implicit paths.
+		// 0: disable
+		// 1: enable
+		"shadow_rays": 0,
 		// Use spectral color definitions.
 		// 0: disable, use RGB
 		// 1: enable

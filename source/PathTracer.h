@@ -28,50 +28,52 @@ struct camera_cl {
 	cl_float3 w;
 	cl_float3 u;
 	cl_float3 v;
-	cl_float focalLength;
-	cl_float aperture;
+	cl_float2 lense;
 };
 
 struct face_cl {
-	cl_uint4 vertices;
+	cl_uint4 vertices; // w: material
 	cl_uint4 normals;
-	cl_uint material;
 };
 
 struct material_schlick_spd {
-	cl_float d;
-	cl_float Ni;
-	cl_float p;
-	cl_float rough;
+	cl_float4 data;
+	// data.s0: d
+	// data.s1: Ni
+	// data.s2: p
+	// data.s3: rough
 	cl_ushort2 spd;
 };
 
 struct material_schlick_rgb {
-	cl_float d;
-	cl_float Ni;
-	cl_float p;
-	cl_float rough;
+	cl_float4 data;
+	// data.s0: d
+	// data.s1: Ni
+	// data.s2: p
+	// data.s3: rough
 	cl_float4 rgbDiff;
 	cl_float4 rgbSpec;
 };
 
 struct material_shirley_ashikhmin_spd {
-	cl_float nu;
-	cl_float nv;
-	cl_float Rs;
-	cl_float Rd;
-	cl_float d;
-	cl_float Ni;
+	cl_float8 data;
+	// data.s0: d
+	// data.s1: Ni
+	// data.s2: nu
+	// data.s3: nv
+	// data.s4: Rs
+	// data.s5: Rd
 	cl_ushort2 spd;
 };
 
 struct material_shirley_ashikhmin_rgb {
-	cl_float nu;
-	cl_float nv;
-	cl_float Rs;
-	cl_float Rd;
-	cl_float d;
-	cl_float Ni;
+	cl_float8 data;
+	// data.s0: d
+	// data.s1: Ni
+	// data.s2: nu
+	// data.s3: nv
+	// data.s4: Rs
+	// data.s5: Rd
 	cl_float4 rgbDiff;
 	cl_float4 rgbSpec;
 };

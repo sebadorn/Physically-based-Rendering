@@ -98,11 +98,12 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 	Logger::indent( 0 );
 
 	vector<cl_uint> facesV = mObjParser->getFacesV();
+	vector<cl_uint> facesVN = mObjParser->getFacesVN();
 	vector<cl_float> vertices = mObjParser->getVertices();
 
 	snprintf(
-		msg, 256, "[ModelLoader] ... Done. %lu vertices and %lu faces.",
-		vertices.size() / 3, facesV.size() / 3
+		msg, 256, "[ModelLoader] ... Done. %lu vertices, %lu normals, and %lu faces.",
+		vertices.size() / 3, facesVN.size() / 3, facesV.size() / 3
 	);
 	Logger::logInfo( msg );
 }

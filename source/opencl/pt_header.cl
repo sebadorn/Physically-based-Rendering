@@ -7,7 +7,7 @@
 #define EPSILON10 0.0000000001f
 #define IMG_HEIGHT #IMG_HEIGHT#
 #define IMG_WIDTH #IMG_WIDTH#
-#define IMPLICIT #IMPLICIT#
+#define SHADOW_RAYS #SHADOW_RAYS#
 #define MAX_ADDED_DEPTH #MAX_ADDED_DEPTH#
 #define MAX_DEPTH #MAX_DEPTH#
 #define NI_AIR 1.00028f
@@ -45,14 +45,12 @@ typedef struct {
 	float3 w;
 	float3 u;
 	float3 v;
-	float focalLength;
-	float aperture;
+	float2 lense; // x: focal length; y: aperture
 } camera;
 
 typedef struct {
-	uint4 vertices;
+	uint4 vertices; // w: material
 	uint4 normals;
-	uint material;
 } face_t;
 
 
@@ -117,10 +115,11 @@ typedef struct {
 #if BRDF == 0
 
 	typedef struct {
-		float d;
-		float Ni;
-		float p;
-		float rough;
+		float4 data;
+		// data.s0: d
+		// data.s1: Ni
+		// data.s2: p
+		// data.s3: rough
 		MTL_COLOR
 	} material;
 
@@ -128,12 +127,13 @@ typedef struct {
 #elif BRDF == 1
 
 	typedef struct {
-		float nu;
-		float nv;
-		float Rs;
-		float Rd;
-		float d;
-		float Ni;
+		float8 data;
+		// data.s0: d
+		// data.s1: Ni
+		// data.s2: nu
+		// data.s3: nv
+		// data.s4: Rs
+		// data.s5: Rd
 		MTL_COLOR
 	} material;
 

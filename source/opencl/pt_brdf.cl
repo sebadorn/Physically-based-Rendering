@@ -142,7 +142,7 @@
 		*u = dot( h, V_OUT );
 		*pdf = native_divide( t, 4.0f * M_PI * dot( V_OUT, h ) );
 
-		return D( t, vOut, vIn, w, mtl->rough, mtl->p );
+		return D( t, vOut, vIn, w, mtl->data.s3, mtl->data.s2 );
 
 		#undef V_IN
 		#undef V_OUT
@@ -159,14 +159,14 @@
 	float3 newRaySchlick( const ray4* ray, const material* mtl, float* seed ) {
 		float3 newRay;
 
-		if( mtl->rough == 0.0f ) {
+		if( mtl->data.s3 == 0.0f ) {
 			return reflect( ray->dir, ray->normal );
 		}
 
 		float a = rand( seed );
 		float b = rand( seed );
-		float iso2 = mtl->p * mtl->p;
-		float alpha = acos( native_sqrt( native_divide( a, mtl->rough - a * mtl->rough + a ) ) );
+		float iso2 = mtl->data.s2 * mtl->data.s2;
+		float alpha = acos( native_sqrt( native_divide( a, mtl->data.s3 - a * mtl->data.s3 + a ) ) );
 		float phi;
 
 		if( b < 0.25f ) {
@@ -193,7 +193,7 @@
 			phi = 2.0f * M_PI - phi;
 		}
 
-		if( mtl->p < 1.0f ) {
+		if( mtl->data.s2 < 1.0f ) {
 			phi += M_PI_2;
 		}
 
@@ -277,7 +277,7 @@
 	 */
 	float3 newRayShirleyAshikhmin( const ray4* ray, const material* mtl, float* seed ) {
 		// // Just do it perfectly specular at such high and identical lobe values
-		// if( mtl->nu == mtl->nv && mtl->nu >= 100000.0f ) {
+		// if( mtl->data.s2 == mtl->data.s3 && mtl->data.s2 >= 100000.0f ) {
 		// 	return reflect( ray->dir, ray->normal );
 		// }
 
@@ -306,17 +306,17 @@
 		a = 1.0f - 4.0f * ( aMax - a );
 
 		const float phi = atan(
-			native_sqrt( native_divide( mtl->nu + 1.0f, mtl->nv + 1.0f ) ) *
+			native_sqrt( native_divide( mtl->data.s2 + 1.0f, mtl->data.s3 + 1.0f ) ) *
 			native_tan( M_PI_2 * a )
 		);
 		const float phi_full = phi_flip + phi_flipf * phi;
 
 		const float cosphi = native_cos( phi );
 		const float sinphi = native_sin( phi );
-		const float theta_e = native_recip( mtl->nu * cosphi * cosphi + mtl->nv * sinphi * sinphi + 1.0f );
+		const float theta_e = native_recip( mtl->data.s2 * cosphi * cosphi + mtl->data.s3 * sinphi * sinphi + 1.0f );
 		const float theta = acos( pow( 1.0f - b, theta_e ) );
 
-		const float3 normal = ( mtl->d < 1.0f || dot( ray->normal, -ray->dir ) >= 0.0f ) ? ray->normal : -ray->normal;
+		const float3 normal = ( mtl->data.s0 < 1.0f || dot( ray->normal, -ray->dir ) >= 0.0f ) ? ray->normal : -ray->normal;
 
 		const float3 h = jitter( normal, phi_full, native_sin( theta ), native_cos( theta ) );
 		const float3 spec = reflect( ray->dir, h );
@@ -335,11 +335,11 @@
 
 /**
  * Calculate the new ray depending on the current one and the hit surface.
- * @param  {const ray4}     currentRay  The current ray
- * @param  {const material} mtl         Material of the hit surface.
- * @param  {float*}         seed        Seed for the random number generator.
- * @param  {bool*}          addDepth    Flag.
- * @return {ray4}                       The new ray.
+ * @param  {const ray4*}     ray      The current ray
+ * @param  {const material*} mtl      Material of the hit surface.
+ * @param  {float*}          seed     Seed for the random number generator.
+ * @param  {bool*}           addDepth Flag.
+ * @return {ray4}                     The new ray.
  */
 ray4 getNewRay(
 	const ray4* ray, const material* mtl, float* seed, bool* addDepth
@@ -350,7 +350,7 @@ ray4 getNewRay(
 	newRay.origin += ray->normal * EPSILON7;
 
 	// Transparency and refraction
-	bool doTransRefr = ( mtl->d < 1.0f && mtl->d <= rand( seed ) );
+	bool doTransRefr = ( mtl->data.s0 < 1.0f && mtl->data.s0 <= rand( seed ) );
 
 	*addDepth = ( *addDepth || doTransRefr );
 

@@ -89,9 +89,9 @@ inline void swap( float* a, float* b ) {
 inline bool extendDepth( const material* mtl, float* seed ) {
 	#if BRDF == 1
 		// TODO: Use rand() in some way instead of this fixed threshold value.
-		return ( fmax( mtl->nu, mtl->nv ) >= 50.0f );
+		return ( fmax( mtl->data.s2, mtl->data.s3 ) >= 50.0f );
 	#else
-		return ( mtl->rough < rand( seed ) );
+		return ( mtl->data.s3 < rand( seed ) );
 	#endif
 }
 
@@ -297,11 +297,11 @@ inline float3 getPhongTessNormal(
 /**
  * New direction for (perfectly) diffuse surfaces.
  * (Well, depening on the given parameters.)
- * @param  {const float4} nl   Normal (unit vector).
+ * @param  {const float3} nl   Normal (unit vector).
  * @param  {const float}  phi
  * @param  {const float}  sina
  * @param  {const float}  cosa
- * @return {float4}
+ * @return {float3}
  */
 float3 jitter(
 	const float3 nl, const float phi, const float sina, const float cosa
@@ -352,7 +352,7 @@ void depthOfField( ray4* ray, const camera* cam, float tObject, float tFocus, fl
 
 	// Depth-of-Field with a thin lense model.
 	if( tObject > 0.0f ) {
-		const float aperture = cam->focalLength / cam->aperture;
+		const float aperture = cam->lense.x / cam->lense.y; // aperture = focal length / aperture
 
 		// Choose a random point inside the circle of confusion.
 		const float radius = rand( seed ) * aperture * 0.5f;
@@ -378,7 +378,7 @@ void depthOfField( ray4* ray, const camera* cam, float tObject, float tFocus, fl
  * @param  {float*}      seed        Seed for the RNG.
  * @return {bool}                    True, if path should be terminated, false otherwise.
  */
-inline bool russianRoulette( int depth, int depthAdded, float maxValColor, float* seed ) {
+inline bool russianRoulette( const int depth, const int depthAdded, const float maxValColor, float* seed ) {
 	return ( depth > 2 + depthAdded && maxValColor < rand( seed ) );
 }
 
@@ -397,8 +397,8 @@ inline float3 projectOnPlane( const float3 q, const float3 p, const float3 n ) {
 
 /**
  * MACRO: Apply Lambert's cosine law for light sources.
- * @param  {float4} n Normal of the surface the light hits.
- * @param  {float4} l Normalized direction to the light source.
+ * @param  {float3} n Normal of the surface the light hits.
+ * @param  {float3} l Normalized direction to the light source.
  * @return {float}
  */
 #define lambert( n, l ) ( fmax( dot( ( n ), ( l ) ), 0.0f ) )
@@ -415,9 +415,9 @@ inline float3 projectOnPlane( const float3 q, const float3 p, const float3 n ) {
 
 /**
  * MACRO: Reflect a ray.
- * @param  {float4} dir    Direction of ray.
- * @param  {float4} normal Normal of surface.
- * @return {float4}        Reflected ray.
+ * @param  {float3} dir    Direction of ray.
+ * @param  {float3} normal Normal of surface.
+ * @return {float3}        Reflected ray.
  */
 #define reflect( dir, normal ) ( ( dir ) - 2.0f * dot( ( normal ), ( dir ) ) * ( normal ) )
 
@@ -427,7 +427,7 @@ inline float3 projectOnPlane( const float3 q, const float3 p, const float3 n ) {
  * @param  {const ray4*}     currentRay The current ray.
  * @param  {const material*} mtl        Material of the hit surface.
  * @param  {float*}          seed       Seed for the random number generator.
- * @return {float4}                     A new direction for the ray.
+ * @return {float3}                     A new direction for the ray.
  */
 float3 refract( const ray4* ray, const material* mtl, float* seed ) {
 	#define DIR ( ray->dir )
@@ -436,8 +436,8 @@ float3 refract( const ray4* ray, const material* mtl, float* seed ) {
 	const bool into = ( dot( N, DIR ) < 0.0f );
 	const float3 nl = into ? N : -N;
 
-	const float m1 = into ? NI_AIR : mtl->Ni;
-	const float m2 = into ? mtl->Ni : NI_AIR;
+	const float m1 = into ? NI_AIR : mtl->data.s1;
+	const float m2 = into ? mtl->data.s1 : NI_AIR;
 	const float m = native_divide( m1, m2 );
 
 	const float cosI = -dot( DIR, nl );

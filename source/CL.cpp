@@ -609,7 +609,7 @@ string CL::setValues( string clProgramString ) {
 	valueReplace.push_back( "BRDF" );
 	valueReplace.push_back( "IMG_HEIGHT" );
 	valueReplace.push_back( "IMG_WIDTH" );
-	valueReplace.push_back( "IMPLICIT" );
+	valueReplace.push_back( "SHADOW_RAYS" );
 	valueReplace.push_back( "MAX_DEPTH" );
 	valueReplace.push_back( "MAX_ADDED_DEPTH" );
 	valueReplace.push_back( "PHONGTESS" );
@@ -622,7 +622,7 @@ string CL::setValues( string clProgramString ) {
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_BRDF ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH ) );
-	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_IMPLICIT ) );
+	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SHADOWRAYS ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_MAXDEPTH ) );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_MAXADDEDDEPTH ) );
 	configInt.push_back( PhongTess_ALPHA > 0.0f ? 1 : 0 );

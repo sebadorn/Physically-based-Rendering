@@ -1,11 +1,10 @@
 /**
  * Write the final color to the output image.
- * @param {const int2}           pos         Pixel coordinate in the image to read from/write to.
  * @param {read_only image2d_t}  imageIn     The previously generated image.
  * @param {write_only image2d_t} imageOut    Output.
  * @param {const float}          pixelWeight Mixing weight of the new color with the old one.
  * @param {float4}               finalColor  Final color reaching this pixel.
- * @param {float}                focus       Value <t> of the ray.
+ * @param {float}                focus       Value <t> of the first ray.
  */
 void setColors(
 	read_only image2d_t imageIn, write_only image2d_t imageOut,
