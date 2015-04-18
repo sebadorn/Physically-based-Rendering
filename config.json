@@ -99,11 +99,11 @@
 		// 1: Shirley-Ashikhmin
 		"brdf": 1,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
-		"interval": 40.0,
+		"interval": 50.0,
 		// Shoot shadow rays to generate implicit paths.
 		// 0: disable
 		// 1: enable
-		"implicit": 1,
+		"implicit": 0,
 		// Extend the path if a reflective or transparent surface is hit
 		"max_added_depth": 3,
 		// Maximum path length

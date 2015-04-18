@@ -276,7 +276,7 @@ kdNode_t* KdTree::getSplit(
 
 	// Using the SAH didn't find a split position, so just split 50:50.
 	if( bestSAH == FLT_MAX ) {
-		char msg[128] = "[KdTree] Could not split node with SAH. Doing it 50:50 for the longest axis instead.";
+		char msg[128] = "[KdTree] Could not split node with SAH. Doing it 50:50 instead.";
 		Logger::logDebug( msg );
 
 		glm::vec3 nodeLen = bbMaxNode - bbMinNode;
