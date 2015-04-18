@@ -19,6 +19,7 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 
 	mMoveSun = false;
 	mViewBVH = false;
+	mViewDebug = false;
 	mViewOverlay = false;
 	mViewTracer = true;
 
@@ -40,7 +41,9 @@ GLWidget::~GLWidget() {
 	this->deleteOldModel();
 
 	glDeleteTextures( 1, &mTargetTexture );
+	glDeleteTextures( 1, &mDebugTexture );
 	glDeleteProgram( mGLProgramTracer );
+	glDeleteProgram( mGLProgramDebug );
 	glDeleteProgram( mGLProgramSimple );
 
 	delete mTimer;
@@ -244,6 +247,27 @@ void GLWidget::initShaders() {
 	glDeleteShader( shaderFrag );
 
 
+	// Shaders for debug
+
+	shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
+	shaderPath.append( "debug" );
+
+	glDeleteProgram( mGLProgramDebug );
+
+	mGLProgramDebug = glCreateProgram();
+	shaderVert = glCreateShader( GL_VERTEX_SHADER );
+	shaderFrag = glCreateShader( GL_FRAGMENT_SHADER );
+
+	this->loadShader( mGLProgramDebug, shaderVert, shaderPath + string( ".vert" ) );
+	this->loadShader( mGLProgramDebug, shaderFrag, shaderPath + string( ".frag" ) );
+
+	glLinkProgram( mGLProgramDebug );
+	glDetachShader( mGLProgramDebug, shaderVert );
+	glDetachShader( mGLProgramDebug, shaderFrag );
+	glDeleteShader( shaderVert );
+	glDeleteShader( shaderFrag );
+
+
 	// Shaders for drawing simple geometry with just one color
 
 	shaderPath = Cfg::get().value<string>( Cfg::SHADER_PATH );
@@ -283,6 +307,16 @@ void GLWidget::initTargetTexture() {
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_FLOAT, &mTextureOut[0] );
+	glBindTexture( GL_TEXTURE_2D, 0 );
+
+
+	mTextureDebug = vector<cl_float>( w * h * 4 );
+
+	glGenTextures( 1, &mDebugTexture );
+	glBindTexture( GL_TEXTURE_2D, mDebugTexture );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_FLOAT, &mTextureDebug[0] );
 	glBindTexture( GL_TEXTURE_2D, 0 );
 }
 
@@ -324,11 +358,11 @@ void GLWidget::loadModel( string filepath, string filename ) {
 		accelStruct = new KdTree( mFaces, op->getFacesVN(), mVertices, mNormals );
 	}
 
-	// Visualization of BVH
+	// Visualization of the acceleration structure
 	vector<GLfloat> visVertices;
 	vector<GLuint> visIndices;
 	accelStruct->visualize( &visVertices, &visIndices );
-	mBVHNumIndices = visIndices.size();
+	mAccelStructNumIndices = visIndices.size();
 
 	// Shader buffers
 	this->setShaderBuffersForOverlay( mVertices, mFaces );
@@ -445,7 +479,7 @@ void GLWidget::paintGL() {
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	if( mViewTracer ) {
-		mTextureOut = mPathTracer->generateImage();
+		mTextureOut = mPathTracer->generateImage( &mTextureDebug );
 	}
 
 	this->paintScene();
@@ -458,7 +492,7 @@ void GLWidget::paintGL() {
  */
 void GLWidget::paintScene() {
 	// Path tracing result
-	if( mViewTracer ) {
+	if( mViewTracer && !mViewDebug ) {
 		glUseProgram( mGLProgramTracer );
 
 		glUniform1i( glGetUniformLocation( mGLProgramTracer, "width" ), width() );
@@ -468,6 +502,27 @@ void GLWidget::paintScene() {
 		glTexImage2D(
 			GL_TEXTURE_2D, 0, GL_RGBA, width(), height(),
 			0, GL_RGBA, GL_FLOAT, &mTextureOut[0]
+		);
+		glBindVertexArray( mVA[VA_TRACER] );
+		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
+
+		glBindTexture( GL_TEXTURE_2D, 0 );
+		glBindVertexArray( 0 );
+		glUseProgram( 0 );
+	}
+
+
+	// Debug texture
+	if( mViewDebug ) {
+		glUseProgram( mGLProgramDebug );
+
+		glUniform1i( glGetUniformLocation( mGLProgramDebug, "width" ), width() );
+		glUniform1i( glGetUniformLocation( mGLProgramDebug, "height" ), height() );
+
+		glBindTexture( GL_TEXTURE_2D, mTargetTexture );
+		glTexImage2D(
+			GL_TEXTURE_2D, 0, GL_RGBA, width(), height(),
+			0, GL_RGBA, GL_FLOAT, &mTextureDebug[0]
 		);
 		glBindVertexArray( mVA[VA_TRACER] );
 		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
@@ -513,7 +568,7 @@ void GLWidget::paintScene() {
 		glUniform3fv( glGetUniformLocation( mGLProgramSimple, "translate" ), 1, translate );
 
 		glBindVertexArray( mVA[VA_BVH] );
-		glDrawElements( GL_LINES, mBVHNumIndices, GL_UNSIGNED_INT, NULL );
+		glDrawElements( GL_LINES, mAccelStructNumIndices, GL_UNSIGNED_INT, NULL );
 
 		glBindVertexArray( 0 );
 		glUseProgram( 0 );
@@ -723,6 +778,14 @@ void GLWidget::toggleSunMovement() {
 void GLWidget::toggleViewBVH() {
 	mViewBVH = !mViewBVH;
 }
+
+
+/**
+ * Toggle rendering of the debug image.
+ */
+void GLWidget::toggleViewDebug() {
+	mViewDebug = !mViewDebug;
+};
 
 
 /**

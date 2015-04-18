@@ -86,10 +86,17 @@ QMenuBar* Window::createMenuBar() {
 	actionTracer->setChecked( true );
 	connect( actionTracer, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewTracer() ) );
 
+	QAction* actionDebug = new QAction( tr( "Toggle &debug image" ), this );
+	actionDebug->setStatusTip( tr( "Debug image." ) );
+	actionDebug->setCheckable( true );
+	actionDebug->setChecked( false );
+	connect( actionDebug, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewDebug() ) );
+
 	QMenu* menuView = new QMenu( tr( "&View" ) );
 	menuView->addAction( actionBVH );
 	menuView->addAction( actionOverlay );
 	menuView->addAction( actionTracer );
+	menuView->addAction( actionDebug );
 
 
 	// Menu 3: Info

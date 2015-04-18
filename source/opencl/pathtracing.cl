@@ -59,6 +59,36 @@ ray4 initRay(
 }
 
 
+/**
+ * Get the t factor for the hit object of this ray and
+ * the center ray of the previous frame.
+ * @param  {read_only image2d_t} imageIn
+ * @return {float2}
+ */
+float2 getPreviousFocus( read_only image2d_t imageIn ) {
+	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
+	const int2 posCenter = { (int) IMG_WIDTH * 0.5f, (int) IMG_HEIGHT * 0.5f };
+	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+	const float4 thisRayPixel = read_imagef( imageIn, sampler, pos );
+	const float4 centerRayPixel = read_imagef( imageIn, sampler, posCenter );
+
+	return (float2)( thisRayPixel.w, centerRayPixel.w ); // tObject, tFocus
+}
+
+
+/**
+ * Write color to the debug image.
+ * @param {write_only image2d_t} imageDebug
+ * @param {const float4}         color
+ */
+void writeDebugImage( write_only image2d_t imageDebug, float4 color ) {
+	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
+	color.x /= 1082.0f; // number of faces in the test model
+	color.y /= 1265.0f; // number of BVH nodes in the test model
+	write_imagef( imageDebug, pos, color );
+}
+
+
 #if USE_SPECTRAL == 0
 
 	/**
@@ -321,7 +351,9 @@ kernel void pathTracing(
 
 	// old and new frame
 	read_only image2d_t imageIn,
-	write_only image2d_t imageOut
+	write_only image2d_t imageOut,
+
+	write_only image2d_t imageDebug
 ) {
 	#if USE_SPECTRAL == 0
 		float4 finalColor = (float4)( 0.0f );
@@ -331,22 +363,16 @@ kernel void pathTracing(
 	#endif
 
 	#if ACCEL_STRUCT == 0
-		Scene scene = { bvh, faces, vertices, normals };
+		Scene scene = { bvh, faces, vertices, normals, (float4)( 0.0f ) };
 	#elif ACCEL_STRUCT == 1
-		Scene scene = { kdRootNode, kdNonLeaves, kdLeaves, kdFaces, faces, vertices, normals };
+		Scene scene = { kdRootNode, kdNonLeaves, kdLeaves, kdFaces, faces, vertices, normals, (float4)( 0.0f ) };
 	#endif
 
 	float focus = 0.0f;
+	const float2 prevFocus = getPreviousFocus( imageIn );
+
 	bool addDepth;
 	uint secondaryPaths = 1; // Start at 1 instead of 0, because we are going to divide through it.
-
-
-	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
-	const int2 posCenter = { (int) IMG_WIDTH * 0.5f, (int) IMG_HEIGHT * 0.5f };
-	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
-	const float4 thisRayPixel = read_imagef( imageIn, sampler, pos );
-	const float4 centerRayPixel = read_imagef( imageIn, sampler, posCenter );
-
 
 	for( uint sample = 0; sample < SAMPLES; sample++ ) {
 		#if USE_SPECTRAL == 0
@@ -358,7 +384,7 @@ kernel void pathTracing(
 			float maxValColor = 0.0f;
 		#endif
 
-		ray4 ray = initRay( pxDim, cam, &seed, centerRayPixel.w, thisRayPixel.w );
+		ray4 ray = initRay( pxDim, cam, &seed, prevFocus.y, prevFocus.x );
 		int depthAdded = 0;
 
 		for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
@@ -371,7 +397,7 @@ kernel void pathTracing(
 				break;
 			}
 
-			material mtl = materials[faces[ray.hitFace].vertices.w];
+			material mtl = materials[scene.faces[ray.hitFace].vertices.w];
 
 			// Last round, no need to calculate a new ray.
 			// Unless we hit a material that extends the path.
@@ -468,4 +494,6 @@ kernel void pathTracing(
 	#endif
 
 	SETCOLORS
+
+	writeDebugImage( imageDebug, scene.debugColor );
 }

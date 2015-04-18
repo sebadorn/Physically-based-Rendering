@@ -92,6 +92,7 @@ class GLWidget : public QGLWidget {
 
 	protected slots:
 		void toggleViewBVH();
+		void toggleViewDebug();
 		void toggleViewOverlay();
 		void toggleViewTracer();
 
@@ -99,13 +100,15 @@ class GLWidget : public QGLWidget {
 		bool mDoRendering;
 		bool mMoveSun;
 		bool mViewBVH;
+		bool mViewDebug;
 		bool mViewOverlay;
 		bool mViewTracer;
 
 		cl_float mFOV;
 
-		GLuint mBVHNumIndices;
+		GLuint mAccelStructNumIndices;
 		GLuint mFrameCount;
+		GLuint mGLProgramDebug;
 		GLuint mGLProgramTracer;
 		GLuint mGLProgramSimple;
 		GLuint mIndexBuffer;
@@ -120,6 +123,7 @@ class GLWidget : public QGLWidget {
 		map<GLuint, GLuint> mTextureIDs;
 		vector<GLuint> mVA;
 		GLuint mTargetTexture;
+		GLuint mDebugTexture;
 
 		glm::mat4 mModelMatrix;
 		glm::mat4 mModelViewProjectionMatrix;
@@ -128,6 +132,7 @@ class GLWidget : public QGLWidget {
 
 		vector<cl_uint> mFaces;
 		vector<cl_float> mNormals;
+		vector<cl_float> mTextureDebug;
 		vector<cl_float> mTextureOut;
 		vector<cl_float> mVertices;
 

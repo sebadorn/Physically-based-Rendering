@@ -22,6 +22,8 @@ void intersectFace( const Scene* scene, ray4* ray, const int faceIndex, float3* 
 		ray->hitFace = faceIndex;
 		ray->t = tuv->x;
 	}
+
+	scene->debugColor.x += 1.0f;
 }
 
 
@@ -65,6 +67,7 @@ void traverse( const Scene* scene, ray4* ray ) {
 
 	do {
 		const bvhNode node = scene->bvh[index];
+		scene->debugColor.y += 1.0f;
 
 		float tNear = 0.0f;
 		float tFar = INFINITY;

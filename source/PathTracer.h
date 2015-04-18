@@ -117,7 +117,7 @@ class PathTracer {
 	public:
 		PathTracer( GLWidget* parent );
 		~PathTracer();
-		vector<cl_float> generateImage();
+		vector<cl_float> generateImage( vector<cl_float>* textureDebug );
 		void initOpenCLBuffers(
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals,
 			ModelLoader* ml, AccelStructure* bvh
@@ -178,6 +178,7 @@ class PathTracer {
 		camera_cl mStructCam;
 		cl_mem mBufTextureIn;
 		cl_mem mBufTextureOut;
+		cl_mem mBufTextureDebug;
 
 		GLWidget* mGLWidget;
 		Camera* mCamera;

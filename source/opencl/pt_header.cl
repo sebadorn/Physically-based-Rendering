@@ -1,7 +1,6 @@
 #define ACCEL_STRUCT #ACCEL_STRUCT#
 #define ANTI_ALIASING #ANTI_ALIASING#
 #define BRDF #BRDF#
-#define BVH_STACKSIZE #BVH_STACKSIZE#
 #define EPSILON5 0.00001f
 #define EPSILON7 0.0000001f
 #define EPSILON10 0.0000000001f
@@ -68,6 +67,7 @@ typedef struct {
 		global const face_t* faces;
 		global const float4* vertices;
 		global const float4* normals;
+		float4 debugColor;
 	} Scene;
 
 // kd-tree
@@ -93,6 +93,7 @@ typedef struct {
 		global const face_t* faces;
 		global const float4* vertices;
 		global const float4* normals;
+		float4 debugColor;
 	} Scene;
 
 #endif

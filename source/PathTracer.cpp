@@ -59,7 +59,7 @@ void PathTracer::clPathTracing( cl_float timeSinceStart ) {
  * Generate the path traced image, which is basically just a 2D texture.
  * @return {std::vector<cl_float>} Float vector representing a 2D image.
  */
-vector<cl_float> PathTracer::generateImage() {
+vector<cl_float> PathTracer::generateImage( vector<cl_float>* textureDebug ) {
 	this->updateEyeBuffer();
 	mCL->updateImageReadOnly( mBufTextureIn, mWidth, mHeight, &mTextureOut[0] );
 
@@ -67,6 +67,7 @@ vector<cl_float> PathTracer::generateImage() {
 	this->clPathTracing( timeSinceStart );
 
 	mCL->readImageOutput( mBufTextureOut, mWidth, mHeight, &mTextureOut[0] );
+	mCL->readImageOutput( mBufTextureDebug, mWidth, mHeight, &(*textureDebug)[0] );
 	mSampleCount++;
 
 	return mTextureOut;
@@ -134,6 +135,7 @@ void PathTracer::initArgsKernelPathTracing() {
 
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufTextureIn );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufTextureOut );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufTextureDebug );
 }
 
 
@@ -186,12 +188,10 @@ void PathTracer::initOpenCLBuffers(
 	// Buffer: Acceleration Structure
 	timerStart = boost::posix_time::microsec_clock::local_time();
 	const short usedAccelStruct = Cfg::get().value<short>( Cfg::ACCEL_STRUCT );
-	uint bvhDepth = 0;
 	string accelName;
 
 	if( usedAccelStruct == ACCELSTRUCT_BVH ) {
 		bytes = this->initOpenCLBuffers_BVH( (BVH*) accelStruc );
-		bvhDepth = ( (BVH*) accelStruc )->getDepth();
 		accelName = "BVH";
 	}
 	else if( usedAccelStruct == ACCELSTRUCT_KDTREE ) {
@@ -227,10 +227,7 @@ void PathTracer::initOpenCLBuffers(
 	Logger::logInfo( "[PathTracer] ... Done." );
 
 
-	snprintf( msg, 128, "%u", bvhDepth );
-	mCL->setReplacement( string( "#BVH_STACKSIZE#" ), string( msg ) );
 	mCL->loadProgram( Cfg::get().value<string>( Cfg::OPENCL_PROGRAM ) );
-
 	mKernelPathTracing = mCL->createKernel( "pathTracing" );
 	mGLWidget->createKernelWindow( mCL );
 
@@ -240,7 +237,8 @@ void PathTracer::initOpenCLBuffers(
 
 /**
  * Init OpenCL buffers for the BVH.
- * @param {BVH*} bvh The generated Bounding Volume Hierarchy.
+ * @param  {BVH*}   bvh The generated Bounding Volume Hierarchy.
+ * @return {size_t}     Buffer size.
  */
 size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 	vector<BVHNode*> bvhNodes = bvh->getNodes();
@@ -602,10 +600,12 @@ size_t PathTracer::initOpenCLBuffers_MaterialsSPD( vector<material_t> materials,
  */
 size_t PathTracer::initOpenCLBuffers_Textures() {
 	mTextureOut = vector<cl_float>( mWidth * mHeight * 4, 0.0f );
+
 	mBufTextureIn = mCL->createImage2DReadOnly( mWidth, mHeight, &mTextureOut[0] );
 	mBufTextureOut = mCL->createImage2DWriteOnly( mWidth, mHeight );
+	mBufTextureDebug = mCL->createImage2DWriteOnly( mWidth, mHeight );
 
-	return sizeof( cl_float ) * mTextureOut.size();
+	return sizeof( cl_float ) * mTextureOut.size() * 3.0f;
 }
 
 
