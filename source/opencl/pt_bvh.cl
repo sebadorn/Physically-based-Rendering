@@ -78,6 +78,7 @@ void traverse( const Scene* scene, ray4* ray ) {
 		);
 
 		// In case of no hit: Go right or up.
+		int currentIndex = index;
 		index = node.faces.w;
 
 		if( !isNodeHit ) {
@@ -86,7 +87,7 @@ void traverse( const Scene* scene, ray4* ray ) {
 
 		// Not a leaf node, progress further down to the left.
 		if( node.faces.x == -1 ) {
-			index = (int) node.bbMin.w;
+			index = currentIndex + 1;
 		}
 		// Node is leaf node.
 		else {
@@ -119,6 +120,7 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 		);
 
 		// In case of no hit: Go right or up.
+		int currentIndex = index;
 		index = node.faces.w;
 
 		if( !isNodeHit ) {
@@ -127,7 +129,7 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 
 		// Not a leaf node, progress further down to the left.
 		if( node.faces.x == -1 ) {
-			index = (int) node.bbMin.w;
+			index = currentIndex + 1;
 		}
 		// Node is leaf node.
 		else {

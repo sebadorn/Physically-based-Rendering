@@ -57,8 +57,8 @@ typedef struct {
 #if ACCEL_STRUCT == 0
 
 	typedef struct {
-		float4 bbMin; // bbMin.w = leftChild
-		float4 bbMax; // bbMax.w = rightChild
+		float4 bbMin;
+		float4 bbMax;
 		int4 faces;   // w: either the right sibling or the parent
 	} bvhNode;
 

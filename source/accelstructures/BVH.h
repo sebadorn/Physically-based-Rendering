@@ -94,6 +94,7 @@ class BVH : public AccelStructure {
 		cl_uint longestAxis( const BVHNode* node );
 		BVHNode* makeNode( const vector<Tri> faces, bool ignore );
 		BVHNode* makeContainerNode( const vector<BVHNode*> subTrees, const bool isRoot );
+		void orderNodesByTraversal();
 		vector<cl_float4> packFloatAsFloat4( const vector<cl_float>* vertices );
 		void resizeBinsToFaces(
 			const cl_uint splits,

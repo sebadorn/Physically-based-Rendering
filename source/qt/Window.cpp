@@ -68,18 +68,6 @@ QMenuBar* Window::createMenuBar() {
 
 	// Menu 2: View
 
-	QAction* actionBVH = new QAction( tr( "Toggle &Boundig Volume Hierarchy" ), this );
-	actionBVH->setStatusTip( tr( "Visualize the Bounding Volume Hierarchy." ) );
-	actionBVH->setCheckable( true );
-	actionBVH->setChecked( false );
-	connect( actionBVH, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewBVH() ) );
-
-	QAction* actionOverlay = new QAction( tr( "Toggle original &overlay" ), this );
-	actionOverlay->setStatusTip( tr( "Translucent overlay of the model over the traced one." ) );
-	actionOverlay->setCheckable( true );
-	actionOverlay->setChecked( false );
-	connect( actionOverlay, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewOverlay() ) );
-
 	QAction* actionTracer = new QAction( tr( "Toggle &path tracing" ), this );
 	actionTracer->setStatusTip( tr( "Path tracing." ) );
 	actionTracer->setCheckable( true );
@@ -92,11 +80,23 @@ QMenuBar* Window::createMenuBar() {
 	actionDebug->setChecked( false );
 	connect( actionDebug, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewDebug() ) );
 
+	QAction* actionBVH = new QAction( tr( "Toggle &Boundig Volume Hierarchy" ), this );
+	actionBVH->setStatusTip( tr( "Visualize the Bounding Volume Hierarchy." ) );
+	actionBVH->setCheckable( true );
+	actionBVH->setChecked( false );
+	connect( actionBVH, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewBVH() ) );
+
+	QAction* actionOverlay = new QAction( tr( "Toggle original &overlay" ), this );
+	actionOverlay->setStatusTip( tr( "Translucent overlay of the model over the traced one." ) );
+	actionOverlay->setCheckable( true );
+	actionOverlay->setChecked( false );
+	connect( actionOverlay, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewOverlay() ) );
+
 	QMenu* menuView = new QMenu( tr( "&View" ) );
-	menuView->addAction( actionBVH );
-	menuView->addAction( actionOverlay );
 	menuView->addAction( actionTracer );
 	menuView->addAction( actionDebug );
+	menuView->addAction( actionBVH );
+	menuView->addAction( actionOverlay );
 
 
 	// Menu 3: Info

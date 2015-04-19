@@ -371,6 +371,8 @@ void BVH::combineNodes( const cl_uint numSubTrees ) {
 			}
 		}
 	}
+
+	this->orderNodesByTraversal();
 }
 
 
@@ -725,6 +727,63 @@ BVHNode* BVH::makeNode( const vector<Tri> tris, const bool ignore ) {
 	}
 
 	return node;
+}
+
+
+/**
+ * Order all BVH nodes for worst-case, left-first, stackless BVH
+ * traversal as done in the OpenCL kernel.
+ */
+void BVH::orderNodesByTraversal() {
+	vector<BVHNode*> nodesOrdered;
+	BVHNode* node = mNodes[0];
+
+	// Order the nodes.
+	while( true ) {
+		nodesOrdered.push_back( node );
+
+		if( node->leftChild != NULL ) {
+			node = node->leftChild;
+		}
+		else {
+			// is left node, visit right sibling next
+			if( node->parent->leftChild == node ) {
+				node = node->parent->rightChild;
+			}
+			// is right node, go up tree
+			else if( node->parent->parent != NULL ) {
+				BVHNode* dummy = new BVHNode();
+				dummy->parent = node->parent;
+
+				// As long as we are on the right side of a (sub)tree,
+				// skip parents until we either are at the root or
+				// our parent has a true sibling again.
+				while( dummy->parent->parent->rightChild == dummy->parent ) {
+					dummy->parent = dummy->parent->parent;
+
+					if( dummy->parent->parent == NULL ) {
+						break;
+					}
+				}
+
+				// Reached a parent with a true sibling.
+				if( dummy->parent->parent != NULL ) {
+					node = dummy->parent->parent->rightChild;
+				}
+			}
+		}
+
+		if( nodesOrdered.size() >= mNodes.size() ) {
+			break;
+		}
+	}
+
+	// Re-assign IDs.
+	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
+		BVHNode* node = nodesOrdered[i];
+		node->id = i;
+		mNodes[i] = node;
+	}
 }
 
 
