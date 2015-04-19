@@ -82,9 +82,8 @@ struct material_shirley_ashikhmin_rgb {
 // BVH
 
 struct bvhNode_cl {
-	cl_float4 bbMin; // bbMin.w = leftChild
-	cl_float4 bbMax; // bbMax.w = rightChild
-	cl_int4 faces;
+	cl_float4 bbMin; // w: face index
+	cl_float4 bbMax; // w: face index or next node to visit
 };
 
 

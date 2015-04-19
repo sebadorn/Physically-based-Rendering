@@ -1,6 +1,7 @@
 #define ACCEL_STRUCT #ACCEL_STRUCT#
 #define ANTI_ALIASING #ANTI_ALIASING#
 #define BRDF #BRDF#
+#define BVH_NUM_NODES #BVH_NUM_NODES#
 #define EPSILON5 0.00001f
 #define EPSILON7 0.0000001f
 #define EPSILON10 0.0000000001f
@@ -57,9 +58,8 @@ typedef struct {
 #if ACCEL_STRUCT == 0
 
 	typedef struct {
-		float4 bbMin;
-		float4 bbMax;
-		int4 faces;   // w: either the right sibling or the parent
+		float4 bbMin; // w: face index
+		float4 bbMax; // w: face index or next node to visit
 	} bvhNode;
 
 	typedef struct {

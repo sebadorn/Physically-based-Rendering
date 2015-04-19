@@ -38,21 +38,21 @@ void intersectFace( const Scene* scene, ray4* ray, const int faceIndex, float3* 
 void intersectFaces( const Scene* scene, ray4* ray, const bvhNode* node, const float tNear, float tFar ) {
 	float3 tuv;
 
-	intersectFace( scene, ray, node->faces.x, &tuv, tNear, tFar );
+	intersectFace( scene, ray, node->bbMin.w, &tuv, tNear, tFar );
 
 	// Second face, if existing.
-	if( node->faces.y == -1 ) {
+	if( node->bbMax.w == -1 ) {
 		return;
 	}
 
-	intersectFace( scene, ray, node->faces.y, &tuv, tNear, tFar );
+	intersectFace( scene, ray, node->bbMax.w, &tuv, tNear, tFar );
 
-	// Third face, if existing.
-	if( node->faces.z == -1 ) {
-		return;
-	}
+	// // Third face, if existing.
+	// if( node->faces.z == -1 ) {
+	// 	return;
+	// }
 
-	intersectFace( scene, ray, node->faces.z, &tuv, tNear, tFar );
+	// intersectFace( scene, ray, node->faces.z, &tuv, tNear, tFar );
 }
 
 
@@ -77,23 +77,29 @@ void traverse( const Scene* scene, ray4* ray ) {
 			tFar > EPSILON5 && ray->t > tNear
 		);
 
-		// In case of no hit: Go right or up.
 		int currentIndex = index;
-		index = node.faces.w;
+
+		// To save memory, we interpret <node.bbMax.w> depending on the situation:
+		// - For a leaf node <node.bbMax.w> is a face index.
+		// - Otherwise it is the index of the next node to visit.
+		// <node.bbMin.w> is used as face index, too. If it is -1.0f the node is NOT a leaf node.
+		//
+		// If a node has a left child, it will always be next in memory (index + 1).
+		// Also, if a node is a leaf node, the next node to visit (a right sibling or
+		// right child of a distinct parent) will also be next in memory (index + 1).
+		index = ( node.bbMin.w == -1.0f ) ? (int) node.bbMax.w : currentIndex + 1;
 
 		if( !isNodeHit ) {
 			continue;
 		}
 
-		// Not a leaf node, progress further down to the left.
-		if( node.faces.x == -1 ) {
-			index = currentIndex + 1;
-		}
-		// Node is leaf node.
-		else {
+		index = currentIndex + 1;
+
+		// Node is leaf node. Test faces.
+		if( node.bbMin.w != -1.0f ) {
 			intersectFaces( scene, ray, &node, tNear, tFar );
 		}
-	} while( index > 0 );
+	} while( index > 0 && index < BVH_NUM_NODES );
 }
 
 
@@ -119,21 +125,21 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 			tFar > EPSILON5
 		);
 
-		// In case of no hit: Go right or up.
 		int currentIndex = index;
-		index = node.faces.w;
+
+		// @see traverse() for an explanation.
+		index = ( node.bbMin.w == -1.0f ) ? (int) node.bbMax.w : currentIndex + 1;
 
 		if( !isNodeHit ) {
 			continue;
 		}
 
-		// Not a leaf node, progress further down to the left.
-		if( node.faces.x == -1 ) {
-			index = currentIndex + 1;
-		}
-		// Node is leaf node.
-		else {
+		index = currentIndex + 1;
+
+		// Node is leaf node. Test faces-
+		if( node.bbMin.w != -1.0f ) {
 			intersectFaces( scene, ray, &node, tNear, tFar );
+			index = currentIndex + 1;
 
 			// It's enough to know that something blocks the way. It doesn't matter what or where.
 			// TODO: It *does* matter what and where, if the material has transparency.
@@ -141,5 +147,5 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 				break;
 			}
 		}
-	} while( index > 0 );
+	} while( index > 0 && index < BVH_NUM_NODES );
 }

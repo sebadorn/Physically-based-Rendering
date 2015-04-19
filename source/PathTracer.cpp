@@ -253,19 +253,16 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 		bvhNode_cl sn;
 		sn.bbMin = bbMin;
 		sn.bbMax = bbMax;
-		// sn.bbMin.w = ( node->leftChild == NULL ) ? -1.0f : (cl_float) node->leftChild->id;
-		// sn.bbMax.w = ( node->rightChild == NULL ) ? -1.0f : (cl_float) node->rightChild->id;
 
 		vector<Tri> facesVec = node->faces;
 		cl_uint fvecLen = facesVec.size();
-		sn.faces.x = ( fvecLen > 0 ) ? facesVec[0].face.w : -1;
-		sn.faces.y = ( fvecLen > 1 ) ? facesVec[1].face.w : -1;
-		sn.faces.z = ( fvecLen > 2 ) ? facesVec[2].face.w : -1;
-		sn.faces.w = 0;
+		sn.bbMin.w = ( fvecLen > 0 ) ? (cl_float) facesVec[0].face.w : -1.0f;
+		sn.bbMax.w = ( fvecLen > 1 ) ? (cl_float) facesVec[1].face.w : -1.0f;
 
 		// No parent means it's the root node.
 		// Otherwise it is some other node, including leaves.
-		if( node->parent != NULL ) {
+		// Also for leaf nodes the next node to visit is given by the position in memory.
+		if( node->parent != NULL && fvecLen == 0 ) {
 			bool isLeftNode = ( node->parent->leftChild == node );
 
 			if( !isLeftNode ) {
@@ -286,13 +283,13 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 
 					// Reached a parent with a true sibling.
 					if( dummy->parent->parent != NULL ) {
-						sn.faces.w = dummy->parent->parent->rightChild->id;
+						sn.bbMax.w = dummy->parent->parent->rightChild->id;
 					}
 				}
 			}
 			// Node on the left, go to the right sibling.
 			else {
-				sn.faces.w = node->parent->rightChild->id;
+				sn.bbMax.w = node->parent->rightChild->id;
 			}
 		}
 
@@ -301,6 +298,10 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 
 	size_t bytesBVH = sizeof( bvhNode_cl ) * bvhNodesCL.size();
 	mBufBVH = mCL->createBuffer( bvhNodesCL, bytesBVH );
+
+	char msg[16];
+	snprintf( msg, 16, "%lu", bvhNodesCL.size() );
+	mCL->setReplacement( string( "#BVH_NUM_NODES#" ), string( msg ) );
 
 	return bytesBVH;
 }
