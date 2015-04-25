@@ -890,10 +890,17 @@ void BVH::splitBySAH(
 	cl_float newSAH, numFacesLeft, numFacesRight;
 
 	for( cl_uint i = 0; i < numFaces - 1; i++ ) {
-		newSAH = this->calcSAH(
-			nodeSA, leftSA[i], (cl_float) ( i + 1 ),
-			rightSA[i], (cl_float) ( numFaces - i - 1 )
-		);
+		cl_float overlapSA = 0.0f;
+		cl_float sideX = leftBB[i][1].x - rightBB[i][0].x;
+		cl_float sideY = leftBB[i][1].y - rightBB[i][0].y;
+		cl_float sideZ = leftBB[i][1].z - rightBB[i][0].z;
+
+		if( fmin( sideX, fmin( sideY, sideZ ) ) > 0.0f ) {
+			overlapSA = 2.0f * ( sideX * sideY + sideX * sideZ + sideY * sideZ );
+		}
+
+		newSAH = leftSA[i] * ( i + 1 ) + rightSA[i] * ( numFaces - i - 1 );
+		newSAH += overlapSA;
 
 		// Better split position found
 		if( newSAH < *bestSAH ) {

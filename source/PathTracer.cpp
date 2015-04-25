@@ -330,7 +330,7 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh, ModelLoader* ml, vector<cl_u
 	size_t bytesF = sizeof( face_cl ) * faceStructs.size();
 	mBufFaces = mCL->createBuffer( faceStructs, bytesF );
 
-	return bytesBVH;
+	return bytesBVH + bytesF;
 }
 
 
