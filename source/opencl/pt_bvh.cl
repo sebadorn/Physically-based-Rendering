@@ -46,13 +46,6 @@ void intersectFaces( const Scene* scene, ray4* ray, const bvhNode* node, const f
 	}
 
 	intersectFace( scene, ray, node->bbMax.w, &tuv, tNear, tFar );
-
-	// // Third face, if existing.
-	// if( node->faces.z == -1 ) {
-	// 	return;
-	// }
-
-	// intersectFace( scene, ray, node->faces.z, &tuv, tNear, tFar );
 }
 
 
@@ -66,16 +59,8 @@ void traverse( const Scene* scene, ray4* ray ) {
 	int index = 0;
 
 	do {
-		const bvhNode node = scene->bvh[index];
 		scene->debugColor.y += 1.0f;
-
-		float tNear = 0.0f;
-		float tFar = INFINITY;
-
-		bool isNodeHit = (
-			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNear, &tFar ) &&
-			tFar > EPSILON5 && ray->t > tNear
-		);
+		const bvhNode node = scene->bvh[index];
 
 		int currentIndex = index;
 
@@ -88,6 +73,14 @@ void traverse( const Scene* scene, ray4* ray ) {
 		// Also, if a node is a leaf node, the next node to visit (a right sibling or
 		// right child of a distinct parent) will also be next in memory (index + 1).
 		index = ( node.bbMin.w == -1.0f ) ? (int) node.bbMax.w : currentIndex + 1;
+
+		float tNear = 0.0f;
+		float tFar = INFINITY;
+
+		bool isNodeHit = (
+			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNear, &tFar ) &&
+			tFar > EPSILON5 && ray->t > tNear
+		);
 
 		if( !isNodeHit ) {
 			continue;
@@ -117,6 +110,11 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 	do {
 		const bvhNode node = scene->bvh[index];
 
+		int currentIndex = index;
+
+		// @see traverse() for an explanation.
+		index = ( node.bbMin.w == -1.0f ) ? (int) node.bbMax.w : currentIndex + 1;
+
 		float tNear = 0.0f;
 		float tFar = INFINITY;
 
@@ -124,11 +122,6 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 			intersectBox( ray, &invDir, node.bbMin, node.bbMax, &tNear, &tFar ) &&
 			tFar > EPSILON5
 		);
-
-		int currentIndex = index;
-
-		// @see traverse() for an explanation.
-		index = ( node.bbMin.w == -1.0f ) ? (int) node.bbMax.w : currentIndex + 1;
 
 		if( !isNodeHit ) {
 			continue;

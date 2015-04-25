@@ -191,7 +191,7 @@ void PathTracer::initOpenCLBuffers(
 	string accelName;
 
 	if( usedAccelStruct == ACCELSTRUCT_BVH ) {
-		bytes = this->initOpenCLBuffers_BVH( (BVH*) accelStruc );
+		bytes = this->initOpenCLBuffers_BVH( (BVH*) accelStruc, ml, faces );
 		accelName = "BVH";
 	}
 	else if( usedAccelStruct == ACCELSTRUCT_KDTREE ) {
@@ -240,9 +240,13 @@ void PathTracer::initOpenCLBuffers(
  * @param  {BVH*}   bvh The generated Bounding Volume Hierarchy.
  * @return {size_t}     Buffer size.
  */
-size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
+size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh, ModelLoader* ml, vector<cl_uint> faces ) {
 	vector<BVHNode*> bvhNodes = bvh->getNodes();
 	vector<bvhNode_cl> bvhNodesCL;
+
+	vector<cl_uint> facesVN = ml->getObjParser()->getFacesVN();
+	vector<cl_int> facesMtl = ml->getObjParser()->getFacesMtl();
+	vector<face_cl> faceStructs;
 
 	for( cl_uint i = 0; i < bvhNodes.size(); i++ ) {
 		BVHNode* node = bvhNodes[i];
@@ -256,8 +260,8 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 
 		vector<Tri> facesVec = node->faces;
 		cl_uint fvecLen = facesVec.size();
-		sn.bbMin.w = ( fvecLen > 0 ) ? (cl_float) facesVec[0].face.w : -1.0f;
-		sn.bbMax.w = ( fvecLen > 1 ) ? (cl_float) facesVec[1].face.w : -1.0f;
+		sn.bbMin.w = ( fvecLen > 0 ) ? (cl_float) faceStructs.size() + 0 : -1.0f;
+		sn.bbMax.w = ( fvecLen > 1 ) ? (cl_float) faceStructs.size() + 1 : -1.0f;
 
 		// No parent means it's the root node.
 		// Otherwise it is some other node, including leaves.
@@ -294,6 +298,26 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 		}
 
 		bvhNodesCL.push_back( sn );
+
+
+		// Faces
+		for( int i = 0; i < fvecLen; i++) {
+			Tri tri = facesVec[i];
+			face_cl face;
+
+			face.vertices.x = faces[tri.face.w * 3];
+			face.vertices.y = faces[tri.face.w * 3 + 1];
+			face.vertices.z = faces[tri.face.w * 3 + 2];
+			// Material of face
+			face.vertices.w = facesMtl[tri.face.w];
+
+			face.normals.x = facesVN[tri.normals.w * 3];
+			face.normals.y = facesVN[tri.normals.w * 3 + 1];
+			face.normals.z = facesVN[tri.normals.w * 3 + 2];
+			face.normals.w = 0;
+
+			faceStructs.push_back( face );
+		}
 	}
 
 	size_t bytesBVH = sizeof( bvhNode_cl ) * bvhNodesCL.size();
@@ -303,7 +327,74 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh ) {
 	snprintf( msg, 16, "%lu", bvhNodesCL.size() );
 	mCL->setReplacement( string( "#BVH_NUM_NODES#" ), string( msg ) );
 
+	size_t bytesF = sizeof( face_cl ) * faceStructs.size();
+	mBufFaces = mCL->createBuffer( faceStructs, bytesF );
+
 	return bytesBVH;
+}
+
+
+/**
+ * Init OpenCL buffers for the faces.
+ * @param {ModelLoader*}          ml       Model loader holding the model data.
+ * @param {std::vector<cl_float>} vertices Vertices of the model.
+ * @param {std::vector<cl_uint>}  faces    Faces of the model.
+ * @param {std::vector<cl_float>} normals  Normals of the model.
+ */
+size_t PathTracer::initOpenCLBuffers_Faces(
+	ModelLoader* ml, vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
+) {
+	vector<cl_float4> vertices4;
+	vector<cl_float4> normals4;
+	size_t bytesF = 0;
+
+	// BVH creates the faces buffer alongside the BVH buffer so the faces
+	// can be ordered by appearance in leaf nodes.
+	if( Cfg::get().value<short>( Cfg::ACCEL_STRUCT ) != ACCELSTRUCT_BVH ) {
+		vector<cl_uint> facesVN = ml->getObjParser()->getFacesVN();
+		vector<cl_int> facesMtl = ml->getObjParser()->getFacesMtl();
+		vector<face_cl> faceStructs;
+
+		// Convert array of face indices to own face struct.
+		for( int i = 0; i < faces.size(); i += 3 ) {
+			face_cl face;
+
+			face.vertices.x = faces[i];
+			face.vertices.y = faces[i + 1];
+			face.vertices.z = faces[i + 2];
+			// Material of face
+			face.vertices.w = facesMtl[i / 3];
+
+			face.normals.x = facesVN[i];
+			face.normals.y = facesVN[i + 1];
+			face.normals.z = facesVN[i + 2];
+			face.normals.w = 0;
+
+			faceStructs.push_back( face );
+		}
+
+		bytesF = sizeof( face_cl ) * faceStructs.size();
+
+		mBufFaces = mCL->createBuffer( faceStructs, bytesF );
+	}
+
+	for( int i = 0; i < vertices.size(); i += 3 ) {
+		cl_float4 v = { vertices[i], vertices[i + 1], vertices[i + 2], 0.0f };
+		vertices4.push_back( v );
+	}
+
+	for( int i = 0; i < normals.size(); i += 3 ) {
+		cl_float4 n = { normals[i], normals[i + 1], normals[i + 2], 0.0f };
+		normals4.push_back( n );
+	}
+
+	size_t bytesV = sizeof( cl_float4 ) * vertices4.size();
+	size_t bytesN = sizeof( cl_float4 ) * normals4.size();
+
+	mBufVertices = mCL->createBuffer( vertices4, bytesV );
+	mBufNormals = mCL->createBuffer( normals4, bytesN );
+
+	return bytesF + bytesV + bytesN;
 }
 
 
@@ -338,62 +429,6 @@ size_t PathTracer::initOpenCLBuffers_KdTree( KdTree* kdTree ) {
 	mBufKdFaces = mCL->createBuffer( kdFaces, bytesFaces );
 
 	return bytesNonLeaves + bytesLeaves + bytesFaces;
-}
-
-
-/**
- * Init OpenCL buffers for the faces.
- * @param {ModelLoader*}          ml       Model loader holding the model data.
- * @param {std::vector<cl_float>} vertices Vertices of the model.
- * @param {std::vector<cl_uint>}  faces    Faces of the model.
- * @param {std::vector<cl_float>} normals  Normals of the model.
- */
-size_t PathTracer::initOpenCLBuffers_Faces(
-	ModelLoader* ml, vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
-) {
-	vector<cl_uint> facesVN = ml->getObjParser()->getFacesVN();
-	vector<cl_int> facesMtl = ml->getObjParser()->getFacesMtl();
-	vector<face_cl> faceStructs;
-	vector<cl_float4> vertices4;
-	vector<cl_float4> normals4;
-
-	// Convert array of face indices to own face struct.
-	for( int i = 0; i < faces.size(); i += 3 ) {
-		face_cl face;
-
-		face.vertices.x = faces[i];
-		face.vertices.y = faces[i + 1];
-		face.vertices.z = faces[i + 2];
-		// Material of face
-		face.vertices.w = facesMtl[i / 3];
-
-		face.normals.x = facesVN[i];
-		face.normals.y = facesVN[i + 1];
-		face.normals.z = facesVN[i + 2];
-		face.normals.w = 0;
-
-		faceStructs.push_back( face );
-	}
-
-	for( int i = 0; i < vertices.size(); i += 3 ) {
-		cl_float4 v = { vertices[i], vertices[i + 1], vertices[i + 2], 0.0f };
-		vertices4.push_back( v );
-	}
-
-	for( int i = 0; i < normals.size(); i += 3 ) {
-		cl_float4 n = { normals[i], normals[i + 1], normals[i + 2], 0.0f };
-		normals4.push_back( n );
-	}
-
-	size_t bytesF = sizeof( face_cl ) * faceStructs.size();
-	size_t bytesV = sizeof( cl_float4 ) * vertices4.size();
-	size_t bytesN = sizeof( cl_float4 ) * normals4.size();
-
-	mBufFaces = mCL->createBuffer( faceStructs, bytesF );
-	mBufVertices = mCL->createBuffer( vertices4, bytesV );
-	mBufNormals = mCL->createBuffer( normals4, bytesN );
-
-	return bytesF + bytesV + bytesN;
 }
 
 

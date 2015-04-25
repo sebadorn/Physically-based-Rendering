@@ -3,12 +3,12 @@
 
 newmtl Squirrel
 Ni 1.5
-d 1.0
+d 0.0
 nu 0.0
 nv 0.0
 Rs 1.0
 Rd 1.0
-light 0
+Kd 1.0 1.0 1.0
 
 newmtl Squirrel_lowpoly
 Ni 1.5
@@ -17,20 +17,27 @@ nu 0.0
 nv 0.0
 Rs 1.0
 Rd 1.0
-light 0
+Kd 0.9 0.9 0.9
 
 newmtl WallLeft
 Ni 1.0
 d 1.0
+Kd 0.31 0.62 0.78
 
 newmtl WallRight
 Ni 1.0
 d 1.0
+Kd 0.47 0.65 0.13
 
 newmtl Walls
 Ni 1.0
 d 1.0
+Kd 0.9 0.9 0.9
 
 newmtl Bottom
 Ni 1.0
 d 1.0
+Kd 0.9 0.9 0.9
+
+newmtl sky_light
+Kd 0.846 0.933 0.949

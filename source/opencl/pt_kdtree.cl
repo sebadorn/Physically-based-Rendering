@@ -2,7 +2,7 @@
 // Type: kd-tree
 
 #define CALL_TRAVERSE         traverse( &scene, &ray );
-#define CALL_TRAVERSE_SHADOWS traverse_shadows( &scene, &lightRay );
+#define CALL_TRAVERSE_SHADOWS traverseShadows( &scene, &lightRay );
 
 
 /**

@@ -133,7 +133,7 @@ class PathTracer {
 		cl_float getTimeSinceStart();
 		void initArgsKernelPathTracing();
 		void initKernelArgs();
-		size_t initOpenCLBuffers_BVH( BVH* bvh );
+		size_t initOpenCLBuffers_BVH( BVH* bvh, ModelLoader* ml, vector<cl_uint> faces );
 		size_t initOpenCLBuffers_Faces(
 			ModelLoader* ml,
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals

@@ -11,8 +11,8 @@ Implementation status of the available and planned acceleration structures.
 ### BVH
 
 * Fastest acceleration structure at the moment.
-* Traversal ist possible with stack or stackless (faster).
-* Maximum of 2 faces per leaf node is optimal.
+* Stackless traversal.
+* 1 or 2 faces per leaf node.
 * Code for use of spatial splits in build process exists, but seems faulty. Should not be used.
 
 
