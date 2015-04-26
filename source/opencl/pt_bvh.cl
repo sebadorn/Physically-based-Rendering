@@ -56,7 +56,7 @@ void intersectFaces( const Scene* scene, ray4* ray, const bvhNode* node, const f
  */
 void traverse( const Scene* scene, ray4* ray ) {
 	const float3 invDir = native_recip( ray->dir );
-	int index = 0;
+	int index = 1; // Skip the root node (0) and start with the left child node.
 
 	do {
 		scene->debugColor.y += 1.0f;
@@ -105,7 +105,7 @@ void traverse( const Scene* scene, ray4* ray ) {
  */
 void traverseShadows( const Scene* scene, ray4* ray ) {
 	const float3 invDir = native_recip( ray->dir );
-	int index = 0;
+	int index = 1;
 
 	do {
 		const bvhNode node = scene->bvh[index];
