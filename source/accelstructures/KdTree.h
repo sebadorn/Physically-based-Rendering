@@ -56,7 +56,7 @@ class KdTree : public AccelStructure {
 		);
 		void createRopes( kdNode_t* node, vector<kdNode_t*> ropes );
 		kdNode_t* getSplit(
-			vector<Tri>* faces, glm::vec3 bbMinNode, glm::vec3 bbMaxNode,
+			vector<Tri>* faces, uint axis, glm::vec3 bbMinNode, glm::vec3 bbMaxNode,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces
 		);
 		kdNode_t* makeTree(

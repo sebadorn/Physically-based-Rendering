@@ -2,6 +2,7 @@
 #define ANTI_ALIASING #ANTI_ALIASING#
 #define BRDF #BRDF#
 #define BVH_NUM_NODES #BVH_NUM_NODES#
+#define BVH_TEX_DIM #BVH_TEX_DIM#
 #define EPSILON5 0.00001f
 #define EPSILON7 0.0000001f
 #define EPSILON10 0.0000000001f
@@ -63,7 +64,7 @@ typedef struct {
 	} bvhNode;
 
 	typedef struct {
-		global const bvhNode* bvh;
+		// global const bvhNode* bvh;
 		global const face_t* faces;
 		global const float4* vertices;
 		global const float4* normals;

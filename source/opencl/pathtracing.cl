@@ -331,7 +331,8 @@ kernel void pathTracing(
 
 	// acceleration structure
 	#if ACCEL_STRUCT == 0
-		global const bvhNode* bvh,
+		// global const bvhNode* bvh,
+		read_only image2d_t bvh,
 	#elif ACCEL_STRUCT == 1
 		const kdLeaf kdRootNode,
 		global const kdNonLeaf* kdNonLeaves,
@@ -363,7 +364,7 @@ kernel void pathTracing(
 	#endif
 
 	#if ACCEL_STRUCT == 0
-		Scene scene = { bvh, faces, vertices, normals, (float4)( 0.0f ) };
+		Scene scene = { faces, vertices, normals, (float4)( 0.0f ) };
 	#elif ACCEL_STRUCT == 1
 		Scene scene = { kdRootNode, kdNonLeaves, kdLeaves, kdFaces, faces, vertices, normals, (float4)( 0.0f ) };
 	#endif

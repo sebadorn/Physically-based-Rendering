@@ -1,6 +1,6 @@
 /**
  * Find intersection of a triangle and a ray. (No tessellation.)
- * After Möllter and Trumbore.
+ * After Möller and Trumbore.
  * @param  {const float3}         a
  * @param  {const float3}         b
  * @param  {const float3}         c
@@ -13,7 +13,7 @@
 float3 flatTriAndRayIntersect(
 	const float3 a, const float3 b, const float3 c,
 	const uint4 fn, global const float4* normals,
-	const ray4* ray, float3* tuv
+	const ray4* ray, float* t
 ) {
 	const float3 edge1 = b - a;
 	const float3 edge2 = c - a;
@@ -22,18 +22,18 @@ float3 flatTriAndRayIntersect(
 	const float3 qVec = cross( tVec, edge1 );
 	const float invDet = native_recip( dot( edge1, pVec ) );
 
-	tuv->x = dot( edge2, qVec ) * invDet;
+	*t = dot( edge2, qVec ) * invDet;
 
-	if( tuv->x >= ray->t || tuv->x < EPSILON5 ) {
-		tuv->x = INFINITY;
+	if( *t >= ray->t || *t < EPSILON5 ) {
+		*t = INFINITY;
 		return (float3)( 0.0f );
 	}
 
-	tuv->y = dot( tVec, pVec ) * invDet;
-	tuv->z = dot( ray->dir, qVec ) * invDet;
+	const float u = dot( tVec, pVec ) * invDet;
+	const float v = dot( ray->dir, qVec ) * invDet;
 
-	if( tuv->y + tuv->z > 1.0f || fmin( tuv->y, tuv->z ) < 0.0f ) {
-		tuv->x = INFINITY;
+	if( u + v > 1.0f || fmin( u, v ) < 0.0f ) {
+		*t = INFINITY;
 		return (float3)( 0.0f );
 	}
 
@@ -41,7 +41,7 @@ float3 flatTriAndRayIntersect(
 	const float3 bn = normals[fn.y].xyz;
 	const float3 cn = normals[fn.z].xyz;
 
-	return getTriangleNormal( an, bn, cn, 1.0f - tuv->y - tuv->z, tuv->y, tuv->z );
+	return getTriangleNormal( an, bn, cn, 1.0f - u - v, u, v );
 }
 
 
@@ -56,7 +56,7 @@ float3 flatTriAndRayIntersect(
  * @return {float3}
  */
 float3 checkFaceIntersection(
-	const Scene* scene, const ray4* ray, const int fIndex, float3* tuv,
+	const Scene* scene, const ray4* ray, const int fIndex, float* t,
 	const float tNear, const float tFar
 ) {
 	const face_t f = scene->faces[fIndex];
@@ -77,7 +77,7 @@ float3 checkFaceIntersection(
 	#endif
 
 	{
-		return flatTriAndRayIntersect( a, b, c, f.normals, scene->normals, ray, tuv );
+		return flatTriAndRayIntersect( a, b, c, f.normals, scene->normals, ray, t );
 	}
 
 
@@ -85,7 +85,7 @@ float3 checkFaceIntersection(
 	// Based on: "Direct Ray Tracing of Phong Tessellation" by Shinji Ogaki, Yusuke Tokuyoshi
 	#if PHONGTESS == 1
 
-		return phongTessTriAndRayIntersect( a, b, c, an, bn, cn, ray, tuv, tNear, tFar );
+		return phongTessTriAndRayIntersect( a, b, c, an, bn, cn, ray, t, tNear, tFar );
 
 	#endif
 }

@@ -1,7 +1,7 @@
 // Traversal for the acceleration structure.
 // Type: Bounding Volume Hierarchy (BVH)
 
-#define CALL_TRAVERSE         traverse( &scene, &ray );
+#define CALL_TRAVERSE         traverse( &scene, bvh, &ray );
 #define CALL_TRAVERSE_SHADOWS traverseShadows( &scene, &lightRay );
 
 
@@ -14,13 +14,13 @@
  * @param {const float tNear} tNear
  * @param {float tFar}        tFar
  */
-void intersectFace( const Scene* scene, ray4* ray, const int faceIndex, float3* tuv, const float tNear, float tFar ) {
-	const float3 normal = checkFaceIntersection( scene, ray, faceIndex, tuv, tNear, tFar );
+void intersectFace( const Scene* scene, ray4* ray, const int faceIndex, float* t, const float tNear, float tFar ) {
+	const float3 normal = checkFaceIntersection( scene, ray, faceIndex, t, tNear, tFar );
 
-	if( ray->t > tuv->x ) {
+	if( ray->t > *t ) {
 		ray->normal = normal;
 		ray->hitFace = faceIndex;
-		ray->t = tuv->x;
+		ray->t = *t;
 	}
 
 	scene->debugColor.x += 1.0f;
@@ -36,16 +36,16 @@ void intersectFace( const Scene* scene, ray4* ray, const int faceIndex, float3* 
  * @param {float tFar}        tFar
  */
 void intersectFaces( const Scene* scene, ray4* ray, const bvhNode* node, const float tNear, float tFar ) {
-	float3 tuv;
+	float t = INFINITY;
 
-	intersectFace( scene, ray, node->bbMin.w, &tuv, tNear, tFar );
+	intersectFace( scene, ray, node->bbMin.w, &t, tNear, tFar );
 
 	// Second face, if existing.
 	if( node->bbMax.w == -1 ) {
 		return;
 	}
 
-	intersectFace( scene, ray, node->bbMax.w, &tuv, tNear, tFar );
+	intersectFace( scene, ray, node->bbMax.w, &t, tNear, tFar );
 }
 
 
@@ -54,13 +54,27 @@ void intersectFaces( const Scene* scene, ray4* ray, const bvhNode* node, const f
  * @param {const Scene*} scene
  * @param {ray4*}        ray
  */
-void traverse( const Scene* scene, ray4* ray ) {
+void traverse( const Scene* scene, read_only image2d_t bvh, ray4* ray ) {
 	const float3 invDir = native_recip( ray->dir );
 	int index = 1; // Skip the root node (0) and start with the left child node.
 
+	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+
 	do {
 		scene->debugColor.y += 1.0f;
-		const bvhNode node = scene->bvh[index];
+		// const bvhNode node = scene->bvh[index];
+
+		int2 pos;
+		pos.x = ( index * 2 ) % BVH_TEX_DIM;
+		pos.y = (int) floor( (float) ( index * 2 ) / BVH_TEX_DIM );
+
+		bvhNode node;
+		node.bbMin = read_imagef( bvh, sampler, pos );
+
+		pos.x = ( index * 2 + 1 ) % BVH_TEX_DIM;
+		pos.y = (int) floor( (float) ( index * 2 + 1 ) / BVH_TEX_DIM );
+
+		node.bbMax = read_imagef( bvh, sampler, pos );
 
 		int currentIndex = index;
 
@@ -108,7 +122,7 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 	int index = 1;
 
 	do {
-		const bvhNode node = scene->bvh[index];
+		const bvhNode node;// = scene->bvh[index];
 
 		int currentIndex = index;
 

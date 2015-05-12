@@ -176,100 +176,96 @@ void KdTree::createRopes( kdNode_t* node, vector<kdNode_t*> ropes ) {
  * @return {kdNode_t*}                             The object that is the median.
  */
 kdNode_t* KdTree::getSplit(
-	vector<Tri>* faces, glm::vec3 bbMinNode, glm::vec3 bbMaxNode,
+	vector<Tri>* faces, uint axis, glm::vec3 bbMinNode, glm::vec3 bbMaxNode,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces
 ) {
 	const cl_uint numFaces = faces->size();
+
+	std::sort( faces->begin(), faces->end(), sortFacesCmp( axis ) );
+
+	vector<cl_float> leftSA( numFaces - 1 );
+	vector<cl_float> rightSA( numFaces - 1 );
+	vector< vector<glm::vec3> > leftBB( numFaces - 1 ), rightBB( numFaces - 1 );
+	vector<glm::vec3> bbMins, bbMaxs;
+	vector<uint> numFacesLeft, numFacesRight;
+
+
+	// Grow a bounding box face by face starting from the left.
+	// Save the growing surface area for each step.
+
+	for( int i = 0; i < numFaces - 1; i++ ) {
+		glm::vec3 bbMin, bbMax;
+
+		bbMins.push_back( (*faces)[i].bbMin );
+		bbMaxs.push_back( (*faces)[i].bbMax );
+		MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
+
+		leftBB[i] = vector<glm::vec3>( 2 );
+		leftBB[i][0] = bbMin;
+		leftBB[i][1] = bbMax;
+		leftSA[i] = MathHelp::getSurfaceArea( bbMin, bbMax );
+	}
+
+
+	// Grow a bounding box face by face starting from the right.
+	// Save the growing surface area for each step.
+
+	bbMins.clear();
+	bbMaxs.clear();
+
+	for( int i = numFaces - 2; i >= 0; i-- ) {
+		glm::vec3 bbMin, bbMax;
+
+		bbMins.push_back( (*faces)[i + 1].bbMin );
+		bbMaxs.push_back( (*faces)[i + 1].bbMax );
+		MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
+
+		rightBB[i] = vector<glm::vec3>( 2 );
+		rightBB[i][0] = bbMin;
+		rightBB[i][1] = bbMax;
+		rightSA[i] = MathHelp::getSurfaceArea( bbMin, bbMax );
+	}
+
+
+	for( uint i = 0; i < numFaces - 1; i++ ) {
+		float split = leftBB[i][1][axis];
+		numFacesLeft.push_back( 0 );
+		numFacesRight.push_back( 0 );
+
+		for( uint j = 0; j < numFaces; j++ ) {
+			if( (*faces)[j].bbMin[axis] <= split ) {
+				numFacesLeft[i] += 1;
+			}
+			if( (*faces)[j].bbMin[axis] > split ) {
+				numFacesRight[i] += 1;
+			}
+		}
+	}
+
+
 	float bestSAH = FLT_MAX;
-	float nodeSA = 1.0f / MathHelp::getSurfaceArea( bbMinNode, bbMaxNode );
-	short axisFinal = 0;
 	float pos;
 
-	for( short axis = 0; axis <= 2; axis++ ) {
-		std::sort( faces->begin(), faces->end(), sortFacesCmp( axis ) );
-
-		vector<cl_float> leftSA( numFaces - 1 );
-		vector<cl_float> rightSA( numFaces - 1 );
-		vector< vector<glm::vec3> > leftBB( numFaces - 1 ), rightBB( numFaces - 1 );
-		vector<glm::vec3> bbMins, bbMaxs;
-		vector<uint> numFacesLeft, numFacesRight;
-
-
-		// Grow a bounding box face by face starting from the left.
-		// Save the growing surface area for each step.
-
-		for( int i = 0; i < numFaces - 1; i++ ) {
-			glm::vec3 bbMin, bbMax;
-
-			bbMins.push_back( (*faces)[i].bbMin );
-			bbMaxs.push_back( (*faces)[i].bbMax );
-			MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
-
-			leftBB[i] = vector<glm::vec3>( 2 );
-			leftBB[i][0] = bbMin;
-			leftBB[i][1] = bbMax;
-			leftSA[i] = MathHelp::getSurfaceArea( bbMin, bbMax );
+	// Compute the SAH for each split position and choose the one with the lowest cost.
+	// SAH = SA of node * ( SA left of split * faces left of split + SA right of split * faces right of split )
+	for( uint i = 0; i < numFaces - 1; i++ ) {
+		// Ignore splits where one side contains all faces or the
+		// left bounding box takes all the space or none at all.
+		if(
+			// leftBB[i][1][axis] == bbMinNode[axis] ||
+			// leftBB[i][1][axis] == bbMaxNode[axis] ||
+			numFacesLeft[i] == numFaces ||
+			numFacesRight[i] == numFaces
+		) {
+			continue;
 		}
 
+		float newSAH = leftSA[i] * (float) numFacesLeft[i] + rightSA[i] * (float) numFacesRight[i];
 
-		// Grow a bounding box face by face starting from the right.
-		// Save the growing surface area for each step.
-
-		bbMins.clear();
-		bbMaxs.clear();
-
-		for( int i = numFaces - 2; i >= 0; i-- ) {
-			glm::vec3 bbMin, bbMax;
-
-			bbMins.push_back( (*faces)[i + 1].bbMin );
-			bbMaxs.push_back( (*faces)[i + 1].bbMax );
-			MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
-
-			rightBB[i] = vector<glm::vec3>( 2 );
-			rightBB[i][0] = bbMin;
-			rightBB[i][1] = bbMax;
-			rightSA[i] = MathHelp::getSurfaceArea( bbMin, bbMax );
-		}
-
-
-		for( uint i = 0; i < numFaces - 1; i++ ) {
-			float split = leftBB[i][1][axis];
-			numFacesLeft.push_back( 0 );
-			numFacesRight.push_back( 0 );
-
-			for( uint j = 0; j < numFaces; j++ ) {
-				if( (*faces)[j].bbMin[axis] <= split ) {
-					numFacesLeft[i] += 1;
-				}
-				if( (*faces)[j].bbMin[axis] > split ) {
-					numFacesRight[i] += 1;
-				}
-			}
-		}
-
-
-		// Compute the SAH for each split position and choose the one with the lowest cost.
-		// SAH = SA of node * ( SA left of split * faces left of split + SA right of split * faces right of split )
-		for( uint i = 0; i < numFaces - 1; i++ ) {
-			// Ignore splits where one side contains all faces or the
-			// left bounding box takes all the space or none at all.
-			if(
-				// leftBB[i][1][axis] == bbMinNode[axis] ||
-				// leftBB[i][1][axis] == bbMaxNode[axis] ||
-				numFacesLeft[i] == numFaces ||
-				numFacesRight[i] == numFaces
-			) {
-				continue;
-			}
-
-			float newSAH = nodeSA * ( leftSA[i] * (float) numFacesLeft[i] + rightSA[i] * (float) numFacesRight[i] );
-
-			// Better split position found
-			if( newSAH < bestSAH ) {
-				bestSAH = newSAH;
-				axisFinal = axis;
-				pos = leftBB[i][1][axisFinal];
-			}
+		// Better split position found
+		if( newSAH < bestSAH ) {
+			bestSAH = newSAH;
+			pos = leftBB[i][1][axis];
 		}
 	}
 
@@ -281,33 +277,26 @@ kdNode_t* KdTree::getSplit(
 
 		glm::vec3 nodeLen = bbMaxNode - bbMinNode;
 
-		for( short axis = 0; axis <= 2; axis++ ) {
-			leftFaces->clear();
-			rightFaces->clear();
-			pos = 0.5f * ( bbMinNode[axis] + bbMaxNode[axis] );
+		leftFaces->clear();
+		rightFaces->clear();
+		pos = 0.5f * ( bbMinNode[axis] + bbMaxNode[axis] );
 
-			for( uint i = 0; i < numFaces; i++ ) {
-				if( (*faces)[i].bbMin[axis] <= pos ) {
-					leftFaces->push_back( (*faces)[i] );
-				}
-				if( (*faces)[i].bbMax[axis] > pos ) {
-					rightFaces->push_back( (*faces)[i] );
-				}
+		for( uint i = 0; i < numFaces; i++ ) {
+			if( (*faces)[i].bbMin[axis] <= pos ) {
+				leftFaces->push_back( (*faces)[i] );
 			}
-
-			if( leftFaces->size() < numFaces && rightFaces->size() < numFaces ) {
-				axisFinal = axis;
-				break;
+			if( (*faces)[i].bbMax[axis] > pos ) {
+				rightFaces->push_back( (*faces)[i] );
 			}
 		}
 	}
 	// Split at the position found by the SAH.
 	else {
 		for( uint i = 0; i < numFaces; i++ ) {
-			if( (*faces)[i].bbMin[axisFinal] <= pos ) {
+			if( (*faces)[i].bbMin[axis] <= pos ) {
 				leftFaces->push_back( (*faces)[i] );
 			}
-			if( (*faces)[i].bbMax[axisFinal] > pos ) {
+			if( (*faces)[i].bbMax[axis] > pos ) {
 				rightFaces->push_back( (*faces)[i] );
 			}
 		}
@@ -326,7 +315,7 @@ kdNode_t* KdTree::getSplit(
 
 	kdNode_t* node = new kdNode_t;
 	node->index = mNonLeaves.size();
-	node->axis = axisFinal;
+	node->axis = axis;
 	node->split = pos;
 	node->bbMin = glm::vec3( bbMinNode );
 	node->bbMax = glm::vec3( bbMaxNode );
@@ -429,7 +418,9 @@ kdNode_t* KdTree::makeTree(
 
 	// Build node from found split position.
 	vector<Tri> leftFaces, rightFaces;
-	kdNode_t* node = this->getSplit( &faces, bbMin, bbMax, &leftFaces, &rightFaces );
+
+	uint axis = depth % 3;
+	kdNode_t* node = this->getSplit( &faces, axis, bbMin, bbMax, &leftFaces, &rightFaces );
 
 	// Keep limit for minimum faces per node
 	if( mMinFaces >= glm::min( leftFaces.size(), rightFaces.size() ) ) {
@@ -513,7 +504,7 @@ void KdTree::printLeafFacesStat() {
 	char msg[128];
 	const char* text = "[KdTree] On average there are %.2f faces in the %lu leaf nodes.";
 	snprintf( msg, 128, text, facesTotal / (float) mLeaves.size(), mLeaves.size() );
-	Logger::logDebug( msg );
+	Logger::logInfo( msg );
 }
 
 

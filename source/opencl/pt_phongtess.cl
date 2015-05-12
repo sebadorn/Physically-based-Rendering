@@ -48,7 +48,7 @@ inline char getBestRayDomain( const float3 rd ) {
  * Find intersection of a triangle and a ray. (Phong tessellation.)
  * @param  {const face_t*} face
  * @param  {const ray4*}   ray
- * @param  {float3*}       tuv
+ * @param  {float*}        t
  * @param  {const float}   tNear
  * @param  {const float}   tFar
  * @return {float4}
@@ -57,10 +57,10 @@ float3 phongTessTriAndRayIntersect(
 	const float3 P1, const float3 P2, const float3 P3,
 	const float3 N1, const float3 N2, const float3 N3,
 	const ray4* ray,
-	float3* tuv, const float tNear, const float tFar
+	float* t, const float tNear, const float tFar
 ) {
 	float3 normal = (float3)( 0.0f );
-	tuv->x = INFINITY;
+	*t = INFINITY;
 
 	const float3 E01 = P2 - P1;
 	const float3 E12 = P3 - P2;
@@ -192,19 +192,17 @@ float3 phongTessTriAndRayIntersect(
 			}
 
 			const float3 pTessellated = phongTessellation( P1, P2, P3, N1, N2, N3, u, v, w ) - ray->origin;
-			const float t = native_divide(
+			const float tParam = native_divide(
 				( (float*) &pTessellated )[domain],
 				( (float*) &(ray->dir) )[domain]
 			);
 
-			// tuv->x -- best hit in this AABB so far
+			// t      -- best hit in this AABB so far
 			// ray->t -- best hit found in other AABBs so far
 			// tFar   -- far limit of this AABB
 			// tNear  -- near limit of this AABB
-			if( t >= fabs( tNear ) && t <= fmin( tuv->x, fmin( ray->t, tFar ) ) ) {
-				tuv->x = t;
-				tuv->y = u;
-				tuv->z = v;
+			if( tParam >= fabs( tNear ) && tParam <= fmin( *t, fmin( ray->t, tFar ) ) ) {
+				*t = tParam;
 				normal = getPhongTessNormal( N1, N2, N3, ray->dir, u, v, w, C1, C2, C3, E12, E20 );
 			}
 		}
