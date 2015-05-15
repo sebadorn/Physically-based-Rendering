@@ -1,7 +1,7 @@
 // Traversal for the acceleration structure.
 // Type: Bounding Volume Hierarchy (BVH)
 
-#define CALL_TRAVERSE         traverse( &scene, bvh, &ray );
+#define CALL_TRAVERSE         traverse( &scene, &ray );
 #define CALL_TRAVERSE_SHADOWS traverseShadows( &scene, &lightRay );
 
 
@@ -54,27 +54,13 @@ void intersectFaces( const Scene* scene, ray4* ray, const bvhNode* node, const f
  * @param {const Scene*} scene
  * @param {ray4*}        ray
  */
-void traverse( const Scene* scene, read_only image2d_t bvh, ray4* ray ) {
+void traverse( const Scene* scene, ray4* ray ) {
 	const float3 invDir = native_recip( ray->dir );
 	int index = 1; // Skip the root node (0) and start with the left child node.
 
-	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
-
 	do {
 		scene->debugColor.y += 1.0f;
-		// const bvhNode node = scene->bvh[index];
-
-		int2 pos;
-		pos.x = ( index * 2 ) % BVH_TEX_DIM;
-		pos.y = (int) floor( (float) ( index * 2 ) / BVH_TEX_DIM );
-
-		bvhNode node;
-		node.bbMin = read_imagef( bvh, sampler, pos );
-
-		pos.x = ( index * 2 + 1 ) % BVH_TEX_DIM;
-		pos.y = (int) floor( (float) ( index * 2 + 1 ) / BVH_TEX_DIM );
-
-		node.bbMax = read_imagef( bvh, sampler, pos );
+		const bvhNode node = scene->bvh[index];
 
 		int currentIndex = index;
 
@@ -122,7 +108,7 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 	int index = 1;
 
 	do {
-		const bvhNode node;// = scene->bvh[index];
+		const bvhNode node = scene->bvh[index];
 
 		int currentIndex = index;
 

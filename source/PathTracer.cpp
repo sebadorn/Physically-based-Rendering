@@ -243,7 +243,6 @@ void PathTracer::initOpenCLBuffers(
 size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh, ModelLoader* ml, vector<cl_uint> faces ) {
 	vector<BVHNode*> bvhNodes = bvh->getNodes();
 	vector<bvhNode_cl> bvhNodesCL;
-	vector<cl_float> bvhNodesTexture;
 
 	vector<cl_uint> facesVN = ml->getObjParser()->getFacesVN();
 	vector<cl_int> facesMtl = ml->getObjParser()->getFacesMtl();
@@ -300,16 +299,6 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh, ModelLoader* ml, vector<cl_u
 
 		bvhNodesCL.push_back( sn );
 
-		bvhNodesTexture.push_back(sn.bbMin.x);
-		bvhNodesTexture.push_back(sn.bbMin.y);
-		bvhNodesTexture.push_back(sn.bbMin.z);
-		bvhNodesTexture.push_back(sn.bbMin.w);
-		bvhNodesTexture.push_back(sn.bbMax.x);
-		bvhNodesTexture.push_back(sn.bbMax.y);
-		bvhNodesTexture.push_back(sn.bbMax.z);
-		bvhNodesTexture.push_back(sn.bbMax.w);
-
-
 		// Faces
 		for( int i = 0; i < fvecLen; i++) {
 			Tri tri = facesVec[i];
@@ -330,19 +319,8 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh, ModelLoader* ml, vector<cl_u
 		}
 	}
 
-	float side = ceil( sqrt( bvhNodesCL.size() * 2 ) );
-
-	size_t width = side;
-	size_t height = side;
-	size_t bytesBVH = width * height * sizeof( cl_float4 );
-	mBufBVH = mCL->createImage2DReadOnly( width, height, &bvhNodesTexture[0] );
-
-	char msgTex[16];
-	snprintf( msgTex, 16, "%lu", width );
-	mCL->setReplacement( string( "#BVH_TEX_DIM#" ), string( msgTex ) );
-
-	// size_t bytesBVH = sizeof( bvhNode_cl ) * bvhNodesCL.size();
-	// mBufBVH = mCL->createBuffer( bvhNodesCL, bytesBVH );
+	size_t bytesBVH = sizeof( bvhNode_cl ) * bvhNodesCL.size();
+	mBufBVH = mCL->createBuffer( bvhNodesCL, bytesBVH );
 
 	char msg[16];
 	snprintf( msg, 16, "%lu", bvhNodesCL.size() );

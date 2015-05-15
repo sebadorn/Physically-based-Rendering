@@ -64,7 +64,7 @@ typedef struct {
 	} bvhNode;
 
 	typedef struct {
-		// global const bvhNode* bvh;
+		global const bvhNode* bvh;
 		global const face_t* faces;
 		global const float4* vertices;
 		global const float4* normals;
