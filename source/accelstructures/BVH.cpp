@@ -186,8 +186,8 @@ BVHNode* BVH::buildTree(
 	}
 	// Faster to build: Splitting at the midpoint of the longest axis.
 	else {
-		Logger::logDebug( "[BVH] Too many faces in node for SAH. Splitting by midpoint." );
-		this->buildWithMidpointSplit( containerNode, faces, &leftFaces, &rightFaces );
+		Logger::logDebug( "[BVH] Too many faces in node for SAH. Splitting by mean position." );
+		this->buildWithMeanSplit( containerNode, faces, &leftFaces, &rightFaces );
 	}
 
 	if(
@@ -268,51 +268,39 @@ vector<BVHNode*> BVH::buildTreesFromObjects(
 
 
 /**
- * Build the BVH using midpoint splits.
+ * Build the BVH using mean splits.
  * @param {BVHNode*}                node        Container node for the (sub) tree.
  * @param {const std::vector<Tri>*} faces       Faces to be arranged into a BVH.
  * @param {std::vector<Tri>*}       leftFaces   Output. Faces left of the split.
  * @param {std::vector<Tri>*}       rightFaces  Output. Faces right of the split.
  */
-void BVH::buildWithMidpointSplit(
+void BVH::buildWithMeanSplit(
 	BVHNode* node, const vector<Tri> faces,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces
 ) {
 	cl_uint axis = this->longestAxis( node );
-	cl_float splitPos = 0.5f * ( node->bbMin[axis] + node->bbMax[axis] );
-
+	cl_float splitPos = this->getMean( faces, axis );
 	this->splitFaces( faces, splitPos, axis, leftFaces, rightFaces );
-
-	if( leftFaces->size() <= 0 || rightFaces->size() <= 0 ) {
-		Logger::logDebug( "[BVH] Splitting faces by midpoint didn't work. Trying again with mean." );
-		leftFaces->clear();
-		rightFaces->clear();
-		splitPos = this->getMean( faces, axis );
-
-		this->splitFaces( faces, splitPos, axis, leftFaces, rightFaces );
-	}
 }
 
 
 /**
  * Build the BVH using SAH.
- * @param  {BVHNode*}               node        Container node for the (sub) tree.
- * @param  {std::vector<Tri>}       faces       Faces to be arranged into a BVH.
- * @param  {std::vector<Tri>*}      leftFaces   Output. Faces left of the split.
- * @param  {std::vector<Tri>*}      rightFaces  Output. Faces right of the split.
- * @param  {cl_float*}              lambda      Output.
- * @return {cl_float}                           Best found SAH value.
+ * @param  {BVHNode*}          node       Container node for the (sub) tree.
+ * @param  {std::vector<Tri>}  faces      Faces to be arranged into a BVH.
+ * @param  {std::vector<Tri>*} leftFaces  Output. Faces left of the split.
+ * @param  {std::vector<Tri>*} rightFaces Output. Faces right of the split.
+ * @param  {cl_float*}         lambda     Output.
+ * @return {cl_float}                     Best found SAH value.
  */
 cl_float BVH::buildWithSAH(
 	BVHNode* node, vector<Tri> faces,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
 ) {
-	cl_float nodeSA = MathHelp::getSurfaceArea( node->bbMin, node->bbMax );
-	cl_float bestSAH = nodeSA * faces.size();
-	bestSAH = FLT_MAX;
+	cl_float bestSAH = FLT_MAX;
 
 	for( cl_uint axis = 0; axis <= 2; axis++ ) {
-		this->splitBySAH( 1.0f / nodeSA, &bestSAH, axis, faces, leftFaces, rightFaces, lambda );
+		this->splitBySAH( &bestSAH, axis, faces, leftFaces, rightFaces, lambda );
 	}
 
 	return bestSAH;
@@ -321,7 +309,6 @@ cl_float BVH::buildWithSAH(
 
 /**
  * Calculate the SAH value.
- * @param  {const cl_float} nodeSA_recip  Reciprocal of the surface area of the container node.
  * @param  {const cl_float} leftSA        Surface are of the left node.
  * @param  {const cl_float} leftNumFaces  Number of faces in the left node.
  * @param  {const cl_float} rightSA       Surface area of the right node.
@@ -329,10 +316,10 @@ cl_float BVH::buildWithSAH(
  * @return {cl_float}                     Value estimated by the SAH.
  */
 cl_float BVH::calcSAH(
-	const cl_float nodeSA_recip, const cl_float leftSA, const cl_float leftNumFaces,
+	const cl_float leftSA, const cl_float leftNumFaces,
 	const cl_float rightSA, const cl_float rightNumFaces
 ) {
-	return nodeSA_recip * ( leftSA * leftNumFaces + rightSA * rightNumFaces );
+	return ( leftSA * leftNumFaces + rightSA * rightNumFaces );
 }
 
 
@@ -552,17 +539,9 @@ void BVH::groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint de
 	mDepthReached = ( depth > mDepthReached ) ? depth : mDepthReached;
 
 	cl_uint axis = this->longestAxis( parent );
-	cl_float midpoint = 0.5f * ( parent->bbMin[axis] + parent->bbMax[axis] );
-
 	vector<BVHNode*> leftGroup, rightGroup;
-	this->splitNodes( nodes, midpoint, axis, &leftGroup, &rightGroup );
-
-	if( leftGroup.size() <= 0 || rightGroup.size() <= 0 ) {
-		leftGroup.clear();
-		rightGroup.clear();
-		cl_float mean = this->getMeanOfNodes( nodes, axis );
-		this->splitNodes( nodes, mean, axis, &leftGroup, &rightGroup );
-	}
+	cl_float mean = this->getMeanOfNodes( nodes, axis );
+	this->splitNodes( nodes, mean, axis, &leftGroup, &rightGroup );
 
 	BVHNode* leftNode = this->makeContainerNode( leftGroup, false );
 	parent->leftChild = leftNode;
@@ -861,16 +840,15 @@ cl_uint BVH::setMaxFaces( const int value ) {
 /**
  * Split the faces into two groups.
  * Determine this splitting point by using a Surface Area Heuristic (SAH).
- * @param {const cl_float}         nodeSA      Reciprocal of the surface area of the current node.
- * @param {cl_float*}              bestSAH     Best SAH value that has been found so far (for the faces in this node).
- * @param {const cl_uint}          axis        The axis to sort the faces by.
- * @param {std::vector<Tri>}       faces       Faces in this node.
- * @param {std::vector<Tri>*}      leftFaces   Output. Group for the faces left of the split.
- * @param {std::vector<Tri>*}      rightFaces  Output. Group for the faces right of the split.
- * @param {cl_float*}              lambda
+ * @param {cl_float*}         bestSAH    Best SAH value that has been found so far (for the faces in this node).
+ * @param {const cl_uint}     axis       The axis to sort the faces by.
+ * @param {std::vector<Tri>}  faces      Faces in this node.
+ * @param {std::vector<Tri>*} leftFaces  Output. Group for the faces left of the split.
+ * @param {std::vector<Tri>*} rightFaces Output. Group for the faces right of the split.
+ * @param {cl_float*}         lambda
  */
 void BVH::splitBySAH(
-	const cl_float nodeSA, cl_float* bestSAH, const cl_uint axis, vector<Tri> faces,
+	cl_float* bestSAH, const cl_uint axis, vector<Tri> faces,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
 ) {
 	std::sort( faces.begin(), faces.end(), sortFacesCmp( axis ) );
@@ -980,8 +958,6 @@ void BVH::splitBySpatialSplit(
 
 
 	// Surface areas for SAH
-
-	cl_float saNode_recip = 1.0f / MathHelp::getSurfaceArea( node->bbMin, node->bbMax );
 	vector<cl_float> leftSA( splits ), rightSA( splits );
 
 	for( int i = 0; i < splits; i++ ) {
@@ -1002,7 +978,7 @@ void BVH::splitBySpatialSplit(
 		}
 
 		sah[i] = this->calcSAH(
-			saNode_recip, leftSA[i], leftBinFaces[i].size(), rightSA[i], rightBinFaces[i].size()
+			leftSA[i], leftBinFaces[i].size(), rightSA[i], rightBinFaces[i].size()
 		);
 
 		if( sah[i] < currentBestSAH ) {
@@ -1031,22 +1007,22 @@ void BVH::splitBySpatialSplit(
 
 
 /**
- * Split the faces into two groups using the given midpoint and axis as criterium.
+ * Split the faces into two groups using the given pos and axis as criterium.
  * @param {const std::vector<Tri>} faces
- * @param {const cl_float}         midpoint
+ * @param {const cl_float}         pos
  * @param {const cl_uint}          axis
  * @param {std::vector<Tri>*}      leftFaces
  * @param {std::vector<Tri>*}      rightFaces
  */
 void BVH::splitFaces(
-	const vector<Tri> faces, const cl_float midpoint, const cl_uint axis,
+	const vector<Tri> faces, const cl_float pos, const cl_uint axis,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces
 ) {
 	for( cl_uint i = 0; i < faces.size(); i++ ) {
 		Tri tri = faces[i];
 		glm::vec3 cen = ( tri.bbMin + tri.bbMax ) * 0.5f;
 
-		if( cen[axis] < midpoint ) {
+		if( cen[axis] < pos ) {
 			leftFaces->push_back( tri );
 		}
 		else {
@@ -1084,22 +1060,22 @@ void BVH::splitFaces(
 
 
 /**
- * Split the nodes into two groups using the given midpoint and axis as criterium.
+ * Split the nodes into two groups using the given pos and axis as criterium.
  * @param {const std::vector<BVHNode*>}  nodes
- * @param {const cl_float}               midpoint
+ * @param {const cl_float}               pos
  * @param {const cl_uint}                axis
  * @param {std::vector<BVHNode*>*}       leftGroup
  * @param {std::vector<BVHNode*>*}       rightGroup
  */
 void BVH::splitNodes(
-	const vector<BVHNode*> nodes, const cl_float midpoint, const cl_uint axis,
+	const vector<BVHNode*> nodes, const cl_float pos, const cl_uint axis,
 	vector<BVHNode*>* leftGroup, vector<BVHNode*>* rightGroup
 ) {
 	for( cl_uint i = 0; i < nodes.size(); i++ ) {
 		BVHNode* node = nodes[i];
 		glm::vec3 center = ( node->bbMax - node->bbMin ) / 2.0f;
 
-		if( center[axis] < midpoint ) {
+		if( center[axis] < pos ) {
 			leftGroup->push_back( node );
 		}
 		else {
@@ -1109,7 +1085,7 @@ void BVH::splitNodes(
 
 	// Just do it 50:50 then.
 	if( leftGroup->size() == 0 || rightGroup->size() == 0 ) {
-		Logger::logDebugVerbose( "[BVH] Dividing nodes by center left one side empty. Just doing it 50:50 now." );
+		Logger::logDebugVerbose( "[BVH] Dividing nodes by the given position left one side empty. Just doing it 50:50 now." );
 
 		leftGroup->clear();
 		rightGroup->clear();

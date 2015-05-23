@@ -57,7 +57,7 @@
 	// kD-tree
 	"kdtree": {
 		// Minimum of faces per leaf node.
-		"min_faces": 2,
+		"min_faces": 4,
 		// Optimize the ropes to speed up traversal
 		"optimize_ropes": true
 	},
@@ -113,7 +113,7 @@
 		// Shoot shadow rays to generate implicit paths.
 		// 0: disable
 		// 1: enable
-		"shadow_rays": 0,
+		"shadow_rays": 1,
 		// Use spectral color definitions.
 		// 0: disable, use RGB
 		// 1: enable

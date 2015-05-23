@@ -58,7 +58,7 @@ class BVH : public AccelStructure {
 			const vector<cl_float>* vertices,
 			const vector<cl_float>* normals
 		);
-		void buildWithMidpointSplit(
+		void buildWithMeanSplit(
 			BVHNode* node, const vector<Tri> faces,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces
 		);
@@ -67,7 +67,7 @@ class BVH : public AccelStructure {
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
 		);
 		cl_float calcSAH(
-			const cl_float nodeSA_recip, const cl_float leftSA, const cl_float leftNumFaces,
+			const cl_float leftSA, const cl_float leftNumFaces,
 			const cl_float rightSA, const cl_float rightNumFaces
 		);
 		void combineNodes( const cl_uint numSubTrees );
@@ -103,7 +103,7 @@ class BVH : public AccelStructure {
 		);
 		cl_uint setMaxFaces( const int value );
 		void splitBySAH(
-			const cl_float nodeSA, cl_float* bestSAH, const cl_uint axis, vector<Tri> faces,
+			cl_float* bestSAH, const cl_uint axis, vector<Tri> faces,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
 		);
 		void splitBySpatialSplit(

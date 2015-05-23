@@ -1,4 +1,31 @@
 /**
+ * Based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
+ * @param  {const ray4*}   ray
+ * @param  {const float3*} invDir
+ * @param  {const float4*} bbMin
+ * @param  {const float4*} bbMax
+ * @param  {float*}        tNear
+ * @param  {float*}        tFar
+ * @return {const bool}          True, if ray intersects box, false otherwise.
+ */
+const bool intersectBox(
+	const ray4* ray, const float3* invDir,
+	const float4 bbMin, const float4 bbMax,
+	float* tNear, float* tFar
+) {
+	const float3 t1 = ( bbMin.xyz - ray->origin ) * (*invDir);
+	float3 tMax = ( bbMax.xyz - ray->origin ) * (*invDir);
+	const float3 tMin = fmin( t1, tMax );
+	tMax = fmax( t1, tMax );
+
+	*tNear = fmax( fmax( tMin.x, tMin.y ), tMin.z );
+	*tFar = fmin( fmin( tMax.x, tMax.y ), fmin( tMax.z, *tFar ) );
+
+	return ( *tNear <= *tFar );
+}
+
+
+/**
  * Find intersection of a triangle and a ray. (No tessellation.)
  * After Möller and Trumbore.
  * @param  {const float3}         a
@@ -88,31 +115,4 @@ float3 checkFaceIntersection(
 		return phongTessTriAndRayIntersect( a, b, c, an, bn, cn, ray, t, tNear, tFar );
 
 	#endif
-}
-
-
-/**
- * Based on: "An Efficient and Robust Ray–Box Intersection Algorithm", Williams et al.
- * @param  {const ray4*}   ray
- * @param  {const float3*} invDir
- * @param  {const float4*} bbMin
- * @param  {const float4*} bbMax
- * @param  {float*}        tNear
- * @param  {float*}        tFar
- * @return {const bool}          True, if ray intersects box, false otherwise.
- */
-const bool intersectBox(
-	const ray4* ray, const float3* invDir,
-	const float4 bbMin, const float4 bbMax,
-	float* tNear, float* tFar
-) {
-	const float3 t1 = ( bbMin.xyz - ray->origin ) * (*invDir);
-	float3 tMax = ( bbMax.xyz - ray->origin ) * (*invDir);
-	const float3 tMin = fmin( t1, tMax );
-	tMax = fmax( t1, tMax );
-
-	*tNear = fmax( fmax( tMin.x, tMin.y ), tMin.z );
-	*tFar = fmin( fmin( tMax.x, tMax.y ), fmin( tMax.z, *tFar ) );
-
-	return ( *tNear <= *tFar );
 }
