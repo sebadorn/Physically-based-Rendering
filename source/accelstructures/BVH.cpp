@@ -186,7 +186,10 @@ BVHNode* BVH::buildTree(
 	}
 	// Faster to build: Splitting at the midpoint of the longest axis.
 	else {
-		Logger::logDebug( "[BVH] Too many faces in node for SAH. Splitting by mean position." );
+		char msg[256];
+		snprintf( msg, 256, "[BVH] Too many faces in node for SAH. Splitting by mean position. (%lu faces)", faces.size() );
+		Logger::logDebug( msg );
+
 		this->buildWithMeanSplit( containerNode, faces, &leftFaces, &rightFaces );
 	}
 
@@ -278,9 +281,19 @@ void BVH::buildWithMeanSplit(
 	BVHNode* node, const vector<Tri> faces,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces
 ) {
-	cl_uint axis = this->longestAxis( node );
-	cl_float splitPos = this->getMean( faces, axis );
-	this->splitFaces( faces, splitPos, axis, leftFaces, rightFaces );
+	cl_float bestSAH = FLT_MAX;
+
+	for( cl_uint axis = 0; axis <= 2; axis++ ) {
+		vector<Tri> leftFacesTmp, rightFacesTmp;
+		cl_float splitPos = this->getMean( faces, axis );
+		cl_float sah = this->splitFaces( faces, splitPos, axis, &leftFacesTmp, &rightFacesTmp );
+
+		if( sah < bestSAH ) {
+			bestSAH = sah;
+			*leftFaces = leftFacesTmp;
+			*rightFaces = rightFacesTmp;
+		}
+	}
 }
 
 
@@ -1014,19 +1027,29 @@ void BVH::splitBySpatialSplit(
  * @param {std::vector<Tri>*}      leftFaces
  * @param {std::vector<Tri>*}      rightFaces
  */
-void BVH::splitFaces(
+cl_float BVH::splitFaces(
 	const vector<Tri> faces, const cl_float pos, const cl_uint axis,
 	vector<Tri>* leftFaces, vector<Tri>* rightFaces
 ) {
+	cl_float sah = FLT_MAX;
+	vector<glm::vec3> bbMinsL, bbMinsR, bbMaxsL, bbMaxsR;
+
+	leftFaces->clear();
+	rightFaces->clear();
+
 	for( cl_uint i = 0; i < faces.size(); i++ ) {
 		Tri tri = faces[i];
 		glm::vec3 cen = ( tri.bbMin + tri.bbMax ) * 0.5f;
 
 		if( cen[axis] < pos ) {
 			leftFaces->push_back( tri );
+			bbMinsL.push_back( tri.bbMin );
+			bbMaxsL.push_back( tri.bbMax );
 		}
 		else {
 			rightFaces->push_back( tri );
+			bbMinsR.push_back( tri.bbMin );
+			bbMaxsR.push_back( tri.bbMax );
 		}
 	}
 
@@ -1034,18 +1057,35 @@ void BVH::splitFaces(
 	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
 		Logger::logDebugVerbose( "[BVH] Dividing faces by center left one side empty. Just doing it 50:50 now." );
 
+		bbMinsL.clear();
+		bbMaxsL.clear();
+		bbMinsR.clear();
+		bbMaxsR.clear();
 		leftFaces->clear();
 		rightFaces->clear();
 
 		for( cl_uint i = 0; i < faces.size(); i++ ) {
+			Tri tri = faces[i];
+
 			if( i < faces.size() / 2 ) {
-				leftFaces->push_back( faces[i] );
+				leftFaces->push_back( tri );
+				bbMinsL.push_back( tri.bbMin );
+				bbMaxsL.push_back( tri.bbMax );
 			}
 			else {
-				rightFaces->push_back( faces[i] );
+				rightFaces->push_back( tri );
+				bbMinsR.push_back( tri.bbMin );
+				bbMaxsR.push_back( tri.bbMax );
 			}
 		}
 	}
+
+	glm::vec3 bbMinL, bbMinR, bbMaxL, bbMaxR;
+	MathHelp::getAABB( bbMinsL, bbMaxsL, &bbMinL, &bbMaxL );
+	cl_float leftSA = MathHelp::getSurfaceArea( bbMinL, bbMaxL );
+	cl_float rightSA = MathHelp::getSurfaceArea( bbMinR, bbMaxR );
+
+	sah = leftSA * leftFaces->size() + rightSA * rightFaces->size();
 
 	// There has to be somewhere else something wrong.
 	if( leftFaces->size() == 0 || rightFaces->size() == 0 ) {
@@ -1055,7 +1095,11 @@ void BVH::splitFaces(
 			faces.size()
 		);
 		Logger::logError( msg );
+
+		sah = FLT_MAX;
 	}
+
+	return sah;
 }
 
 

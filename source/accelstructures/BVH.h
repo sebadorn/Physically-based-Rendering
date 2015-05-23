@@ -112,7 +112,7 @@ class BVH : public AccelStructure {
 			glm::vec3* bbMinLeft, glm::vec3* bbMaxLeft,
 			glm::vec3* bbMinRight, glm::vec3* bbMaxRight
 		);
-		void splitFaces(
+		cl_float splitFaces(
 			const vector<Tri> faces, const cl_float midpoint, const cl_uint axis,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces
 		);
