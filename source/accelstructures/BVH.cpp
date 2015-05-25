@@ -19,16 +19,13 @@ struct sortFacesCmp {
 	};
 
 	/**
-	 * Compare two faces by their centroids.
+	 * Compare two faces.
 	 * @param  {const Tri} a Indizes for vertices that describe a face.
 	 * @param  {const Tri} b Indizes for vertices that describe a face.
 	 * @return {bool}        a < b
 	 */
 	bool operator()( const Tri a, const Tri b ) {
-		glm::vec3 cenA = ( a.bbMax + a.bbMin ) * 0.5f;
-		glm::vec3 cenB = ( b.bbMax + b.bbMin ) * 0.5f;
-
-		return cenA[this->axis] < cenB[this->axis];
+		return a.bbMin[this->axis] < b.bbMin[this->axis];
 	};
 
 };
@@ -579,7 +576,7 @@ void BVH::growAABBsForSAH(
 	vector< vector<glm::vec3> >* leftBB, vector< vector<glm::vec3> >* rightBB,
 	vector<cl_float>* leftSA, vector<cl_float>* rightSA
 ) {
-	vector<glm::vec3> bbMins, bbMaxs;
+	glm::vec3 bbMin, bbMax;
 	const cl_uint numFaces = faces->size();
 
 
@@ -587,11 +584,16 @@ void BVH::growAABBsForSAH(
 	// Save the growing surface area for each step.
 
 	for( int i = 0; i < numFaces - 1; i++ ) {
-		glm::vec3 bbMin, bbMax;
+		Tri f = (*faces)[i];
 
-		bbMins.push_back( (*faces)[i].bbMin );
-		bbMaxs.push_back( (*faces)[i].bbMax );
-		MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
+		if( i == 0 ) {
+			bbMin = glm::vec3( f.bbMin );
+			bbMax = glm::vec3( f.bbMax );
+		}
+		else {
+			bbMin = glm::min( bbMin, f.bbMin );
+			bbMax = glm::max( bbMax, f.bbMax );
+		}
 
 		(*leftBB)[i] = vector<glm::vec3>( 2 );
 		(*leftBB)[i][0] = bbMin;
@@ -603,15 +605,17 @@ void BVH::growAABBsForSAH(
 	// Grow a bounding box face by face starting from the right.
 	// Save the growing surface area for each step.
 
-	bbMins.clear();
-	bbMaxs.clear();
-
 	for( int i = numFaces - 2; i >= 0; i-- ) {
-		glm::vec3 bbMin, bbMax;
+		Tri f = (*faces)[i + 1];
 
-		bbMins.push_back( (*faces)[i + 1].bbMin );
-		bbMaxs.push_back( (*faces)[i + 1].bbMax );
-		MathHelp::getAABB( bbMins, bbMaxs, &bbMin, &bbMax );
+		if( i == numFaces - 2 ) {
+			bbMin = glm::vec3( f.bbMin );
+			bbMax = glm::vec3( f.bbMax );
+		}
+		else {
+			bbMin = glm::min( bbMin, f.bbMin );
+			bbMax = glm::max( bbMax, f.bbMax );
+		}
 
 		(*rightBB)[i] = vector<glm::vec3>( 2 );
 		(*rightBB)[i][0] = bbMin;
@@ -628,11 +632,17 @@ void BVH::growAABBsForSAH(
 void BVH::logStats( boost::posix_time::ptime timerStart ) {
 	boost::posix_time::ptime timerEnd = boost::posix_time::microsec_clock::local_time();
 	cl_float timeDiff = ( timerEnd - timerStart ).total_milliseconds();
+	string timeUnits = "ms";
 
-	char msg[256];
+	if( timeDiff > 1000.0f ) {
+		timeDiff /= 1000.0f;
+		timeUnits = "s";
+	}
+
+	char msg[512];
 	snprintf(
-		msg, 256, "[BVH] Generated in %g ms. Contains %lu nodes (%lu leaves). Max faces of %u. Max depth of %u.",
-		timeDiff, mNodes.size(), mLeafNodes.size(), mMaxFaces, mDepthReached
+		msg, 512, "[BVH] Generated in %.2f%s. Contains %lu nodes (%lu leaves). Max faces of %u. Max depth of %u.",
+		timeDiff, timeUnits.c_str(), mNodes.size(), mLeafNodes.size(), mMaxFaces, mDepthReached
 	);
 	Logger::logInfo( msg );
 }
@@ -913,13 +923,8 @@ void BVH::splitBySAH(
 		glm::vec3 diff = rightBB[j][1] - ( rightBB[j][1] - leftBB[j][1] );
 		*lambda = diff[0] * diff[0] + diff[1] * diff[1] + diff[2] * diff[2];
 
-		for( cl_uint i = 0; i < indexSplit; i++ ) {
-			leftFaces->push_back( faces[i] );
-		}
-
-		for( cl_uint i = indexSplit; i < numFaces; i++ ) {
-			rightFaces->push_back( faces[i] );
-		}
+		leftFaces->insert( leftFaces->begin(), faces.begin(), faces.begin() + indexSplit );
+		rightFaces->insert( rightFaces->begin(), faces.begin() + indexSplit, faces.end() );
 	}
 }
 

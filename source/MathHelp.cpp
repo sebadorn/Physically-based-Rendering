@@ -72,11 +72,11 @@ void MathHelp::getAABB(
  * @return {cl_float}        Surface area.
  */
 cl_float MathHelp::getSurfaceArea( glm::vec3 bbMin, glm::vec3 bbMax ) {
-	cl_float xy = 2.0f * fabs( bbMax[0] - bbMin[0] ) * fabs( bbMax[1] - bbMin[1] );
-	cl_float zy = 2.0f * fabs( bbMax[2] - bbMin[2] ) * fabs( bbMax[1] - bbMin[1] );
-	cl_float xz = 2.0f * fabs( bbMax[0] - bbMin[0] ) * fabs( bbMax[2] - bbMin[2] );
+	cl_float xy = fabs( bbMax[0] - bbMin[0] ) * fabs( bbMax[1] - bbMin[1] );
+	cl_float zy = fabs( bbMax[2] - bbMin[2] ) * fabs( bbMax[1] - bbMin[1] );
+	cl_float xz = fabs( bbMax[0] - bbMin[0] ) * fabs( bbMax[2] - bbMin[2] );
 
-	return xy + zy + xz;
+	return 2.0f * ( xy + zy + xz );
 }
 
 
