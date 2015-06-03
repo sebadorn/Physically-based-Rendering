@@ -231,6 +231,6 @@ void MtlParser::load( string file ) {
 	fileIn.close();
 
 	char msg[64];
-	snprintf( msg, 64, "[MtlParser] Loaded %lu materials.", mMaterials.size() );
+	snprintf( msg, 64, "[MtlParser] Loaded %lu material(s).", mMaterials.size() );
 	Logger::logInfo( msg );
 }

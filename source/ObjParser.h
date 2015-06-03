@@ -11,6 +11,7 @@
 
 #include "Logger.h"
 #include "MtlParser.h"
+#include "LightParser.h"
 
 using std::map;
 using std::string;
@@ -34,6 +35,7 @@ class ObjParser {
 		vector<cl_uint> getFacesV();
 		vector<cl_uint> getFacesVN();
 		vector<cl_uint> getFacesVT();
+		vector<light_t> getLights();
 		vector<material_t> getMaterials();
 		vector<cl_float> getNormals();
 		vector<object3D> getObjects();
@@ -41,6 +43,7 @@ class ObjParser {
 		vector<cl_float> getVertices();
 
 	protected:
+		void loadLights( string file );
 		void loadMtl( string file );
 		void parseFace(
 			string line, vector<cl_uint>* facesV,
@@ -51,6 +54,7 @@ class ObjParser {
 		void parseVertexTexture( string line, vector<cl_float>* textures );
 
 	private:
+		LightParser* mLightParser;
 		MtlParser* mMtlParser;
 
 		vector<object3D> mObjects;

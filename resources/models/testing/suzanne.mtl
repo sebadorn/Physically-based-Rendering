@@ -65,3 +65,6 @@ d 1.0
 newmtl WallRight
 Ni 1.0
 d 1.0
+
+newmtl sky_light
+Kd 0.846 0.933 0.949

@@ -10,6 +10,7 @@ using std::vector;
  */
 ObjParser::ObjParser() {
 	mMtlParser = new MtlParser();
+	mLightParser = new LightParser();
 }
 
 
@@ -18,6 +19,7 @@ ObjParser::ObjParser() {
  */
 ObjParser::~ObjParser() {
 	delete mMtlParser;
+	delete mLightParser;
 }
 
 
@@ -54,6 +56,15 @@ vector<cl_uint> ObjParser::getFacesVN() {
  */
 vector<cl_uint> ObjParser::getFacesVT() {
 	return mFacesVT;
+}
+
+
+/**
+ * Get the loaded lights.
+ * @return {std::vector<light_t>} The lights from the LIGHT file.
+ */
+vector<light_t> ObjParser::getLights() {
+	return mLightParser->getLights();
 }
 
 
@@ -119,6 +130,7 @@ void ObjParser::load( string filepath, string filename ) {
 
 	std::ifstream fileIn( filepath.append( filename ).c_str() );
 
+	this->loadLights( filepath );
 	this->loadMtl( filepath );
 	vector<material_t> materials = mMtlParser->getMaterials();
 	vector<string> materialNames;
@@ -195,8 +207,20 @@ void ObjParser::load( string filepath, string filename ) {
 
 
 /**
+ * Load the LIGHTS file to the OBJ.
+ * @param {std::string} file File path and name of the OBJ. Assuming the LIGHTS file has the same name aside from the file extension.
+ */
+void ObjParser::loadLights( string file ) {
+	size_t extensionIndex = file.rfind( ".obj" );
+	file.replace( extensionIndex, 4, ".lights" );
+
+	mLightParser->load( file );
+}
+
+
+/**
  * Load the MTL file to the OBJ.
- * @param {std::string} file File path and name of the OBJ. Assuming the MTL has the same name aside from the file extension.
+ * @param {std::string} file File path and name of the OBJ. Assuming the MTL file has the same name aside from the file extension.
  */
 void ObjParser::loadMtl( string file ) {
 	size_t extensionIndex = file.rfind( ".obj" );

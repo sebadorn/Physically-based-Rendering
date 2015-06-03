@@ -46,7 +46,7 @@
 		// Using a surface area heuristic to build the BVH takes
 		// some time. To speed it up only use SAH for nodes with
 		// a number of faces less or equal to this setting.
-		"sah_faces_limit": 1000,
+		"sah_faces_limit": 100000,
 		// Use spatial splits to create the BVH.
 		// WORKS, BUT HAS BAD PERFORMANCE. NEEDS OPTIMIZATION!
 		// 0: disabled
@@ -136,9 +136,9 @@
 	},
 
 	"sun": {
-		"x": 6.0,
-		"y": 20.0,
-		"z": 0.0
+		"x": 2.0,
+		"y": 6.0,
+		"z": 1.0
 	},
 
 	"window": {

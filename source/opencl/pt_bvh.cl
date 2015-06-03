@@ -129,7 +129,7 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 
 		index = currentIndex + 1;
 
-		// Node is leaf node. Test faces-
+		// Node is leaf node. Test faces.
 		if( node.bbMin.w != -1.0f ) {
 			intersectFaces( scene, ray, &node, tNear, tFar );
 			index = currentIndex + 1;

@@ -421,7 +421,6 @@ kernel void pathTracing(
 			#if SHADOW_RAYS == 1
 				if( mtl.data.s0 > 0.0f ) {
 					lightRay.origin = fma( ray.t, ray.dir, ray.origin ) + ray.normal * EPSILON5;
-					const float rnd2 = rand( &seed );
 					lightRay.dir = fast_normalize( sunPos.xyz - lightRay.origin );
 
 					CALL_TRAVERSE_SHADOWS

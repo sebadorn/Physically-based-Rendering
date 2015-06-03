@@ -25,7 +25,10 @@ struct sortFacesCmp {
 	 * @return {bool}        a < b
 	 */
 	bool operator()( const Tri a, const Tri b ) {
-		return a.bbMin[this->axis] < b.bbMin[this->axis];
+		cl_float cenA = ( a.bbMin[this->axis] + a.bbMax[this->axis] ) * 0.5f;
+		cl_float cenB = ( b.bbMin[this->axis] + b.bbMax[this->axis] ) * 0.5f;
+
+		return cenA < cenB;
 	};
 
 };
@@ -888,20 +891,14 @@ void BVH::splitBySAH(
 	// SAH = SA of node * ( SA left of split * faces left of split + SA right of split * faces right of split )
 
 	int indexSplit = -1;
-	cl_float newSAH, numFacesLeft, numFacesRight;
+	cl_float newSAH;
 
 	for( cl_uint i = 0; i < numFaces - 1; i++ ) {
-		cl_float overlapSA = 0.0f;
-		cl_float sideX = leftBB[i][1].x - rightBB[i][0].x;
-		cl_float sideY = leftBB[i][1].y - rightBB[i][0].y;
-		cl_float sideZ = leftBB[i][1].z - rightBB[i][0].z;
+		cl_float numFacesLeft = i + 1;
+		cl_float numFacesRight = numFaces - i - 1;
 
-		if( fmin( sideX, fmin( sideY, sideZ ) ) > 0.0f ) {
-			overlapSA = 2.0f * ( sideX * sideY + sideX * sideZ + sideY * sideZ );
-		}
-
-		newSAH = leftSA[i] * ( i + 1 ) + rightSA[i] * ( numFaces - i - 1 );
-		newSAH += overlapSA;
+		newSAH = leftSA[i] * numFacesLeft + rightSA[i] * numFacesRight;
+		// newSAH += MathHelp::getOverlapSA( leftBB[i][1], rightBB[i][0] );
 
 		// Better split position found
 		if( newSAH < *bestSAH ) {

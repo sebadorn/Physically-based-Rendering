@@ -27,6 +27,7 @@ class MathHelp {
 			vector<glm::vec3> bbMins, vector<glm::vec3> bbMaxs,
 			glm::vec3* bbMin, glm::vec3* bbMax
 		);
+		static cl_float getOverlapSA( glm::vec3 bbA, glm::vec3 bbB );
 		static cl_float getSurfaceArea( glm::vec3 bbMin, glm::vec3 bbMax );
 		static void getTriangleAABB(
 			cl_float4 v0, cl_float4 v1, cl_float4 v2, glm::vec3* bbMin, glm::vec3* bbMax

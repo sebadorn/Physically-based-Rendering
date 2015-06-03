@@ -1,4 +1,7 @@
 ## Changes since completing my Master Thesis
 
+* **RGB mode**
+* **Optimization** – Faster BVH construction; faster BVH traversal.
 * **BRDF: Shirley-Ashikhmin** – Fixed colors losing saturation.
 * **Phong Tessellation** – Transparency/refraction not working; some artifacts.
+* **Depth-of-Field** – Thin lense.

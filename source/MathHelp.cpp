@@ -66,6 +66,27 @@ void MathHelp::getAABB(
 
 
 /**
+ * Get the surface area of the overlap of two AABBs.
+ * @param  {glm::vec3} bbA The left AABB.
+ * @param  {glm::vec3} bbB The right AABB.
+ * @return {cl_float}
+ */
+cl_float MathHelp::getOverlapSA( glm::vec3 bbA, glm::vec3 bbB ) {
+	cl_float overlapSA = 0.0f;
+
+	cl_float sideX = bbA.x - bbB.x;
+	cl_float sideY = bbA.y - bbB.y;
+	cl_float sideZ = bbA.z - bbB.z;
+
+	if( fmin( sideX, fmin( sideY, sideZ ) ) > 0.0f ) {
+		overlapSA = 2.0f * ( sideX * sideY + sideX * sideZ + sideY * sideZ );
+	}
+
+	return overlapSA;
+};
+
+
+/**
  * Get the surface are of a bounding box.
  * @param  {glm::vec3} bbMin
  * @param  {glm::vec3} bbMax
