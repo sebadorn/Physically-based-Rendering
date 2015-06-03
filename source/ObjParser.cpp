@@ -130,7 +130,10 @@ void ObjParser::load( string filepath, string filename ) {
 
 	std::ifstream fileIn( filepath.append( filename ).c_str() );
 
-	this->loadLights( filepath );
+	if( Cfg::get().value<int>( Cfg::RENDER_SHADOWRAYS ) > 0 ) {
+		this->loadLights( filepath );
+	}
+
 	this->loadMtl( filepath );
 	vector<material_t> materials = mMtlParser->getMaterials();
 	vector<string> materialNames;

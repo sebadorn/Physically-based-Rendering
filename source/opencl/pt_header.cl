@@ -54,6 +54,11 @@ typedef struct {
 	uint4 normals;
 } face_t;
 
+typedef struct {
+	float4 pos; // w: type
+	float4 rgb;
+} light_t;
+
 
 // BVH
 #if ACCEL_STRUCT == 0

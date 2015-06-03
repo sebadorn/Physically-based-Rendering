@@ -16,6 +16,9 @@ class Cfg {
 		template<typename T> T value( const char* key ) {
 			return mPropTree.get<T>( key );
 		}
+		void value( const char* key, void* value ) {
+			mPropTree.put( key, value );
+		}
 
 		static const char* ACCEL_STRUCT;
 		static const char* BVH_MAXFACES;
@@ -54,9 +57,6 @@ class Cfg {
 		static const char* SHADER_NAME;
 		static const char* SHADER_PATH;
 		static const char* SPECTRAL_COLORSYSTEM;
-		static const char* SUN_X;
-		static const char* SUN_Y;
-		static const char* SUN_Z;
 		static const char* USE_SPECTRAL;
 		static const char* WINDOW_HEIGHT;
 		static const char* WINDOW_WIDTH;

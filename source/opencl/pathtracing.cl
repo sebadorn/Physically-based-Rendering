@@ -323,7 +323,6 @@ kernel void pathTracing(
 	// changing values
 	float seed,
 	const float pixelWeight,
-	const float4 sunPos,
 
 	// view
 	const float pxDim,
@@ -344,6 +343,7 @@ kernel void pathTracing(
 	global const float4* vertices,
 	global const float4* normals,
 	global const material* materials,
+	global const light_t* lights,
 
 	#if USE_SPECTRAL == 1
 		constant const float* specPowerDists,
@@ -421,12 +421,12 @@ kernel void pathTracing(
 			#if SHADOW_RAYS == 1
 				if( mtl.data.s0 > 0.0f ) {
 					lightRay.origin = fma( ray.t, ray.dir, ray.origin ) + ray.normal * EPSILON5;
-					lightRay.dir = fast_normalize( sunPos.xyz - lightRay.origin );
+					lightRay.dir = fast_normalize( lights[0].pos.xyz - lightRay.origin );
 
 					CALL_TRAVERSE_SHADOWS
 
 					if( lightRay.t == INFINITY ) {
-						lightRaySource = SKY_LIGHT;
+						lightRaySource = lights[0].rgb;
 					}
 				}
 			#endif

@@ -36,6 +36,11 @@ struct face_cl {
 	cl_uint4 normals;
 };
 
+struct light_cl {
+	cl_float4 pos; // w: type
+	cl_float4 rgb;
+};
+
 struct material_schlick_spd {
 	cl_float4 data;
 	// data.s0: d
@@ -139,6 +144,7 @@ class PathTracer {
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
 		);
 		size_t initOpenCLBuffers_KdTree( KdTree* kdTree );
+		size_t initOpenCLBuffers_Lights( ModelLoader* ml );
 		size_t initOpenCLBuffers_Materials( ModelLoader* ml );
 		size_t initOpenCLBuffers_MaterialsRGB( vector<material_t> materials );
 		size_t initOpenCLBuffers_MaterialsSPD( vector<material_t> materials, SpecParser* sp );
@@ -154,7 +160,6 @@ class PathTracer {
 		cl_uint mWidth;
 		cl_float mFOV;
 		cl_uint mSampleCount;
-		cl_float4 mSunPos;
 
 		vector<cl_float> mTextureOut;
 
@@ -178,6 +183,9 @@ class PathTracer {
 		cl_mem mBufTextureIn;
 		cl_mem mBufTextureOut;
 		cl_mem mBufTextureDebug;
+
+		vector<light_cl> mLights;
+		cl_mem mBufLights;
 
 		GLWidget* mGLWidget;
 		Camera* mCamera;

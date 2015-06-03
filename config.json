@@ -113,7 +113,7 @@
 		// Shoot shadow rays to generate implicit paths.
 		// 0: disable
 		// 1: enable
-		"shadow_rays": 0,
+		"shadow_rays": 1,
 		// Use spectral color definitions.
 		// 0: disable, use RGB
 		// 1: enable
@@ -133,12 +133,6 @@
 		// 4: CIE (default)
 		// 5: Rec709
 		"color_system": 4
-	},
-
-	"sun": {
-		"x": 2.0,
-		"y": 6.0,
-		"z": 1.0
 	},
 
 	"window": {

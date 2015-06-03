@@ -22,11 +22,6 @@ PathTracer::PathTracer( GLWidget* parent ) {
 
 	mStructCam.lense.x = Cfg::get().value<cl_float>( Cfg::CAM_LENSE_FOCALLENGTH );
 	mStructCam.lense.y = Cfg::get().value<cl_float>( Cfg::CAM_LENSE_APERTURE );
-
-	mSunPos.x = Cfg::get().value<cl_float>( Cfg::SUN_X );
-	mSunPos.y = Cfg::get().value<cl_float>( Cfg::SUN_Y );
-	mSunPos.z = Cfg::get().value<cl_float>( Cfg::SUN_Z );
-	mSunPos.w = 0.0f;
 }
 
 
@@ -47,8 +42,7 @@ void PathTracer::clPathTracing( cl_float timeSinceStart ) {
 
 	mCL->setKernelArg( mKernelPathTracing, 0, sizeof( cl_float ), &timeSinceStart );
 	mCL->setKernelArg( mKernelPathTracing, 1, sizeof( cl_float ), &pixelWeight );
-	mCL->setKernelArg( mKernelPathTracing, 2, sizeof( cl_float4 ), &mSunPos );
-	mCL->setKernelArg( mKernelPathTracing, 4, sizeof( camera_cl ), &mStructCam );
+	mCL->setKernelArg( mKernelPathTracing, 3, sizeof( camera_cl ), &mStructCam );
 
 	mCL->execute( mKernelPathTracing );
 	mCL->finish();
@@ -101,7 +95,6 @@ void PathTracer::initArgsKernelPathTracing() {
 	cl_uint i = 0;
 	i++; // 0: timeSinceStart
 	i++; // 1: pixelWeight
-	i++; // 2: sun position
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_float ), &pxDim );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( camera_cl ), &mStructCam );
 
@@ -128,6 +121,7 @@ void PathTracer::initArgsKernelPathTracing() {
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufVertices );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufNormals );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufMaterials );
+	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufLights );
 
 	if( Cfg::get().value<bool>( Cfg::USE_SPECTRAL ) ) {
 		mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufSPDs );
@@ -213,6 +207,17 @@ void PathTracer::initOpenCLBuffers(
 	utils::formatBytes( bytes, &bytesFloat, &unit );
 	snprintf( msg, 128, "[PathTracer] Created material buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
+
+	// Buffer: Light(s)
+	if( Cfg::get().value<int>( Cfg::RENDER_SHADOWRAYS ) > 0 ) {
+		timerStart = boost::posix_time::microsec_clock::local_time();
+		bytes = this->initOpenCLBuffers_Lights( ml );
+		timerEnd = boost::posix_time::microsec_clock::local_time();
+		timeDiff = ( timerEnd - timerStart ).total_milliseconds();
+		utils::formatBytes( bytes, &bytesFloat, &unit );
+		snprintf( msg, 128, "[PathTracer] Created light buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+		Logger::logInfo( msg );
+	}
 
 	// Buffer: Textures
 	timerStart = boost::posix_time::microsec_clock::local_time();
@@ -428,6 +433,29 @@ size_t PathTracer::initOpenCLBuffers_KdTree( KdTree* kdTree ) {
 	mBufKdFaces = mCL->createBuffer( kdFaces, bytesFaces );
 
 	return bytesNonLeaves + bytesLeaves + bytesFaces;
+}
+
+
+/**
+ * Init OpenCL buffers for the lights.
+ * @param {ModelLoader*} ml Model loader already holding the needed model data.
+ */
+size_t PathTracer::initOpenCLBuffers_Lights( ModelLoader* ml ) {
+	vector<light_t> lights = ml->getObjParser()->getLights();
+
+	for( int i = 0; i < lights.size(); i++ ) {
+		light_cl light;
+		light.pos = lights[i].pos;
+		light.pos.w = lights[i].type;
+		light.rgb = lights[i].rgb;
+
+		mLights.push_back( light );
+	}
+
+	size_t bytes = sizeof( light_cl ) * mLights.size();
+	mBufLights = mCL->createBuffer( mLights, bytes );
+
+	return bytes;
 }
 
 
@@ -751,33 +779,33 @@ void PathTracer::kdNodesToVectors(
  * @param {const int} key Pressed key.
  */
 void PathTracer::moveSun( const int key ) {
-	switch( key ) {
+	// switch( key ) {
 
-		case Qt::Key_W:
-			mSunPos.x += 0.25f;
-			break;
+	// 	case Qt::Key_W:
+	// 		mSunPos.x += 0.25f;
+	// 		break;
 
-		case Qt::Key_S:
-			mSunPos.x -= 0.25f;
-			break;
+	// 	case Qt::Key_S:
+	// 		mSunPos.x -= 0.25f;
+	// 		break;
 
-		case Qt::Key_A:
-			mSunPos.z -= 0.25f;
-			break;
+	// 	case Qt::Key_A:
+	// 		mSunPos.z -= 0.25f;
+	// 		break;
 
-		case Qt::Key_D:
-			mSunPos.z += 0.25f;
-			break;
+	// 	case Qt::Key_D:
+	// 		mSunPos.z += 0.25f;
+	// 		break;
 
-		case Qt::Key_Q:
-			mSunPos.y += 0.25f;
-			break;
+	// 	case Qt::Key_Q:
+	// 		mSunPos.y += 0.25f;
+	// 		break;
 
-		case Qt::Key_E:
-			mSunPos.y -= 0.25f;
-			break;
+	// 	case Qt::Key_E:
+	// 		mSunPos.y -= 0.25f;
+	// 		break;
 
-	}
+	// }
 
 	this->resetSampleCount();
 }

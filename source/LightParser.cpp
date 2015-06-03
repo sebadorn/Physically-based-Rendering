@@ -107,6 +107,9 @@ void LightParser::load( string file ) {
 	if( numLightsFound > 0 ) {
 		mLights.push_back( light );
 	}
+	else {
+		Cfg::get().value( Cfg::RENDER_SHADOWRAYS, 0 );
+	}
 
 	fileIn.close();
 
