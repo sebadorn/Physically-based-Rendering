@@ -35,9 +35,6 @@ class Cfg {
 		static const char* CAM_SPEED;
 		static const char* IMPORT_PATH;
 		static const char* INFO_KERNELTIMES;
-		static const char* KDTREE_DEPTH;
-		static const char* KDTREE_MINFACES;
-		static const char* KDTREE_OPTIMIZEROPES;
 		static const char* LOG_LEVEL;
 		static const char* OPENCL_BUILDOPTIONS;
 		static const char* OPENCL_CHECKERRORS;

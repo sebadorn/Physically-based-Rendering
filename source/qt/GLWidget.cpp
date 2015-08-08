@@ -17,7 +17,7 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mFrameCount = 0;
 	mPreviousTime = 0;
 
-	mMoveSun = false;
+	mMoveLight = false;
 	mViewBVH = false;
 	mViewDebug = false;
 	mViewOverlay = false;
@@ -354,9 +354,6 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	if( usedAccelStruct == ACCELSTRUCT_BVH ) {
 		accelStruct = new BVH( op->getObjects(), mVertices, mNormals );
 	}
-	else if( usedAccelStruct == ACCELSTRUCT_KDTREE ) {
-		accelStruct = new KdTree( mFaces, op->getFacesVN(), mVertices, mNormals );
-	}
 
 	// Visualization of the acceleration structure
 	vector<GLfloat> visVertices;
@@ -429,7 +426,7 @@ void GLWidget::moveCamera( const int key ) {
 		return;
 	}
 
-	if( mMoveSun ) {
+	if( mMoveLight ) {
 		mPathTracer->moveSun( key );
 		return;
 	}
@@ -767,8 +764,12 @@ void GLWidget::stopRendering() {
 /**
  * Toggle movement of the sun position.
  */
-void GLWidget::toggleSunMovement() {
-	mMoveSun = !mMoveSun;
+void GLWidget::toggleLightMovement() {
+	mMoveLight = !mMoveLight;
+
+	char msg[64];
+	snprintf( msg, 64, "[GLWidget] Keyboard controls light: %d", mMoveLight );
+	Logger::logInfo( msg );
 }
 
 

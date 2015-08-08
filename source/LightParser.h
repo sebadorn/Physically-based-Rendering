@@ -19,6 +19,7 @@ struct light_t {
 	cl_uint type;
 	cl_float4 pos;
 	cl_float4 rgb;
+	cl_float radius;
 };
 
 

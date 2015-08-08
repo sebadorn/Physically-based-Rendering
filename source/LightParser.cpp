@@ -14,6 +14,7 @@ light_t LightParser::getEmptyLight() {
 	light_t light;
 	light.lightName = "";
 	light.pos = white;
+	light.radius = 0.0f;
 	light.rgb = white;
 	light.type = 0;
 
@@ -101,6 +102,14 @@ void LightParser::load( string file ) {
 			light.pos.x = atof( parts[1].c_str() );
 			light.pos.y = atof( parts[2].c_str() );
 			light.pos.z = atof( parts[3].c_str() );
+		}
+		// Radius, if orb
+		else if( parts[0] == "radius" ) {
+			if( parts.size() < 2 ) {
+				Logger::logWarning( "[LightParser] Not enoug parameters for <radius>. Ignoring attribute." );
+				continue;
+			}
+			light.radius = atof( parts[1].c_str() );
 		}
 	}
 

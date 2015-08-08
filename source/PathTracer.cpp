@@ -81,9 +81,8 @@ cl_float PathTracer::getTimeSinceStart() {
 
 /**
  * Init the kernel arguments for the OpenCL kernel to do the path tracing
- * (find intersections and accumulate the color).
  */
-void PathTracer::initArgsKernelPathTracing() {
+void PathTracer::initKernelArgs() {
 	cl_float aspect = (cl_float) mWidth / (cl_float) mHeight;
 	cl_float f = aspect * 2.0f * tan( MathHelp::degToRad( mFOV ) / 2.0f );
 	cl_float pxDim = f / (cl_float) mWidth;
@@ -102,13 +101,6 @@ void PathTracer::initArgsKernelPathTracing() {
 
 		case ACCELSTRUCT_BVH:
 			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufBVH );
-			break;
-
-		case ACCELSTRUCT_KDTREE:
-			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( kdLeaf_cl ), &mKdRootNode );
-			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdNonLeaves );
-			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdLeaves );
-			mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufKdFaces );
 			break;
 
 		default:
@@ -134,14 +126,6 @@ void PathTracer::initArgsKernelPathTracing() {
 
 
 /**
- * Set the OpenCL kernel arguments that either don't change or point to a CL buffer.
- */
-void PathTracer::initKernelArgs() {
-	this->initArgsKernelPathTracing();
-}
-
-
-/**
  * Init the needed OpenCL buffers: Faces, vertices, camera eye and rays.
  * @param {std::vector<cl_float>} vertices   Vertices of the model.
  * @param {std::vector<cl_uint>}  faces      Faces (triangles) of the model.
@@ -159,7 +143,9 @@ void PathTracer::initOpenCLBuffers(
 	size_t bytes;
 	float bytesFloat;
 	string unit;
-	char msg[128];
+
+	#define MSG_LENGTH 128
+	char msg[MSG_LENGTH];
 
 	if( mCL != NULL ) {
 		delete mCL;
@@ -176,7 +162,7 @@ void PathTracer::initOpenCLBuffers(
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, 128, "[PathTracer] Created faces buffer in %g ms -- %.2f %s.", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, MSG_LENGTH, "[PathTracer] Created faces buffer in %g ms -- %.2f %s.", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Acceleration Structure
@@ -188,15 +174,11 @@ void PathTracer::initOpenCLBuffers(
 		bytes = this->initOpenCLBuffers_BVH( (BVH*) accelStruc, ml, faces );
 		accelName = "BVH";
 	}
-	else if( usedAccelStruct == ACCELSTRUCT_KDTREE ) {
-		bytes = this->initOpenCLBuffers_KdTree( (KdTree*) accelStruc );
-		accelName = "kd-tree";
-	}
 
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, 128, "[PathTracer] Created %s buffer in %g ms -- %.2f %s", accelName.c_str(), timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, MSG_LENGTH, "[PathTracer] Created %s buffer in %g ms -- %.2f %s", accelName.c_str(), timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Material(s)
@@ -205,7 +187,7 @@ void PathTracer::initOpenCLBuffers(
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, 128, "[PathTracer] Created material buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, MSG_LENGTH, "[PathTracer] Created material buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Light(s)
@@ -215,9 +197,12 @@ void PathTracer::initOpenCLBuffers(
 		timerEnd = boost::posix_time::microsec_clock::local_time();
 		timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 		utils::formatBytes( bytes, &bytesFloat, &unit );
-		snprintf( msg, 128, "[PathTracer] Created light buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+		snprintf( msg, MSG_LENGTH, "[PathTracer] Created light buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 		Logger::logInfo( msg );
 	}
+
+	snprintf( msg, MSG_LENGTH, "%lu", mLights.size() );
+	mCL->setReplacement( string( "#NUM_LIGHTS#" ), string( msg ) );
 
 	// Buffer: Textures
 	timerStart = boost::posix_time::microsec_clock::local_time();
@@ -225,7 +210,7 @@ void PathTracer::initOpenCLBuffers(
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, 128, "[PathTracer] Created texture buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, MSG_LENGTH, "[PathTracer] Created texture buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	Logger::indent( 0 );
@@ -403,40 +388,6 @@ size_t PathTracer::initOpenCLBuffers_Faces(
 
 
 /**
-* Init OpenCL buffers for the kD-tree.
-* @param {KdTree*} kdTree
-*/
-size_t PathTracer::initOpenCLBuffers_KdTree( KdTree* kdTree ) {
-	vector<kdNonLeaf_cl> kdNonLeaves;
-	vector<kdLeaf_cl> kdLeaves;
-	vector<cl_uint> kdFaces;
-
-	// Root node. It's NOT a leaf node, but we want to pass the
-	// bounding box data, so we use the same struct.
-	glm::vec3 bbMax = kdTree->getBoundingBoxMax();
-	mKdRootNode.bbMax.x = bbMax[0];
-	mKdRootNode.bbMax.y = bbMax[1];
-	mKdRootNode.bbMax.z = bbMax[2];
-	glm::vec3 bbMin = kdTree->getBoundingBoxMin();
-	mKdRootNode.bbMin.x = bbMin[0];
-	mKdRootNode.bbMin.y = bbMin[1];
-	mKdRootNode.bbMin.z = bbMin[2];
-
-	this->kdNodesToVectors( kdTree, &kdFaces, &kdNonLeaves, &kdLeaves );
-
-	size_t bytesNonLeaves = sizeof( kdNonLeaf_cl ) * kdNonLeaves.size();
-	size_t bytesLeaves = sizeof( kdLeaf_cl ) * kdLeaves.size();
-	size_t bytesFaces = sizeof( cl_uint ) * kdFaces.size();
-
-	mBufKdNonLeaves = mCL->createBuffer( kdNonLeaves, bytesNonLeaves );
-	mBufKdLeaves = mCL->createBuffer( kdLeaves, bytesLeaves );
-	mBufKdFaces = mCL->createBuffer( kdFaces, bytesFaces );
-
-	return bytesNonLeaves + bytesLeaves + bytesFaces;
-}
-
-
-/**
  * Init OpenCL buffers for the lights.
  * @param {ModelLoader*} ml Model loader already holding the needed model data.
  */
@@ -446,14 +397,39 @@ size_t PathTracer::initOpenCLBuffers_Lights( ModelLoader* ml ) {
 	for( int i = 0; i < lights.size(); i++ ) {
 		light_cl light;
 		light.pos = lights[i].pos;
-		light.pos.w = lights[i].type;
 		light.rgb = lights[i].rgb;
+		light.data.x = lights[i].type;
 
+		// Point light
+		if( light.data.x == 1 ) {
+			light.data.y = 0.0f;
+			light.data.z = 0.0f;
+			light.data.w = 0.0f;
+		}
+		// Orb
+		if( light.data.x == 2 ) {
+			light.data.y = lights[i].radius;
+			light.data.z = 0.0f;
+			light.data.w = 0.0f;
+		}
+
+		mLights.push_back( light );
+	}
+
+	bool noLights = false;
+
+	if( mLights.size() == 0 ) {
+		noLights = true;
+		light_cl light;
 		mLights.push_back( light );
 	}
 
 	size_t bytes = sizeof( light_cl ) * mLights.size();
 	mBufLights = mCL->createBuffer( mLights, bytes );
+
+	if( noLights ) {
+		mLights.clear();
+	}
 
 	return bytes;
 }
@@ -669,108 +645,6 @@ size_t PathTracer::initOpenCLBuffers_Textures() {
 	mBufTextureDebug = mCL->createImage2DWriteOnly( mWidth, mHeight );
 
 	return sizeof( cl_float ) * mTextureOut.size() * 3.0f;
-}
-
-
-/**
-* Store the kd-nodes data in seperate lists for each data type
-* in order to pass it to OpenCL.
-* @param {std::vector<KdNode_t>}      kdNodes     All nodes of the kd-tree.
-* @param {std::vector<cl_float>*}     kdFaces     Data: [a, b, c ..., faceIndex]
-* @param {std::vector<kdNonLeaf_cl>*} kdNonLeaves Output: Nodes of the kd-tree, that aren't leaves.
-* @param {std::vector<kdLeaf_cl>*}    kdLeaves    Output: Leaf nodes of the kd-tree.
-*/
-void PathTracer::kdNodesToVectors(
-	KdTree* kdTree, vector<cl_uint>* kdFaces,
-	vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves
-) {
-	vector<kdNode_t> leafNodes = kdTree->getLeaves();
-	vector<kdNode_t> nonLeafNodes = kdTree->getNonLeaves();
-
-	// Non-leaf nodes
-	for( uint i = 0; i < nonLeafNodes.size(); i++ ) {
-		kdNode_t kdNode = nonLeafNodes[i];
-
-		cl_int4 children = {
-			kdNode.left->index,
-			kdNode.right->index,
-			( kdNode.left->axis < 0 ), // Is node a leaf node
-			( kdNode.right->axis < 0 )
-		};
-
-		kdNonLeaf_cl node;
-		node.axis = kdNode.axis;
-		node.split = kdNode.split;
-		node.children = children;
-		kdNonLeaves->push_back( node );
-
-		if( kdNode.faces.size() > 0 ) {
-			Logger::logWarning( "[PathTracer] Converting kd-node data: Non-leaf node with faces." );
-		}
-	}
-
-	// Leaf nodes
-	for( uint i = 0; i < leafNodes.size(); i++ ) {
-		kdNode_t kdNode = leafNodes[i];
-
-		kdLeaf_cl leaf;
-		vector<kdNode_t*> nodeRopes = kdNode.ropes;
-
-		cl_int8 ropes = {
-			( nodeRopes[0] == NULL ) ? 0 : nodeRopes[0]->index + 1,
-			( nodeRopes[1] == NULL ) ? 0 : nodeRopes[1]->index + 1,
-			( nodeRopes[2] == NULL ) ? 0 : nodeRopes[2]->index + 1,
-			( nodeRopes[3] == NULL ) ? 0 : nodeRopes[3]->index + 1,
-			( nodeRopes[4] == NULL ) ? 0 : nodeRopes[4]->index + 1,
-			( nodeRopes[5] == NULL ) ? 0 : nodeRopes[5]->index + 1,
-			0, 0
-		};
-
-		// Set highest bit as flag for being a leaf node. (Use a negative value.)
-		// The -1 isn't going to be a problem, because the entryDistance < exitDistance condition
-		// in the kernel will stop the loop.
-		ropes.s0 = ( ropes.s0 != 0 && nodeRopes[0]->axis < 0 ) ? -ropes.s0 : ropes.s0;
-		ropes.s1 = ( ropes.s1 != 0 && nodeRopes[1]->axis < 0 ) ? -ropes.s1 : ropes.s1;
-		ropes.s2 = ( ropes.s2 != 0 && nodeRopes[2]->axis < 0 ) ? -ropes.s2 : ropes.s2;
-		ropes.s3 = ( ropes.s3 != 0 && nodeRopes[3]->axis < 0 ) ? -ropes.s3 : ropes.s3;
-		ropes.s4 = ( ropes.s4 != 0 && nodeRopes[4]->axis < 0 ) ? -ropes.s4 : ropes.s4;
-		ropes.s5 = ( ropes.s5 != 0 && nodeRopes[5]->axis < 0 ) ? -ropes.s5 : ropes.s5;
-
-		// Index of faces of this node in kdFaces
-		ropes.s6 = kdFaces->size();
-
-		// Number of faces in this node
-		ropes.s7 = kdNode.faces.size();
-
-		leaf.ropes = ropes;
-
-		// Bounding box
-		cl_float4 bbMin = {
-			kdNode.bbMin[0],
-			kdNode.bbMin[1],
-			kdNode.bbMin[2],
-			0.0f
-		};
-		cl_float4 bbMax = {
-			kdNode.bbMax[0],
-			kdNode.bbMax[1],
-			kdNode.bbMax[2],
-			0.0f
-		};
-		leaf.bbMin = bbMin;
-		leaf.bbMax = bbMax;
-
-		kdLeaves->push_back( leaf );
-
-		if( kdNode.faces.size() == 0 ) {
-			Logger::logWarning( "[PathTracer] Converting kd-node data: Leaf node without any faces." );
-		}
-
-		// Faces
-		for( uint j = 0; j < kdNode.faces.size(); j++ ) {
-			kdFaces->push_back( kdNode.faces[j].face.w );
-		}
-	}
 }
 
 

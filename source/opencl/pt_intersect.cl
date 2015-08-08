@@ -26,6 +26,57 @@ const bool intersectBox(
 
 
 /**
+ * Intersection of ray with sphere.
+ * @param  {const ray4*}  ray
+ * @param  {const float3} pos   Center of the sphere.
+ * @param  {const float}  r     Radius of the sphere.
+ * @param  {float*}       tNear
+ * @param  {float*}       tFar
+ * @return {const bool}
+ */
+const bool intersectSphere(
+	const ray4* ray, const float3 pos, const float r,
+	float* tNear, float* tFar
+) {
+	float t0, t1; // solutions for t if the ray intersects
+
+	// geometric solution
+	float3 L = pos - ray->origin;
+	float tca = dot( L, ray->dir );
+
+	if( tca < 0.0f ) {
+		return false;
+	}
+
+	float d2 = dot( L, L ) - tca * tca;
+
+	if( d2 > r ) {
+		return false;
+	}
+	float thc = native_sqrt( r - d2 );
+	t0 = tca - thc;
+	t1 = tca + thc;
+
+	if( t0 > t1 ) {
+		swap( &t0, &t1 );
+	}
+
+	if( t0 < 0.0f ) {
+		t0 = t1; // if t0 is negative, let's use t1 instead
+
+		if( t0 < 0.0f ) {
+			return false; // both t0 and t1 are negative
+		}
+	}
+
+	*tNear = t0;
+	*tFar = t1;
+
+	return true;
+}
+
+
+/**
  * Find intersection of a triangle and a ray. (No tessellation.)
  * After Möller and Trumbore.
  * @param  {const float3}         a

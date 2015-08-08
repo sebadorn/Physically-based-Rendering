@@ -18,7 +18,6 @@
 #include "MtlParser.h"
 #include "qt/GLWidget.h"
 #include "accelstructures/BVH.h"
-#include "accelstructures/KdTree.h"
 
 using std::vector;
 
@@ -37,8 +36,9 @@ struct face_cl {
 };
 
 struct light_cl {
-	cl_float4 pos; // w: type
+	cl_float4 pos;
 	cl_float4 rgb;
+	cl_float4 data; // x: type
 };
 
 struct material_schlick_spd {
@@ -92,26 +92,6 @@ struct bvhNode_cl {
 };
 
 
-// kD-tree
-
-struct bvhKdTreeNode_cl {
-	cl_float4 bbMin; // bbMin.w = leftChild
-	cl_float4 bbMax; // bbMax.w = rightChild
-};
-
-struct kdNonLeaf_cl {
-	cl_float split;
-	cl_int4 children; // [left, right, isLeftLeaf, isRightLeaf]
-	cl_short axis;
-};
-
-struct kdLeaf_cl {
-	cl_int8 ropes; // [left, right, bottom, top, back, front, facesIndex, numFaces]
-	cl_float4 bbMin;
-	cl_float4 bbMax;
-};
-
-
 class Camera;
 class GLWidget;
 
@@ -136,23 +116,17 @@ class PathTracer {
 		void clPathTracing( cl_float timeSinceStart );
 		void clSetColors( cl_float timeSinceStart );
 		cl_float getTimeSinceStart();
-		void initArgsKernelPathTracing();
 		void initKernelArgs();
 		size_t initOpenCLBuffers_BVH( BVH* bvh, ModelLoader* ml, vector<cl_uint> faces );
 		size_t initOpenCLBuffers_Faces(
 			ModelLoader* ml,
 			vector<cl_float> vertices, vector<cl_uint> faces, vector<cl_float> normals
 		);
-		size_t initOpenCLBuffers_KdTree( KdTree* kdTree );
 		size_t initOpenCLBuffers_Lights( ModelLoader* ml );
 		size_t initOpenCLBuffers_Materials( ModelLoader* ml );
 		size_t initOpenCLBuffers_MaterialsRGB( vector<material_t> materials );
 		size_t initOpenCLBuffers_MaterialsSPD( vector<material_t> materials, SpecParser* sp );
 		size_t initOpenCLBuffers_Textures();
-		void kdNodesToVectors(
-			KdTree* kdTree, vector<cl_uint>* kdFaces,
-			vector<kdNonLeaf_cl>* kdNonLeaves, vector<kdLeaf_cl>* kdLeaves
-		);
 		void updateEyeBuffer();
 
 	private:
@@ -173,11 +147,6 @@ class PathTracer {
 		cl_mem mBufNormals;
 		cl_mem mBufMaterials;
 		cl_mem mBufSPDs;
-
-		kdLeaf_cl mKdRootNode;
-		cl_mem mBufKdNonLeaves;
-		cl_mem mBufKdLeaves;
-		cl_mem mBufKdFaces;
 
 		camera_cl mStructCam;
 		cl_mem mBufTextureIn;

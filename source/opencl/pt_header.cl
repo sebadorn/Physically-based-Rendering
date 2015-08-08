@@ -8,14 +8,15 @@
 #define EPSILON10 0.0000000001f
 #define IMG_HEIGHT #IMG_HEIGHT#
 #define IMG_WIDTH #IMG_WIDTH#
-#define SHADOW_RAYS #SHADOW_RAYS#
 #define MAX_ADDED_DEPTH #MAX_ADDED_DEPTH#
 #define MAX_DEPTH #MAX_DEPTH#
 #define NI_AIR 1.00028f
+#define NUM_LIGHTS #NUM_LIGHTS#
 #define PHONGTESS #PHONGTESS#
 #define PHONGTESS_ALPHA #PHONGTESS_ALPHA#
 #define PI_X2 6.28318530718f
 #define SAMPLES #SAMPLES#
+#define SHADOW_RAYS #SHADOW_RAYS#
 #define SKY_LIGHT #SKY_LIGHT#
 // TODO: Using any other value than 40 doesn't really work.
 #define SPEC 40
@@ -55,8 +56,9 @@ typedef struct {
 } face_t;
 
 typedef struct {
-	float4 pos; // w: type
+	float4 pos;
 	float4 rgb;
+	float4 data; // x: type
 } light_t;
 
 
@@ -70,32 +72,7 @@ typedef struct {
 
 	typedef struct {
 		global const bvhNode* bvh;
-		global const face_t* faces;
-		global const float4* vertices;
-		global const float4* normals;
-		float4 debugColor;
-	} Scene;
-
-// kd-tree
-#elif ACCEL_STRUCT == 1
-
-	typedef struct {
-		float split;
-		int4 children; // [left, right, isLeftLeaf, isRightLeaf]
-		short axis;
-	} kdNonLeaf;
-
-	typedef struct {
-		int8 ropes; // [left, right, bottom, top, back, front, facesIndex, numFaces]
-		float4 bbMin;
-		float4 bbMax;
-	} kdLeaf;
-
-	typedef struct {
-		const kdLeaf kdRootNode;
-		global const kdNonLeaf* kdNonLeaves;
-		global const kdLeaf* kdLeaves;
-		global const uint* kdFaces;
+		global const light_t* lights;
 		global const face_t* faces;
 		global const float4* vertices;
 		global const float4* normals;

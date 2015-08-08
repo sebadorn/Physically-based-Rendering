@@ -2,7 +2,7 @@
 // Type: Bounding Volume Hierarchy (BVH)
 
 #define CALL_TRAVERSE         traverse( &scene, &ray );
-#define CALL_TRAVERSE_SHADOWS traverseShadows( &scene, &lightRay );
+#define CALL_TRAVERSE_SHADOWS traverseShadows( scene, lightRay );
 
 
 /**
@@ -49,6 +49,26 @@ void intersectFaces( const Scene* scene, ray4* ray, const bvhNode* node, const f
 }
 
 
+void traverseLights( const Scene* scene, ray4* ray ) {
+	float tNear = 0.0f;
+	float tFar = INFINITY;
+
+	for( int i = 0; i < NUM_LIGHTS; i++ ) {
+		light_t light = scene->lights[i];
+
+		// Orb
+		if( light.data.x == 2 ) {
+			if(
+				intersectSphere( ray, light.pos.xyz, light.data.y, &tNear, &tFar ) &&
+				tNear < ray->t
+			) {
+				ray->t = tNear;
+			}
+		}
+	}
+}
+
+
 /**
  * Traverse the BVH without using a stack and test the faces against the given ray.
  * @param {const Scene*} scene
@@ -57,6 +77,8 @@ void intersectFaces( const Scene* scene, ray4* ray, const bvhNode* node, const f
 void traverse( const Scene* scene, ray4* ray ) {
 	const float3 invDir = native_recip( ray->dir );
 	int index = 1; // Skip the root node (0) and start with the left child node.
+
+	traverseLights( scene, ray );
 
 	do {
 		scene->debugColor.y += 1.0f;

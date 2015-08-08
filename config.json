@@ -36,7 +36,6 @@
 
 	// Acceleration structure
 	// 0: BVH with AABBs
-	// 1: kd-tree (needs optimization)
 	"accel_struct": 0,
 
 	// Bounding Volume Hierarchy
@@ -52,14 +51,6 @@
 		// 0: disabled
 		// >0: number of splits to test per node
 		"spatial_splits": 0
-	},
-
-	// kD-tree
-	"kdtree": {
-		// Minimum of faces per leaf node.
-		"min_faces": 4,
-		// Optimize the ropes to speed up traversal
-		"optimize_ropes": true
 	},
 
 	"logging": {

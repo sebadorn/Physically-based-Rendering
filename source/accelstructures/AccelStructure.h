@@ -2,8 +2,6 @@
 #define ACCELSTRUCT_H
 
 #define ACCELSTRUCT_BVH 0
-#define ACCELSTRUCT_KDTREE 1
-#define ACCELSTRUCT_BVHKDTREE 2
 
 #include <CL/cl.hpp>
 #include <glm/glm.hpp>

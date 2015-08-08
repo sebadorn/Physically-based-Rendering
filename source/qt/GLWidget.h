@@ -66,7 +66,7 @@ class GLWidget : public QGLWidget {
 		QSize sizeHint() const;
 		void startRendering();
 		void stopRendering();
-		void toggleSunMovement();
+		void toggleLightMovement();
 
 		static const GLuint ATTRIB_POINTER_VERTEX = 0;
 		Camera* mCamera;
@@ -98,7 +98,7 @@ class GLWidget : public QGLWidget {
 
 	private:
 		bool mDoRendering;
-		bool mMoveSun;
+		bool mMoveLight;
 		bool mViewBVH;
 		bool mViewDebug;
 		bool mViewOverlay;

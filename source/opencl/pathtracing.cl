@@ -22,8 +22,6 @@
 
 #if ACCEL_STRUCT == 0
 	#FILE:pt_bvh.cl:FILE#
-#elif ACCEL_STRUCT == 1
-	#FILE:pt_kdtree.cl:FILE#
 #endif
 
 
@@ -312,6 +310,27 @@ void writeDebugImage( write_only image2d_t imageDebug, float4 color ) {
 #endif
 
 
+/**
+ * Shoot shadow rays to the light sources.
+ * @param {Scene*}                scene
+ * @param {global const light_t*} lights
+ * @param {ray4*}                 ray
+ * @param {ray4*}                 lightRay
+ * @param {float4*}               lightRaySource
+ */
+void shadowRayTest( Scene* scene, ray4* ray, ray4* lightRay, float4* lightRaySource ) {
+	lightRay->origin = fma( ray->t, ray->dir, ray->origin ) + ray->normal * EPSILON5;
+	lightRay->dir = fast_normalize( scene->lights[0].pos.xyz - lightRay->origin );
+
+	CALL_TRAVERSE_SHADOWS
+
+	if( lightRay->t == INFINITY ) {
+		*lightRaySource = scene->lights[0].rgb;
+	}
+}
+
+
+
 // KERNELS
 
 
@@ -331,11 +350,6 @@ kernel void pathTracing(
 	// acceleration structure
 	#if ACCEL_STRUCT == 0
 		global const bvhNode* bvh,
-	#elif ACCEL_STRUCT == 1
-		const kdLeaf kdRootNode,
-		global const kdNonLeaf* kdNonLeaves,
-		global const kdLeaf* kdLeaves,
-		global const uint* kdFaces,
 	#endif
 
 	// geometry and color related
@@ -363,9 +377,7 @@ kernel void pathTracing(
 	#endif
 
 	#if ACCEL_STRUCT == 0
-		Scene scene = { bvh, faces, vertices, normals, (float4)( 0.0f ) };
-	#elif ACCEL_STRUCT == 1
-		Scene scene = { kdRootNode, kdNonLeaves, kdLeaves, kdFaces, faces, vertices, normals, (float4)( 0.0f ) };
+		Scene scene = { bvh, lights, faces, vertices, normals, (float4)( 0.0f ) };
 	#endif
 
 	float focus = 0.0f;
@@ -420,14 +432,7 @@ kernel void pathTracing(
 
 			#if SHADOW_RAYS == 1
 				if( mtl.data.s0 > 0.0f ) {
-					lightRay.origin = fma( ray.t, ray.dir, ray.origin ) + ray.normal * EPSILON5;
-					lightRay.dir = fast_normalize( lights[0].pos.xyz - lightRay.origin );
-
-					CALL_TRAVERSE_SHADOWS
-
-					if( lightRay.t == INFINITY ) {
-						lightRaySource = lights[0].rgb;
-					}
+					shadowRayTest( &scene, &ray, &lightRay, &lightRaySource );
 				}
 			#endif
 

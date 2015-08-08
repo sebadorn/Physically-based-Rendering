@@ -182,7 +182,7 @@ void Window::keyPressEvent( QKeyEvent* e ) {
 			break;
 
 		case Qt::Key_L:
-			mGLWidget->toggleSunMovement();
+			mGLWidget->toggleLightMovement();
 			break;
 
 		case Qt::Key_F11:
