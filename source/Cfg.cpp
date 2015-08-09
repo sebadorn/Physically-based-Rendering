@@ -34,8 +34,6 @@ const char* Cfg::RENDER_SAMPLES = "render.samples";
 const char* Cfg::RENDER_SHADOWRAYS = "render.shadow_rays";
 const char* Cfg::SHADER_NAME = "shader.name";
 const char* Cfg::SHADER_PATH = "shader.path";
-const char* Cfg::SPECTRAL_COLORSYSTEM = "spectral.color_system";
-const char* Cfg::USE_SPECTRAL = "render.use_spectral";
 const char* Cfg::WINDOW_HEIGHT = "window.height";
 const char* Cfg::WINDOW_WIDTH = "window.width";
 

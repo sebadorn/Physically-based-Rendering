@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "ObjParser.h"
-#include "SpecParser.h"
 #include "utils.h"
 
 using std::string;
@@ -19,7 +18,6 @@ class ModelLoader {
 		ModelLoader();
 		~ModelLoader();
 		ObjParser* getObjParser();
-		SpecParser* getSpecParser();
 		void loadModel( string filepath, string filename );
 
 		static void getFaceNormalsOfObject( object3D object, vector<cl_uint4>* faceNormals, cl_int offset );
@@ -27,7 +25,6 @@ class ModelLoader {
 
 	private:
 		ObjParser* mObjParser;
-		SpecParser* mSpecParser;
 
 };
 

@@ -614,8 +614,6 @@ string CL::setValues( string clProgramString ) {
 	valueReplace.push_back( "MAX_ADDED_DEPTH" );
 	valueReplace.push_back( "PHONGTESS" );
 	valueReplace.push_back( "SAMPLES" );
-	valueReplace.push_back( "SPECTRAL_COLORSYSTEM" );
-	valueReplace.push_back( "USE_SPECTRAL" );
 
 	vector<cl_uint> configInt;
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::ACCEL_STRUCT ) );
@@ -627,8 +625,6 @@ string CL::setValues( string clProgramString ) {
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_MAXADDEDDEPTH ) );
 	configInt.push_back( PhongTess_ALPHA > 0.0f ? 1 : 0 );
 	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::RENDER_SAMPLES ) );
-	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::SPECTRAL_COLORSYSTEM ) );
-	configInt.push_back( Cfg::get().value<cl_uint>( Cfg::USE_SPECTRAL ) );
 
 	for( int i = 0; i < valueReplace.size(); i++ ) {
 		search = "#" + valueReplace[i] + "#";

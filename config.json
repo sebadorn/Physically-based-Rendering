@@ -104,26 +104,12 @@
 		// Shoot shadow rays to generate implicit paths.
 		// 0: disable
 		// 1: enable
-		"shadow_rays": 1,
-		// Use spectral color definitions.
-		// 0: disable, use RGB
-		// 1: enable
-		"use_spectral": 0
+		"shadow_rays": 1
 	},
 
 	"shader": {
 		"name": "pathtracing",
 		"path": "source/shader/"
-	},
-
-	"spectral": {
-		// 0: NTSC
-		// 1: EBU
-		// 2: SMPTE
-		// 3: HDTV
-		// 4: CIE (default)
-		// 5: Rec709
-		"color_system": 4
 	},
 
 	"window": {

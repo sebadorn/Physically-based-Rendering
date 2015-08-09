@@ -41,15 +41,6 @@ struct light_cl {
 	cl_float4 data; // x: type
 };
 
-struct material_schlick_spd {
-	cl_float4 data;
-	// data.s0: d
-	// data.s1: Ni
-	// data.s2: p
-	// data.s3: rough
-	cl_ushort2 spd;
-};
-
 struct material_schlick_rgb {
 	cl_float4 data;
 	// data.s0: d
@@ -58,17 +49,6 @@ struct material_schlick_rgb {
 	// data.s3: rough
 	cl_float4 rgbDiff;
 	cl_float4 rgbSpec;
-};
-
-struct material_shirley_ashikhmin_spd {
-	cl_float8 data;
-	// data.s0: d
-	// data.s1: Ni
-	// data.s2: nu
-	// data.s3: nv
-	// data.s4: Rs
-	// data.s5: Rd
-	cl_ushort2 spd;
 };
 
 struct material_shirley_ashikhmin_rgb {
@@ -125,7 +105,6 @@ class PathTracer {
 		size_t initOpenCLBuffers_Lights( ModelLoader* ml );
 		size_t initOpenCLBuffers_Materials( ModelLoader* ml );
 		size_t initOpenCLBuffers_MaterialsRGB( vector<material_t> materials );
-		size_t initOpenCLBuffers_MaterialsSPD( vector<material_t> materials, SpecParser* sp );
 		size_t initOpenCLBuffers_Textures();
 		void updateEyeBuffer();
 
@@ -146,7 +125,6 @@ class PathTracer {
 		cl_mem mBufVertices;
 		cl_mem mBufNormals;
 		cl_mem mBufMaterials;
-		cl_mem mBufSPDs;
 
 		camera_cl mStructCam;
 		cl_mem mBufTextureIn;

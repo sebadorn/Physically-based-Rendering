@@ -53,8 +53,6 @@ class Cfg {
 		static const char* RENDER_SHADOWRAYS;
 		static const char* SHADER_NAME;
 		static const char* SHADER_PATH;
-		static const char* SPECTRAL_COLORSYSTEM;
-		static const char* USE_SPECTRAL;
 		static const char* WINDOW_HEIGHT;
 		static const char* WINDOW_WIDTH;
 

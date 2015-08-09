@@ -470,15 +470,3 @@ float3 refract( const ray4* ray, const material* mtl, float* seed ) {
 	#undef COS_T
 	#undef DO_REFRACT
 }
-
-
-/**
- * Initialize a float array with a default value.
- * @param {float*} arr  The array to initialize.
- * @param {float}  val  The default value to set.
- */
-inline void setArray( float* arr, float val ) {
-	for( int i = 0; i < SPEC; i++ ) {
-		arr[i] = val;
-	}
-}

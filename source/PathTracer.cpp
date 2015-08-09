@@ -115,10 +115,6 @@ void PathTracer::initKernelArgs() {
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufMaterials );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufLights );
 
-	if( Cfg::get().value<bool>( Cfg::USE_SPECTRAL ) ) {
-		mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufSPDs );
-	}
-
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufTextureIn );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufTextureOut );
 	mCL->setKernelArg( mKernelPathTracing, i++, sizeof( cl_mem ), &mBufTextureDebug );
@@ -439,15 +435,7 @@ size_t PathTracer::initOpenCLBuffers_Lights( ModelLoader* ml ) {
  */
 size_t PathTracer::initOpenCLBuffers_Materials( ModelLoader* ml ) {
 	vector<material_t> materials = ml->getObjParser()->getMaterials();
-	bool useSPD = Cfg::get().value<bool>( Cfg::USE_SPECTRAL );
-	size_t bytesMTL;
-
-	if( useSPD ) {
-		bytesMTL = this->initOpenCLBuffers_MaterialsSPD( materials, ml->getSpecParser() );
-	}
-	else {
-		bytesMTL = this->initOpenCLBuffers_MaterialsRGB( materials );
-	}
+	size_t bytesMTL = this->initOpenCLBuffers_MaterialsRGB( materials );
 
 	return bytesMTL;
 }
@@ -529,106 +517,6 @@ size_t PathTracer::initOpenCLBuffers_MaterialsRGB( vector<material_t> materials 
 	}
 
 	return bytesMTL;
-}
-
-
-/**
- * Init OpenCL buffer for the materials (SPD mode).
- * @param  {std::vector<material_t>} materials Loaded materials.
- * @param  {SpecParser*}             sp        SpecParser that holds data about loaded SPDs.
- * @return {size_t}                            Size of the created buffer in bytes.
- */
-size_t PathTracer::initOpenCLBuffers_MaterialsSPD( vector<material_t> materials, SpecParser* sp ) {
-	map< string, map<string, string> > mtl2spd = sp->getMaterialToSPD();
-	map< string, vector<cl_float> > spectra = sp->getSpectralPowerDistributions();
-	string sky = sp->getSkySPDName();
-
-
-	// Spectral Power Distributions
-
-	vector<cl_float> spd, spectraCL;
-	map<string, cl_ushort> specID;
-	map<string, vector<cl_float> >::iterator it;
-	ushort specCounter = 0;
-
-	for( it = spectra.begin(); it != spectra.end(); it++, specCounter++ ) {
-		specID[it->first] = specCounter;
-		spd = it->second;
-
-		// Spectral power distribution has wavelength steps of 5nm, but we use only 10nm steps
-		for( int i = 0; i < spd.size(); i += 2 ) {
-			spectraCL.push_back( spd[i] );
-		}
-
-		if( sky == it->first ) {
-			char msg[16];
-			snprintf( msg, 16, "%u", specCounter );
-			mCL->setReplacement( string( "#SKY_LIGHT#" ), string( msg ) );
-		}
-	}
-
-	size_t bytesSPD = sizeof( cl_float ) * spectraCL.size();
-	mBufSPDs = mCL->createBuffer( spectraCL, bytesSPD );
-
-
-	// Materials
-
-	int brdf = Cfg::get().value<int>( Cfg::RENDER_BRDF );
-	string spdName;
-	size_t bytesMTL;
-
-	// BRDF: Schlick
-	if( brdf == 0 ) {
-		vector<material_schlick_spd> materialsCL;
-
-		for( int i = 0; i < materials.size(); i++ ) {
-			material_schlick_spd mtl;
-			mtl.data.s0 = materials[i].d;
-			mtl.data.s1 = materials[i].Ni;
-			mtl.data.s2 = materials[i].p;
-			mtl.data.s3 = materials[i].rough;
-
-			spdName = mtl2spd[materials[i].mtlName]["diff"];
-			mtl.spd.x = specID[spdName];
-			spdName = mtl2spd[materials[i].mtlName]["spec"];
-			mtl.spd.y = specID[spdName];
-
-			materialsCL.push_back( mtl );
-		}
-
-		bytesMTL = sizeof( material_schlick_spd ) * materialsCL.size();
-		mBufMaterials = mCL->createBuffer( materialsCL, bytesMTL );
-	}
-	// BRDF: Shirley-Ashikhmin
-	else if( brdf == 1 ) {
-		vector<material_shirley_ashikhmin_spd> materialsCL;
-
-		for( int i = 0; i < materials.size(); i++ ) {
-			material_shirley_ashikhmin_spd mtl;
-			mtl.data.s0 = materials[i].d;
-			mtl.data.s1 = materials[i].Ni;
-			mtl.data.s2 = materials[i].nu;
-			mtl.data.s3 = materials[i].nv;
-			mtl.data.s4 = materials[i].Rs;
-			mtl.data.s5 = materials[i].Rd;
-
-			spdName = mtl2spd[materials[i].mtlName]["diff"];
-			mtl.spd.x = specID[spdName];
-			spdName = mtl2spd[materials[i].mtlName]["spec"];
-			mtl.spd.y = specID[spdName];
-
-			materialsCL.push_back( mtl );
-		}
-
-		bytesMTL = sizeof( material_shirley_ashikhmin_spd ) * materialsCL.size();
-		mBufMaterials = mCL->createBuffer( materialsCL, bytesMTL );
-	}
-	else {
-		Logger::logError( "[PathTracer] Unknown BRDF selected." );
-		exit( EXIT_FAILURE );
-	}
-
-	return bytesSPD + bytesMTL;
 }
 
 

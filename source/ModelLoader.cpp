@@ -8,7 +8,6 @@ using namespace std;
  */
 ModelLoader::ModelLoader() {
 	mObjParser = new ObjParser();
-	mSpecParser = new SpecParser();
 }
 
 
@@ -17,7 +16,6 @@ ModelLoader::ModelLoader() {
  */
 ModelLoader::~ModelLoader() {
 	delete mObjParser;
-	delete mSpecParser;
 }
 
 
@@ -69,15 +67,6 @@ ObjParser* ModelLoader::getObjParser() {
 
 
 /**
- * Get the used instance of the SpecParser.
- * @return {SpecParser*}
- */
-SpecParser* ModelLoader::getSpecParser() {
-	return mSpecParser;
-}
-
-
-/**
  * Load 3D model.
  * @param {std::string} filepath Path to the file, without file name.
  * @param {std::string} filename Name of the file.
@@ -88,13 +77,7 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 	Logger::logInfo( msg );
 
 	Logger::indent( LOG_INDENT );
-
 	mObjParser->load( filepath, filename );
-
-	if( Cfg::get().value<bool>( Cfg::USE_SPECTRAL ) ) {
-		mSpecParser->load( filepath, filename );
-	}
-
 	Logger::indent( 0 );
 
 	vector<cl_uint> facesV = mObjParser->getFacesV();
