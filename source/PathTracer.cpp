@@ -191,15 +191,13 @@ void PathTracer::initOpenCLBuffers(
 	Logger::logInfo( msg );
 
 	// Buffer: Light(s)
-	if( Cfg::get().value<int>( Cfg::RENDER_SHADOWRAYS ) > 0 ) {
-		timerStart = boost::posix_time::microsec_clock::local_time();
-		bytes = this->initOpenCLBuffers_Lights( ml );
-		timerEnd = boost::posix_time::microsec_clock::local_time();
-		timeDiff = ( timerEnd - timerStart ).total_milliseconds();
-		utils::formatBytes( bytes, &bytesFloat, &unit );
-		snprintf( msg, MSG_LENGTH, "[PathTracer] Created light buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
-		Logger::logInfo( msg );
-	}
+	timerStart = boost::posix_time::microsec_clock::local_time();
+	bytes = this->initOpenCLBuffers_Lights( ml );
+	timerEnd = boost::posix_time::microsec_clock::local_time();
+	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
+	utils::formatBytes( bytes, &bytesFloat, &unit );
+	snprintf( msg, MSG_LENGTH, "[PathTracer] Created light buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+	Logger::logInfo( msg );
 
 	snprintf( msg, MSG_LENGTH, "%lu", mLights.size() );
 	mCL->setReplacement( string( "#NUM_LIGHTS#" ), string( msg ) );
