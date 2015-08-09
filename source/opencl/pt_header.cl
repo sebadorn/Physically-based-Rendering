@@ -21,7 +21,6 @@
 // TODO: Using any other value than 40 doesn't really work.
 #define SPEC 40
 #define SPECTRAL_COLORSYSTEM #SPECTRAL_COLORSYSTEM#
-#define USE_SPECTRAL #USE_SPECTRAL#
 
 
 // Only used inside kernel.
@@ -82,19 +81,6 @@ typedef struct {
 #endif
 
 
-// Color mode: RGB
-#if USE_SPECTRAL == 0
-
-	#define MTL_COLOR float4 rgbDiff; float4 rgbSpec;
-
-// Color mode: SPD
-#elif USE_SPECTRAL == 1
-
-	#define MTL_COLOR ushort2 spd;
-
-#endif
-
-
 // Schlick
 #if BRDF == 0
 
@@ -104,7 +90,7 @@ typedef struct {
 		// data.s1: Ni
 		// data.s2: p
 		// data.s3: rough
-		MTL_COLOR
+		ushort2 spd;
 	} material;
 
 // Shirley-Ashikhmin
@@ -118,7 +104,7 @@ typedef struct {
 		// data.s3: nv
 		// data.s4: Rs
 		// data.s5: Rd
-		MTL_COLOR
+		ushort2 spd;
 	} material;
 
 #endif

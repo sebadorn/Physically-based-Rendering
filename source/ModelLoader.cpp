@@ -90,10 +90,7 @@ void ModelLoader::loadModel( string filepath, string filename ) {
 	Logger::indent( LOG_INDENT );
 
 	mObjParser->load( filepath, filename );
-
-	if( Cfg::get().value<bool>( Cfg::USE_SPECTRAL ) ) {
-		mSpecParser->load( filepath, filename );
-	}
+	mSpecParser->load( filepath, filename );
 
 	Logger::indent( 0 );
 
