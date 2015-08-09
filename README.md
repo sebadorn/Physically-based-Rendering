@@ -3,25 +3,11 @@
 Rendering 3D scenes physically-based through Path Tracing. Interaction of light with surfaces is evaluated through bi-directional reflection distribution functions (BRDF). *— Master Thesis 2013/14*
 
 
-## Acceleration structures
+## Acceleration structure: BVH
 
-Implementation status of the available and planned acceleration structures.
-
-
-### BVH
-
-* Fastest acceleration structure at the moment.
 * Stackless traversal.
 * 1 or 2 faces per leaf node.
 * Code for use of spatial splits in build process exists, but seems faulty. Should not be used.
-
-
-### kd-tree
-
-* Traversal using optimized ropes.
-* Splitting by SAH often fails to find a good split, so it defaults to splitting 50:50.
-* Many faces per leaf which results in bad performance (ray-triangle intersections are expensive).
-* Only minimum of faces per leaf possible.
 
 
 ## Requirements
