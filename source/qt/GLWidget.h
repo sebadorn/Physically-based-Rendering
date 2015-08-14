@@ -37,6 +37,8 @@
 #define VA_OVERLAY 1
 // Vertex array for Bounding Volume Hierarchy visualization
 #define VA_BVH 2
+// Vertex array for lights overlay (visualization of light positions)
+#define VA_LIGHTS 3
 
 using std::map;
 using std::string;
@@ -85,14 +87,19 @@ class GLWidget : public QGLWidget {
 		void paintGL();
 		void paintScene();
 		void resizeGL( int width, int height );
-		void setShaderBuffersForOverlay( vector<GLfloat> vertices, vector<GLuint> indices );
 		void setShaderBuffersForBVH( vector<GLfloat> vertices, vector<GLuint> indices );
+		void setShaderBuffersForLights( vector<GLfloat> vertices, vector<GLuint> indices );
+		void setShaderBuffersForOverlay( vector<GLfloat> vertices, vector<GLuint> indices );
 		void setShaderBuffersForTracer();
 		void showFPS();
+		void visualizeLightPositions(
+			vector<light_t> lights, vector<GLfloat>* vertices, vector<GLuint>* indices
+		);
 
 	protected slots:
 		void toggleViewBVH();
 		void toggleViewDebug();
+		void toggleViewLights();
 		void toggleViewOverlay();
 		void toggleViewTracer();
 
@@ -101,6 +108,7 @@ class GLWidget : public QGLWidget {
 		bool mMoveLight;
 		bool mViewBVH;
 		bool mViewDebug;
+		bool mViewLights;
 		bool mViewOverlay;
 		bool mViewTracer;
 
@@ -112,6 +120,7 @@ class GLWidget : public QGLWidget {
 		GLuint mGLProgramTracer;
 		GLuint mGLProgramSimple;
 		GLuint mIndexBuffer;
+		GLuint mLightsNumIndices;
 		GLuint mPreviousTime;
 		GLuint mRenderStartTime;
 

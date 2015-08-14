@@ -20,6 +20,7 @@ GLWidget::GLWidget( QWidget* parent ) : QGLWidget( parent ) {
 	mMoveLight = false;
 	mViewBVH = false;
 	mViewDebug = false;
+	mViewLights = false;
 	mViewOverlay = false;
 	mViewTracer = true;
 
@@ -361,9 +362,16 @@ void GLWidget::loadModel( string filepath, string filename ) {
 	accelStruct->visualize( &visVertices, &visIndices );
 	mAccelStructNumIndices = visIndices.size();
 
+	// Visualization of the light positions
+	vector<GLfloat> visLightsVertices;
+	vector<GLuint> visLightsIndices;
+	this->visualizeLightPositions( op->getLights(), &visLightsVertices, &visLightsIndices );
+	mLightsNumIndices = visLightsIndices.size();
+
 	// Shader buffers
 	this->setShaderBuffersForOverlay( mVertices, mFaces );
 	this->setShaderBuffersForBVH( visVertices, visIndices );
+	this->setShaderBuffersForLights( visLightsVertices, visLightsIndices );
 	this->setShaderBuffersForTracer();
 	this->initShaders();
 
@@ -570,6 +578,27 @@ void GLWidget::paintScene() {
 		glBindVertexArray( 0 );
 		glUseProgram( 0 );
 	}
+
+
+	// Lights overlay
+	if( mViewLights && mLightsNumIndices > 0 ) {
+		glUseProgram( mGLProgramSimple );
+		glUniformMatrix4fv(
+			glGetUniformLocation( mGLProgramSimple, "mvp" ),
+			1, GL_FALSE, &mModelViewProjectionMatrix[0][0]
+		);
+		GLfloat color[4] = { 1.0f, 1.0f, 0.0f, 0.7f };
+		glUniform4fv( glGetUniformLocation( mGLProgramSimple, "fragColor" ), 1, color );
+
+		GLfloat translate[3] = { 0.0f, 0.0f, 0.0f };
+		glUniform3fv( glGetUniformLocation( mGLProgramSimple, "translate" ), 1, translate );
+
+		glBindVertexArray( mVA[VA_LIGHTS] );
+		glDrawElements( GL_LINES, mLightsNumIndices, GL_UNSIGNED_INT, NULL );
+
+		glBindVertexArray( 0 );
+		glUseProgram( 0 );
+	}
 }
 
 
@@ -647,6 +676,35 @@ void GLWidget::setShaderBuffersForBVH( vector<GLfloat> vertices, vector<GLuint> 
 	glBindVertexArray( 0 );
 
 	mVA[VA_BVH] = vaID;
+}
+
+
+/**
+ * Set the vertex array for the lights overlay.
+ * @param {std::vector<GLfloat>} vertices
+ * @param {std::vector<GLuint>}  indices
+ */
+void GLWidget::setShaderBuffersForLights( vector<GLfloat> vertices, vector<GLuint> indices ) {
+	GLuint vaID;
+	glGenVertexArrays( 1, &vaID );
+	glBindVertexArray( vaID );
+
+	GLuint vertexBuffer;
+	glGenBuffers( 1, &vertexBuffer );
+	glBindBuffer( GL_ARRAY_BUFFER, vertexBuffer );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( GLfloat ) * vertices.size(), &vertices[0], GL_STATIC_DRAW );
+	glVertexAttribPointer( GLWidget::ATTRIB_POINTER_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0 );
+	glEnableVertexAttribArray( GLWidget::ATTRIB_POINTER_VERTEX );
+
+	GLuint indexBuffer;
+	glGenBuffers( 1, &indexBuffer );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( GLuint ) * indices.size(), &indices[0], GL_STATIC_DRAW );
+
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glBindVertexArray( 0 );
+
+	mVA[VA_LIGHTS] = vaID;
 }
 
 
@@ -782,11 +840,19 @@ void GLWidget::toggleViewBVH() {
 
 
 /**
- * Toggle rendering of the debug image.
+ * Toggle rendering of the BVH.
  */
 void GLWidget::toggleViewDebug() {
 	mViewDebug = !mViewDebug;
-};
+}
+
+
+/**
+ * Toggle rendering of the lights overlay.
+ */
+void GLWidget::toggleViewLights() {
+	mViewLights = !mViewLights;
+}
 
 
 /**
@@ -803,3 +869,88 @@ void GLWidget::toggleViewOverlay() {
 void GLWidget::toggleViewTracer() {
 	mViewTracer = !mViewTracer;
 }
+
+
+/**
+ * Visualize the light positions for an OpenGL overlay.
+ * @param {std::vector<light_t>}  lights   The parsed lights.
+ * @param {std::vector<GLfloat>*} vertices Output: Vertices.
+ * @param {std::vector<GLuint>*}  indices  Output: Indices.
+ */
+void GLWidget::visualizeLightPositions(
+	vector<light_t> lights,
+	vector<GLfloat>* vertices, vector<GLuint>* indices
+) {
+	for( uint i = 0; i < lights.size(); i++ ) {
+		light_t light = lights[i];
+		cl_uint ind = vertices->size() / 3;
+		GLfloat bbMin[3];
+		GLfloat bbMax[3];
+
+		switch( light.type ) {
+			case 1:
+				bbMin[0] = light.pos.x - 0.02f;
+				bbMin[1] = light.pos.y - 0.02f;
+				bbMin[2] = light.pos.z - 0.02f;
+
+				bbMax[0] = light.pos.x + 0.02f;
+				bbMax[1] = light.pos.y + 0.02f;
+				bbMax[2] = light.pos.z + 0.02f;
+
+				// bottom
+				vertices->push_back( bbMin[0] ); vertices->push_back( bbMin[1] ); vertices->push_back( bbMin[2] );
+				vertices->push_back( bbMin[0] ); vertices->push_back( bbMin[1] ); vertices->push_back( bbMax[2] );
+				vertices->push_back( bbMax[0] ); vertices->push_back( bbMin[1] ); vertices->push_back( bbMax[2] );
+				vertices->push_back( bbMax[0] ); vertices->push_back( bbMin[1] ); vertices->push_back( bbMin[2] );
+
+				// top
+				vertices->push_back( bbMin[0] ); vertices->push_back( bbMax[1] ); vertices->push_back( bbMin[2] );
+				vertices->push_back( bbMin[0] ); vertices->push_back( bbMax[1] ); vertices->push_back( bbMax[2] );
+				vertices->push_back( bbMax[0] ); vertices->push_back( bbMax[1] ); vertices->push_back( bbMax[2] );
+				vertices->push_back( bbMax[0] ); vertices->push_back( bbMax[1] ); vertices->push_back( bbMin[2] );
+				break;
+
+			case 2:
+				bbMin[0] = light.pos.x - light.radius;
+				bbMin[1] = light.pos.y - light.radius;
+				bbMin[2] = light.pos.z - light.radius;
+
+				bbMax[0] = light.pos.x + light.radius;
+				bbMax[1] = light.pos.y + light.radius;
+				bbMax[2] = light.pos.z + light.radius;
+
+				// bottom
+				vertices->push_back( bbMin[0] ); vertices->push_back( bbMin[1] ); vertices->push_back( bbMin[2] );
+				vertices->push_back( bbMin[0] ); vertices->push_back( bbMin[1] ); vertices->push_back( bbMax[2] );
+				vertices->push_back( bbMax[0] ); vertices->push_back( bbMin[1] ); vertices->push_back( bbMax[2] );
+				vertices->push_back( bbMax[0] ); vertices->push_back( bbMin[1] ); vertices->push_back( bbMin[2] );
+
+				// top
+				vertices->push_back( bbMin[0] ); vertices->push_back( bbMax[1] ); vertices->push_back( bbMin[2] );
+				vertices->push_back( bbMin[0] ); vertices->push_back( bbMax[1] ); vertices->push_back( bbMax[2] );
+				vertices->push_back( bbMax[0] ); vertices->push_back( bbMax[1] ); vertices->push_back( bbMax[2] );
+				vertices->push_back( bbMax[0] ); vertices->push_back( bbMax[1] ); vertices->push_back( bbMin[2] );
+				break;
+		}
+
+		cl_uint newIndices[24] = {
+			// bottom
+			ind + 0, ind + 1,
+			ind + 1, ind + 2,
+			ind + 2, ind + 3,
+			ind + 3, ind + 0,
+			// top
+			ind + 4, ind + 5,
+			ind + 5, ind + 6,
+			ind + 6, ind + 7,
+			ind + 7, ind + 4,
+			// back
+			ind + 0, ind + 4,
+			ind + 3, ind + 7,
+			// front
+			ind + 1, ind + 5,
+			ind + 2, ind + 6
+		};
+		indices->insert( indices->end(), newIndices, newIndices + 24 );
+	}
+};

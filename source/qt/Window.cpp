@@ -86,6 +86,12 @@ QMenuBar* Window::createMenuBar() {
 	actionBVH->setChecked( false );
 	connect( actionBVH, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewBVH() ) );
 
+	QAction* actionLights = new QAction( tr( "Toggle &lights overlay" ), this );
+	actionLights->setStatusTip( tr( "Visualize light source positions." ) );
+	actionLights->setCheckable( true );
+	actionLights->setChecked( false );
+	connect( actionLights, SIGNAL( triggered() ), mGLWidget, SLOT( toggleViewLights() ) );
+
 	QAction* actionOverlay = new QAction( tr( "Toggle original &overlay" ), this );
 	actionOverlay->setStatusTip( tr( "Translucent overlay of the model over the traced one." ) );
 	actionOverlay->setCheckable( true );
@@ -96,6 +102,7 @@ QMenuBar* Window::createMenuBar() {
 	menuView->addAction( actionTracer );
 	menuView->addAction( actionDebug );
 	menuView->addAction( actionBVH );
+	menuView->addAction( actionLights );
 	menuView->addAction( actionOverlay );
 
 

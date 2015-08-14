@@ -14,6 +14,9 @@ using std::string;
 using std::vector;
 
 
+// Light types:
+// 1: Point light
+// 2: Orb light
 struct light_t {
 	string lightName;
 	cl_uint type;
