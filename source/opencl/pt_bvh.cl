@@ -49,23 +49,31 @@ void intersectFaces( const Scene* scene, ray4* ray, const bvhNode* node, const f
 }
 
 
+/**
+ * Traverse the lights of the scene and test for hits with the ray.
+ * @param {const Scene*} scene
+ * @param {ray4*}        ray
+ */
 void traverseLights( const Scene* scene, ray4* ray ) {
-	float tNear = 0.0f;
-	float tFar = INFINITY;
+	#if NUM_LIGHTS > 0
+		float tNear = 0.0f;
+		float tFar = INFINITY;
 
-	for( int i = 0; i < NUM_LIGHTS; i++ ) {
-		light_t light = scene->lights[i];
+		for( int i = 0; i < NUM_LIGHTS; i++ ) {
+			light_t light = scene->lights[i];
 
-		// Orb
-		if( light.data.x == 2 ) {
-			if(
-				intersectSphere( ray, light.pos.xyz, light.data.y, &tNear, &tFar ) &&
-				tNear < ray->t
-			) {
-				ray->t = tNear;
+			// Orb
+			if( light.data.x == 2 ) {
+				if(
+					intersectSphere( ray, light.pos.xyz, light.data.y, &tNear, &tFar ) &&
+					tNear < ray->t
+				) {
+					ray->t = INFINITY;
+					ray->hitFace = -( i + 1 );
+				}
 			}
 		}
-	}
+	#endif
 }
 
 
@@ -128,6 +136,8 @@ void traverse( const Scene* scene, ray4* ray ) {
 void traverseShadows( const Scene* scene, ray4* ray ) {
 	const float3 invDir = native_recip( ray->dir );
 	int index = 1;
+
+	traverseLights( scene, ray );
 
 	do {
 		const bvhNode node = scene->bvh[index];

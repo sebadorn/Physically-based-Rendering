@@ -35,7 +35,7 @@ const bool intersectBox(
  * @return {const bool}
  */
 const bool intersectSphere(
-	const ray4* ray, const float3 pos, const float r,
+	ray4* ray, const float3 pos, const float r,
 	float* tNear, float* tFar
 ) {
 	float t0, t1; // solutions for t if the ray intersects
@@ -53,6 +53,7 @@ const bool intersectSphere(
 	if( d2 > r ) {
 		return false;
 	}
+
 	float thc = native_sqrt( r - d2 );
 	t0 = tca - thc;
 	t1 = tca + thc;

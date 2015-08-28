@@ -36,6 +36,7 @@ ray4 initRay(
 	ray.t = INFINITY;
 	ray.origin = cam.eye;
 	ray.dir = fast_normalize( initialRay );
+	ray.hitFace = 0;
 
 	antiAliasing( &ray, pxDim, seed );
 	depthOfField( &ray, &cam, tObject, tFocus, seed );
@@ -185,10 +186,12 @@ void updateColor(
 void shadowRayTest( Scene* scene, ray4* ray, ray4* lightRay, float4* lightRaySource ) {
 	lightRay->origin = fma( ray->t, ray->dir, ray->origin ) + ray->normal * EPSILON5;
 	lightRay->dir = fast_normalize( scene->lights[0].pos.xyz - lightRay->origin );
+	float tLight = length( scene->lights[0].pos.xyz - lightRay->origin );
+	lightRay->t = tLight;
 
 	CALL_TRAVERSE_SHADOWS
 
-	if( lightRay->t == INFINITY ) {
+	if( lightRay->t >= tLight ) {
 		*lightRaySource = scene->lights[0].rgb;
 	}
 }
@@ -254,7 +257,7 @@ kernel void pathTracing(
 			focus = ( sample + depth == 0 ) ? ray.t : focus;
 
 			if( ray.t == INFINITY ) {
-				light = SKY_LIGHT;
+				light = ( ray.hitFace < 0 ) ? (float4)( scene.lights[-( ray.hitFace + 1 )].rgb ) : SKY_LIGHT;
 				break;
 			}
 
@@ -275,9 +278,11 @@ kernel void pathTracing(
 			lightRay.t = INFINITY;
 
 			#if SHADOW_RAYS == 1
-				if( mtl.data.s0 > 0.0f ) {
-					shadowRayTest( &scene, &ray, &lightRay, &lightRaySource );
-				}
+				#if NUM_LIGHTS > 0
+					if( mtl.data.s0 > 0.0f ) {
+						shadowRayTest( &scene, &ray, &lightRay, &lightRaySource );
+					}
+				#endif
 			#endif
 
 			// New direction of the ray (bouncing of the hit surface)
