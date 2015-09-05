@@ -90,9 +90,9 @@
 		// 1: Shirley-Ashikhmin
 		"brdf": 1,
 		// Render interval in [ms] (16.666 ms ~ 60 FPS).
-		"interval": 50.0,
+		"interval": 33.3,
 		// Extend the path if a reflective or transparent surface is hit
-		"max_added_depth": 3,
+		"max_added_depth": 5,
 		// Maximum path length
 		"max_depth": 3,
 		// Phong Tessellation

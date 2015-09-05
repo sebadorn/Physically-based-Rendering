@@ -1,10 +1,3 @@
-// Traversal for the acceleration structure.
-// Type: Bounding Volume Hierarchy (BVH)
-
-#define CALL_TRAVERSE         traverse( &scene, &ray );
-#define CALL_TRAVERSE_SHADOWS traverseShadows( scene, lightRay );
-
-
 /**
  * Test face for intersections with the given ray and update the ray.
  * @param {const Scene*}      scene
@@ -14,7 +7,11 @@
  * @param {const float tNear} tNear
  * @param {float tFar}        tFar
  */
-void intersectFace( const Scene* scene, ray4* ray, const int faceIndex, float* t, const float tNear, float tFar ) {
+void intersectFace(
+	const Scene* scene, ray4* ray,
+	const int faceIndex, float* t,
+	const float tNear, float tFar
+) {
 	const float3 normal = checkFaceIntersection( scene, ray, faceIndex, t, tNear, tFar );
 
 	if( ray->t > *t ) {
@@ -91,7 +88,6 @@ void traverse( const Scene* scene, ray4* ray ) {
 	do {
 		scene->debugColor.y += 1.0f;
 		const bvhNode node = scene->bvh[index];
-
 		int currentIndex = index;
 
 		// To save memory, we interpret <node.bbMax.w> depending on the situation:
@@ -134,6 +130,7 @@ void traverse( const Scene* scene, ray4* ray ) {
  * @param {ray4*}        ray
  */
 void traverseShadows( const Scene* scene, ray4* ray ) {
+	float tLight = ray->t;
 	const float3 invDir = native_recip( ray->dir );
 	int index = 1;
 
@@ -141,7 +138,6 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 
 	do {
 		const bvhNode node = scene->bvh[index];
-
 		int currentIndex = index;
 
 		// @see traverse() for an explanation.
@@ -168,7 +164,7 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 
 			// It's enough to know that something blocks the way. It doesn't matter what or where.
 			// TODO: It *does* matter what and where, if the material has transparency.
-			if( ray->t < INFINITY ) {
+			if( ray->t < tLight ) {
 				break;
 			}
 		}

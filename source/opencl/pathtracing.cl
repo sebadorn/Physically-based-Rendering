@@ -177,19 +177,18 @@ void updateColor(
 
 /**
  * Shoot shadow rays to the light sources.
- * @param {Scene*}                scene
- * @param {global const light_t*} lights
- * @param {ray4*}                 ray
- * @param {ray4*}                 lightRay
- * @param {float4*}               lightRaySource
+ * @param {Scene*}  scene
+ * @param {ray4*}   ray
+ * @param {ray4*}   lightRay
+ * @param {float4*} lightRaySource
  */
 void shadowRayTest( Scene* scene, ray4* ray, ray4* lightRay, float4* lightRaySource ) {
-	lightRay->origin = fma( ray->t, ray->dir, ray->origin ) + ray->normal * EPSILON5;
+	lightRay->origin = fma( ray->t, ray->dir, ray->origin );
 	lightRay->dir = fast_normalize( scene->lights[0].pos.xyz - lightRay->origin );
 	float tLight = length( scene->lights[0].pos.xyz - lightRay->origin );
 	lightRay->t = tLight;
 
-	CALL_TRAVERSE_SHADOWS
+	traverseShadows( scene, lightRay );
 
 	if( lightRay->t >= tLight ) {
 		*lightRaySource = scene->lights[0].rgb;
@@ -252,7 +251,7 @@ kernel void pathTracing(
 		int depthAdded = 0;
 
 		for( uint depth = 0; depth < MAX_DEPTH + depthAdded; depth++ ) {
-			CALL_TRAVERSE
+			traverse( &scene, &ray );
 
 			focus = ( sample + depth == 0 ) ? ray.t : focus;
 

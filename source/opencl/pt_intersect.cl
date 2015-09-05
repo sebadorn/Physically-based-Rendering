@@ -116,11 +116,13 @@ float3 flatTriAndRayIntersect(
 		return (float3)( 0.0f );
 	}
 
-	const float3 an = normals[fn.x].xyz;
-	const float3 bn = normals[fn.y].xyz;
-	const float3 cn = normals[fn.z].xyz;
+	return fast_normalize( cross( edge1, edge2 ) );
 
-	return getTriangleNormal( an, bn, cn, 1.0f - u - v, u, v );
+	// const float3 an = normals[fn.x].xyz;
+	// const float3 bn = normals[fn.y].xyz;
+	// const float3 cn = normals[fn.z].xyz;
+
+	// return getTriangleNormal( an, bn, cn, 1.0f - u - v, u, v );
 }
 
 
