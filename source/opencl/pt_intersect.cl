@@ -86,7 +86,7 @@ const bool intersectSphere(
  * @param  {const uint4}          fn
  * @param  {global const float4*} normals
  * @param  {const ray4*}          ray
- * @param  {float3*}              tuv
+ * @param  {float*}               t
  * @return {float3}
  */
 float3 flatTriAndRayIntersect(
@@ -131,7 +131,7 @@ float3 flatTriAndRayIntersect(
  * @param  {const Scene*} scene
  * @param  {const ray4*}  ray
  * @param  {const int}    fIndex
- * @param  {float3*}      tuv
+ * @param  {float*}       t
  * @param  {const float}  tNear
  * @param  {const float}  tFar
  * @return {float3}

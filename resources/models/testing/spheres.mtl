@@ -25,7 +25,7 @@ Rd 1.0
 
 newmtl Sphere1
 Ni 1.5
-d 1.0
+d 0.0
 rough 1.0
 nu 100000.0
 nv 100000.0

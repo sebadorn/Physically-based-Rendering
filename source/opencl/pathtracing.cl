@@ -287,6 +287,13 @@ kernel void pathTracing(
 			// New direction of the ray (bouncing of the hit surface)
 			ray4 newRay = getNewRay( &ray, &mtl, &seed, &addDepth );
 
+			// Flip the normal if it points in the wrong direction.
+			// Do it only now, becuause we still need the original face normal
+			// for the refraction calculation.
+			if( dot( ray.normal, -ray.dir ) <= 0.0f ) {
+				ray.normal = -ray.normal;
+			}
+
 			updateColor(
 				&ray, &newRay, &mtl, &lightRay, lightRaySource, &secondaryPaths,
 				&color, &finalColor

@@ -347,7 +347,6 @@ ray4 getNewRay(
 	ray4 newRay;
 	newRay.t = INFINITY;
 	newRay.origin = fma( ray->t, ray->dir, ray->origin );
-	newRay.origin += ray->normal * EPSILON7;
 
 	// Transparency and refraction
 	bool doTransRefr = ( mtl->data.s0 < 1.0f && mtl->data.s0 <= rand( seed ) );

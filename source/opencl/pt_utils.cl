@@ -325,11 +325,15 @@ float3 jitter(
  * @param {float*}      seed  Seed for RNG.
  */
 void antiAliasing( ray4* ray, const float pxDim, float* seed ) {
-	if( ANTI_ALIASING > 0.0f ) {
-		const float rnd = rand( seed );
-		const float3 aaDir = jitter( ray->dir, PI_X2 * rand( seed ), native_sqrt( rnd ), native_sqrt( 1.0f - rnd ) );
-		ray->dir = fast_normalize( ray->dir + aaDir * pxDim * ANTI_ALIASING );
-	}
+	const float rnd = rand( seed );
+	const float3 aaDir = jitter(
+		ray->dir,
+		PI_X2 * rand( seed ),
+		native_sqrt( rnd ),
+		native_sqrt( 1.0f - rnd )
+	);
+
+	ray->dir = fast_normalize( ray->dir + aaDir * pxDim * ANTI_ALIASING );
 }
 
 
@@ -424,49 +428,38 @@ inline float3 projectOnPlane( const float3 q, const float3 p, const float3 n ) {
 
 /**
  * Get the a new direction for a ray hitting a transparent surface (glass etc.).
- * @param  {const ray4*}     currentRay The current ray.
- * @param  {const material*} mtl        Material of the hit surface.
- * @param  {float*}          seed       Seed for the random number generator.
- * @return {float3}                     A new direction for the ray.
+ * @param  {const ray4*}     ray  The current ray.
+ * @param  {const material*} mtl  Material of the hit surface.
+ * @param  {float*}          seed Seed for the random number generator.
+ * @return {float3}               A new direction for the ray.
  */
 float3 refract( const ray4* ray, const material* mtl, float* seed ) {
-	#define DIR ( ray->dir )
-	#define N ( ray->normal )
-
-	const bool into = ( dot( N, DIR ) < 0.0f );
-	const float3 nl = into ? N : -N;
+	const bool into = ( dot( ray->normal, -ray->dir ) > 0.0f );
+	const float3 nl = into ? ray->normal : -ray->normal;
 
 	const float m1 = into ? NI_AIR : mtl->data.s1;
 	const float m2 = into ? mtl->data.s1 : NI_AIR;
 	const float m = native_divide( m1, m2 );
 
-	const float cosI = -dot( DIR, nl );
+	const float cosI = -dot( nl, ray->dir );
 	const float sinT2 = m * m * ( 1.0f - cosI * cosI );
 
 	// Critical angle. Total internal reflection.
-	if( sinT2 > 1.0f ) {
-		return reflect( DIR, nl );
+	if( sinT2 >= 1.0f ) {
+		return reflect( ray->dir, nl );
 	}
-
 
 	// Reflectance and transmission
 
+	const float sqrtCosT = native_sqrt( 1.0f - sinT2 );
 	const float r0 = native_divide( m1 - m2, m1 + m2 );
-	const float c = ( m1 > m2 ) ? native_sqrt( 1.0f - sinT2 ) : cosI;
+	const float c = ( m1 > m2 ) ? sqrtCosT : cosI;
 	const float reflectance = fresnel( c, r0 * r0 );
 	// transmission = 1.0f - reflectance
 
-	#define COS_T ( native_sqrt( 1.0f - sinT2 ) )
-	#define DO_REFRACT ( reflectance < rand( seed ) )
+	const float3 newDir = ( reflectance < rand( seed ) ) ?
+	                      m * ray->dir + ( m * cosI - sqrtCosT ) * nl :
+	                      reflect( ray->dir, nl );
 
-	const float3 newRay = DO_REFRACT
-	                    ? m * DIR + ( m * cosI - COS_T ) * nl
-	                    : reflect( DIR, nl );
-
-	return fast_normalize( newRay );
-
-	#undef DIR
-	#undef N
-	#undef COS_T
-	#undef DO_REFRACT
+	return newDir;
 }
