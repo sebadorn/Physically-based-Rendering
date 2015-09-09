@@ -43,6 +43,7 @@ typedef struct {
 	float3 w;
 	float3 u;
 	float3 v;
+	int2 focusPoint;
 	float2 lense; // x: focal length; y: aperture
 } camera;
 

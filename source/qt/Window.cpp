@@ -173,7 +173,7 @@ void Window::importFile() {
 
 /**
  * Handle key press events.
- * @param e {QKeyEvent*} e Key event triggered by pressing a key.
+ * @param {QKeyEvent*} e Key event triggered by pressing a key.
  */
 void Window::keyPressEvent( QKeyEvent* e ) {
 	switch( e->key() ) {
@@ -205,24 +205,26 @@ void Window::keyPressEvent( QKeyEvent* e ) {
 
 /**
  * Handle mouse mouve events.
- * @param e {QMouseEvent*} e Mouse event triggered by moving the mouse.
+ * @param {QMouseEvent*} e Mouse event triggered by moving the mouse.
  */
 void Window::mouseMoveEvent( QMouseEvent* e ) {
-	if( e->buttons() == Qt::LeftButton && mGLWidget->isRendering() ) {
-		int diffX = mMouseLastX - e->x();
-		int diffY = mMouseLastY - e->y();
+	if( mGLWidget->isRendering() ) {
+		if( e->buttons() == Qt::LeftButton ) {
+			int diffX = mMouseLastX - e->x();
+			int diffY = mMouseLastY - e->y();
 
-		mGLWidget->mCamera->updateCameraRot( diffX, diffY );
+			mGLWidget->mCamera->updateCameraRot( diffX, diffY );
 
-		mMouseLastX = e->x();
-		mMouseLastY = e->y();
+			mMouseLastX = e->x();
+			mMouseLastY = e->y();
+		}
 	}
 }
 
 
 /**
  * Handle mouse press events.
- * @param e {QMouseEvent*} e Mouse event triggered by pressing a button on the mouse.
+ * @param {QMouseEvent*} e Mouse event triggered by pressing a button on the mouse.
  */
 void Window::mousePressEvent( QMouseEvent* e ) {
 	if( e->buttons() == Qt::LeftButton ) {
@@ -257,7 +259,7 @@ void Window::toggleFullscreen() {
 
 /**
  * Update the status bar with a message.
- * @param msg {const char*} msg The message to show in the status bar.
+ * @param {const char*} msg The message to show in the status bar.
  */
 void Window::updateStatus( const char* msg ) {
 	mStatusBar->showMessage( QString::fromUtf8( msg ) );

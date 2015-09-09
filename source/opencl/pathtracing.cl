@@ -39,7 +39,10 @@ ray4 initRay(
 	ray.hitFace = 0;
 
 	antiAliasing( &ray, pxDim, seed );
-	depthOfField( &ray, &cam, tObject, tFocus, seed );
+
+	if( tFocus >= 0.0f && tObject >= 0.0f ) {
+		depthOfField( &ray, &cam, tObject, tFocus, seed );
+	}
 
 	return ray;
 }
@@ -48,15 +51,15 @@ ray4 initRay(
 /**
  * Get the t factor for the hit object of this ray and
  * the center ray of the previous frame.
+ * @param  {const camera cam}    cam
  * @param  {read_only image2d_t} imageIn
  * @return {float2}
  */
-float2 getPreviousFocus( read_only image2d_t imageIn ) {
+float2 getPreviousFocus( const camera cam, read_only image2d_t imageIn ) {
 	const int2 pos = { get_global_id( 0 ), get_global_id( 1 ) };
-	const int2 posCenter = { (int) IMG_WIDTH * 0.5f, (int) IMG_HEIGHT * 0.5f };
 	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 	const float4 thisRayPixel = read_imagef( imageIn, sampler, pos );
-	const float4 centerRayPixel = read_imagef( imageIn, sampler, posCenter );
+	const float4 centerRayPixel = read_imagef( imageIn, sampler, cam.focusPoint );
 
 	return (float2)( thisRayPixel.w, centerRayPixel.w ); // tObject, tFocus
 }
@@ -238,7 +241,11 @@ kernel void pathTracing(
 	#endif
 
 	float focus = 0.0f;
-	const float2 prevFocus = getPreviousFocus( imageIn );
+	float2 prevFocus = (float2)( -1.0f, -1.0f );
+
+	if( cam.focusPoint.x >= 0 && cam.focusPoint.y >= 0 ) {
+		prevFocus = getPreviousFocus( cam, imageIn );
+	}
 
 	bool addDepth;
 	uint secondaryPaths = 1; // Start at 1 instead of 0, because we are going to divide through it.

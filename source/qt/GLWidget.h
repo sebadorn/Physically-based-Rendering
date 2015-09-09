@@ -64,6 +64,7 @@ class GLWidget : public QGLWidget {
 		void loadModel( string filepath, string filename );
 		QSize minimumSizeHint() const;
 		void moveCamera( const int key );
+		void resetRenderTime();
 		void showKernelWindow();
 		QSize sizeHint() const;
 		void startRendering();
@@ -84,6 +85,7 @@ class GLWidget : public QGLWidget {
 		void initShaders();
 		void initTargetTexture();
 		void loadShader( GLuint program, GLuint shader, string path );
+		void mousePressEvent( QMouseEvent* e );
 		void paintGL();
 		void paintScene();
 		void resizeGL( int width, int height );

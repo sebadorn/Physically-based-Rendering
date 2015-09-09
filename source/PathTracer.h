@@ -27,6 +27,7 @@ struct camera_cl {
 	cl_float3 w;
 	cl_float3 u;
 	cl_float3 v;
+	cl_int2 focusPoint;
 	cl_float2 lense;
 };
 
@@ -89,6 +90,7 @@ class PathTracer {
 		void moveSun( const int key );
 		void resetSampleCount();
 		void setCamera( Camera* camera );
+		void setFocus( int x, int y );
 		void setFOV( cl_float fov );
 		void setWidthAndHeight( cl_uint width, cl_uint height );
 

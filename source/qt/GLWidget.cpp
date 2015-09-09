@@ -80,7 +80,7 @@ void GLWidget::calculateMatrices() {
 void GLWidget::cameraUpdate() {
 	this->calculateMatrices();
 	mPathTracer->resetSampleCount();
-	mRenderStartTime = glutGet( GLUT_ELAPSED_TIME );
+	this->resetRenderTime();
 }
 
 
@@ -426,6 +426,22 @@ QSize GLWidget::minimumSizeHint() const {
 
 
 /**
+ * Handle mouse press events.
+ * @param {QMouseEvent*} e Mouse event triggered by pressing a button on the mouse.
+ */
+void GLWidget::mousePressEvent( QMouseEvent* e ) {
+	if( e->buttons() == Qt::RightButton ) {
+		mPathTracer->setFocus( e->x(), e->y() );
+	}
+	else if( e->buttons() == Qt::MidButton ) {
+		mPathTracer->setFocus( -1, -1 );
+	}
+
+	e->ignore();
+}
+
+
+/**
  * Move the camera.
  * @param {const int} key Key code.
  */
@@ -600,6 +616,14 @@ void GLWidget::paintScene() {
 		glUseProgram( 0 );
 	}
 }
+
+
+/**
+ * Reset the render start time.
+ */
+void GLWidget::resetRenderTime() {
+	mRenderStartTime = glutGet( GLUT_ELAPSED_TIME );
+};
 
 
 /**
@@ -801,7 +825,7 @@ void GLWidget::startRendering() {
 	if( !mDoRendering ) {
 		mPathTracer->resetSampleCount();
 		mDoRendering = true;
-		mRenderStartTime = glutGet( GLUT_ELAPSED_TIME );
+		this->resetRenderTime();
 		mTimer->start( Cfg::get().value<float>( Cfg::RENDER_INTERVAL ) );
 	}
 }

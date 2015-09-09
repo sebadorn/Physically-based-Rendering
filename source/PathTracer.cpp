@@ -20,6 +20,8 @@ PathTracer::PathTracer( GLWidget* parent ) {
 	mSampleCount = 0;
 	mTimeSinceStart = boost::posix_time::microsec_clock::local_time();
 
+	mStructCam.focusPoint.x = -1;
+	mStructCam.focusPoint.y = -1;
 	mStructCam.lense.x = Cfg::get().value<cl_float>( Cfg::CAM_LENSE_FOCALLENGTH );
 	mStructCam.lense.y = Cfg::get().value<cl_float>( Cfg::CAM_LENSE_APERTURE );
 }
@@ -585,6 +587,21 @@ void PathTracer::resetSampleCount() {
  */
 void PathTracer::setCamera( Camera* camera ) {
 	mCamera = camera;
+}
+
+
+/**
+ * Set the camera focus to the given pixel position.
+ * Negative coordinates mean no point focus.
+ * @param {int} x X coordinate.
+ * @param {int} y Y coordinate.
+ */
+void PathTracer::setFocus( int x, int y ) {
+	mStructCam.focusPoint.x = x;
+	mStructCam.focusPoint.y = y;
+
+	this->resetSampleCount();
+	mGLWidget->resetRenderTime();
 }
 
 
