@@ -2,6 +2,8 @@
 # Material Count: 8
 
 newmtl Bottom
+Kd 0.4 0.85 0.23
+Ks 1.0 1.0 1.0
 Ni 1.0
 d 1.0
 
@@ -14,6 +16,8 @@ Ni 1.0
 d 1.0
 
 newmtl Sphere0
+Kd 0.4 0.85 0.23
+Ks 1.0 1.0 1.0
 Ni 1.50
 d 1.0
 p 0.0
@@ -26,16 +30,10 @@ Rd 1.0
 newmtl Sphere1
 Ni 1.5
 d 0.0
-rough 1.0
-nu 100000.0
-nv 100000.0
-Rs 1.0
-Rd 1.0
 
 newmtl Sphere2
 Ni 1.5
-d 1.0
-rough 1.0
+d 0.0
 
 newmtl Wall
 Ni 1.0

@@ -17,8 +17,8 @@ d 1.0
 Kd 0.47 0.65 0.13
 
 newmtl Pillar
-Ni 1.0
-d 1.0
+Ni 1.50
+d 0.0
 
 newmtl RightWall
 Ni 1.0
