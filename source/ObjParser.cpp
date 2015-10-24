@@ -143,6 +143,8 @@ void ObjParser::load( string filepath, string filename ) {
 		materialNames.push_back( materials[i].mtlName );
 	}
 
+	boost::posix_time::ptime timerStart = boost::posix_time::microsec_clock::local_time();
+
 	while( fileIn.good() ) {
 		string line;
 		getline( fileIn, line );
@@ -206,6 +208,16 @@ void ObjParser::load( string filepath, string filename ) {
 	}
 
 	fileIn.close();
+
+	boost::posix_time::ptime timerEnd = boost::posix_time::microsec_clock::local_time();
+	cl_float timeDiff = ( timerEnd - timerStart ).total_milliseconds() / 1000.0f;
+
+	char msg[256];
+	snprintf(
+		msg, 256, "[ObjParser] Loaded %lu vertices, %lu normals, and %lu faces in %g s.",
+		mVertices.size() / 3, mFacesVN.size() / 3, mFacesV.size() / 3, timeDiff
+	);
+	Logger::logInfo( msg );
 }
 
 
