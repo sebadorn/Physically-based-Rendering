@@ -176,7 +176,7 @@ void PathTracer::initOpenCLBuffers(
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, MSG_LENGTH, "[PathTracer] Created %s buffer in %g ms -- %.2f %s", accelName.c_str(), timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, MSG_LENGTH, "[PathTracer] Created %s buffer in %g ms -- %.2f %s.", accelName.c_str(), timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Material(s)
@@ -185,7 +185,7 @@ void PathTracer::initOpenCLBuffers(
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, MSG_LENGTH, "[PathTracer] Created material buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, MSG_LENGTH, "[PathTracer] Created material buffer in %g ms -- %.2f %s.", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	// Buffer: Light(s)
@@ -194,7 +194,7 @@ void PathTracer::initOpenCLBuffers(
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, MSG_LENGTH, "[PathTracer] Created light buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, MSG_LENGTH, "[PathTracer] Created light buffer in %g ms -- %.2f %s.", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	snprintf( msg, MSG_LENGTH, "%lu", mLights.size() );
@@ -206,7 +206,7 @@ void PathTracer::initOpenCLBuffers(
 	timerEnd = boost::posix_time::microsec_clock::local_time();
 	timeDiff = ( timerEnd - timerStart ).total_milliseconds();
 	utils::formatBytes( bytes, &bytesFloat, &unit );
-	snprintf( msg, MSG_LENGTH, "[PathTracer] Created texture buffer in %g ms -- %.2f %s", timeDiff, bytesFloat, unit.c_str() );
+	snprintf( msg, MSG_LENGTH, "[PathTracer] Created texture buffer in %g ms -- %.2f %s.", timeDiff, bytesFloat, unit.c_str() );
 	Logger::logInfo( msg );
 
 	Logger::indent( 0 );
@@ -248,6 +248,12 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh, ModelLoader* ml, vector<cl_u
 		cl_uint fvecLen = facesVec.size();
 		sn.bbMin.w = ( fvecLen > 0 ) ? (cl_float) faceStructs.size() + 0 : -1.0f;
 		sn.bbMax.w = ( fvecLen > 1 ) ? (cl_float) faceStructs.size() + 1 : -1.0f;
+
+		// Set the flag to skip the next left child node.
+		if( fvecLen == 0 && node->skipNextLeft ) {
+			sn.bbMin.w = -2.0f;
+		}
+
 
 		// No parent means it's the root node.
 		// Otherwise it is some other node, including leaves.

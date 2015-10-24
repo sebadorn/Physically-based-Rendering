@@ -46,11 +46,15 @@
 		// some time. To speed it up only use SAH for nodes with
 		// a number of faces less or equal to this setting.
 		"sah_faces_limit": 100000,
-		// Use spatial splits to create the BVH.
-		// WORKS, BUT HAS BAD PERFORMANCE. NEEDS OPTIMIZATION!
-		// 0: disabled
-		// >0: number of splits to test per node
-		"spatial_splits": 0
+		// Enable/disable "skip ahead" optimization. If the
+		// surface area of a left child node is a certain per
+		// cent of its parent node, the node will be assumed
+		// to be hit by the ray if the parent is hit too.
+		"skip_ahead": true,
+		// Comparison of the surface areas. (0.0, 1.0] with
+		// 1.0 meaning to skip the left child node if its
+		// surface area is as big as its parent node.
+		"skip_ahead_compare": 0.7
 	},
 
 	"logging": {

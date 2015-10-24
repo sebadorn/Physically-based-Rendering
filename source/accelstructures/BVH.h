@@ -22,6 +22,7 @@ struct BVHNode {
 	glm::vec3 bbMax;
 	uint id;
 	uint depth;
+	bool skipNextLeft;
 };
 
 
@@ -51,7 +52,7 @@ class BVH : public AccelStructure {
 		);
 		BVHNode* buildTree(
 			const vector<Tri> faces, const glm::vec3 bbMin, const glm::vec3 bbMax,
-			cl_uint depth, bool useGivenBB, const cl_float rootSA
+			cl_uint depth, const cl_float rootSA
 		);
 		vector<BVHNode*> buildTreesFromObjects(
 			const vector<object3D>* sceneObjects,
@@ -64,26 +65,19 @@ class BVH : public AccelStructure {
 		);
 		cl_float buildWithSAH(
 			BVHNode* node, vector<Tri> faces,
-			vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
+			vector<Tri>* leftFaces, vector<Tri>* rightFaces
 		);
 		cl_float calcSAH(
 			const cl_float leftSA, const cl_float leftNumFaces,
 			const cl_float rightSA, const cl_float rightNumFaces
 		);
 		void combineNodes( const cl_uint numSubTrees );
-		void createBinCombinations(
-			const BVHNode* node, const cl_uint axis, const vector<cl_float>* splitPos,
-			vector< vector<glm::vec3> >* leftBin, vector< vector<glm::vec3> >* rightBin
-		);
 		vector<Tri> facesToTriStructs(
 			const vector<cl_uint4>* facesThisObj, const vector<cl_uint4>* faceNormalsThisObj,
 			const vector<cl_float4>* vertices4, const vector<float>* normals
 		);
 		cl_float getMean( const vector<Tri> faces, const cl_uint axis );
 		cl_float getMeanOfNodes( const vector<BVHNode*> nodes, const cl_uint axis );
-		vector<cl_float> getBinSplits(
-			const BVHNode* node, const cl_uint splits, const cl_uint axis
-		);
 		void groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint depth );
 		void growAABBsForSAH(
 			const vector<Tri>* faces,
@@ -102,15 +96,10 @@ class BVH : public AccelStructure {
 			vector< vector<glm::vec3> >* leftBin, vector< vector<glm::vec3> >* rightBin
 		);
 		cl_uint setMaxFaces( const int value );
+		void skipAheadOfNodes();
 		void splitBySAH(
 			cl_float* bestSAH, const cl_uint axis, vector<Tri> faces,
-			vector<Tri>* leftFaces, vector<Tri>* rightFaces, cl_float* lambda
-		);
-		void splitBySpatialSplit(
-			BVHNode* node, const cl_uint axis, cl_float* sahBest, const vector<Tri> faces,
-			vector<Tri>* leftFaces, vector<Tri>* rightFaces,
-			glm::vec3* bbMinLeft, glm::vec3* bbMaxLeft,
-			glm::vec3* bbMinRight, glm::vec3* bbMaxRight
+			vector<Tri>* leftFaces, vector<Tri>* rightFaces
 		);
 		cl_float splitFaces(
 			const vector<Tri> faces, const cl_float midpoint, const cl_uint axis,

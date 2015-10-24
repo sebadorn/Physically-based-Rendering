@@ -98,7 +98,8 @@ void traverse( const Scene* scene, ray4* ray ) {
 		// If a node has a left child, it will always be next in memory (index + 1).
 		// Also, if a node is a leaf node, the next node to visit (a right sibling or
 		// right child of a distinct parent) will also be next in memory (index + 1).
-		index = ( node.bbMin.w == -1.0f ) ? (int) node.bbMax.w : currentIndex + 1;
+
+		index = ( node.bbMin.w <= -1.0f ) ? (int) node.bbMax.w : currentIndex + 1;
 
 		float tNear = 0.0f;
 		float tFar = INFINITY;
@@ -114,8 +115,13 @@ void traverse( const Scene* scene, ray4* ray ) {
 
 		index = currentIndex + 1;
 
+		// Skip the next left child node.
+		if( node.bbMin.w == -2.0f ) {
+			index++;
+		}
+
 		// Node is leaf node. Test faces.
-		if( node.bbMin.w != -1.0f ) {
+		if( node.bbMin.w >= 0.0f ) {
 			intersectFaces( scene, ray, &node, tNear, tFar );
 		}
 	} while( index > 0 && index < BVH_NUM_NODES );
@@ -141,7 +147,7 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 		int currentIndex = index;
 
 		// @see traverse() for an explanation.
-		index = ( node.bbMin.w == -1.0f ) ? (int) node.bbMax.w : currentIndex + 1;
+		index = ( node.bbMin.w <= -1.0f ) ? (int) node.bbMax.w : currentIndex + 1;
 
 		float tNear = 0.0f;
 		float tFar = INFINITY;
@@ -157,10 +163,14 @@ void traverseShadows( const Scene* scene, ray4* ray ) {
 
 		index = currentIndex + 1;
 
+		// Skip the next left child node.
+		if( node.bbMin.w == -2.0f ) {
+			index++;
+		}
+
 		// Node is leaf node. Test faces.
-		if( node.bbMin.w != -1.0f ) {
+		if( node.bbMin.w >= 0.0f ) {
 			intersectFaces( scene, ray, &node, tNear, tFar );
-			index = currentIndex + 1;
 
 			// It's enough to know that something blocks the way. It doesn't matter what or where.
 			// TODO: It *does* matter what and where, if the material has transparency.

@@ -4,7 +4,8 @@
 const char* Cfg::ACCEL_STRUCT = "accel_struct";
 const char* Cfg::BVH_MAXFACES = "bvh.max_faces";
 const char* Cfg::BVH_SAHFACESLIMIT = "bvh.sah_faces_limit";
-const char* Cfg::BVH_SPATIALSPLITS = "bvh.spatial_splits";
+const char* Cfg::BVH_SKIPAHEAD = "bvh.skip_ahead";
+const char* Cfg::BVH_SKIPAHEAD_CMP = "bvh.skip_ahead_compare";
 const char* Cfg::CAM_CENTER_X = "camera.center.x";
 const char* Cfg::CAM_CENTER_Y = "camera.center.y";
 const char* Cfg::CAM_CENTER_Z = "camera.center.z";
