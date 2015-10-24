@@ -752,43 +752,6 @@ vector<cl_float4> BVH::packFloatAsFloat4( const vector<cl_float>* vertices ) {
 
 
 /**
- * Resize bins so they fit the AABB of their contained faces.
- * @param {const cl_uint}                        splits
- * @param {const std::vector<std::vector<Tri>>*} leftBinFaces
- * @param {const std::vector<std::vector<Tri>>*} rightBinFaces
- * @param {std::vector<std::vector<glm::vec3>>*} leftBin
- * @param {std::vector<std::vector<glm::vec3>>*} rightBin
- */
-void BVH::resizeBinsToFaces(
-	const cl_uint splits,
-	const vector< vector<Tri> >* leftBinFaces, const vector< vector<Tri> >* rightBinFaces,
-	vector< vector<glm::vec3> >* leftBin, vector< vector<glm::vec3> >* rightBin
-) {
-	for( cl_uint i = 0; i < splits; i++ ) {
-		if( (*leftBinFaces)[i].size() == 0 || (*rightBinFaces)[i].size() == 0 ) {
-			continue;
-		}
-
-		(*leftBin)[i][0] = glm::vec3( (*leftBinFaces)[i][0].bbMin );
-		(*leftBin)[i][1] = glm::vec3( (*leftBinFaces)[i][0].bbMax );
-
-		for( cl_uint j = 1; j < (*leftBinFaces)[i].size(); j++ ) {
-			(*leftBin)[i][0] = glm::min( (*leftBin)[i][0], (*leftBinFaces)[i][j].bbMin );
-			(*leftBin)[i][1] = glm::max( (*leftBin)[i][1], (*leftBinFaces)[i][j].bbMax );
-		}
-
-		(*rightBin)[i][0] = glm::vec3( (*rightBinFaces)[i][0].bbMin );
-		(*rightBin)[i][1] = glm::vec3( (*rightBinFaces)[i][0].bbMax );
-
-		for( cl_uint j = 1; j < (*rightBinFaces)[i].size(); j++ ) {
-			(*rightBin)[i][0] = glm::min( (*rightBin)[i][0], (*rightBinFaces)[i][j].bbMin );
-			(*rightBin)[i][1] = glm::max( (*rightBin)[i][1], (*rightBinFaces)[i][j].bbMax );
-		}
-	}
-}
-
-
-/**
  * Set the number of max faces per (leaf) node.
  * @param  {const int} value     Max faces per (leaf) node.
  * @return {cl_uint}             The now set number of max faces per (leaf) node.

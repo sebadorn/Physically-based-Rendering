@@ -192,6 +192,14 @@ void Window::keyPressEvent( QKeyEvent* e ) {
 			mGLWidget->toggleLightMovement();
 			break;
 
+		case Qt::Key_F:
+			mGLWidget->modifyCameraStep( 0.1f );
+			break;
+
+		case Qt::Key_G:
+			mGLWidget->modifyCameraStep( -0.1f );
+			break;
+
 		case Qt::Key_F11:
 			this->toggleFullscreen();
 			break;

@@ -90,11 +90,6 @@ class BVH : public AccelStructure {
 		BVHNode* makeContainerNode( const vector<BVHNode*> subTrees, const bool isRoot );
 		void orderNodesByTraversal();
 		vector<cl_float4> packFloatAsFloat4( const vector<cl_float>* vertices );
-		void resizeBinsToFaces(
-			const cl_uint splits,
-			const vector< vector<Tri> >* leftBinFaces, const vector< vector<Tri> >* rightBinFaces,
-			vector< vector<glm::vec3> >* leftBin, vector< vector<glm::vec3> >* rightBin
-		);
 		cl_uint setMaxFaces( const int value );
 		void skipAheadOfNodes();
 		void splitBySAH(

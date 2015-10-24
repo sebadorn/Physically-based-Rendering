@@ -158,6 +158,15 @@ float Camera::getRotY() {
 
 
 /**
+ * Get the movement speed of the camera.
+ * @return {float}
+ */
+float Camera::getSpeed() {
+	return mCameraSpeed;
+}
+
+
+/**
  * Return the up coordinates as GLM 3D vector.
  * @return {glm::vec3} Up coordinates.
  */

@@ -41,6 +41,7 @@ class Camera {
 		glm::vec3 getEye_glmVec3();
 		float getRotX();
 		float getRotY();
+		float getSpeed();
 		glm::vec3 getUp_glmVec3();
 		void setSpeed( float speed );
 		void updateCameraRot( int moveX, int moveY );

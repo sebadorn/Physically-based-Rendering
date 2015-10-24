@@ -426,6 +426,15 @@ QSize GLWidget::minimumSizeHint() const {
 
 
 /**
+ * Modify the camera speed by adding the given value.
+ * @param {const float} adjust
+ */
+void GLWidget::modifyCameraStep( const float adjust ) {
+	mCamera->setSpeed( mCamera->getSpeed() + adjust );
+}
+
+
+/**
  * Handle mouse press events.
  * @param {QMouseEvent*} e Mouse event triggered by pressing a button on the mouse.
  */

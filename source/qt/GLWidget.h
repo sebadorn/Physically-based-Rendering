@@ -63,6 +63,7 @@ class GLWidget : public QGLWidget {
 		bool isRendering();
 		void loadModel( string filepath, string filename );
 		QSize minimumSizeHint() const;
+		void modifyCameraStep( const float adjust );
 		void moveCamera( const int key );
 		void resetRenderTime();
 		void showKernelWindow();
