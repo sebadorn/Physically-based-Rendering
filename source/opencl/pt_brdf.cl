@@ -372,5 +372,7 @@ ray4 getNewRay(
 		#endif
 	}
 
+	// newRay.origin += newRay.dir * EPSILON5;
+
 	return newRay;
 }

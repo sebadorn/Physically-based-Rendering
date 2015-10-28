@@ -33,10 +33,10 @@ constant uint MOD_3[6] = { 0, 1, 2, 0, 1, 2 };
 
 /**
  *
- * @param  {float*}      seed
- * @return {const float}
+ * @param  {float*} seed
+ * @return {float}       A random number [0, 1].
  */
-inline const float rand( float* seed ) {
+inline float rand( float* seed ) {
 	float i;
 	*seed += 1.0f;
 

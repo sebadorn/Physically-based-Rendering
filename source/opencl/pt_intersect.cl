@@ -92,11 +92,13 @@ const bool intersectSphere(
 float3 flatTriAndRayIntersect(
 	const float3 a, const float3 b, const float3 c,
 	const uint4 fn, global const float4* normals,
-	const ray4* ray, float* t
+	const ray4* ray, float* t, const float tNear
 ) {
+	const float f = fmax( 0.0f, tNear - 0.001f );
+	const float3 closeOrigin = fma( ray->dir, f, ray->origin );
 	const float3 edge1 = b - a;
 	const float3 edge2 = c - a;
-	const float3 tVec = ray->origin - a;
+	const float3 tVec = closeOrigin - a;
 	const float3 pVec = cross( ray->dir, edge2 );
 	const float3 qVec = cross( tVec, edge1 );
 	const float invDet = native_recip( dot( edge1, pVec ) );
@@ -115,6 +117,8 @@ float3 flatTriAndRayIntersect(
 		*t = INFINITY;
 		return (float3)( 0.0f );
 	}
+
+	*t += f;
 
 	return fast_normalize( cross( edge1, edge2 ) );
 
@@ -158,7 +162,7 @@ float3 checkFaceIntersection(
 	#endif
 
 	{
-		return flatTriAndRayIntersect( a, b, c, f.normals, scene->normals, ray, t );
+		return flatTriAndRayIntersect( a, b, c, f.normals, scene->normals, ray, t, tNear );
 	}
 
 
