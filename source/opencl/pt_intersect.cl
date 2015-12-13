@@ -91,7 +91,6 @@ const bool intersectSphere(
  */
 float3 flatTriAndRayIntersect(
 	const float3 a, const float3 b, const float3 c,
-	const uint4 fn, global const float4* normals,
 	const ray4* ray, float* t, const float tNear
 ) {
 	const float f = fmax( 0.0f, tNear - 0.001f );
@@ -144,16 +143,17 @@ float3 checkFaceIntersection(
 	const Scene* scene, const ray4* ray, const int fIndex, float* t,
 	const float tNear, const float tFar
 ) {
-	const face_t f = scene->faces[fIndex];
-	const float3 a = scene->vertices[f.vertices.x].xyz;
-	const float3 b = scene->vertices[f.vertices.y].xyz;
-	const float3 c = scene->vertices[f.vertices.z].xyz;
+	const uint4 fv = scene->facesV[fIndex];
+	const float3 a = scene->vertices[fv.x].xyz;
+	const float3 b = scene->vertices[fv.y].xyz;
+	const float3 c = scene->vertices[fv.z].xyz;
 
 	#if PHONGTESS == 1
 
-		const float3 an = scene->normals[f.normals.x].xyz;
-		const float3 bn = scene->normals[f.normals.y].xyz;
-		const float3 cn = scene->normals[f.normals.z].xyz;
+		const uint4 fn = scene->facesN[fIndex];
+		const float3 an = scene->normals[fn.x].xyz;
+		const float3 bn = scene->normals[fn.y].xyz;
+		const float3 cn = scene->normals[fn.z].xyz;
 		const int3 cmp = ( an == bn ) + ( bn == cn );
 
 		// Comparing vectors in OpenCL: 0/false/not equal; -1/true/equal
@@ -162,7 +162,7 @@ float3 checkFaceIntersection(
 	#endif
 
 	{
-		return flatTriAndRayIntersect( a, b, c, f.normals, scene->normals, ray, t, tNear );
+		return flatTriAndRayIntersect( a, b, c, ray, t, tNear );
 	}
 
 

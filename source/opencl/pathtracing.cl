@@ -222,7 +222,8 @@ kernel void pathTracing(
 	#endif
 
 	// geometry and color related
-	global const face_t* faces,
+	global const uint4* facesV,
+	global const uint4* facesN,
 	global const float4* vertices,
 	global const float4* normals,
 	global const material* materials,
@@ -237,7 +238,7 @@ kernel void pathTracing(
 	float4 finalColor = (float4)( 0.0f );
 
 	#if ACCEL_STRUCT == 0
-		Scene scene = { bvh, lights, faces, vertices, normals, (float4)( 0.0f ) };
+		Scene scene = { bvh, lights, facesV, facesN, vertices, normals, (float4)( 0.0f ) };
 	#endif
 
 	float focus = 0.0f;
@@ -267,7 +268,7 @@ kernel void pathTracing(
 				break;
 			}
 
-			material mtl = materials[scene.faces[ray.hitFace].vertices.w];
+			material mtl = materials[scene.facesV[ray.hitFace].w];
 
 			// Last round, no need to calculate a new ray.
 			// Unless we hit a material that extends the path.

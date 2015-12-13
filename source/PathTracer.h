@@ -123,7 +123,8 @@ class PathTracer {
 
 		cl_mem mBufBVH;
 		cl_mem mBufBVHFaces;
-		cl_mem mBufFaces;
+		cl_mem mBufFacesV;
+		cl_mem mBufFacesN;
 		cl_mem mBufVertices;
 		cl_mem mBufNormals;
 		cl_mem mBufMaterials;

@@ -70,7 +70,8 @@ typedef struct {
 	typedef struct {
 		global const bvhNode* bvh;
 		global const light_t* lights;
-		global const face_t* faces;
+		global const uint4* facesV;
+		global const uint4* facesN;
 		global const float4* vertices;
 		global const float4* normals;
 		float4 debugColor;
