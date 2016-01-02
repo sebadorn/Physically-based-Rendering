@@ -200,9 +200,6 @@ void shadowRayTest( Scene* scene, ray4* ray, ray4* lightRay, float4* lightRaySou
 
 
 
-// KERNELS
-
-
 /**
  * KERNEL.
  * Do the path tracing and calculate the final color for the pixel.

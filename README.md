@@ -28,7 +28,7 @@ Rendering 3D scenes physically-based through Path Tracing. Interaction of light 
 * libxi-dev
 * libxmu-dev
 * opencl-headers
-* libdevil-dev (currently not needed, maybe in the future for texture support)
+* libdevil-dev
 
 
 ### NVIDIA and OpenCL

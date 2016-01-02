@@ -20,7 +20,7 @@ using std::vector;
 class CL {
 
 	public:
-		CL();
+		CL( const bool silent = false );
 		~CL();
 
 		template<typename T> cl_mem createBuffer( vector<T> object, size_t objectSize ) {
@@ -53,8 +53,8 @@ class CL {
 		bool checkError( cl_int err, const char* functionName );
 		string combineParts( string filepath );
 		const char* errorCodeToName( cl_int errorCode );
-		void getDefaultDevice();
-		void getDefaultPlatform();
+		void getDefaultDevice( const bool silent = false );
+		void getDefaultPlatform( const bool silent = false );
 		double getKernelExecutionTime( cl_event kernelEvent );
 		void initCommandQueue();
 		void initContext( cl_device_id* devices );

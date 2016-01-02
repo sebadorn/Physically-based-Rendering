@@ -151,6 +151,13 @@ void PathTracer::initOpenCLBuffers(
 	}
 	mCL = new CL();
 
+	if( mCLNoiseFilter != NULL ) {
+		delete mCLNoiseFilter;
+	}
+	mCLNoiseFilter = new CL( true );
+	mCLNoiseFilter->loadProgram( "source/opencl/noise_filtering.cl" );
+	mKernelNoiseFiltering = mCLNoiseFilter->createKernel( "noise_filtering" );
+
 	Logger::logInfo( "[PathTracer] Initializing OpenCL buffers ..." );
 	Logger::indent( LOG_INDENT );
 

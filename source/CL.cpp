@@ -7,7 +7,7 @@ using std::vector;
 /**
  * Constructor.
  */
-CL::CL() {
+CL::CL( const bool silent ) {
 	mCommandQueue = NULL;
 	mContext = NULL;
 	mDevice = NULL;
@@ -18,8 +18,8 @@ CL::CL() {
 	mWorkWidth = Cfg::get().value<cl_uint>( Cfg::WINDOW_WIDTH );
 	mWorkHeight = Cfg::get().value<cl_uint>( Cfg::WINDOW_HEIGHT );
 
-	this->getDefaultPlatform();
-	this->getDefaultDevice();
+	this->getDefaultPlatform( silent );
+	this->getDefaultDevice( silent );
 	this->initCommandQueue();
 }
 
@@ -325,8 +325,9 @@ void CL::freeBuffers() {
 
 /**
  * Get the default device of the platform.
+ * @param {const bool} silent
  */
-void CL::getDefaultDevice() {
+void CL::getDefaultDevice( const bool silent ) {
 	char* value;
 	size_t valueSize;
 	cl_uint deviceCount;
@@ -352,57 +353,62 @@ void CL::getDefaultDevice() {
 		value = (char*) malloc( valueSize );
 		clGetDeviceInfo( devices[i], CL_DEVICE_NAME, valueSize, value, NULL );
 
-		if( i == 0 ) {
-			Logger::logInfo( string( "[OpenCL] Using device " ).append( value ) );
+		if( !silent ) {
+			if( i == 0 ) {
+				Logger::logInfo( string( "[OpenCL] Using device " ).append( value ) );
+			}
+			else {
+				Logger::logDebug( string( "[OpenCL] Found device " ).append( value ) );
+			}
 		}
-		else {
-			Logger::logDebug( string( "[OpenCL] Found device " ).append( value ) );
-		}
+
 		free( value );
 	}
 
 
-	// Get the global memory size
-	cl_ulong globalMemSize;
-	clGetDeviceInfo( devices[0], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof( cl_ulong ), &globalMemSize, NULL );
-	snprintf( msg, 128, "[OpenCL] Global memory size is %lu MB.", globalMemSize / 1024 / 1024 );
-	Logger::logDebug( msg );
+	if( !silent ) {
+		// Get the global memory size
+		cl_ulong globalMemSize;
+		clGetDeviceInfo( devices[0], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof( cl_ulong ), &globalMemSize, NULL );
+		snprintf( msg, 128, "[OpenCL] Global memory size is %lu MB.", globalMemSize / 1024 / 1024 );
+		Logger::logDebug( msg );
 
-	// Get the global memory cache size
-	cl_ulong globalCacheSize;
-	clGetDeviceInfo( devices[0], CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, sizeof( cl_ulong ), &globalCacheSize, NULL );
-	snprintf( msg, 128, "[OpenCL] Global cache size is %lu KB.", globalCacheSize / 1024 );
-	Logger::logDebug( msg );
+		// Get the global memory cache size
+		cl_ulong globalCacheSize;
+		clGetDeviceInfo( devices[0], CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, sizeof( cl_ulong ), &globalCacheSize, NULL );
+		snprintf( msg, 128, "[OpenCL] Global cache size is %lu KB.", globalCacheSize / 1024 );
+		Logger::logDebug( msg );
 
-	// Get the global memory cache line size
-	cl_uint globalCacheLineSize;
-	clGetDeviceInfo( devices[0], CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, sizeof( cl_uint ), &globalCacheLineSize, NULL );
-	snprintf( msg, 128, "[OpenCL] Global cache line size is %u B.", globalCacheLineSize );
-	Logger::logDebug( msg );
+		// Get the global memory cache line size
+		cl_uint globalCacheLineSize;
+		clGetDeviceInfo( devices[0], CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, sizeof( cl_uint ), &globalCacheLineSize, NULL );
+		snprintf( msg, 128, "[OpenCL] Global cache line size is %u B.", globalCacheLineSize );
+		Logger::logDebug( msg );
 
-	// Get the local memory size
-	cl_ulong constantMemSize;
-	clGetDeviceInfo( devices[0], CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof( cl_ulong ), &constantMemSize, NULL );
-	snprintf( msg, 128, "[OpenCL] Constant memory size is %lu KB.", constantMemSize / 1024 );
-	Logger::logDebug( msg );
+		// Get the local memory size
+		cl_ulong constantMemSize;
+		clGetDeviceInfo( devices[0], CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof( cl_ulong ), &constantMemSize, NULL );
+		snprintf( msg, 128, "[OpenCL] Constant memory size is %lu KB.", constantMemSize / 1024 );
+		Logger::logDebug( msg );
 
-	// Get the local memory size
-	cl_ulong localMemSize;
-	clGetDeviceInfo( devices[0], CL_DEVICE_LOCAL_MEM_SIZE, sizeof( cl_ulong ), &localMemSize, NULL );
-	snprintf( msg, 128, "[OpenCL] Local memory size is %lu KB.", localMemSize / 1024 );
-	Logger::logDebug( msg );
+		// Get the local memory size
+		cl_ulong localMemSize;
+		clGetDeviceInfo( devices[0], CL_DEVICE_LOCAL_MEM_SIZE, sizeof( cl_ulong ), &localMemSize, NULL );
+		snprintf( msg, 128, "[OpenCL] Local memory size is %lu KB.", localMemSize / 1024 );
+		Logger::logDebug( msg );
 
-	// Get the maximum work group size
-	size_t maxWorkGroupSize;
-	clGetDeviceInfo( devices[0], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof( size_t ), &maxWorkGroupSize, NULL );
-	snprintf( msg, 128, "[OpenCL] Max work group size is %lu.", maxWorkGroupSize );
-	Logger::logDebug( msg );
+		// Get the maximum work group size
+		size_t maxWorkGroupSize;
+		clGetDeviceInfo( devices[0], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof( size_t ), &maxWorkGroupSize, NULL );
+		snprintf( msg, 128, "[OpenCL] Max work group size is %lu.", maxWorkGroupSize );
+		Logger::logDebug( msg );
 
-	// Get the maximum work group size
-	size_t maxWorkItemSizes[3];
-	clGetDeviceInfo( devices[0], CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof( size_t ) * 3, &maxWorkItemSizes, NULL );
-	snprintf( msg, 128, "[OpenCL] Max work item sizes are (%lu, %lu, %lu).", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2] );
-	Logger::logDebug( msg );
+		// Get the maximum work group size
+		size_t maxWorkItemSizes[3];
+		clGetDeviceInfo( devices[0], CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof( size_t ) * 3, &maxWorkItemSizes, NULL );
+		snprintf( msg, 128, "[OpenCL] Max work item sizes are (%lu, %lu, %lu).", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2] );
+		Logger::logDebug( msg );
+	}
 
 	this->initContext( devices );
 	delete [] devices;
@@ -411,8 +417,9 @@ void CL::getDefaultDevice() {
 
 /**
  * Get the default platform of the system.
+ * @param {const bool} silent
  */
-void CL::getDefaultPlatform() {
+void CL::getDefaultPlatform( const bool silent ) {
 	char* value;
 	size_t valueSize;
 	cl_uint platformCount = 0;
@@ -440,12 +447,15 @@ void CL::getDefaultPlatform() {
 		value = (char*) malloc( valueSize );
 		clGetPlatformInfo( platforms[i], CL_PLATFORM_NAME, valueSize, value, NULL );
 
-		if( i == 0 ) {
-			Logger::logInfo( string( "[OpenCL] Using platform " ).append( value ) );
+		if( !silent ) {
+			if( i == 0 ) {
+				Logger::logInfo( string( "[OpenCL] Using platform " ).append( value ) );
+			}
+			else {
+				Logger::logDebug( string( "[OpenCL] Found platform " ).append( value ) );
+			}
 		}
-		else {
-			Logger::logDebug( string( "[OpenCL] Found platform " ).append( value ) );
-		}
+
 		free( value );
 	}
 

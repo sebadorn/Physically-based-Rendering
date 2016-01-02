@@ -1,5 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+cd $(dirname "$0")
 
 # --gen-suppressions=all
-
-valgrind --tool=memcheck --leak-check=full --show-reachable=yes --suppressions=./valgrind/valgrind.supp --log-file=./valgrind/valgrind.log ./PBR $@
+valgrind --tool=memcheck --leak-check=full --show-reachable=yes --suppressions=valgrind.supp --log-file=valgrind.log ../PBR $@
