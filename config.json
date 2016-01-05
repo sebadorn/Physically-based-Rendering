@@ -108,7 +108,7 @@
 		// Shoot shadow rays to generate implicit paths.
 		// 0: disable
 		// 1: enable
-		"shadow_rays": 0
+		"shadow_rays": 1
 	},
 
 	"shader": {

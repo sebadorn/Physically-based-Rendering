@@ -323,8 +323,6 @@ void BVH::combineNodes( const cl_uint numSubTrees ) {
 	mNodes.insert( mNodes.end(), mContainerNodes.begin(), mContainerNodes.end() );
 
 	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
-		mNodes[i]->id = i;
-
 		// Leaf node
 		if( mNodes[i]->faces.size() > 0 ) {
 			mLeafNodes.push_back( mNodes[i] );
@@ -606,13 +604,14 @@ BVHNode* BVH::makeContainerNode( const vector<BVHNode*> subTrees, const bool isR
 		return subTrees[0];
 	}
 
-	BVHNode* node = new BVHNode;
+	BVHNode* node = new BVHNode();
 
 	node->leftChild = NULL;
 	node->rightChild = NULL;
 	node->parent = NULL;
 	node->depth = 0;
 	node->skipNextLeft = false;
+	node->numSkipsToHere = 0;
 	node->bbMin = glm::vec3( subTrees[0]->bbMin );
 	node->bbMax = glm::vec3( subTrees[0]->bbMax );
 
@@ -636,12 +635,13 @@ BVHNode* BVH::makeContainerNode( const vector<BVHNode*> subTrees, const bool isR
  * @return {BVHNode*}
  */
 BVHNode* BVH::makeNode( const vector<Tri> tris, const bool ignore ) {
-	BVHNode* node = new BVHNode;
+	BVHNode* node = new BVHNode();
 	node->leftChild = NULL;
 	node->rightChild = NULL;
 	node->parent = NULL;
 	node->depth = 0;
 	node->skipNextLeft = false;
+	node->numSkipsToHere = 0;
 
 	vector<glm::vec3> bbMins, bbMaxs;
 
@@ -714,7 +714,7 @@ void BVH::orderNodesByTraversal() {
 		}
 	}
 
-	// Re-assign IDs.
+	// Assign IDs.
 	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
 		BVHNode* node = nodesOrdered[i];
 		node->id = i;
@@ -771,8 +771,9 @@ void BVH::skipAheadOfNodes() {
 	cl_float cmp = Cfg::get().value<cl_float>( Cfg::BVH_SKIPAHEAD_CMP );
 	cl_uint skippedLeft = 0;
 
-	for( cl_int i = mNodes.size() - 1; i >= 0; i-- ) {
+	for( cl_uint i = 0; i < mNodes.size(); i++ ) {
 		BVHNode* node = mNodes[i];
+		node->numSkipsToHere = skippedLeft;
 
 		// Left child exists and is not a leaf node.
 		if( node->leftChild != NULL && node->leftChild->leftChild != NULL ) {
@@ -782,8 +783,8 @@ void BVH::skipAheadOfNodes() {
 			cl_float saLeft = MathHelp::getSurfaceArea( left->bbMin, left->bbMax );
 
 			if( saLeft / saNode >= cmp ) {
-				skippedLeft++;
 				node->skipNextLeft = true;
+				skippedLeft++;
 			}
 		}
 	}

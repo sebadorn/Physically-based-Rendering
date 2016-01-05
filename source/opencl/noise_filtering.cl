@@ -115,43 +115,43 @@ float* preprocessSamples(
 		const float4 n2 = samplesData->normalsSecond[i * pxIndex];
 		const float4 tex = samplesData->textureFirst[i * pxIndex];
 
-		meanData[0] += pos1.x;
-		meanData[1] += pos1.y;
-		meanData[2] += pos1.z;
+		mean[0] += pos1.x;
+		mean[1] += pos1.y;
+		mean[2] += pos1.z;
 
-		meanData[3] += pos2.x;
-		meanData[4] += pos2.y;
-		meanData[5] += pos2.z;
+		mean[3] += pos2.x;
+		mean[4] += pos2.y;
+		mean[5] += pos2.z;
 
-		meanData[6] += n1.x;
-		meanData[7] += n1.y;
-		meanData[8] += n1.z;
+		mean[6] += n1.x;
+		mean[7] += n1.y;
+		mean[8] += n1.z;
 
-		meanData[9] += n2.x;
-		meanData[10] += n2.y;
-		meanData[11] += n2.z;
+		mean[9] += n2.x;
+		mean[10] += n2.y;
+		mean[11] += n2.z;
 
-		meanData[12] += tex.x;
-		meanData[13] += tex.y;
-		meanData[14] += tex.z;
+		mean[12] += tex.x;
+		mean[13] += tex.y;
+		mean[14] += tex.z;
 	}
 
-	float recipNum = native_recip( NUM_SAMPLES );
-	meanData[0] *= recipNum;
-	meanData[1] *= recipNum;
-	meanData[2] *= recipNum;
-	meanData[3] *= recipNum;
-	meanData[4] *= recipNum;
-	meanData[5] *= recipNum;
-	meanData[6] *= recipNum;
-	meanData[7] *= recipNum;
-	meanData[8] *= recipNum;
-	meanData[9] *= recipNum;
-	meanData[10] *= recipNum;
-	meanData[11] *= recipNum;
-	meanData[12] *= recipNum;
-	meanData[13] *= recipNum;
-	meanData[14] *= recipNum;
+	float recipNum = native_recip( (float) NUM_SAMPLES );
+	mean[0] *= recipNum;
+	mean[1] *= recipNum;
+	mean[2] *= recipNum;
+	mean[3] *= recipNum;
+	mean[4] *= recipNum;
+	mean[5] *= recipNum;
+	mean[6] *= recipNum;
+	mean[7] *= recipNum;
+	mean[8] *= recipNum;
+	mean[9] *= recipNum;
+	mean[10] *= recipNum;
+	mean[11] *= recipNum;
+	mean[12] *= recipNum;
+	mean[13] *= recipNum;
+	mean[14] *= recipNum;
 
 	for( int i = 1; i <= NUM_SAMPLES; i++ ) {
 		const float4 pos1 = samplesData->intersectFirst[i * pxIndex];
@@ -214,9 +214,9 @@ float* preprocessSamples(
 
 	// Randomly pick samples of the pixels close to the current one.
 	// But only if they are within the standard deviation.
-	const int start = fmax( pxIndex - ( blockWidth - 1 ) * 0.5, 0 );
-	const int endX = fmin( pxIndex + ( blockWidth - 1 ) * 0.5, IMG_WIDTH - 1 );
-	const int endY = fmin( pxIndex + ( blockWidth - 1 ) * 0.5, IMG_HEIGHT - 1 );
+	const int start = fmax( pxIndex - ( b - 1 ) * 0.5, 0 );
+	const int endX = fmin( pxIndex + ( b - 1 ) * 0.5, IMG_WIDTH - 1 );
+	const int endY = fmin( pxIndex + ( b - 1 ) * 0.5, IMG_HEIGHT - 1 );
 
 	for( int y = start; y < endY; y++ ) {
 		for( int x = start; x < endX; x++ ) {
@@ -232,7 +232,7 @@ float* preprocessSamples(
 
 			const int randSample = round( rand( seed ) * NUM_SAMPLES );
 			const int sampleIndex = randSample * xy;
-			const char keepSample = checkFeatures( sampleIndex, sampelsData, mean, sigma );
+			const char keepSample = checkFeatures( sampleIndex, samplesData, mean, sigma );
 
 			if( keepSample == 1 ) {
 				N[lengthN++] = sampleIndex;
@@ -275,7 +275,7 @@ float* preprocessSamples(
 		nMean[14] += tex.z;
 	}
 
-	recipNum = native_recip( lengthN );
+	recipNum = native_recip( (float) lengthN );
 	nMean[0] *= recipNum;
 	nMean[1] *= recipNum;
 	nMean[2] *= recipNum;

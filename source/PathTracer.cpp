@@ -6,6 +6,7 @@ using std::vector;
 
 /**
  * Constructor.
+ * @param {GLWidget*} parent
  */
 PathTracer::PathTracer( GLWidget* parent ) {
 	srand( (unsigned) time( 0 ) );
@@ -243,8 +244,16 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh, ModelLoader* ml, vector<cl_u
 	vector<cl_uint4> facesV;
 	vector<cl_uint4> facesN;
 
+	bool skipNext = false;
+
+
 	for( cl_uint i = 0; i < bvhNodes.size(); i++ ) {
 		BVHNode* node = bvhNodes[i];
+
+		if( skipNext ) {
+			skipNext = node->skipNextLeft;
+			continue;
+		}
 
 		cl_float4 bbMin = { node->bbMin[0], node->bbMin[1], node->bbMin[2], 0.0f };
 		cl_float4 bbMax = { node->bbMax[0], node->bbMax[1], node->bbMax[2], 0.0f };
@@ -260,9 +269,8 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh, ModelLoader* ml, vector<cl_u
 
 		// Set the flag to skip the next left child node.
 		if( fvecLen == 0 && node->skipNextLeft ) {
-			sn.bbMin.w = -2.0f;
+			skipNext = true;
 		}
-
 
 		// No parent means it's the root node.
 		// Otherwise it is some other node, including leaves.
@@ -288,21 +296,21 @@ size_t PathTracer::initOpenCLBuffers_BVH( BVH* bvh, ModelLoader* ml, vector<cl_u
 
 					// Reached a parent with a true sibling.
 					if( dummy->parent->parent != NULL ) {
-						sn.bbMax.w = dummy->parent->parent->rightChild->id;
+						sn.bbMax.w = dummy->parent->parent->rightChild->id - dummy->parent->parent->rightChild->numSkipsToHere;
 					}
 				}
 			}
 			// Node on the left, go to the right sibling.
 			else {
-				sn.bbMax.w = node->parent->rightChild->id;
+				sn.bbMax.w = node->parent->rightChild->id - node->parent->rightChild->numSkipsToHere;
 			}
 		}
 
 		bvhNodesCL.push_back( sn );
 
 		// Faces
-		for( int i = 0; i < fvecLen; i++) {
-			Tri tri = facesVec[i];
+		for( int j = 0; j < fvecLen; j++) {
+			Tri tri = facesVec[j];
 			cl_uint4 fv;
 			cl_uint4 fn;
 

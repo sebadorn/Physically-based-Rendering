@@ -22,6 +22,7 @@ struct BVHNode {
 	glm::vec3 bbMax;
 	uint id;
 	uint depth;
+	uint numSkipsToHere;
 	bool skipNextLeft;
 };
 

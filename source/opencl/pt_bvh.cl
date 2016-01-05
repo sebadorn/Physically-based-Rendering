@@ -115,11 +115,6 @@ void traverse( const Scene* scene, ray4* ray ) {
 
 		index = currentIndex + 1;
 
-		// Skip the next left child node.
-		if( node.bbMin.w == -2.0f ) {
-			index++;
-		}
-
 		// Node is leaf node. Test faces.
 		if( node.bbMin.w >= 0.0f ) {
 			intersectFaces( scene, ray, &node, tNear, tFar );
