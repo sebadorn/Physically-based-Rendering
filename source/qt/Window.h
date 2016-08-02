@@ -1,7 +1,12 @@
 #ifndef WINDOW_H
 #define WINDOW_H
 
-#include <QtGui>
+#include <QFileDialog>
+#include <QKeyEvent>
+#include <QMenuBar>
+#include <QMouseEvent>
+#include <QStatusBar>
+#include <QTimer>
 #include <string>
 
 #include "../Cfg.h"

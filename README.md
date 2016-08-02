@@ -22,13 +22,13 @@ Rendering 3D scenes physically-based through Path Tracing. Interaction of light 
 
 * freeglut3-dev
 * libboost-dev
+* libdevil-dev
 * libglew-dev
 * libglm-dev
-* libqt4-dev
+* libqt5core5a
 * libxi-dev
 * libxmu-dev
 * opencl-headers
-* libdevil-dev
 
 
 ### NVIDIA and OpenCL
@@ -42,15 +42,14 @@ Check which library files you have with `locate libnvidia-opencl.so`.
 
         libcg
         libcggl
-        libcuda1-346-updates
+        libcuda1-361-updates
         nvidia-cg-dev
         nvidia-cg-toolkit
-        nvidia-346-updates
-        nvidia-346-updates-uvm
+        nvidia-361-updates
         nvidia-common
         nvidia-modprobe
         nvidia-prime
-        nvidia-opencl-icd-346-updates
+        nvidia-opencl-icd-361-updates
         nvidia-settings
         ocl-icd-libopencl1
         opencl-headers

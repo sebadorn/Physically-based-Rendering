@@ -1,7 +1,7 @@
 #ifndef CL_H
 #define CL_H
 
-#include <CL/cl.hpp>
+#include "cl.hpp"
 #include <GL/gl.h>
 #include <iostream>
 #include <QGLWidget>

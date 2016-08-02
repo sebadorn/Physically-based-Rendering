@@ -3,7 +3,7 @@
 
 #define ACCELSTRUCT_BVH 0
 
-#include <CL/cl.hpp>
+#include "../cl.hpp"
 #include <glm/glm.hpp>
 #include <vector>
 

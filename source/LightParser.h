@@ -2,7 +2,7 @@
 #define LIGHTPARSER_H
 
 #include <boost/algorithm/string.hpp>
-#include <CL/cl.hpp>
+#include "cl.hpp"
 #include <fstream>
 #include <GL/gl.h>
 #include <string>

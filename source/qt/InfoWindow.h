@@ -1,6 +1,8 @@
 #ifndef INFO_WINDOW_H
 #define INFO_WINDOW_H
 
+#include <QFormLayout>
+#include <QLabel>
 #include "Window.h"
 
 using std::map;

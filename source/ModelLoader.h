@@ -2,7 +2,7 @@
 #define MODELLOADER_H
 
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <CL/cl.hpp>
+#include "cl.hpp"
 #include <string>
 #include <vector>
 

@@ -3,7 +3,7 @@
 
 #define GLM_FORCE_RADIANS
 
-#include <CL/cl.hpp>
+#include "cl.hpp"
 #include <glm/glm.hpp>
 #include <vector>
 

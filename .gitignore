@@ -5,10 +5,13 @@ resources/*
 resources/models/ignore/*
 
 # files
+moc_*.cpp
 moc_*.cxx*
 *.sublime-*
 CMakeCache.txt
 cmake_install.cmake
+make.log
 Makefile
 PBR
+PBR_automoc.cpp
 valgrind.log
