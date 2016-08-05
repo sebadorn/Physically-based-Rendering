@@ -515,6 +515,10 @@ void CL::initContext( cl_device_id* devices ) {
 	if( !this->checkError( err, "clCreateContext" ) ) {
 		exit( EXIT_FAILURE );
 	}
+
+	char msg[64];
+	snprintf( msg, 64, "[OpenCL] Initialized context." );
+	Logger::logDebug( msg );
 }
 
 
@@ -528,6 +532,10 @@ void CL::initCommandQueue() {
 	if( !this->checkError( err, "clCreateCommandQueue" ) ) {
 		exit( EXIT_FAILURE );
 	}
+
+	char msg[64];
+	snprintf( msg, 64, "[OpenCL] Command queue created." );
+	Logger::logDebug( msg );
 }
 
 
@@ -715,7 +723,7 @@ cl_mem CL::updateImageReadOnly( cl_mem image, size_t width, size_t height, cl_fl
 	cl_event event;
 
 	err = clEnqueueWriteImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
-	this->checkError( err, "clEnqueueReadImage" );
+	this->checkError( err, "clEnqueueWriteImage" );
 	mEvents.push_back( event );
 
 	return image;

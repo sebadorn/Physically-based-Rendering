@@ -118,7 +118,7 @@ class PathTracer {
 
 		vector<cl_float> mTextureOut;
 
-		cl_kernel mKernelNoiseFiltering;
+		// cl_kernel mKernelNoiseFiltering;
 		cl_kernel mKernelPathTracing;
 
 		cl_mem mBufBVH;
@@ -140,7 +140,7 @@ class PathTracer {
 		GLWidget* mGLWidget;
 		Camera* mCamera;
 		CL* mCL;
-		CL* mCLNoiseFilter;
+		// CL* mCLNoiseFilter;
 		boost::posix_time::ptime mTimeSinceStart;
 
 };
