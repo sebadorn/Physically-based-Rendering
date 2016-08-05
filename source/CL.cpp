@@ -165,9 +165,13 @@ cl_mem CL::createImage2DReadOnly( size_t width, size_t height, cl_float* data ) 
 	size_t region[] = { width, height, 1 }; // Size of object to be transferred
 	cl_event event;
 
-	err = clEnqueueWriteImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
+	const cl_event* eventWaitList = ( mEvents.size() == 0 ) ? NULL : &( mEvents[0] );
+	err = clEnqueueWriteImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, data, (cl_uint) mEvents.size(), eventWaitList, &event );
 	this->checkError( err, "clEnqueueWriteImage" );
-	mEvents.push_back( event );
+
+	if( event != NULL ) {
+		mEvents.push_back( event );
+	}
 
 	return image;
 }
@@ -291,10 +295,14 @@ void CL::execute( cl_kernel kernel ) {
 		Cfg::get().value<size_t>( Cfg::OPENCL_LOCALGROUPSIZE ),
 		Cfg::get().value<size_t>( Cfg::OPENCL_LOCALGROUPSIZE )
 	};
-	err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, mEvents.size(), &mEvents[0], &event );
+	const cl_event* eventWaitList = ( mEvents.size() == 0 ) ? NULL : &( mEvents[0] );
+	err = clEnqueueNDRangeKernel( mCommandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, (cl_uint) mEvents.size(), eventWaitList, &event );
 	this->checkError( err, "clEnqueueNDRangeKernel" );
 
-	mKernelTime[kernel] = this->getKernelExecutionTime( event );
+	if( event != NULL ) {
+		mEvents.push_back( event );
+		mKernelTime[kernel] = this->getKernelExecutionTime( event );
+	}
 }
 
 
@@ -576,9 +584,13 @@ void CL::readImageOutput( cl_mem image, size_t width, size_t height, cl_float* o
 	size_t origin[] = { 0, 0, 0 };
 	size_t region[] = { width, height, 1 };
 
-	err = clEnqueueReadImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, outputTarget, mEvents.size(), &mEvents[0], &event );
+	const cl_event* eventWaitList = ( mEvents.size() == 0 ) ? NULL : &( mEvents[0] );
+	err = clEnqueueReadImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, outputTarget, (cl_uint) mEvents.size(), eventWaitList, &event );
 	this->checkError( err, "clEnqueueReadImage" );
-	mEvents.push_back( event );
+
+	if( event != NULL ) {
+		mEvents.push_back( event );
+	}
 }
 
 
@@ -701,8 +713,15 @@ string CL::setValues( string clProgramString ) {
  * @return {cl_mem}        Handle of the buffer.
  */
 cl_mem CL::updateBuffer( cl_mem buffer, size_t size, void* data ) {
-	cl_int err = clEnqueueWriteBuffer( mCommandQueue, buffer, CL_TRUE, 0, size, data, 0, NULL, NULL );
+	cl_event event;
+
+	const cl_event* eventWaitList = ( mEvents.size() == 0 ) ? NULL : &( mEvents[0] );
+	cl_int err = clEnqueueWriteBuffer( mCommandQueue, buffer, CL_TRUE, 0, size, data, (cl_uint) mEvents.size(), eventWaitList, &event );
 	this->checkError( err, "clEnqueueWriteBuffer" );
+
+	if( event != NULL ) {
+		mEvents.push_back( event );
+	}
 
 	return buffer;
 }
@@ -722,9 +741,13 @@ cl_mem CL::updateImageReadOnly( cl_mem image, size_t width, size_t height, cl_fl
 	cl_int err;
 	cl_event event;
 
-	err = clEnqueueWriteImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, data, mEvents.size(), &mEvents[0], &event );
+	const cl_event* eventWaitList = ( mEvents.size() == 0 ) ? NULL : &( mEvents[0] );
+	err = clEnqueueWriteImage( mCommandQueue, image, CL_TRUE, origin, region, 0, 0, data, (cl_uint) mEvents.size(), eventWaitList, &event );
 	this->checkError( err, "clEnqueueWriteImage" );
-	mEvents.push_back( event );
+
+	if( event != NULL ) {
+		mEvents.push_back( event );
+	}
 
 	return image;
 }
