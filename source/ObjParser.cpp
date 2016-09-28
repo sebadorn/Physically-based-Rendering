@@ -25,36 +25,36 @@ ObjParser::~ObjParser() {
 
 /**
  * Get the material of each face.
- * @return {std::vector<cl_int>} The material index of each face.
+ * @return {std::vector<int>} The material index of each face.
  */
-vector<cl_int> ObjParser::getFacesMtl() {
+vector<int> ObjParser::getFacesMtl() {
 	return mFacesMtl;
 }
 
 
 /**
  * Get the loaded faces.
- * @return {std::vector<cl_uint>} The vertex indices of the faces.
+ * @return {std::vector<unsigned long int>} The vertex indices of the faces.
  */
-vector<cl_uint> ObjParser::getFacesV() {
+vector<unsigned long int> ObjParser::getFacesV() {
 	return mFacesV;
 }
 
 
 /**
  * Get the loaded association of vertices to normals for each face.
- * @return {std::vector<cl_uint>} The vertex normal indices of the faces.
+ * @return {std::vector<unsigned long int>} The vertex normal indices of the faces.
  */
-vector<cl_uint> ObjParser::getFacesVN() {
+vector<unsigned long int> ObjParser::getFacesVN() {
 	return mFacesVN;
 }
 
 
 /**
  * Get the loaded association of vertices to texture coordinates for each face.
- * @return {std::vector<cl_uint>} The vertex texture indices of the faces.
+ * @return {std::vector<unsigned long int>} The vertex texture indices of the faces.
  */
-vector<cl_uint> ObjParser::getFacesVT() {
+vector<unsigned long int> ObjParser::getFacesVT() {
 	return mFacesVT;
 }
 
@@ -79,9 +79,9 @@ vector<material_t> ObjParser::getMaterials() {
 
 /**
  * Get the loaded vertex normals.
- * @return {std::vector<cl_float>} The vertex normals.
+ * @return {std::vector<float>} The vertex normals.
  */
-vector<cl_float> ObjParser::getNormals() {
+vector<float> ObjParser::getNormals() {
 	return mNormals;
 }
 
@@ -97,18 +97,18 @@ vector<object3D> ObjParser::getObjects() {
 
 /**
  * Get the loaded vertex texture coordinates.
- * @return {std::vector<cl_float>} The texture coordinates.
+ * @return {std::vector<float>} The texture coordinates.
  */
-vector<cl_float> ObjParser::getTextureCoordinates() {
+vector<float> ObjParser::getTextureCoordinates() {
 	return mTextures;
 }
 
 
 /**
  * Get the loaded vertices.
- * @return {std::vector<cl_float>} The vertices.
+ * @return {std::vector<float>} The vertices.
  */
-vector<cl_float> ObjParser::getVertices() {
+vector<float> ObjParser::getVertices() {
 	return mVertices;
 }
 
@@ -137,7 +137,7 @@ void ObjParser::load( string filepath, string filename ) {
 	this->loadMtl( filepath );
 	vector<material_t> materials = mMtlParser->getMaterials();
 	vector<string> materialNames;
-	cl_int currentMtl = -1;
+	int currentMtl = -1;
 
 	for( int i = 0; i < materials.size(); i++ ) {
 		materialNames.push_back( materials[i].mtlName );
@@ -182,7 +182,7 @@ void ObjParser::load( string filepath, string filename ) {
 		// Faces
 		else if( line[0] == 'f' ) {
 			if( line[1] == ' ' ) {
-				vector<cl_uint> lineFacesV, lineFacesVN, lineFacesVT;
+				vector<unsigned long int> lineFacesV, lineFacesVN, lineFacesVT;
 				this->parseFace( line, &lineFacesV, &lineFacesVN, &lineFacesVT );
 
 				mFacesV.insert( mFacesV.end(), lineFacesV.begin(), lineFacesV.end() );
@@ -210,7 +210,7 @@ void ObjParser::load( string filepath, string filename ) {
 	fileIn.close();
 
 	boost::posix_time::ptime timerEnd = boost::posix_time::microsec_clock::local_time();
-	cl_float timeDiff = ( timerEnd - timerStart ).total_milliseconds() / 1000.0f;
+	float timeDiff = ( timerEnd - timerStart ).total_milliseconds() / 1000.0f;
 
 	char msg[256];
 	snprintf(
@@ -252,16 +252,21 @@ void ObjParser::loadMtl( string file ) {
  * or "f 1//3 4//4 3//2" (f v1//vn1 v2//vn2 v3//vn3)
  * Only works for triangular faces.
  * Subtracts 1 from the vertex index, so it can directly be used as array index.
- * @param {std::string}          line  The line to parse.
- * @param {std::vector<cl_uint>*} faces The vector to store the face in.
+ * @param {std::string}                     line  The line to parse.
+ * @param {std::vector<unsigned long int>*} faces The vector to store the face in.
  */
-void ObjParser::parseFace( string line, vector<cl_uint>* facesV, vector<cl_uint>* facesVN, vector<cl_uint>* facesVT ) {
-	cl_uint numFaces = facesV->size();
+void ObjParser::parseFace(
+	string line,
+	vector<unsigned long int>* facesV,
+	vector<unsigned long int>* facesVN,
+	vector<unsigned long int>* facesVT
+) {
+	unsigned long int numFaces = facesV->size();
 	vector<string> parts;
 	boost::split( parts, line, boost::is_any_of( " \t" ) );
 
 	for( int i = 1; i < parts.size(); i++ ) {
-		cl_uint a;
+		unsigned long int a;
 		vector<string> e0, e1;
 		boost::split( e0, parts[i], boost::is_any_of( "/" ) );
 		boost::split( e1, parts[i], boost::is_any_of( "//" ) );
@@ -304,9 +309,9 @@ void ObjParser::parseFace( string line, vector<cl_uint>* facesV, vector<cl_uint>
 /**
  * Parse lines like "v 1.0000 -0.3000 -14.0068" (v x y z).
  * @param {std::string}           line  The line to parse.
- * @param {std::vector<cl_float>*} faces The vector to store the vertex in.
+ * @param {std::vector<float>*} faces The vector to store the vertex in.
  */
-void ObjParser::parseVertex( string line, vector<cl_float>* vertices ) {
+void ObjParser::parseVertex( string line, vector<float>* vertices ) {
 	vector<string> parts;
 	boost::split( parts, line, boost::is_any_of( " \t" ) );
 
@@ -319,9 +324,9 @@ void ObjParser::parseVertex( string line, vector<cl_float>* vertices ) {
 /**
  * Parse lines like "vn 1.0000 -0.3000 -14.0068" (vn x y z).
  * @param {std::string}           line  The line to parse.
- * @param {std::vector<cl_float>*} faces The vector to store the vertex normal in.
+ * @param {std::vector<float>*} faces The vector to store the vertex normal in.
  */
-void ObjParser::parseVertexNormal( string line, vector<cl_float>* normals ) {
+void ObjParser::parseVertexNormal( string line, vector<float>* normals ) {
 	vector<string> parts;
 	boost::split( parts, line, boost::is_any_of( " \t" ) );
 
@@ -334,9 +339,9 @@ void ObjParser::parseVertexNormal( string line, vector<cl_float>* normals ) {
 /**
  * Parse lines like "vt 0.500 1" or "vt 0.500 1 0" (vt u v [w]).
  * @param {std::string}          line      The line to parse.
- * @param {std::vector<cl_float>} texCoords The vector to store the vertex texture coordinates in.
+ * @param {std::vector<float>} texCoords The vector to store the vertex texture coordinates in.
  */
-void ObjParser::parseVertexTexture( string line, vector<cl_float>* texCoords ) {
+void ObjParser::parseVertexTexture( string line, vector<float>* texCoords ) {
 	vector<string> parts;
 	boost::split( parts, line, boost::is_any_of( " \t" ) );
 

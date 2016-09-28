@@ -4,6 +4,9 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <set>
 
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+
 #include "AccelStructure.h"
 #include "../Cfg.h"
 #include "../Logger.h"
@@ -33,80 +36,80 @@ class BVH : public AccelStructure {
 		BVH();
 		BVH(
 			const vector<object3D> sceneObjects,
-			const vector<cl_float> vertices,
-			const vector<cl_float> normals
+			const vector<float> vertices,
+			const vector<float> normals
 		);
 		~BVH();
 		vector<BVHNode*> getContainerNodes();
-		cl_uint getDepth();
+		unsigned long int getDepth();
 		vector<BVHNode*> getLeafNodes();
 		vector<BVHNode*> getNodes();
 		BVHNode* getRoot();
-		virtual void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices );
+		virtual void visualize( vector<float>* vertices, vector<unsigned long int>* indices );
 
 	protected:
 		void assignFacesToBins(
-			const cl_uint axis, const cl_uint splits, const vector<Tri>* faces,
+			const int axis, const unsigned long int splits, const vector<Tri>* faces,
 			const vector< vector<glm::vec3> >* leftBin,
 			const vector< vector<glm::vec3> >* rightBin,
 			vector< vector<Tri> >* leftBinFaces, vector< vector<Tri> >* rightBinFaces
 		);
 		BVHNode* buildTree(
 			const vector<Tri> faces, const glm::vec3 bbMin, const glm::vec3 bbMax,
-			cl_uint depth, const cl_float rootSA
+			unsigned long int depth, const float rootSA
 		);
 		vector<BVHNode*> buildTreesFromObjects(
 			const vector<object3D>* sceneObjects,
-			const vector<cl_float>* vertices,
-			const vector<cl_float>* normals
+			const vector<float>* vertices,
+			const vector<float>* normals
 		);
 		void buildWithMeanSplit(
 			BVHNode* node, const vector<Tri> faces,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces
 		);
-		cl_float buildWithSAH(
+		float buildWithSAH(
 			BVHNode* node, vector<Tri> faces,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces
 		);
-		cl_float calcSAH(
-			const cl_float leftSA, const cl_float leftNumFaces,
-			const cl_float rightSA, const cl_float rightNumFaces
+		float calcSAH(
+			const float leftSA, const float leftNumFaces,
+			const float rightSA, const float rightNumFaces
 		);
-		void combineNodes( const cl_uint numSubTrees );
+		void combineNodes( const unsigned long int numSubTrees );
 		vector<Tri> facesToTriStructs(
-			const vector<cl_uint4>* facesThisObj, const vector<cl_uint4>* faceNormalsThisObj,
-			const vector<cl_float4>* vertices4, const vector<float>* normals
+			const vector<glm::uvec4>* facesThisObj, const vector<glm::uvec4>* faceNormalsThisObj,
+			const vector<glm::vec4>* vertices4, const vector<float>* normals
 		);
-		cl_float getMean( const vector<Tri> faces, const cl_uint axis );
-		cl_float getMeanOfNodes( const vector<BVHNode*> nodes, const cl_uint axis );
-		void groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, cl_uint depth );
+		float getMean( const vector<Tri> faces, const int axis );
+		float getMeanOfNodes( const vector<BVHNode*> nodes, const int axis );
+		void groupTreesToNodes( vector<BVHNode*> nodes, BVHNode* parent, unsigned long int depth );
 		void growAABBsForSAH(
 			const vector<Tri>* faces,
 			vector< vector<glm::vec3> >* leftBB, vector< vector<glm::vec3> >* rightBB,
-			vector<cl_float>* leftSA, vector<cl_float>* rightSA
+			vector<float>* leftSA, vector<float>* rightSA
 		);
 		void logStats( boost::posix_time::ptime timerStart );
-		cl_uint longestAxis( const BVHNode* node );
+		int longestAxis( const BVHNode* node );
 		BVHNode* makeNode( const vector<Tri> faces, bool ignore );
 		BVHNode* makeContainerNode( const vector<BVHNode*> subTrees, const bool isRoot );
 		void orderNodesByTraversal();
-		vector<cl_float4> packFloatAsFloat4( const vector<cl_float>* vertices );
-		cl_uint setMaxFaces( const int value );
+		vector<glm::vec4> packFloatAsFloat4( const vector<float>* vertices );
+		unsigned long int setMaxFaces( const int value );
 		void skipAheadOfNodes();
 		void splitBySAH(
-			cl_float* bestSAH, const cl_uint axis, vector<Tri> faces,
+			float* bestSAH, const int axis, vector<Tri> faces,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces
 		);
-		cl_float splitFaces(
-			const vector<Tri> faces, const cl_float midpoint, const cl_uint axis,
+		float splitFaces(
+			const vector<Tri> faces, const float midpoint, const int axis,
 			vector<Tri>* leftFaces, vector<Tri>* rightFaces
 		);
 		void splitNodes(
-			const vector<BVHNode*> nodes, const cl_float midpoint, const cl_uint axis,
+			const vector<BVHNode*> nodes, const float midpoint, const int axis,
 			vector<BVHNode*>* leftGroup, vector<BVHNode*>* rightGroup
 		);
 		void visualizeNextNode(
-			const BVHNode* node, vector<cl_float>* vertices, vector<cl_uint>* indices
+			const BVHNode* node, vector<float>* vertices, vector<unsigned long int>* indices
 		);
 
 		vector<BVHNode*> mContainerNodes;
@@ -114,8 +117,8 @@ class BVH : public AccelStructure {
 		vector<BVHNode*> mNodes;
 		BVHNode* mRoot;
 
-		cl_uint mMaxFaces;
-		cl_uint mDepthReached;
+		unsigned long int mMaxFaces;
+		unsigned long int mDepthReached;
 
 };
 

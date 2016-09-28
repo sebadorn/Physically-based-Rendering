@@ -3,26 +3,26 @@
 
 /**
  * Convert an angle from degree to radians.
- * @param  {cl_float} deg Angle in degree.
- * @return {cl_float}     Angle in radians.
+ * @param  {float} deg Angle in degree.
+ * @return {float}     Angle in radians.
  */
-cl_float MathHelp::degToRad( cl_float deg ) {
+float MathHelp::degToRad( float deg ) {
 	return ( deg * MH_PI / 180.0f );
 }
 
 
 /**
  * Calculate the bounding box from the given vertices.
- * @param {std::vector<cl_float4>} vertices
+ * @param {std::vector<glm::vec4>} vertices
  * @param {glm::vec3*}             bbMin
  * @param {glm::vec3*}             bbMax
  */
-void MathHelp::getAABB( vector<cl_float4> vertices, glm::vec3* bbMin, glm::vec3* bbMax ) {
+void MathHelp::getAABB( vector<glm::vec4> vertices, glm::vec3* bbMin, glm::vec3* bbMax ) {
 	*bbMin = glm::vec3( vertices[0].x, vertices[0].y, vertices[0].z );
 	*bbMax = glm::vec3( vertices[0].x, vertices[0].y, vertices[0].z );
 
-	for( cl_uint i = 1; i < vertices.size(); i++ ) {
-		cl_float4 v = vertices[i];
+	for( unsigned long int i = 1; i < vertices.size(); i++ ) {
+		glm::vec4 v = vertices[i];
 
 		(*bbMin)[0] = ( (*bbMin)[0] < v.x ) ? (*bbMin)[0] : v.x;
 		(*bbMin)[1] = ( (*bbMin)[1] < v.y ) ? (*bbMin)[1] : v.y;
@@ -53,7 +53,7 @@ void MathHelp::getAABB(
 	(*bbMax)[1] = bbMaxs[0][1];
 	(*bbMax)[2] = bbMaxs[0][2];
 
-	for( cl_uint i = 1; i < bbMins.size(); i++ ) {
+	for( unsigned long int i = 1; i < bbMins.size(); i++ ) {
 		(*bbMin)[0] = glm::min( bbMins[i][0], (*bbMin)[0] );
 		(*bbMin)[1] = glm::min( bbMins[i][1], (*bbMin)[1] );
 		(*bbMin)[2] = glm::min( bbMins[i][2], (*bbMin)[2] );
@@ -69,14 +69,14 @@ void MathHelp::getAABB(
  * Get the surface area of the overlap of two AABBs.
  * @param  {glm::vec3} bbA The left AABB.
  * @param  {glm::vec3} bbB The right AABB.
- * @return {cl_float}
+ * @return {float}
  */
-cl_float MathHelp::getOverlapSA( glm::vec3 bbA, glm::vec3 bbB ) {
-	cl_float overlapSA = 0.0f;
+float MathHelp::getOverlapSA( glm::vec3 bbA, glm::vec3 bbB ) {
+	float overlapSA = 0.0f;
 
-	cl_float sideX = bbA.x - bbB.x;
-	cl_float sideY = bbA.y - bbB.y;
-	cl_float sideZ = bbA.z - bbB.z;
+	float sideX = bbA.x - bbB.x;
+	float sideY = bbA.y - bbB.y;
+	float sideZ = bbA.z - bbB.z;
 
 	if( fmin( sideX, fmin( sideY, sideZ ) ) > 0.0f ) {
 		overlapSA = 2.0f * ( sideX * sideY + sideX * sideZ + sideY * sideZ );
@@ -90,12 +90,12 @@ cl_float MathHelp::getOverlapSA( glm::vec3 bbA, glm::vec3 bbB ) {
  * Get the surface are of a bounding box.
  * @param  {glm::vec3} bbMin
  * @param  {glm::vec3} bbMax
- * @return {cl_float}        Surface area.
+ * @return {float}           Surface area.
  */
-cl_float MathHelp::getSurfaceArea( glm::vec3 bbMin, glm::vec3 bbMax ) {
-	cl_float xy = fabs( bbMax[0] - bbMin[0] ) * fabs( bbMax[1] - bbMin[1] );
-	cl_float zy = fabs( bbMax[2] - bbMin[2] ) * fabs( bbMax[1] - bbMin[1] );
-	cl_float xz = fabs( bbMax[0] - bbMin[0] ) * fabs( bbMax[2] - bbMin[2] );
+float MathHelp::getSurfaceArea( glm::vec3 bbMin, glm::vec3 bbMax ) {
+	float xy = fabs( bbMax[0] - bbMin[0] ) * fabs( bbMax[1] - bbMin[1] );
+	float zy = fabs( bbMax[2] - bbMin[2] ) * fabs( bbMax[1] - bbMin[1] );
+	float xz = fabs( bbMax[0] - bbMin[0] ) * fabs( bbMax[2] - bbMin[2] );
 
 	return 2.0f * ( xy + zy + xz );
 }
@@ -103,13 +103,15 @@ cl_float MathHelp::getSurfaceArea( glm::vec3 bbMin, glm::vec3 bbMax ) {
 
 /**
  * Get the bounding box a face (triangle).
- * @param {cl_uint4}               face
- * @param {std::vector<cl_float4>} vertices
+ * @param {glm::vec4}              v0
+ * @param {glm::vec4}              v1
+ * @param {glm::vec4}              v2
+ * @param {std::vector<glm::vec4>} vertices
  * @param {glm::vec3*}             bbMin
  * @param {glm::vec3*}             bbMax
  */
-void MathHelp::getTriangleAABB( cl_float4 v0, cl_float4 v1, cl_float4 v2, glm::vec3* bbMin, glm::vec3* bbMax ) {
-	vector<cl_float4> vertices;
+void MathHelp::getTriangleAABB( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3* bbMin, glm::vec3* bbMax ) {
+	vector<glm::vec4> vertices;
 
 	vertices.push_back( v0 );
 	vertices.push_back( v1 );
@@ -121,12 +123,12 @@ void MathHelp::getTriangleAABB( cl_float4 v0, cl_float4 v1, cl_float4 v2, glm::v
 
 /**
  * Get the center point of the bounding box of a triangle.
- * @param  {cl_float4} v0 Vertex of the triangle.
- * @param  {cl_float4} v1 Vertex of the triangle.
- * @param  {cl_float4} v2 Vertex of the triangle.
+ * @param  {glm::vec4} v0 Vertex of the triangle.
+ * @param  {glm::vec4} v1 Vertex of the triangle.
+ * @param  {glm::vec4} v2 Vertex of the triangle.
  * @return {glm::vec3}    Center point.
  */
-glm::vec3 MathHelp::getTriangleCenter( cl_float4 v0, cl_float4 v1, cl_float4 v2 ) {
+glm::vec3 MathHelp::getTriangleCenter( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2 ) {
 	glm::vec3 bbMin;
 	glm::vec3 bbMax;
 	MathHelp::getTriangleAABB( v0, v1, v2, &bbMin, &bbMax );
@@ -137,12 +139,12 @@ glm::vec3 MathHelp::getTriangleCenter( cl_float4 v0, cl_float4 v1, cl_float4 v2 
 
 /**
  * Get the centroid of a triangle.
- * @param  {cl_float4} v0 Vertex of the triangle.
- * @param  {cl_float4} v1 Vertex of the triangle.
- * @param  {cl_float4} v2 Vertex of the triangle.
+ * @param  {glm::vec4} v0 Vertex of the triangle.
+ * @param  {glm::vec4} v1 Vertex of the triangle.
+ * @param  {glm::vec4} v2 Vertex of the triangle.
  * @return {glm::vec3}    Centroid.
  */
-glm::vec3 MathHelp::getTriangleCentroid( cl_float4 v0, cl_float4 v1, cl_float4 v2 ) {
+glm::vec3 MathHelp::getTriangleCentroid( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2 ) {
 	glm::vec3 a( v0.x, v0.y, v0.z );
 	glm::vec3 b( v1.x, v1.y, v1.z );
 	glm::vec3 c( v2.x, v2.y, v2.z );
@@ -164,13 +166,13 @@ glm::vec3 MathHelp::intersectLinePlane( glm::vec3 p, glm::vec3 q, glm::vec3 x, g
 	glm::vec3 hit;
 	glm::vec3 u = q - p;
 	glm::vec3 w = p - x;
-	cl_float d = glm::dot( nl, u );
+	float d = glm::dot( nl, u );
 
 	if( glm::abs( d ) < 0.000001f ) {
 		*isParallel = true;
 	}
 	else {
-		cl_float t = -glm::dot( nl, w ) / d;
+		float t = -glm::dot( nl, w ) / d;
 		hit = p + u * t;
 		*isParallel = false;
 	}
@@ -226,6 +228,13 @@ glm::vec3 MathHelp::phongTessellate(
 }
 
 
+/**
+ *
+ * @param  {glm::vec3} q
+ * @param  {glm::vec3} p
+ * @param  {glm::vec3} n
+ * @return {glm::vec3}
+ */
 glm::vec3 MathHelp::projectOnPlane( glm::vec3 q, glm::vec3 p, glm::vec3 n ) {
 	return q - glm::dot( q - p, n ) * n;
 }
@@ -233,10 +242,10 @@ glm::vec3 MathHelp::projectOnPlane( glm::vec3 q, glm::vec3 p, glm::vec3 n ) {
 
 /**
  * Convert an angle from radians to degree.
- * @param  {cl_float} rad Angle in radians.
- * @return {cl_float}     Angle in degree.
+ * @param  {float} rad Angle in radians.
+ * @return {float}     Angle in degree.
  */
-cl_float MathHelp::radToDeg( cl_float rad ) {
+float MathHelp::radToDeg( float rad ) {
 	return ( rad * 180.0f / MH_PI );
 }
 
@@ -244,13 +253,13 @@ cl_float MathHelp::radToDeg( cl_float rad ) {
 /**
  * Calculate and set the AABB for a Tri (face).
  * @param {Tri*}                          tri      The face/triangle.
- * @param {const std::vector<cl_float4>*} vertices All vertices.
- * @param {const std::vector<cl_float4>*} normals  All normals.
+ * @param {const std::vector<glm::vec4>*} vertices All vertices.
+ * @param {const std::vector<glm::vec4>*} normals  All normals.
  */
 void MathHelp::triCalcAABB(
-	Tri* tri, const vector<cl_float4>* vertices, const vector<cl_float4>* normals
+	Tri* tri, const vector<glm::vec4>* vertices, const vector<glm::vec4>* normals
 ) {
-	vector<cl_float4> v;
+	vector<glm::vec4> v;
 	v.push_back( (*vertices)[tri->face.x] );
 	v.push_back( (*vertices)[tri->face.y] );
 	v.push_back( (*vertices)[tri->face.z] );
@@ -269,9 +278,9 @@ void MathHelp::triCalcAABB(
 	glm::vec3 p2 = glm::vec3( v[1].x, v[1].y, v[1].z );
 	glm::vec3 p3 = glm::vec3( v[2].x, v[2].y, v[2].z );
 
-	cl_float4 fn1 = (*normals)[tri->normals.x];
-	cl_float4 fn2 = (*normals)[tri->normals.y];
-	cl_float4 fn3 = (*normals)[tri->normals.z];
+	glm::vec4 fn1 = (*normals)[tri->normals.x];
+	glm::vec4 fn2 = (*normals)[tri->normals.y];
+	glm::vec4 fn3 = (*normals)[tri->normals.z];
 
 	glm::vec3 n1 = glm::vec3( fn1.x, fn1.y, fn1.z );
 	glm::vec3 n2 = glm::vec3( fn2.x, fn2.y, fn2.z );
@@ -371,7 +380,7 @@ void MathHelp::triThicknessAndSidedrop(
 	*sidedropMin = ptsd[0];
 	*sidedropMax = ptsd[0];
 
-	for( cl_uint i = 1; i < 9; i++ ) {
+	for( int i = 1; i < 9; i++ ) {
 		*sidedropMin = glm::min( *sidedropMin, ptsd[i] );
 		*sidedropMax = glm::max( *sidedropMax, ptsd[i] );
 	}

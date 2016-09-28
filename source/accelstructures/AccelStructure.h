@@ -3,16 +3,17 @@
 
 #define ACCELSTRUCT_BVH 0
 
-#include "../cl.hpp"
+#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
+
 #include <vector>
 
 using std::vector;
 
 
 struct Tri {
-	cl_uint4 face;
-	cl_uint4 normals;
+	glm::uvec4 face;
+	glm::uvec4 normals;
 	glm::vec3 bbMin;
 	glm::vec3 bbMax;
 };
@@ -21,8 +22,8 @@ struct Tri {
 class AccelStructure {
 
 	public:
-		static vector<cl_float4> packFloatAsFloat4( const vector<cl_float>* vertices );
-		virtual void visualize( vector<cl_float>* vertices, vector<cl_uint>* indices ) = 0;
+		static vector<glm::vec4> packFloatAsFloat4( const vector<float>* vertices );
+		virtual void visualize( vector<float>* vertices, vector<unsigned long int>* indices ) = 0;
 
 };
 

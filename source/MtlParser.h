@@ -2,11 +2,12 @@
 #define MTLPARSER_H
 
 #include <boost/algorithm/string.hpp>
-#include "cl.hpp"
 #include <fstream>
-#include <GL/gl.h>
 #include <string>
 #include <vector>
+
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
 
 #include "Logger.h"
 
@@ -42,23 +43,23 @@ using std::vector;
  */
 struct material_t {
 	string mtlName;
-	cl_float4 Ka;
-	cl_float4 Kd;
-	cl_float4 Ks;
-	cl_float d;
-	cl_float Ni;
-	cl_float Ns;
-	cl_char illum;
+	glm::vec4 Ka;
+	glm::vec4 Kd;
+	glm::vec4 Ks;
+	float d;
+	float Ni;
+	float Ns;
+	char illum;
 	// Light source yes/no
-	cl_char light;
+	char light;
 	// BRDF: Schlick
-	cl_float rough;
-	cl_float p;
+	float rough;
+	float p;
 	// BRDF: Shirley-Ashikhmin
-	cl_float nu;
-	cl_float nv;
-	cl_float Rs;
-	cl_float Rd;
+	float nu;
+	float nv;
+	float Rs;
+	float Rd;
 };
 
 

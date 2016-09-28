@@ -2,7 +2,7 @@
 CMakeFiles/*
 resources/*
 !resources/models/
-resources/models/ignore/*
+resources/models/*
 
 # files
 moc_*.cpp

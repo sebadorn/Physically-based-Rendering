@@ -2,11 +2,13 @@
 #define LIGHTPARSER_H
 
 #include <boost/algorithm/string.hpp>
-#include "cl.hpp"
 #include <fstream>
 #include <GL/gl.h>
 #include <string>
 #include <vector>
+
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
 
 #include "Logger.h"
 
@@ -19,10 +21,10 @@ using std::vector;
 // 2: Orb light
 struct light_t {
 	string lightName;
-	cl_uint type;
-	cl_float4 pos;
-	cl_float4 rgb;
-	cl_float radius;
+	unsigned int type;
+	glm::vec4 pos;
+	glm::vec4 rgb;
+	float radius;
 };
 
 

@@ -2,9 +2,11 @@
 #define MODELLOADER_H
 
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include "cl.hpp"
 #include <string>
 #include <vector>
+
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
 
 #include "ObjParser.h"
 #include "utils.h"
@@ -21,8 +23,8 @@ class ModelLoader {
 		ObjParser* getObjParser();
 		void loadModel( string filepath, string filename );
 
-		static void getFaceNormalsOfObject( object3D object, vector<cl_uint4>* faceNormals, cl_int offset );
-		static void getFacesOfObject( object3D object, vector<cl_uint4>* faces, cl_int offset );
+		static void getFaceNormalsOfObject( object3D object, vector<glm::uvec4>* faceNormals, int offset );
+		static void getFacesOfObject( object3D object, vector<glm::uvec4>* faces, int offset );
 
 	private:
 		ObjParser* mObjParser;

@@ -9,11 +9,12 @@ using std::vector;
  * @return {light_t} Default light.
  */
 light_t LightParser::getEmptyLight() {
-	cl_float4 white = { 1.0f, 1.0f, 1.0f, 0.0f };
+	glm::vec4 pos = { 1.0f, 1.0f, 1.0f, 0.0f };
+	glm::vec4 white = { 1.0f, 1.0f, 1.0f, 0.0f };
 
 	light_t light;
 	light.lightName = "";
-	light.pos = white;
+	light.pos = pos;
 	light.radius = 0.0f;
 	light.rgb = white;
 	light.type = 0;

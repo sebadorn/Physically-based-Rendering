@@ -1,29 +1,21 @@
-#include <QApplication>
-#include <QDesktopWidget>
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+#include <clocale>
 
-#include "source/Cfg.h"
-#include "source/qt/Window.h"
+// #include "source/Cfg.h"
 
 
 int main( int argc, char** argv ) {
 	setlocale( LC_ALL, "C" );
-	Cfg::get().loadConfigFile( "config.json" );
+	// Cfg::get().loadConfigFile( "config.json" );
 
-	QApplication app( argc, argv );
-	app.setWindowIcon( QPixmap( "icon.png" ) );
+	glfwInit();
+	glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
+	glfwWindowHint( GLFW_RESIZABLE, GLFW_FALSE );
 
-	Window window;
-	window.resize( window.sizeHint() );
+	GLFWwindow* window = glfwCreateWindow( 800, 600, "PBR-Vulkan", nullptr, nullptr );
 
-	float desktopArea = QApplication::desktop()->width() * QApplication::desktop()->height();
-	float widgetArea = window.width() * window.height();
-
-	if( widgetArea / desktopArea < 0.75f ) {
-		window.show();
+	while( !glfwWindowShouldClose( window ) ) {
+		glfwPollEvents();
 	}
-	else {
-		window.showMaximized();
-	}
-
-	return app.exec();
 }
