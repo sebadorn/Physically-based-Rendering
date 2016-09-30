@@ -67,7 +67,7 @@ set( LIBRARIES ${LIBRARIES} "${VULKAN_SDK}/lib/libvulkan.so" )
 
 file( GLOB SOURCES_CPP ${TRUNK}/*.cpp ${TRUNK}/accelstructures/*.cpp )
 add_executable(
-	${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/main.cpp
+	${PROJECT_NAME} ${TRUNK}/main.cpp
 	${SOURCES_CPP}
 	${IMGUI_DIR}/imgui.cpp ${IMGUI_DIR}/imgui_draw.cpp ${IMGUI_DIR}/imgui_demo.cpp
 )

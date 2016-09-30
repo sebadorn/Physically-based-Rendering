@@ -54,6 +54,10 @@ class Cfg {
 		static const char* RENDER_SHADOWRAYS;
 		static const char* SHADER_NAME;
 		static const char* SHADER_PATH;
+		static const char* VERSION_MAJOR;
+		static const char* VERSION_MINOR;
+		static const char* VERSION_PATCH;
+		static const char* VULKAN_VALIDATION_LAYER;
 		static const char* WINDOW_HEIGHT;
 		static const char* WINDOW_WIDTH;
 

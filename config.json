@@ -116,6 +116,19 @@
 		"path": "source/shader/"
 	},
 
+	"version": {
+		"major": 1,
+		"minor": 0,
+		"patch": 0
+	},
+
+	"vulkan": {
+		// Use the LunarG validation layer.
+		// 0: disable
+		// 1: enable
+		"validation_layer": 1
+	},
+
 	"window": {
 		// Has to be a mutliple of localgroupsize
 		"height": 600,

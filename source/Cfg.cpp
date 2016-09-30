@@ -35,6 +35,10 @@ const char* Cfg::RENDER_SAMPLES = "render.samples";
 const char* Cfg::RENDER_SHADOWRAYS = "render.shadow_rays";
 const char* Cfg::SHADER_NAME = "shader.name";
 const char* Cfg::SHADER_PATH = "shader.path";
+const char* Cfg::VERSION_MAJOR = "version.major";
+const char* Cfg::VERSION_MINOR = "version.minor";
+const char* Cfg::VERSION_PATCH = "version.patch";
+const char* Cfg::VULKAN_VALIDATION_LAYER = "vulkan.validation_layer";
 const char* Cfg::WINDOW_HEIGHT = "window.height";
 const char* Cfg::WINDOW_WIDTH = "window.width";
 
