@@ -1,17 +1,17 @@
 # directories
-CMakeFiles/*
-resources/*
-!resources/models/
-resources/models/*
+CMakeFiles
+glfw_binary_dir
+resources
+!resources/models
+resources/models
+source_old
 
 # files
-moc_*.cpp
-moc_*.cxx*
 *.sublime-*
 CMakeCache.txt
 cmake_install.cmake
 make.log
 Makefile
 PBR
-PBR_automoc.cpp
+PBR-OpenCL
 valgrind.log

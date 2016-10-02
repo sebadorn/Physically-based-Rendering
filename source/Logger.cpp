@@ -1,13 +1,25 @@
 #include "Logger.h"
 
-using std::cerr;
-using std::cout;
-using std::endl;
 using std::string;
 
 
 int Logger::mIndent = 0;
 char Logger::mIndentChar[21];
+
+
+/**
+ * Build the log message from a format string and values.
+ * @param  {const char*} format
+ * @param  {va_list}     args
+ * @return {const std::string}
+ */
+const string Logger::buildLogMessage( const char* format, va_list args ) {
+	const size_t size = std::strlen( format ) + 256;
+	char msg[size];
+	vsnprintf( msg, size, format, args );
+
+	return string( msg );
+}
 
 
 /**
@@ -33,13 +45,23 @@ int Logger::indent( int indent ) {
 
 
 /**
+ * Set the new indent value relative to the current value.
+ * @param  {int} diff Relative indentation change.
+ * @return {int}      The new absolute indentation length.
+ */
+int Logger::indentChange( int diff ) {
+	return Logger::indent( mIndent + diff );
+}
+
+
+/**
  * Log messages of level "debug".
  * @param {const char*} msg    Message to log.
  * @param {const char*} prefix Prefix for the line.
  */
 void Logger::logDebug( const char* msg, const char* prefix ) {
 	if( Cfg::get().value<int>( Cfg::LOG_LEVEL ) < 3 ) { return; }
-	string p = string( "\033[36m%" ).append( mIndentChar ).append( "s%s%s\033[0m\n" );
+	string p = string( "\033[32m%" ).append( mIndentChar ).append( "s%s%s\033[0m\n" );
 	printf( p.c_str(), "", prefix, msg );
 }
 
@@ -51,6 +73,18 @@ void Logger::logDebug( const char* msg, const char* prefix ) {
  */
 void Logger::logDebug( string msg, const char* prefix ) {
 	Logger::logDebug( msg.c_str(), prefix );
+}
+
+
+/**
+ * Log message of level "debug".
+ * @param {const char*} format
+ */
+void Logger::logDebugf( const char* format, ... ) {
+	va_list args;
+	va_start( args, format );
+	Logger::logDebug( Logger::buildLogMessage( format, args ) );
+	va_end( args );
 }
 
 
@@ -72,7 +106,19 @@ void Logger::logDebugVerbose( const char* msg, const char* prefix ) {
  * @param {const char*} prefix Prefix for the line.
  */
 void Logger::logDebugVerbose( string msg, const char* prefix ) {
-	Logger::logDebug( msg.c_str(), prefix );
+	Logger::logDebugVerbose( msg.c_str(), prefix );
+}
+
+
+/**
+ * Log message of level "debug verbose".
+ * @param {const char*} format
+ */
+void Logger::logDebugVerbosef( const char* format, ... ) {
+	va_list args;
+	va_start( args, format );
+	Logger::logDebugVerbose( Logger::buildLogMessage( format, args ) );
+	va_end( args );
 }
 
 
@@ -99,6 +145,18 @@ void Logger::logError( string msg, const char* prefix ) {
 
 
 /**
+ * Log message of level "error".
+ * @param {const char*} format
+ */
+void Logger::logErrorf( const char* format, ... ) {
+	va_list args;
+	va_start( args, format );
+	Logger::logError( Logger::buildLogMessage( format, args ) );
+	va_end( args );
+}
+
+
+/**
  * Log messages of level "info".
  * @param {const char*} msg    Message to log.
  * @param {const char*} prefix Prefix for the line.
@@ -121,6 +179,18 @@ void Logger::logInfo( string msg, const char* prefix ) {
 
 
 /**
+ * Log message of level "info".
+ * @param {const char*} format
+ */
+void Logger::logInfof( const char* format, ... ) {
+	va_list args;
+	va_start( args, format );
+	Logger::logInfo( Logger::buildLogMessage( format, args ) );
+	va_end( args );
+}
+
+
+/**
  * Log messages of level "warnning".
  * @param {const char*} msg    Message to log.
  * @param {const char*} prefix Prefix for the line.
@@ -139,4 +209,16 @@ void Logger::logWarning( const char* msg, const char* prefix ) {
  */
 void Logger::logWarning( string msg, const char* prefix ) {
 	Logger::logWarning( msg.c_str(), prefix );
+}
+
+
+/**
+ * Log message of level "warning".
+ * @param {const char*} format
+ */
+void Logger::logWarningf( const char* format, ... ) {
+	va_list args;
+	va_start( args, format );
+	Logger::logWarning( Logger::buildLogMessage( format, args ) );
+	va_end( args );
 }
