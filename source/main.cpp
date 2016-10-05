@@ -53,7 +53,7 @@ int main( int argc, char** argv ) {
 	VulkanHandler vkHandler;
 
 	try {
-		vkHandler.setup();
+		vkHandler.setup( window );
 	}
 	catch( const std::runtime_error &err ) {
 		Logger::logError( "[main] Vulkan setup failed. EXIT_FAILURE." );

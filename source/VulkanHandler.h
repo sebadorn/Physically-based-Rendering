@@ -24,7 +24,7 @@ class VulkanHandler {
 		vector<const char*> getRequiredExtensions();
 		const bool isDeviceSuitable( VkPhysicalDevice device );
 		void printDeviceDebugInfo( VkPhysicalDevice device );
-		void setup();
+		void setup( GLFWwindow* window );
 		void teardown();
 
 		static uint32_t getVersionPBR();
@@ -37,8 +37,13 @@ class VulkanHandler {
 		);
 		VkInstance createInstance();
 		void createLogicalDevice();
+		void createSurface( GLFWwindow* window );
 		void destroyDebugCallback();
-		const int findGraphicsQueueIndex( VkPhysicalDevice device );
+		const bool findQueueFamilyIndices(
+			VkPhysicalDevice device,
+			int* graphicsFamily,
+			int* presentFamily
+		);
 		VkPhysicalDevice selectDevice();
 		void setupDebugCallback();
 
@@ -59,6 +64,7 @@ class VulkanHandler {
 		VkDevice mLogicalDevice = VK_NULL_HANDLE;
 		VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
 		VkInstance mInstance;
+		VkSurfaceKHR mSurface;
 		bool mUseValidationLayer;
 
 };

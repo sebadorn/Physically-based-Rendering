@@ -118,12 +118,15 @@ VkInstance VulkanHandler::createInstance() {
  * Create a logical device.
  */
 void VulkanHandler::createLogicalDevice() {
-	const int graphicsQueueIndex = this->findGraphicsQueueIndex( mPhysicalDevice );
+	int graphicsFamily = -1;
+	int presentFamily = -1;
+	this->findQueueFamilyIndices( mPhysicalDevice, &graphicsFamily, &presentFamily );
+
 	float queuePriority = 1.0f;
 
 	VkDeviceQueueCreateInfo queueCreateInfo = {};
 	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	queueCreateInfo.queueFamilyIndex = graphicsQueueIndex;
+	queueCreateInfo.queueFamilyIndex = graphicsFamily;
 	queueCreateInfo.queueCount = 1;
 	queueCreateInfo.pQueuePriorities = &queuePriority;
 
@@ -147,15 +150,32 @@ void VulkanHandler::createLogicalDevice() {
 	VkResult result = vkCreateDevice( mPhysicalDevice, &createInfo, nullptr, &mLogicalDevice );
 
 	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create logical device." );
+		Logger::logError( "[VulkanHandler] Failed to create logical device (VkDevice)." );
 		throw std::runtime_error( "Failed to create logical device." );
 	}
 	else {
-		Logger::logInfo( "[VulkanHandler] Logical device created." );
+		Logger::logInfo( "[VulkanHandler] Logical device (VkDevice) created." );
 	}
 
-	vkGetDeviceQueue( mLogicalDevice, graphicsQueueIndex, 0, &mGraphicsQueue );
-	Logger::logInfo( "[VulkanHandler] Graphics queue handle retrieved." );
+	vkGetDeviceQueue( mLogicalDevice, graphicsFamily, 0, &mGraphicsQueue );
+	Logger::logInfo( "[VulkanHandler] Graphics queue handle (VkQueue) retrieved." );
+}
+
+
+/**
+ * Create the window surface.
+ * @param {GLFWwindow*} window
+ */
+void VulkanHandler::createSurface( GLFWwindow* window ) {
+	VkResult result = glfwCreateWindowSurface( mInstance, window, nullptr, &mSurface );
+
+	if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to create window surface (VkSurfaceKHR)." );
+		throw std::runtime_error( "Failed to create window surface." );
+	}
+	else {
+		Logger::logInfo( "[VulkanHandler] Window surface (VkSurfaceKHR) created." );
+	}
 }
 
 
@@ -209,9 +229,13 @@ void VulkanHandler::destroyDebugCallback() {
 /**
  * Check if the device supports the graphics queue family.
  * @param  {VkPhysicalDevice} device
- * @return {const int}
+ * @param  {int*}             graphicsFamily
+ * @param  {int*}             presentFamily
+ * @return {const bool}
  */
-const int VulkanHandler::findGraphicsQueueIndex( VkPhysicalDevice device ) {
+const bool VulkanHandler::findQueueFamilyIndices(
+	VkPhysicalDevice device, int* graphicsFamily, int* presentFamily
+) {
 	uint32_t queueFamilyCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties( device, &queueFamilyCount, nullptr );
 
@@ -220,8 +244,9 @@ const int VulkanHandler::findGraphicsQueueIndex( VkPhysicalDevice device ) {
 		device, &queueFamilyCount, queueFamilies.data()
 	);
 
-	int i = 0;
-	int index = -1;
+	*graphicsFamily = -1;
+	*presentFamily = -1;
+	int i = -1;
 
 	for( const auto& queueFamily : queueFamilies ) {
 		i++;
@@ -231,12 +256,22 @@ const int VulkanHandler::findGraphicsQueueIndex( VkPhysicalDevice device ) {
 		}
 
 		if( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) {
-			index = i;
-			break;
+			*graphicsFamily = i;
+		}
+
+		VkBool32 presentSupport = false;
+		vkGetPhysicalDeviceSurfaceSupportKHR( device, i, mSurface, &presentSupport );
+
+		if( presentSupport ) {
+			*presentFamily = i;
+		}
+
+		if( *graphicsFamily >= 0 && *presentFamily >= 0 ) {
+			return true;
 		}
 	}
 
-	return index;
+	return false;
 }
 
 
@@ -303,11 +338,11 @@ const bool VulkanHandler::isDeviceSuitable( VkPhysicalDevice device ) {
 		return false;
 	}
 
-	if( this->findGraphicsQueueIndex( device ) < 0 ) {
-		return false;
-	}
+	int graphicsFamily = -1;
+	int presentFamily = -1;
+	const bool isSuitable = this->findQueueFamilyIndices( device, &graphicsFamily, &presentFamily );
 
-	return true;
+	return isSuitable;
 }
 
 
@@ -378,8 +413,9 @@ VkPhysicalDevice VulkanHandler::selectDevice() {
 /**
  * Setup Vulkan: Create a VkInstance,
  * check for support, pick a device etc.
+ * @param {GLFWwindow*} window
  */
-void VulkanHandler::setup() {
+void VulkanHandler::setup( GLFWwindow* window ) {
 	Logger::logInfo( "[VulkanHandler] Setup beginning ..." );
 	Logger::indentChange( 2 );
 
@@ -394,6 +430,7 @@ void VulkanHandler::setup() {
 
 	mInstance = this->createInstance();
 	this->setupDebugCallback();
+	this->createSurface( window );
 	mPhysicalDevice = this->selectDevice();
 	this->createLogicalDevice();
 
@@ -448,6 +485,11 @@ void VulkanHandler::teardown() {
 	if( mLogicalDevice != VK_NULL_HANDLE ) {
 		vkDestroyDevice( mLogicalDevice, nullptr );
 		Logger::logDebug( "[VulkanHandler] VkDevice destroyed." );
+	}
+
+	if( mSurface ) {
+		vkDestroySurfaceKHR( mInstance, mSurface, nullptr );
+		Logger::logDebug( "[VulkanHandler] VkSurfaceKHR destroyed." );
 	}
 
 	this->destroyDebugCallback();
