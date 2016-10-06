@@ -1,5 +1,7 @@
 #include "VulkanHandler.h"
 
+using std::set;
+using std::string;
 using std::vector;
 
 
@@ -46,6 +48,32 @@ VkInstanceCreateInfo VulkanHandler::buildInstanceCreateInfo(
 	}
 
 	return createInfo;
+}
+
+
+/**
+ * Check if the given device supports all required extensions.
+ * @param  {VkPhysicalDevice} device
+ * @return {const bool}
+ */
+const bool VulkanHandler::checkDeviceExtensionSupport( VkPhysicalDevice device ) {
+	uint32_t extensionCount;
+	vkEnumerateDeviceExtensionProperties(
+		device, nullptr, &extensionCount, nullptr
+	);
+
+	vector<VkExtensionProperties> availableExtensions( extensionCount );
+	vkEnumerateDeviceExtensionProperties(
+		device, nullptr, &extensionCount, availableExtensions.data()
+	);
+
+	set<string> requiredExtensions( DEVICE_EXTENSIONS.begin(), DEVICE_EXTENSIONS.end() );
+
+	for( const auto& extension : availableExtensions ) {
+		requiredExtensions.erase( extension.extensionName );
+	}
+
+	return requiredExtensions.empty();
 }
 
 
@@ -123,21 +151,28 @@ void VulkanHandler::createLogicalDevice() {
 	this->findQueueFamilyIndices( mPhysicalDevice, &graphicsFamily, &presentFamily );
 
 	float queuePriority = 1.0f;
+	vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+	set<int> uniqueQueueFamilies = { graphicsFamily, presentFamily };
 
-	VkDeviceQueueCreateInfo queueCreateInfo = {};
-	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	queueCreateInfo.queueFamilyIndex = graphicsFamily;
-	queueCreateInfo.queueCount = 1;
-	queueCreateInfo.pQueuePriorities = &queuePriority;
+	for( int queueFamily : uniqueQueueFamilies ) {
+		VkDeviceQueueCreateInfo queueCreateInfo = {};
+		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueCreateInfo.queueFamilyIndex = queueFamily;
+		queueCreateInfo.queueCount = 1;
+		queueCreateInfo.pQueuePriorities = &queuePriority;
+
+		queueCreateInfos.push_back( queueCreateInfo );
+	}
 
 	VkPhysicalDeviceFeatures deviceFeatures = {};
 
 	VkDeviceCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	createInfo.pQueueCreateInfos = &queueCreateInfo;
-	createInfo.queueCreateInfoCount = 1;
+	createInfo.pQueueCreateInfos = queueCreateInfos.data();
+	createInfo.queueCreateInfoCount = (uint32_t) queueCreateInfos.size();
 	createInfo.pEnabledFeatures = &deviceFeatures;
-	createInfo.enabledExtensionCount = 0;
+	createInfo.enabledExtensionCount = (uint32_t) DEVICE_EXTENSIONS.size();
+	createInfo.ppEnabledExtensionNames = DEVICE_EXTENSIONS.data();
 
 	if( mUseValidationLayer ) {
 		createInfo.enabledLayerCount = VALIDATION_LAYERS.size();
@@ -158,7 +193,8 @@ void VulkanHandler::createLogicalDevice() {
 	}
 
 	vkGetDeviceQueue( mLogicalDevice, graphicsFamily, 0, &mGraphicsQueue );
-	Logger::logInfo( "[VulkanHandler] Graphics queue handle (VkQueue) retrieved." );
+	vkGetDeviceQueue( mLogicalDevice, presentFamily, 0, &mPresentQueue );
+	Logger::logInfo( "[VulkanHandler] Retrieved graphics and presentation queues (VkQueue)." );
 }
 
 
@@ -317,12 +353,14 @@ uint32_t VulkanHandler::getVersionPBR() {
 const bool VulkanHandler::isDeviceSuitable( VkPhysicalDevice device ) {
 	VkPhysicalDeviceProperties properties;
 	VkPhysicalDeviceFeatures features;
+
 	vkGetPhysicalDeviceProperties( device, &properties );
 	vkGetPhysicalDeviceFeatures( device, &features );
 
 	if( properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ) {
 		Logger::logDebugVerbosef(
-			"[VulkanHandler] Device not suitable, because it isn't a discrete GPU: %s",
+			"[VulkanHandler] Device not suitable,"
+			" because it isn't a discrete GPU: %s",
 			properties.deviceName
 		);
 
@@ -331,7 +369,8 @@ const bool VulkanHandler::isDeviceSuitable( VkPhysicalDevice device ) {
 
 	if( !features.geometryShader ) {
 		Logger::logDebugVerbosef(
-			"[VulkanHandler] Device not suitable, because it doesn't support geometry shaders: %s",
+			"[VulkanHandler] Device not suitable, because"
+			" it doesn't support geometry shaders: %s",
 			properties.deviceName
 		);
 
@@ -340,9 +379,33 @@ const bool VulkanHandler::isDeviceSuitable( VkPhysicalDevice device ) {
 
 	int graphicsFamily = -1;
 	int presentFamily = -1;
-	const bool isSuitable = this->findQueueFamilyIndices( device, &graphicsFamily, &presentFamily );
+	const bool queuesFound = this->findQueueFamilyIndices(
+		device, &graphicsFamily, &presentFamily
+	);
 
-	return isSuitable;
+	if( !queuesFound ) {
+		Logger::logDebugVerbosef(
+			"[VulkanHandler] Device not suitable, because the"
+			" necessary queue families could not be found: %s",
+			properties.deviceName
+		);
+
+		return false;
+	}
+
+	const bool extensionsSupported = this->checkDeviceExtensionSupport( device );
+
+	if( !extensionsSupported ) {
+		Logger::logDebugVerbosef(
+			"[VulkanHandler] Device not suitable, because the"
+			" required extensions are not supported: %s",
+			properties.deviceName
+		);
+
+		return false;
+	}
+
+	return true;
 }
 
 

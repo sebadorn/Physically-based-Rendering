@@ -4,6 +4,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <cstring>
+#include <set>
 #include <vector>
 
 #include "Cfg.h"
@@ -14,6 +15,10 @@ using std::vector;
 
 const vector<const char*> VALIDATION_LAYERS = {
 	"VK_LAYER_LUNARG_standard_validation"
+};
+
+const vector<const char*> DEVICE_EXTENSIONS = {
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
 
@@ -35,6 +40,7 @@ class VulkanHandler {
 			VkApplicationInfo* appInfo,
 			vector<const char*>* extensions
 		);
+		const bool checkDeviceExtensionSupport( VkPhysicalDevice device );
 		VkInstance createInstance();
 		void createLogicalDevice();
 		void createSurface( GLFWwindow* window );
@@ -59,13 +65,14 @@ class VulkanHandler {
 		);
 
 	private:
-		VkDebugReportCallbackEXT mDebugCallback;
-		VkQueue mGraphicsQueue;
-		VkDevice mLogicalDevice = VK_NULL_HANDLE;
-		VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
-		VkInstance mInstance;
-		VkSurfaceKHR mSurface;
 		bool mUseValidationLayer;
+		VkDebugReportCallbackEXT mDebugCallback;
+		VkDevice mLogicalDevice = VK_NULL_HANDLE;
+		VkInstance mInstance;
+		VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
+		VkQueue mGraphicsQueue;
+		VkQueue mPresentQueue;
+		VkSurfaceKHR mSurface;
 
 };
 
