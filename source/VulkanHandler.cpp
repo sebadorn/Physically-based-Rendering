@@ -1,5 +1,6 @@
 #include "VulkanHandler.h"
 
+using std::numeric_limits;
 using std::set;
 using std::string;
 using std::vector;
@@ -108,6 +109,96 @@ const bool VulkanHandler::checkValidationLayerSupport() {
 
 
 /**
+ * Choose the swap extent.
+ * @param  {const VkSurfaceCapabilities&} capabilities
+ * @return {VkExtent2D}
+ */
+VkExtent2D VulkanHandler::chooseSwapExtent( const VkSurfaceCapabilitiesKHR& capabilities ) {
+	if( capabilities.currentExtent.width != numeric_limits<uint32_t>::max() ) {
+		return capabilities.currentExtent;
+	}
+	else {
+		VkExtent2D actualExtent = {
+			Cfg::get().value<uint32_t>( Cfg::WINDOW_WIDTH ),
+			Cfg::get().value<uint32_t>( Cfg::WINDOW_HEIGHT )
+		};
+
+		actualExtent.width = std::max(
+			capabilities.minImageExtent.width,
+			std::min( capabilities.maxImageExtent.width, actualExtent.width )
+		);
+		actualExtent.height = std::max(
+			capabilities.minImageExtent.height,
+			std::min( capabilities.maxImageExtent.height, actualExtent.height )
+		);
+
+		return actualExtent;
+	}
+}
+
+
+/**
+ * Choose the presentation mode.
+ * @param  {const std::vector<VkPresentModeKHR>&} availablePresentModes
+ * @return {VkPresetnModeKHR}
+ */
+VkPresentModeKHR VulkanHandler::chooseSwapPresentMode(
+	const vector<VkPresentModeKHR>& availablePresentModes
+) {
+	for( const auto& presentMode : availablePresentModes ) {
+		if( presentMode == VK_PRESENT_MODE_MAILBOX_KHR ) {
+			return presentMode;
+		}
+	}
+
+	return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+
+/**
+ * Choose the format for the swap sufrace.
+ * @param  {const std::vector<VkSurfaceFormatKHR>&} availableFormats
+ * @return {VkSurfaceFormatKHR}
+ */
+VkSurfaceFormatKHR VulkanHandler::chooseSwapSurfaceFormat(
+	const vector<VkSurfaceFormatKHR>& availableFormats
+) {
+	// Surface has no preferred format.
+	if( availableFormats.size() == 1 && availableFormats[0].format == VK_FORMAT_UNDEFINED ) {
+		Logger::logDebugVerbosef(
+			"[VulkanHandler] Surface has no preferred format."
+			" Choosing BGRA 32bit and sRGB."
+		);
+		return {
+			VK_FORMAT_B8G8R8A8_UNORM,
+			VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+		};
+	}
+
+	// Look if our preferred combination is available.
+	for( const auto& format : availableFormats ) {
+		if(
+			format.format == VK_FORMAT_B8G8R8A8_UNORM &&
+			format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+		) {
+			Logger::logDebugVerbosef(
+				"[VulkanHandler] Surface supports BGRA 32bit and sRGB."
+			);
+			return format;
+		}
+	}
+
+	// Just use the first one.
+	Logger::logWarning(
+		"[VulkanHandler] Preferred surface format not found."
+		" Selecting first one available."
+	);
+
+	return availableFormats[0];
+}
+
+
+/**
  * Create a VkInstance.
  * @return {VkInstance}
  */
@@ -212,6 +303,85 @@ void VulkanHandler::createSurface( GLFWwindow* window ) {
 	else {
 		Logger::logInfo( "[VulkanHandler] Window surface (VkSurfaceKHR) created." );
 	}
+}
+
+
+/**
+ * Create the swap chain.
+ */
+void VulkanHandler::createSwapChain() {
+	SwapChainSupportDetails swapChainSupport = this->querySwapChainSupport( mPhysicalDevice );
+
+	VkSurfaceFormatKHR surfaceFormat = this->chooseSwapSurfaceFormat( swapChainSupport.formats );
+	VkPresentModeKHR presentMode = this->chooseSwapPresentMode( swapChainSupport.presentModes );
+	VkExtent2D extent = this->chooseSwapExtent( swapChainSupport.capabilities );
+
+	uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+
+	if(
+		swapChainSupport.capabilities.maxImageCount > 0 &&
+		imageCount > swapChainSupport.capabilities.maxImageCount
+	) {
+		imageCount = swapChainSupport.capabilities.maxImageCount;
+	}
+
+	VkSwapchainCreateInfoKHR createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	createInfo.surface = mSurface;
+	createInfo.minImageCount = imageCount;
+	createInfo.imageFormat = surfaceFormat.format;
+	createInfo.imageColorSpace = surfaceFormat.colorSpace;
+	createInfo.imageExtent = extent;
+	createInfo.imageArrayLayers = 1;
+	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+	int graphicsFamily = -1;
+	int presentFamily = -1;
+	this->findQueueFamilyIndices( mPhysicalDevice, &graphicsFamily, &presentFamily );
+	uint32_t queueFamilyIndices[] = {
+		(uint32_t) graphicsFamily,
+		(uint32_t) presentFamily
+	};
+
+	if( graphicsFamily != presentFamily ) {
+		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+		createInfo.queueFamilyIndexCount = 2;
+		createInfo.pQueueFamilyIndices = queueFamilyIndices;
+
+		Logger::logDebugVerbosef(
+			"[VulkanHandler] Image sharing mode will"
+			" be VK_SHARING_MODE_CONCURRENT."
+		);
+	}
+	else {
+		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		createInfo.queueFamilyIndexCount = 0;
+		createInfo.pQueueFamilyIndices = nullptr;
+
+		Logger::logDebugVerbosef(
+			"[VulkanHandler] Image sharing mode will"
+			" be VK_SHARING_MODE_EXCLUSIVE."
+		);
+	}
+
+	createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	createInfo.presentMode = presentMode;
+	createInfo.clipped = VK_FALSE;
+	createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+	VkResult result = vkCreateSwapchainKHR( mLogicalDevice, &createInfo, nullptr, &mSwapchain );
+
+	if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to create VkSwapchainKHR." );
+		throw std::runtime_error( "Failed to create VkSwapchainKHR." );
+	}
+	else {
+		Logger::logInfo( "[VulkanHandler] VkSwapchainKHR created." );
+	}
+
+	mSwapchainFormat = surfaceFormat.format;
+	mSwapchainExtent = extent;
 }
 
 
@@ -357,22 +527,28 @@ const bool VulkanHandler::isDeviceSuitable( VkPhysicalDevice device ) {
 	vkGetPhysicalDeviceProperties( device, &properties );
 	vkGetPhysicalDeviceFeatures( device, &features );
 
+	Logger::logDebugf(
+		"[VulkanHandler] Checking if device is suitable: %s",
+		properties.deviceName
+	);
+	Logger::indentChange( 2 );
+
 	if( properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ) {
-		Logger::logDebugVerbosef(
+		Logger::logDebugf(
 			"[VulkanHandler] Device not suitable,"
-			" because it isn't a discrete GPU: %s",
-			properties.deviceName
+			" because it isn't a discrete GPU."
 		);
+		Logger::indentChange( -2 );
 
 		return false;
 	}
 
 	if( !features.geometryShader ) {
-		Logger::logDebugVerbosef(
+		Logger::logDebugf(
 			"[VulkanHandler] Device not suitable, because"
-			" it doesn't support geometry shaders: %s",
-			properties.deviceName
+			" it doesn't support geometry shaders."
 		);
+		Logger::indentChange( -2 );
 
 		return false;
 	}
@@ -384,11 +560,11 @@ const bool VulkanHandler::isDeviceSuitable( VkPhysicalDevice device ) {
 	);
 
 	if( !queuesFound ) {
-		Logger::logDebugVerbosef(
+		Logger::logDebugf(
 			"[VulkanHandler] Device not suitable, because the"
-			" necessary queue families could not be found: %s",
-			properties.deviceName
+			" necessary queue families could not be found."
 		);
+		Logger::indentChange( -2 );
 
 		return false;
 	}
@@ -396,14 +572,38 @@ const bool VulkanHandler::isDeviceSuitable( VkPhysicalDevice device ) {
 	const bool extensionsSupported = this->checkDeviceExtensionSupport( device );
 
 	if( !extensionsSupported ) {
-		Logger::logDebugVerbosef(
+		Logger::logDebugf(
 			"[VulkanHandler] Device not suitable, because the"
-			" required extensions are not supported: %s",
-			properties.deviceName
+			" required extensions are not supported."
 		);
+		Logger::indentChange( -2 );
 
 		return false;
 	}
+
+	SwapChainSupportDetails swapChainDetails = this->querySwapChainSupport( device );
+
+	if( swapChainDetails.formats.empty() ) {
+		Logger::logDebugf(
+			"[VulkanHandler] Device not suitable, because"
+			" it does not support any image formats."
+		);
+		Logger::indentChange( -2 );
+
+		return false;
+	}
+
+	if( swapChainDetails.presentModes.empty() ) {
+		Logger::logDebugf(
+			"[VulkanHandler] Device not suitable, because it"
+			" does not support any presentation modes."
+		);
+		Logger::indentChange( -2 );
+
+		return false;
+	}
+
+	Logger::indentChange( -2 );
 
 	return true;
 }
@@ -432,6 +632,57 @@ void VulkanHandler::printDeviceDebugInfo( VkPhysicalDevice device ) {
 	Logger::logDebugf( "[VulkanHandler] Vendor ID: %u", properties.vendorID );
 	Logger::logDebugf( "[VulkanHandler] Device ID: %u", properties.deviceID );
 	Logger::logDebugf( "[VulkanHandler] Driver: %u", properties.driverVersion );
+}
+
+
+/**
+ * Query the device's swap chain support.
+ * @param  {VkPhysicalDevice}        device
+ * @return {SwapChainSupportDetails}
+ */
+SwapChainSupportDetails VulkanHandler::querySwapChainSupport( VkPhysicalDevice device ) {
+	SwapChainSupportDetails details;
+
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+		device, mSurface, &details.capabilities
+	);
+
+	uint32_t formatCount = 0;
+	vkGetPhysicalDeviceSurfaceFormatsKHR( device, mSurface, &formatCount, nullptr );
+
+	if( formatCount > 0 ) {
+		details.formats.resize( formatCount );
+		vkGetPhysicalDeviceSurfaceFormatsKHR(
+			device, mSurface, &formatCount, details.formats.data()
+		);
+	}
+
+	uint32_t presentModeCount = 0;
+	vkGetPhysicalDeviceSurfacePresentModesKHR(
+		device, mSurface, &presentModeCount, nullptr
+	);
+
+	if( presentModeCount > 0 ) {
+		details.presentModes.resize( presentModeCount );
+		vkGetPhysicalDeviceSurfacePresentModesKHR(
+			device, mSurface, &presentModeCount, details.presentModes.data()
+		);
+	}
+
+	return details;
+}
+
+
+/**
+ * Retrieve the handles for the swapchain images.
+ */
+void VulkanHandler::retrieveSwapchainImageHandles() {
+	uint32_t imageCount = 0;
+	vkGetSwapchainImagesKHR( mLogicalDevice, mSwapchain, &imageCount, nullptr );
+	mSwapchainImages.resize( imageCount );
+	vkGetSwapchainImagesKHR( mLogicalDevice, mSwapchain, &imageCount, mSwapchainImages.data() );
+
+	Logger::logDebug( "[VulkanHandler] Retrieved swapchain VkImage handles." );
 }
 
 
@@ -496,6 +747,8 @@ void VulkanHandler::setup( GLFWwindow* window ) {
 	this->createSurface( window );
 	mPhysicalDevice = this->selectDevice();
 	this->createLogicalDevice();
+	this->createSwapChain();
+	this->retrieveSwapchainImageHandles();
 
 	Logger::indentChange( -2 );
 	Logger::logInfo( "[VulkanHandler] Setup done." );
@@ -544,6 +797,11 @@ void VulkanHandler::setupDebugCallback() {
 void VulkanHandler::teardown() {
 	Logger::logInfo( "[VulkanHandler] Teardown beginning ..." );
 	Logger::indentChange( 2 );
+
+	if( mSwapchain != VK_NULL_HANDLE ) {
+		vkDestroySwapchainKHR( mLogicalDevice, mSwapchain, nullptr );
+		Logger::logDebug( "[VulkanHandler] VkSwapchainKHR destroyed." );
+	}
 
 	if( mLogicalDevice != VK_NULL_HANDLE ) {
 		vkDestroyDevice( mLogicalDevice, nullptr );

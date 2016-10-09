@@ -57,6 +57,14 @@ int main( int argc, char** argv ) {
 	}
 	catch( const std::runtime_error &err ) {
 		Logger::logError( "[main] Vulkan setup failed. EXIT_FAILURE." );
+
+		try {
+			vkHandler.teardown();
+		}
+		catch( const std::runtime_error &err2 ) {
+			Logger::logError( "[main] Vulkan teardown failed too." );
+		}
+
 		return EXIT_FAILURE;
 	}
 

@@ -3,7 +3,9 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <algorithm>
 #include <cstring>
+#include <limits>
 #include <set>
 #include <vector>
 
@@ -19,6 +21,13 @@ const vector<const char*> VALIDATION_LAYERS = {
 
 const vector<const char*> DEVICE_EXTENSIONS = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
+
+struct SwapChainSupportDetails {
+	VkSurfaceCapabilitiesKHR capabilities;
+	vector<VkSurfaceFormatKHR> formats;
+	vector<VkPresentModeKHR> presentModes;
 };
 
 
@@ -41,15 +50,25 @@ class VulkanHandler {
 			vector<const char*>* extensions
 		);
 		const bool checkDeviceExtensionSupport( VkPhysicalDevice device );
+		VkExtent2D chooseSwapExtent( const VkSurfaceCapabilitiesKHR& capabilities );
+		VkPresentModeKHR chooseSwapPresentMode(
+			const vector<VkPresentModeKHR>& availablePresentModes
+		);
+		VkSurfaceFormatKHR chooseSwapSurfaceFormat(
+			const vector<VkSurfaceFormatKHR>& availableFormats
+		);
 		VkInstance createInstance();
 		void createLogicalDevice();
 		void createSurface( GLFWwindow* window );
+		void createSwapChain();
 		void destroyDebugCallback();
 		const bool findQueueFamilyIndices(
 			VkPhysicalDevice device,
 			int* graphicsFamily,
 			int* presentFamily
 		);
+		SwapChainSupportDetails querySwapChainSupport( VkPhysicalDevice device );
+		void retrieveSwapchainImageHandles();
 		VkPhysicalDevice selectDevice();
 		void setupDebugCallback();
 
@@ -66,13 +85,17 @@ class VulkanHandler {
 
 	private:
 		bool mUseValidationLayer;
+		vector<VkImage> mSwapchainImages;
 		VkDebugReportCallbackEXT mDebugCallback;
 		VkDevice mLogicalDevice = VK_NULL_HANDLE;
+		VkExtent2D mSwapchainExtent;
+		VkFormat mSwapchainFormat;
 		VkInstance mInstance;
 		VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
 		VkQueue mGraphicsQueue;
 		VkQueue mPresentQueue;
 		VkSurfaceKHR mSurface;
+		VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
 
 };
 
