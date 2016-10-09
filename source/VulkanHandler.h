@@ -57,11 +57,13 @@ class VulkanHandler {
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(
 			const vector<VkSurfaceFormatKHR>& availableFormats
 		);
+		void createImageViews();
 		VkInstance createInstance();
 		void createLogicalDevice();
 		void createSurface( GLFWwindow* window );
 		void createSwapChain();
 		void destroyDebugCallback();
+		void destroyImageViews();
 		const bool findQueueFamilyIndices(
 			VkPhysicalDevice device,
 			int* graphicsFamily,
@@ -86,6 +88,7 @@ class VulkanHandler {
 	private:
 		bool mUseValidationLayer;
 		vector<VkImage> mSwapchainImages;
+		vector<VkImageView> mSwapchainImageViews;
 		VkDebugReportCallbackEXT mDebugCallback;
 		VkDevice mLogicalDevice = VK_NULL_HANDLE;
 		VkExtent2D mSwapchainExtent;
