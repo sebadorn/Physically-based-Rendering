@@ -199,6 +199,41 @@ VkSurfaceFormatKHR VulkanHandler::chooseSwapSurfaceFormat(
 
 
 /**
+ * Create the graphics pipeline.
+ */
+void VulkanHandler::createGraphicsPipeline() {
+	auto vertShaderCode = this->loadFileSPV( "source/shaders/vert.spv" );
+	auto fragShaderCode = this->loadFileSPV( "source/shaders/frag.spv" );
+	Logger::logDebug( "[VulkanHandler] Loaded shader files." );
+
+	VkShaderModule vertShaderModule = this->createShaderModule( vertShaderCode );
+	VkShaderModule fragShaderModule = this->createShaderModule( fragShaderCode );
+	Logger::logInfo( "[VulkanHandler] Created shader modules." );
+
+	vkDestroyShaderModule( mLogicalDevice, vertShaderModule, nullptr );
+	vkDestroyShaderModule( mLogicalDevice, fragShaderModule, nullptr );
+	Logger::logDebug( "[VulkanHandler] Destroyed shader modules. (Not needed anymore.)" );
+
+	VkPipelineShaderStageCreateInfo vertShaderCreateInfo = {};
+	vertShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertShaderCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+	vertShaderCreateInfo.module = vertShaderModule;
+	vertShaderCreateInfo.pName = "main";
+
+	VkPipelineShaderStageCreateInfo fragShaderCreateInfo = {};
+	fragShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	fragShaderCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	fragShaderCreateInfo.module = fragShaderModule;
+	fragShaderCreateInfo.pName = "main";
+
+	VkPipelineShaderStageCreateInfo shaderStages[] = {
+		vertShaderCreateInfo,
+		fragShaderCreateInfo
+	};
+}
+
+
+/**
  * Create the swapchain image views.
  */
 void VulkanHandler::createImageViews() {
@@ -325,6 +360,30 @@ void VulkanHandler::createLogicalDevice() {
 	vkGetDeviceQueue( mLogicalDevice, graphicsFamily, 0, &mGraphicsQueue );
 	vkGetDeviceQueue( mLogicalDevice, presentFamily, 0, &mPresentQueue );
 	Logger::logInfo( "[VulkanHandler] Retrieved graphics and presentation queues (VkQueue)." );
+}
+
+
+/**
+ * Create a VkShaderModule from loaded SPV code.
+ * @param  {const std::vector<char>&} code
+ * @return {VkShaderModule}
+ */
+VkShaderModule VulkanHandler::createShaderModule( const vector<char>& code ) {
+	VkShaderModule shaderModule;
+
+	VkShaderModuleCreateInfo createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	createInfo.codeSize = code.size();
+	createInfo.pCode = (uint32_t*) code.data();
+
+	VkResult result = vkCreateShaderModule( mLogicalDevice, &createInfo, nullptr, &shaderModule );
+
+	if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to create shader module." );
+		throw std::runtime_error( "Failed to create shader module." );
+	}
+
+	return shaderModule;
 }
 
 
@@ -664,6 +723,30 @@ const bool VulkanHandler::isDeviceSuitable( VkPhysicalDevice device ) {
 
 
 /**
+ * Load an SPV file.
+ * @param  {const std::string&} filename
+ * @return {std::vector<char>}
+ */
+vector<char> VulkanHandler::loadFileSPV( const string& filename ) {
+	std::ifstream file( filename, std::ios::ate | std::ios::binary );
+
+	if (!file.is_open()) {
+		Logger::logErrorf( "[VulkanHandler] Failed to open SPV file: %s", filename );
+		throw std::runtime_error( "Failed to open file." );
+	}
+
+	size_t filesize = (size_t) file.tellg();
+	vector<char> buffer( filesize );
+
+	file.seekg( 0 );
+	file.read( buffer.data(), filesize );
+	file.close();
+
+	return buffer;
+}
+
+
+/**
  * Print some debug data about the selected device.
  * @param {VkPhysicalDevice} device
  */
@@ -804,6 +887,7 @@ void VulkanHandler::setup( GLFWwindow* window ) {
 	this->createSwapChain();
 	this->retrieveSwapchainImageHandles();
 	this->createImageViews();
+	this->createGraphicsPipeline();
 
 	Logger::indentChange( -2 );
 	Logger::logInfo( "[VulkanHandler] Setup done." );

@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <cstring>
+#include <fstream>
 #include <limits>
 #include <set>
 #include <vector>
@@ -35,8 +36,10 @@ class VulkanHandler {
 
 	public:
 		const bool checkValidationLayerSupport();
+		VkShaderModule createShaderModule( const vector<char>& code );
 		vector<const char*> getRequiredExtensions();
 		const bool isDeviceSuitable( VkPhysicalDevice device );
+		vector<char> loadFileSPV( const string& filename );
 		void printDeviceDebugInfo( VkPhysicalDevice device );
 		void setup( GLFWwindow* window );
 		void teardown();
@@ -57,6 +60,7 @@ class VulkanHandler {
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(
 			const vector<VkSurfaceFormatKHR>& availableFormats
 		);
+		void createGraphicsPipeline();
 		void createImageViews();
 		VkInstance createInstance();
 		void createLogicalDevice();
