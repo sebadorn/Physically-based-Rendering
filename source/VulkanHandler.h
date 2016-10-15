@@ -64,6 +64,7 @@ class VulkanHandler {
 		void createImageViews();
 		VkInstance createInstance();
 		void createLogicalDevice();
+		void createRenderPass();
 		void createSurface( GLFWwindow* window );
 		void createSwapChain();
 		void destroyDebugCallback();
@@ -94,15 +95,18 @@ class VulkanHandler {
 		vector<VkImage> mSwapchainImages;
 		vector<VkImageView> mSwapchainImageViews;
 		VkDebugReportCallbackEXT mDebugCallback;
-		VkDevice mLogicalDevice = VK_NULL_HANDLE;
+		VkDevice mLogicalDevice;
 		VkExtent2D mSwapchainExtent;
 		VkFormat mSwapchainFormat;
 		VkInstance mInstance;
-		VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
+		VkPhysicalDevice mPhysicalDevice;
+		VkPipeline mGraphicsPipeline;
+		VkPipelineLayout mPipelineLayout;
 		VkQueue mGraphicsQueue;
 		VkQueue mPresentQueue;
+		VkRenderPass mRenderPass;
 		VkSurfaceKHR mSurface;
-		VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
+		VkSwapchainKHR mSwapchain;
 
 };
 
