@@ -199,6 +199,40 @@ VkSurfaceFormatKHR VulkanHandler::chooseSwapSurfaceFormat(
 
 
 /**
+ * Create the framebuffers.
+ */
+void VulkanHandler::createFramebuffers() {
+	mFramebuffers.resize( mSwapchainImageViews.size() );
+
+	for( size_t i = 0; i < mSwapchainImageViews.size(); i++ ) {
+		VkImageView attachments[] = {
+			mSwapchainImageViews[i]
+		};
+
+		VkFramebufferCreateInfo framebufferInfo = {};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = mRenderPass;
+		framebufferInfo.attachmentCount = 1;
+		framebufferInfo.pAttachments = attachments;
+		framebufferInfo.width = mSwapchainExtent.width;
+		framebufferInfo.height = mSwapchainExtent.height;
+		framebufferInfo.layers = 1;
+
+		VkResult result = vkCreateFramebuffer(
+			mLogicalDevice, &framebufferInfo, nullptr, &( mFramebuffers[i] )
+		);
+
+		if( result != VK_SUCCESS ) {
+			Logger::logError( "[VulkanHandler] Failed to create VkFramebuffer." );
+			throw std::runtime_error( "Failed to create VkFramebuffer." );
+		}
+	}
+
+	Logger::logInfof( "[VulkanHandler] Created %u VkFramebuffers.", mFramebuffers.size() );
+}
+
+
+/**
  * Create the graphics pipeline.
  */
 void VulkanHandler::createGraphicsPipeline() {
@@ -1077,6 +1111,7 @@ void VulkanHandler::setup( GLFWwindow* window ) {
 	this->createImageViews();
 	this->createRenderPass();
 	this->createGraphicsPipeline();
+	this->createFramebuffers();
 
 	Logger::indentChange( -2 );
 	Logger::logInfo( "[VulkanHandler] Setup done." );
@@ -1125,6 +1160,14 @@ void VulkanHandler::setupDebugCallback() {
 void VulkanHandler::teardown() {
 	Logger::logInfo( "[VulkanHandler] Teardown beginning ..." );
 	Logger::indentChange( 2 );
+
+	if( mFramebuffers.size() > 0 ) {
+		for( size_t i = 0; i < mFramebuffers.size(); i++ ) {
+			vkDestroyFramebuffer( mLogicalDevice, mFramebuffers[i], nullptr );
+		}
+
+		Logger::logDebugf( "[VulkanHandler] %u VkFramebuffers destroyed.", mFramebuffers.size() );
+	}
 
 	if( mGraphicsPipeline ) {
 		vkDestroyPipeline( mLogicalDevice, mGraphicsPipeline, nullptr );
