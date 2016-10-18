@@ -199,6 +199,106 @@ VkSurfaceFormatKHR VulkanHandler::chooseSwapSurfaceFormat(
 
 
 /**
+ * Create the command buffers.
+ */
+void VulkanHandler::createCommandBuffers() {
+	mCommandBuffers.resize( mFramebuffers.size() );
+
+	VkCommandBufferAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.commandPool = mCommandPool;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandBufferCount = (uint32_t) mCommandBuffers.size();
+
+	VkResult result = vkAllocateCommandBuffers(
+		mLogicalDevice, &allocInfo, mCommandBuffers.data()
+	);
+
+	if( result != VK_SUCCESS ) {
+		Logger::logErrorf(
+			"[VulkanHandler] Failed to allocate %u VkCommandBuffers.",
+			mCommandBuffers.size()
+		);
+		throw std::runtime_error( "Failed to allocate VkCommandBuffers." );
+	}
+	else {
+		Logger::logInfof(
+			"[VulkanHandler] Allocated %u VkCommandBuffers.",
+			mCommandBuffers.size()
+		);
+	}
+
+	for( size_t i = 0; i < mCommandBuffers.size(); i++ ) {
+		VkCommandBufferBeginInfo beginInfo = {};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+		beginInfo.pInheritanceInfo = nullptr;
+
+		vkBeginCommandBuffer( mCommandBuffers[i], &beginInfo );
+
+		VkRenderPassBeginInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = mRenderPass;
+		renderPassInfo.framebuffer = mFramebuffers[i];
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = mSwapchainExtent;
+
+		VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+		renderPassInfo.clearValueCount = 1;
+		renderPassInfo.pClearValues = &clearColor;
+
+		vkCmdBeginRenderPass(
+			mCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE
+		);
+		vkCmdBindPipeline(
+			mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline
+		);
+		vkCmdDraw( mCommandBuffers[i], 3, 1, 0, 0 );
+		vkCmdEndRenderPass( mCommandBuffers[i] );
+
+		VkResult resultEnd = vkEndCommandBuffer( mCommandBuffers[i] );
+
+		if( resultEnd != VK_SUCCESS ) {
+			Logger::logErrorf(
+				"[VulkanHandler] Failed to record command buffer (%u/%u).",
+				i, mCommandBuffers.size()
+			);
+			throw std::runtime_error( "Failed to record command buffer." );
+		}
+	}
+
+	Logger::logDebug( "[VulkanHandler] Recorded command buffers." );
+}
+
+
+/**
+ * Create the command pool for the graphics queue.
+ */
+void VulkanHandler::createCommandPool() {
+	int graphicsFamily = -1;
+	int presentFamily = -1;
+	this->findQueueFamilyIndices( mPhysicalDevice, &graphicsFamily, &presentFamily );
+
+	VkCommandPoolCreateInfo poolInfo = {};
+	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	poolInfo.queueFamilyIndex = graphicsFamily;
+	poolInfo.flags = 0;
+
+	VkResult result = vkCreateCommandPool(
+		mLogicalDevice, &poolInfo, nullptr, &mCommandPool
+	);
+
+	if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to create VkCommandPool." );
+		throw std::runtime_error( "Failed to create VkCommandPool." );
+	}
+	else {
+		Logger::logInfo( "[VulkanHandler] Created VkCommandPool." );
+	}
+}
+
+
+/**
  * Create the framebuffers.
  */
 void VulkanHandler::createFramebuffers() {
@@ -1112,6 +1212,7 @@ void VulkanHandler::setup( GLFWwindow* window ) {
 	this->createRenderPass();
 	this->createGraphicsPipeline();
 	this->createFramebuffers();
+	this->createCommandPool();
 
 	Logger::indentChange( -2 );
 	Logger::logInfo( "[VulkanHandler] Setup done." );
@@ -1160,6 +1261,11 @@ void VulkanHandler::setupDebugCallback() {
 void VulkanHandler::teardown() {
 	Logger::logInfo( "[VulkanHandler] Teardown beginning ..." );
 	Logger::indentChange( 2 );
+
+	if( mCommandPool ) {
+		vkDestroyCommandPool( mLogicalDevice, mCommandPool, nullptr );
+		Logger::logDebug( "[VulkanHandler] VkCommandPool destroyed." );
+	}
 
 	if( mFramebuffers.size() > 0 ) {
 		for( size_t i = 0; i < mFramebuffers.size(); i++ ) {

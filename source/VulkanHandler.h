@@ -60,6 +60,8 @@ class VulkanHandler {
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(
 			const vector<VkSurfaceFormatKHR>& availableFormats
 		);
+		void createCommandBuffers();
+		void createCommandPool();
 		void createFramebuffers();
 		void createGraphicsPipeline();
 		void createImageViews();
@@ -93,9 +95,11 @@ class VulkanHandler {
 
 	private:
 		bool mUseValidationLayer;
+		vector<VkCommandBuffer> mCommandBuffers;
 		vector<VkFramebuffer> mFramebuffers;
 		vector<VkImage> mSwapchainImages;
 		vector<VkImageView> mSwapchainImageViews;
+		VkCommandPool mCommandPool;
 		VkDebugReportCallbackEXT mDebugCallback;
 		VkDevice mLogicalDevice;
 		VkExtent2D mSwapchainExtent;
