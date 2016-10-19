@@ -673,6 +673,17 @@ void VulkanHandler::createRenderPass() {
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subPass;
 
+	VkSubpassDependency dependency = {};
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependency.dstSubpass = 0;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	renderPassInfo.dependencyCount = 1;
+	renderPassInfo.pDependencies = &dependency;
+
 	VkResult result = vkCreateRenderPass( mLogicalDevice, &renderPassInfo, nullptr, &mRenderPass );
 
 	if( result != VK_SUCCESS ) {
@@ -681,6 +692,39 @@ void VulkanHandler::createRenderPass() {
 	}
 	else {
 		Logger::logInfo( "[VulkanHandler] Created VkRenderPass." );
+	}
+}
+
+
+/**
+ * Create semaphores for the draw frames function.
+ */
+void VulkanHandler::createSemaphores() {
+	VkSemaphoreCreateInfo semaphoreInfo = {};
+	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	VkResult result = vkCreateSemaphore(
+		mLogicalDevice, &semaphoreInfo, nullptr, &mImageAvailableSemaphore
+	);
+
+	if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to create VkSemaphore (image available)." );
+		throw std::runtime_error( "Failed to create VkSemaphore (image available)." );
+	}
+	else {
+		Logger::logDebugVerbose( "[VulkanHandler] Created VkSemaphore (image available)." );
+	}
+
+	result = vkCreateSemaphore(
+		mLogicalDevice, &semaphoreInfo, nullptr, &mRenderFinishedSemaphore
+	);
+
+	if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to create VkSemaphore (render finished)." );
+		throw std::runtime_error( "Failed to create VkSemaphore (render finished)." );
+	}
+	else {
+		Logger::logDebugVerbose( "[VulkanHandler] Created VkSemaphore (render finished)." );
 	}
 }
 
@@ -864,6 +908,59 @@ void VulkanHandler::destroyImageViews() {
 	}
 
 	Logger::logDebugf( "[VulkanHandler] Destroyed %u VkImageViews.", i );
+}
+
+
+/**
+ * Draw the next frame.
+ */
+void VulkanHandler::drawFrame() {
+	uint32_t imageIndex;
+
+	vkAcquireNextImageKHR(
+		mLogicalDevice,
+		mSwapchain,
+		std::numeric_limits< uint64_t >::max(), // disable timeout
+		mImageAvailableSemaphore,
+		VK_NULL_HANDLE,
+		&imageIndex
+	);
+
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+	VkSemaphore waitSemaphores[] = { mImageAvailableSemaphore };
+	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = waitSemaphores;
+	submitInfo.pWaitDstStageMask = waitStages;
+
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &mCommandBuffers[imageIndex];
+
+	VkSemaphore signalSemaphores[] = { mRenderFinishedSemaphore };
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = signalSemaphores;
+
+	VkResult result = vkQueueSubmit( mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE );
+
+	if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to submit queue (graphics)." );
+		throw std::runtime_error( "Failed to submit queue (graphics)." );
+	}
+
+	VkPresentInfoKHR presentInfo = {};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = signalSemaphores;
+
+	VkSwapchainKHR swapchains[] = { mSwapchain };
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = swapchains;
+	presentInfo.pImageIndices = &imageIndex;
+	presentInfo.pResults = nullptr;
+
+	vkQueuePresentKHR( mPresentQueue, &presentInfo );
 }
 
 
@@ -1069,6 +1166,36 @@ vector<char> VulkanHandler::loadFileSPV( const string& filename ) {
 
 
 /**
+ * Start the main loop.
+ * @param {GLFWwindow*} window
+ */
+void VulkanHandler::mainLoop( GLFWwindow* window ) {
+	double lastTime = 0.0;
+	uint64_t nbFrames = 0;
+
+	while( !glfwWindowShouldClose( window ) ) {
+		glfwPollEvents();
+		this->drawFrame();
+
+		double currentTime = glfwGetTime();
+		double delta = currentTime - lastTime;
+		nbFrames++;
+
+		if( delta >= 1.0 ) {
+			char title[32];
+			snprintf( title, 32, "PBR (FPS: %3.2f)", (double) nbFrames / delta );
+
+			glfwSetWindowTitle( window, title );
+			nbFrames = 0;
+			lastTime = currentTime;
+		}
+	}
+
+	vkDeviceWaitIdle( mLogicalDevice );
+}
+
+
+/**
  * Print some debug data about the selected device.
  * @param {VkPhysicalDevice} device
  */
@@ -1213,6 +1340,8 @@ void VulkanHandler::setup( GLFWwindow* window ) {
 	this->createGraphicsPipeline();
 	this->createFramebuffers();
 	this->createCommandPool();
+	this->createCommandBuffers();
+	this->createSemaphores();
 
 	Logger::indentChange( -2 );
 	Logger::logInfo( "[VulkanHandler] Setup done." );
@@ -1261,6 +1390,16 @@ void VulkanHandler::setupDebugCallback() {
 void VulkanHandler::teardown() {
 	Logger::logInfo( "[VulkanHandler] Teardown beginning ..." );
 	Logger::indentChange( 2 );
+
+	if( mImageAvailableSemaphore ) {
+		vkDestroySemaphore( mLogicalDevice, mImageAvailableSemaphore, nullptr );
+		Logger::logDebugVerbose( "[VulkanHandler] VkSemaphore (image available) destroyed." );
+	}
+
+	if( mRenderFinishedSemaphore ) {
+		vkDestroySemaphore( mLogicalDevice, mRenderFinishedSemaphore, nullptr );
+		Logger::logDebugVerbose( "[VulkanHandler] VkSemaphore (render finished) destroyed." );
+	}
 
 	if( mCommandPool ) {
 		vkDestroyCommandPool( mLogicalDevice, mCommandPool, nullptr );

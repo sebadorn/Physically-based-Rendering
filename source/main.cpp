@@ -71,9 +71,7 @@ int main( int argc, char** argv ) {
 	Logger::logInfo( "--------------------" );
 	Logger::logInfo( "[main] Starting main loop." );
 
-	while( !glfwWindowShouldClose( window ) ) {
-		glfwPollEvents();
-	}
+	vkHandler.mainLoop( window );
 
 	Logger::logInfo( "[main] Main loop stopped." );
 	Logger::logInfo( "--------------------" );

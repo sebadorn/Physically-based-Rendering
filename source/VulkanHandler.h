@@ -40,6 +40,7 @@ class VulkanHandler {
 		vector<const char*> getRequiredExtensions();
 		const bool isDeviceSuitable( VkPhysicalDevice device );
 		vector<char> loadFileSPV( const string& filename );
+		void mainLoop( GLFWwindow* window );
 		void printDeviceDebugInfo( VkPhysicalDevice device );
 		void setup( GLFWwindow* window );
 		void teardown();
@@ -68,10 +69,12 @@ class VulkanHandler {
 		VkInstance createInstance();
 		void createLogicalDevice();
 		void createRenderPass();
+		void createSemaphores();
 		void createSurface( GLFWwindow* window );
 		void createSwapChain();
 		void destroyDebugCallback();
 		void destroyImageViews();
+		void drawFrame();
 		const bool findQueueFamilyIndices(
 			VkPhysicalDevice device,
 			int* graphicsFamily,
@@ -111,6 +114,8 @@ class VulkanHandler {
 		VkQueue mGraphicsQueue;
 		VkQueue mPresentQueue;
 		VkRenderPass mRenderPass;
+		VkSemaphore mImageAvailableSemaphore;
+		VkSemaphore mRenderFinishedSemaphore;
 		VkSurfaceKHR mSurface;
 		VkSwapchainKHR mSwapchain;
 
