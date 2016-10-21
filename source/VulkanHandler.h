@@ -38,11 +38,12 @@ class VulkanHandler {
 		const bool checkValidationLayerSupport();
 		VkShaderModule createShaderModule( const vector<char>& code );
 		vector<const char*> getRequiredExtensions();
+		void initWindow();
 		const bool isDeviceSuitable( VkPhysicalDevice device );
 		vector<char> loadFileSPV( const string& filename );
-		void mainLoop( GLFWwindow* window );
+		void mainLoop();
 		void printDeviceDebugInfo( VkPhysicalDevice device );
-		void setup( GLFWwindow* window );
+		void setup();
 		void teardown();
 
 		static uint32_t getVersionPBR();
@@ -70,7 +71,7 @@ class VulkanHandler {
 		void createLogicalDevice();
 		void createRenderPass();
 		void createSemaphores();
-		void createSurface( GLFWwindow* window );
+		void createSurface();
 		void createSwapChain();
 		void destroyDebugCallback();
 		void destroyImageViews();
@@ -81,6 +82,7 @@ class VulkanHandler {
 			int* presentFamily
 		);
 		SwapChainSupportDetails querySwapChainSupport( VkPhysicalDevice device );
+		void recreateSwapchain();
 		void retrieveSwapchainImageHandles();
 		VkPhysicalDevice selectDevice();
 		void setupDebugCallback();
@@ -95,29 +97,31 @@ class VulkanHandler {
 			const char* msg,
 			void* userData
 		);
+		static void onWindowResize( GLFWwindow* window, int width, int height );
 
 	private:
 		bool mUseValidationLayer;
+		GLFWwindow* mWindow = nullptr;
 		vector<VkCommandBuffer> mCommandBuffers;
 		vector<VkFramebuffer> mFramebuffers;
 		vector<VkImage> mSwapchainImages;
 		vector<VkImageView> mSwapchainImageViews;
-		VkCommandPool mCommandPool;
+		VkCommandPool mCommandPool = VK_NULL_HANDLE;
 		VkDebugReportCallbackEXT mDebugCallback;
-		VkDevice mLogicalDevice;
+		VkDevice mLogicalDevice = VK_NULL_HANDLE;
 		VkExtent2D mSwapchainExtent;
 		VkFormat mSwapchainFormat;
-		VkInstance mInstance;
+		VkInstance mInstance = VK_NULL_HANDLE;
 		VkPhysicalDevice mPhysicalDevice;
-		VkPipeline mGraphicsPipeline;
-		VkPipelineLayout mPipelineLayout;
+		VkPipeline mGraphicsPipeline = VK_NULL_HANDLE;
+		VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
 		VkQueue mGraphicsQueue;
 		VkQueue mPresentQueue;
-		VkRenderPass mRenderPass;
-		VkSemaphore mImageAvailableSemaphore;
-		VkSemaphore mRenderFinishedSemaphore;
-		VkSurfaceKHR mSurface;
-		VkSwapchainKHR mSwapchain;
+		VkRenderPass mRenderPass = VK_NULL_HANDLE;
+		VkSemaphore mImageAvailableSemaphore = VK_NULL_HANDLE;
+		VkSemaphore mRenderFinishedSemaphore = VK_NULL_HANDLE;
+		VkSurfaceKHR mSurface = VK_NULL_HANDLE;
+		VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
 
 };
 

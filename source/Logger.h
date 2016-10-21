@@ -32,13 +32,19 @@ class Logger {
 		static void logWarning( const char* msg, const char* prefix = "* " );
 		static void logWarning( string msg, const char* prefix = "* " );
 		static void logWarningf( const char* format, ... );
+		static void mute();
+		static void setLogLevel( int level );
+		static void unmute();
 
 	protected:
 		static const string buildLogMessage( const char* format, va_list args );
+		static void log( const char* format, const char* prefix, const char* msg );
 
 	private:
 		static int mIndent;
 		static char mIndentChar[21];
+		static bool mIsMute;
+		static int mLogLevel;
 
 };
 

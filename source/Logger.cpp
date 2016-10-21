@@ -5,6 +5,8 @@ using std::string;
 
 int Logger::mIndent = 0;
 char Logger::mIndentChar[21];
+bool Logger::mIsMute = false;
+int Logger::mLogLevel = 4;
 
 
 /**
@@ -55,14 +57,32 @@ int Logger::indentChange( int diff ) {
 
 
 /**
+ * Central log method.
+ * @param {const char*} format
+ * @param {const char*} prefix
+ * @param {const char*} msg
+ */
+void Logger::log( const char* format, const char* prefix, const char* msg ) {
+	if( mIsMute ) {
+		return;
+	}
+
+	printf( format, "", prefix, msg );
+}
+
+
+/**
  * Log messages of level "debug".
  * @param {const char*} msg    Message to log.
  * @param {const char*} prefix Prefix for the line.
  */
 void Logger::logDebug( const char* msg, const char* prefix ) {
-	if( Cfg::get().value<int>( Cfg::LOG_LEVEL ) < 3 ) { return; }
+	if( mLogLevel < 3 || mIsMute ) {
+		return;
+	}
+
 	string p = string( "\033[32m%" ).append( mIndentChar ).append( "s%s%s\033[0m\n" );
-	printf( p.c_str(), "", prefix, msg );
+	Logger::log( p.c_str(), prefix, msg );
 }
 
 
@@ -94,9 +114,12 @@ void Logger::logDebugf( const char* format, ... ) {
  * @param {const char*} prefix Prefix for the line.
  */
 void Logger::logDebugVerbose( const char* msg, const char* prefix ) {
-	if( Cfg::get().value<int>( Cfg::LOG_LEVEL ) < 4 ) { return; }
+	if( mLogLevel < 4 || mIsMute ) {
+		return;
+	}
+
 	string p = string( "\033[36m%" ).append( mIndentChar ).append( "s%s%s\033[0m\n" );
-	printf( p.c_str(), "", prefix, msg );
+	Logger::log( p.c_str(), prefix, msg );
 }
 
 
@@ -128,9 +151,12 @@ void Logger::logDebugVerbosef( const char* format, ... ) {
  * @param {const char*} prefix Prefix for the line.
  */
 void Logger::logError( const char* msg, const char* prefix ) {
-	if( Cfg::get().value<int>( Cfg::LOG_LEVEL ) < 1 ) { return; }
+	if( mLogLevel < 1 || mIsMute ) {
+		return;
+	}
+
 	string p = string( "\033[31;1m%" ).append( mIndentChar ).append( "s%s%s\033[0m\n" );
-	printf( p.c_str(), "", prefix, msg );
+	Logger::log( p.c_str(), prefix, msg );
 }
 
 
@@ -162,9 +188,12 @@ void Logger::logErrorf( const char* format, ... ) {
  * @param {const char*} prefix Prefix for the line.
  */
 void Logger::logInfo( const char* msg, const char* prefix ) {
-	if( Cfg::get().value<int>( Cfg::LOG_LEVEL ) < 2 ) { return; }
+	if( mLogLevel < 2 || mIsMute ) {
+		return;
+	}
+
 	string p = string( "%" ).append( mIndentChar ).append( "s%s%s\n" );
-	printf( p.c_str(), "", prefix, msg );
+	Logger::log( p.c_str(), prefix, msg );
 }
 
 
@@ -196,9 +225,12 @@ void Logger::logInfof( const char* format, ... ) {
  * @param {const char*} prefix Prefix for the line.
  */
 void Logger::logWarning( const char* msg, const char* prefix ) {
-	if( Cfg::get().value<int>( Cfg::LOG_LEVEL ) < 1 ) { return; }
+	if( mLogLevel < 1 || mIsMute ) {
+		return;
+	}
+
 	string p = string( "\033[33;1m%" ).append( mIndentChar ).append( "s%s%s\033[0m\n" );
-	printf( p.c_str(), "", prefix, msg );
+	Logger::log( p.c_str(), prefix, msg );
 }
 
 
@@ -221,4 +253,29 @@ void Logger::logWarningf( const char* format, ... ) {
 	va_start( args, format );
 	Logger::logWarning( Logger::buildLogMessage( format, args ) );
 	va_end( args );
+}
+
+
+/**
+ * Mute.
+ */
+void Logger::mute() {
+	mIsMute = true;
+}
+
+
+/**
+ * Set the log level.
+ * @param {int} level New log level.
+ */
+void Logger::setLogLevel( int level ) {
+	mLogLevel = level;
+}
+
+
+/**
+ * Unmute.
+ */
+void Logger::unmute() {
+	mIsMute = false;
 }

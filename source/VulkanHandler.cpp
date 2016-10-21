@@ -202,6 +202,13 @@ VkSurfaceFormatKHR VulkanHandler::chooseSwapSurfaceFormat(
  * Create the command buffers.
  */
 void VulkanHandler::createCommandBuffers() {
+	// Free old command buffers.
+	if( mCommandBuffers.size() > 0 ) {
+		vkFreeCommandBuffers(
+			mLogicalDevice, mCommandPool, mCommandBuffers.size(), mCommandBuffers.data()
+		);
+	}
+
 	mCommandBuffers.resize( mFramebuffers.size() );
 
 	VkCommandBufferAllocateInfo allocInfo = {};
@@ -302,6 +309,13 @@ void VulkanHandler::createCommandPool() {
  * Create the framebuffers.
  */
 void VulkanHandler::createFramebuffers() {
+	// Destroy old framebuffers.
+	if( mFramebuffers.size() > 0 ) {
+		for( size_t i = 0; i < mFramebuffers.size(); i++ ) {
+			vkDestroyFramebuffer( mLogicalDevice, mFramebuffers[i], nullptr );
+		}
+	}
+
 	mFramebuffers.resize( mSwapchainImageViews.size() );
 
 	for( size_t i = 0; i < mSwapchainImageViews.size(); i++ ) {
@@ -336,6 +350,16 @@ void VulkanHandler::createFramebuffers() {
  * Create the graphics pipeline.
  */
 void VulkanHandler::createGraphicsPipeline() {
+	// Destroy old graphics pipeline.
+	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
+		vkDestroyPipeline( mLogicalDevice, mGraphicsPipeline, nullptr );
+	}
+
+	// Destroy old pipeline layout.
+	if( mPipelineLayout != VK_NULL_HANDLE ) {
+		vkDestroyPipelineLayout( mLogicalDevice, mPipelineLayout, nullptr );
+	}
+
 	auto vertShaderCode = this->loadFileSPV( "source/shaders/vert.spv" );
 	auto fragShaderCode = this->loadFileSPV( "source/shaders/frag.spv" );
 	Logger::logDebug( "[VulkanHandler] Loaded shader files." );
@@ -517,7 +541,8 @@ void VulkanHandler::createGraphicsPipeline() {
  * Create the swapchain image views.
  */
 void VulkanHandler::createImageViews() {
-	mSwapchainImageViews.resize( mSwapchainImages.size() );
+	this->destroyImageViews();
+	mSwapchainImageViews.resize( mSwapchainImages.size(), VK_NULL_HANDLE );
 
 	for( uint32_t i = 0; i < mSwapchainImages.size(); i++ ) {
 		VkImageView imageView = {};
@@ -543,7 +568,7 @@ void VulkanHandler::createImageViews() {
 		);
 
 		if( result != VK_SUCCESS ) {
-			Logger::logErrorf( "[VulkanHandler] Failed to create VkImageView #%u.", i );
+			Logger::logErrorf( "[VulkanHandler] Failed to create VkImageView %u.", i );
 			throw std::runtime_error( "Failed to create VkImageView." );
 		}
 	}
@@ -647,6 +672,11 @@ void VulkanHandler::createLogicalDevice() {
  * Create the VkRenderPass.
  */
 void VulkanHandler::createRenderPass() {
+	// Destroy old render pass.
+	if( mRenderPass != VK_NULL_HANDLE ) {
+		vkDestroyRenderPass( mLogicalDevice, mRenderPass, nullptr );
+	}
+
 	VkAttachmentDescription colorAttachment = {};
 	colorAttachment.format = mSwapchainFormat;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -755,10 +785,9 @@ VkShaderModule VulkanHandler::createShaderModule( const vector<char>& code ) {
 
 /**
  * Create the window surface.
- * @param {GLFWwindow*} window
  */
-void VulkanHandler::createSurface( GLFWwindow* window ) {
-	VkResult result = glfwCreateWindowSurface( mInstance, window, nullptr, &mSurface );
+void VulkanHandler::createSurface() {
+	VkResult result = glfwCreateWindowSurface( mInstance, mWindow, nullptr, &mSurface );
 
 	if( result != VK_SUCCESS ) {
 		Logger::logError( "[VulkanHandler] Failed to create window surface (VkSurfaceKHR)." );
@@ -832,9 +861,12 @@ void VulkanHandler::createSwapChain() {
 	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 	createInfo.presentMode = presentMode;
 	createInfo.clipped = VK_FALSE;
-	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-	VkResult result = vkCreateSwapchainKHR( mLogicalDevice, &createInfo, nullptr, &mSwapchain );
+	VkSwapchainKHR oldSwapchain = mSwapchain;
+	createInfo.oldSwapchain = oldSwapchain;
+
+	VkSwapchainKHR newSwapchain;
+	VkResult result = vkCreateSwapchainKHR( mLogicalDevice, &createInfo, nullptr, &newSwapchain );
 
 	if( result != VK_SUCCESS ) {
 		Logger::logError( "[VulkanHandler] Failed to create VkSwapchainKHR." );
@@ -844,6 +876,12 @@ void VulkanHandler::createSwapChain() {
 		Logger::logInfo( "[VulkanHandler] VkSwapchainKHR created." );
 	}
 
+	// Destroy old swap chain if existing.
+	if( mSwapchain != VK_NULL_HANDLE ) {
+		vkDestroySwapchainKHR( mLogicalDevice, mSwapchain, nullptr );
+	}
+
+	mSwapchain = newSwapchain;
 	mSwapchainFormat = surfaceFormat.format;
 	mSwapchainExtent = extent;
 }
@@ -900,14 +938,15 @@ void VulkanHandler::destroyDebugCallback() {
  * Destroy the image views.
  */
 void VulkanHandler::destroyImageViews() {
-	uint32_t i = 0;
+	for( uint32_t i = 0; i < mSwapchainImageViews.size(); i++ ) {
+		VkImageView imageView = mSwapchainImageViews[i];
 
-	for( const auto& imageView : mSwapchainImageViews ) {
-		vkDestroyImageView( mLogicalDevice, imageView, nullptr );
-		i++;
+		if( imageView != VK_NULL_HANDLE ) {
+			vkDestroyImageView( mLogicalDevice, imageView, nullptr );
+			mSwapchainImageViews[i] = VK_NULL_HANDLE;
+			Logger::logDebugVerbosef( "[VulkanHandler] Destroyed VkImageView %u.", i );
+		}
 	}
-
-	Logger::logDebugf( "[VulkanHandler] Destroyed %u VkImageViews.", i );
 }
 
 
@@ -917,7 +956,7 @@ void VulkanHandler::destroyImageViews() {
 void VulkanHandler::drawFrame() {
 	uint32_t imageIndex;
 
-	vkAcquireNextImageKHR(
+	VkResult result = vkAcquireNextImageKHR(
 		mLogicalDevice,
 		mSwapchain,
 		std::numeric_limits< uint64_t >::max(), // disable timeout
@@ -925,6 +964,15 @@ void VulkanHandler::drawFrame() {
 		VK_NULL_HANDLE,
 		&imageIndex
 	);
+
+	if( result == VK_ERROR_OUT_OF_DATE_KHR ) {
+		this->recreateSwapchain();
+		return;
+	}
+	else if( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
+		Logger::logError( "[VulkanHandler] Failed to acquire swap chain image." );
+		throw std::runtime_error( "Failed to acquire swap chain image." );
+	}
 
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -942,7 +990,7 @@ void VulkanHandler::drawFrame() {
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	VkResult result = vkQueueSubmit( mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE );
+	result = vkQueueSubmit( mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE );
 
 	if( result != VK_SUCCESS ) {
 		Logger::logError( "[VulkanHandler] Failed to submit queue (graphics)." );
@@ -960,7 +1008,15 @@ void VulkanHandler::drawFrame() {
 	presentInfo.pImageIndices = &imageIndex;
 	presentInfo.pResults = nullptr;
 
-	vkQueuePresentKHR( mPresentQueue, &presentInfo );
+	result = vkQueuePresentKHR( mPresentQueue, &presentInfo );
+
+	if( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ) {
+		this->recreateSwapchain();
+	}
+	else if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to present swap chain image." );
+		throw std::runtime_error( "Failed to present swap chain image." );
+	}
 }
 
 
@@ -1044,6 +1100,42 @@ uint32_t VulkanHandler::getVersionPBR() {
 	const uint32_t vPatch = Cfg::get().value<uint32_t>( Cfg::VERSION_PATCH );
 
 	return VK_MAKE_VERSION( vMajor, vMinor, vPatch );
+}
+
+
+/**
+ * Initialize the window.
+ */
+void VulkanHandler::initWindow() {
+	glfwInit();
+
+	int glfwVersionMajor = 0;
+	int glfwVersionMinor = 0;
+	int glfwVersionRev = 0;
+	glfwGetVersion( &glfwVersionMajor, &glfwVersionMinor, &glfwVersionRev );
+
+	Logger::logInfof(
+		"[VulkanHandler] GLFW version: %d.%d.%d",
+		glfwVersionMajor, glfwVersionMinor, glfwVersionRev
+	);
+
+	if( !glfwVulkanSupported() ) {
+		Logger::logError( "[VulkanHandler] GLFW says it doesn't support Vulkan." );
+		glfwTerminate();
+
+		throw std::runtime_error( "GLFW does not support Vulkan." );
+	}
+
+	glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
+	glfwWindowHint( GLFW_RESIZABLE, GLFW_TRUE );
+
+	mWindow = glfwCreateWindow(
+		Cfg::get().value<int>( Cfg::WINDOW_WIDTH ),
+		Cfg::get().value<int>( Cfg::WINDOW_HEIGHT ),
+		"PBR-Vulkan", nullptr, nullptr
+	);
+	glfwSetWindowUserPointer( mWindow, this );
+	glfwSetWindowSizeCallback( mWindow, VulkanHandler::onWindowResize );
 }
 
 
@@ -1167,13 +1259,12 @@ vector<char> VulkanHandler::loadFileSPV( const string& filename ) {
 
 /**
  * Start the main loop.
- * @param {GLFWwindow*} window
  */
-void VulkanHandler::mainLoop( GLFWwindow* window ) {
+void VulkanHandler::mainLoop() {
 	double lastTime = 0.0;
 	uint64_t nbFrames = 0;
 
-	while( !glfwWindowShouldClose( window ) ) {
+	while( !glfwWindowShouldClose( mWindow ) ) {
 		glfwPollEvents();
 		this->drawFrame();
 
@@ -1185,13 +1276,29 @@ void VulkanHandler::mainLoop( GLFWwindow* window ) {
 			char title[32];
 			snprintf( title, 32, "PBR (FPS: %3.2f)", (double) nbFrames / delta );
 
-			glfwSetWindowTitle( window, title );
+			glfwSetWindowTitle( mWindow, title );
 			nbFrames = 0;
 			lastTime = currentTime;
 		}
 	}
 
 	vkDeviceWaitIdle( mLogicalDevice );
+}
+
+
+/**
+ * Handle window resize events.
+ * @param {GLFWwindow*} window
+ * @param {int}         width
+ * @param {int]         height
+ */
+void VulkanHandler::onWindowResize( GLFWwindow* window, int width, int height ) {
+	if( width == 0 || height == 0 ) {
+		return;
+	}
+
+	VulkanHandler* vk = reinterpret_cast<VulkanHandler*>( glfwGetWindowUserPointer( window ) );
+	vk->recreateSwapchain();
 }
 
 
@@ -1260,6 +1367,30 @@ SwapChainSupportDetails VulkanHandler::querySwapChainSupport( VkPhysicalDevice d
 
 
 /**
+ * Recreate the swapchain.
+ */
+void VulkanHandler::recreateSwapchain() {
+	Logger::mute();
+	Logger::logDebug( "[VulkanHandler] Recreating swap chain ..." );
+	Logger::indentChange( 2 );
+
+	vkDeviceWaitIdle( mLogicalDevice );
+
+	this->createSwapChain();
+	this->retrieveSwapchainImageHandles();
+	this->createImageViews();
+	this->createRenderPass();
+	this->createGraphicsPipeline();
+	this->createFramebuffers();
+	this->createCommandBuffers();
+
+	Logger::indentChange( -2 );
+	Logger::logDebug( "[VulkanHandler] Swap chain recreated." );
+	Logger::unmute();
+}
+
+
+/**
  * Retrieve the handles for the swapchain images.
  */
 void VulkanHandler::retrieveSwapchainImageHandles() {
@@ -1313,11 +1444,12 @@ VkPhysicalDevice VulkanHandler::selectDevice() {
 /**
  * Setup Vulkan: Create a VkInstance,
  * check for support, pick a device etc.
- * @param {GLFWwindow*} window
  */
-void VulkanHandler::setup( GLFWwindow* window ) {
+void VulkanHandler::setup() {
 	Logger::logInfo( "[VulkanHandler] Setup beginning ..." );
 	Logger::indentChange( 2 );
+
+	this->initWindow();
 
 	mUseValidationLayer = Cfg::get().value<bool>( Cfg::VULKAN_VALIDATION_LAYER );
 
@@ -1330,7 +1462,7 @@ void VulkanHandler::setup( GLFWwindow* window ) {
 
 	mInstance = this->createInstance();
 	this->setupDebugCallback();
-	this->createSurface( window );
+	this->createSurface();
 	mPhysicalDevice = this->selectDevice();
 	this->createLogicalDevice();
 	this->createSwapChain();
@@ -1391,18 +1523,29 @@ void VulkanHandler::teardown() {
 	Logger::logInfo( "[VulkanHandler] Teardown beginning ..." );
 	Logger::indentChange( 2 );
 
-	if( mImageAvailableSemaphore ) {
+	if( mWindow != nullptr ) {
+		glfwDestroyWindow( mWindow );
+		glfwTerminate();
+		mWindow = nullptr;
+
+		Logger::logDebug( "[VulkanHandler] GLFW window destroyed and terminated." );
+	}
+
+	if( mImageAvailableSemaphore != VK_NULL_HANDLE ) {
 		vkDestroySemaphore( mLogicalDevice, mImageAvailableSemaphore, nullptr );
+		mImageAvailableSemaphore = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[VulkanHandler] VkSemaphore (image available) destroyed." );
 	}
 
-	if( mRenderFinishedSemaphore ) {
+	if( mRenderFinishedSemaphore != VK_NULL_HANDLE ) {
 		vkDestroySemaphore( mLogicalDevice, mRenderFinishedSemaphore, nullptr );
+		mRenderFinishedSemaphore = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[VulkanHandler] VkSemaphore (render finished) destroyed." );
 	}
 
-	if( mCommandPool ) {
+	if( mCommandPool != VK_NULL_HANDLE ) {
 		vkDestroyCommandPool( mLogicalDevice, mCommandPool, nullptr );
+		mCommandPool = VK_NULL_HANDLE;
 		Logger::logDebug( "[VulkanHandler] VkCommandPool destroyed." );
 	}
 
@@ -1414,42 +1557,50 @@ void VulkanHandler::teardown() {
 		Logger::logDebugf( "[VulkanHandler] %u VkFramebuffers destroyed.", mFramebuffers.size() );
 	}
 
-	if( mGraphicsPipeline ) {
+	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
 		vkDestroyPipeline( mLogicalDevice, mGraphicsPipeline, nullptr );
+		mGraphicsPipeline = VK_NULL_HANDLE;
 		Logger::logDebug( "[VulkanHandler] VkPipeline (graphics) destroyed." );
 	}
 
-	if( mPipelineLayout ) {
+	if( mPipelineLayout != VK_NULL_HANDLE ) {
 		vkDestroyPipelineLayout( mLogicalDevice, mPipelineLayout, nullptr );
+		mPipelineLayout = VK_NULL_HANDLE;
 		Logger::logDebug( "[VulkanHandler] VkPipelineLayout destroyed." );
 	}
 
-	if( mRenderPass ) {
+	if( mRenderPass != VK_NULL_HANDLE ) {
 		vkDestroyRenderPass( mLogicalDevice, mRenderPass, nullptr );
+		mRenderPass = VK_NULL_HANDLE;
 		Logger::logDebug( "[VulkanHandler] VkRenderPass destroyed." );
 	}
 
 	this->destroyImageViews();
+	Logger::logDebugf( "[VulkanHandler] Destroyed %u VkImageViews.", mSwapchainImageViews.size() );
 
-	if( mSwapchain ) {
+	if( mSwapchain != VK_NULL_HANDLE ) {
 		vkDestroySwapchainKHR( mLogicalDevice, mSwapchain, nullptr );
+		mSwapchain = VK_NULL_HANDLE;
 		Logger::logDebug( "[VulkanHandler] VkSwapchainKHR destroyed." );
 	}
 
-	if( mLogicalDevice ) {
+	if( mLogicalDevice != VK_NULL_HANDLE ) {
 		vkDestroyDevice( mLogicalDevice, nullptr );
+		mLogicalDevice = VK_NULL_HANDLE;
 		Logger::logDebug( "[VulkanHandler] VkDevice destroyed." );
 	}
 
-	if( mSurface ) {
+	if( mSurface != VK_NULL_HANDLE ) {
 		vkDestroySurfaceKHR( mInstance, mSurface, nullptr );
+		mSurface = VK_NULL_HANDLE;
 		Logger::logDebug( "[VulkanHandler] VkSurfaceKHR destroyed." );
 	}
 
 	this->destroyDebugCallback();
 
-	if( mInstance ) {
+	if( mInstance != VK_NULL_HANDLE ) {
 		vkDestroyInstance( mInstance, nullptr );
+		mInstance = VK_NULL_HANDLE;
 		Logger::logDebug( "[VulkanHandler] VkInstance destroyed." );
 	}
 
