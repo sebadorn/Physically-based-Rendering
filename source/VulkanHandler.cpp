@@ -387,12 +387,15 @@ void VulkanHandler::createGraphicsPipeline() {
 	};
 
 
+	auto bindingDescription = Vertex::getBindingDescription();
+	auto attributeDescription = Vertex::getAttributeDescription();
+
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 0;
-	vertexInputInfo.pVertexBindingDescriptions = nullptr;
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+	vertexInputInfo.vertexBindingDescriptionCount = 1;
+	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+	vertexInputInfo.vertexAttributeDescriptionCount = attributeDescription.size();
+	vertexInputInfo.pVertexAttributeDescriptions = attributeDescription.data();
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -888,6 +891,47 @@ void VulkanHandler::createSwapChain() {
 
 
 /**
+ * Create vertex buffer.
+ */
+void VulkanHandler::createVertexBuffer() {
+	VkBufferCreateInfo bufferInfo = {};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = sizeof( vertices[0] ) * vertices.size();
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	VkResult result = vkCreateBuffer(
+		mLogicalDevice, &bufferInfo, nullptr, &mVertexBuffer
+	);
+
+	if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to create VkBuffer (vertices)." );
+		throw std::runtime_error( "Failed to create VkBuffer (vertices)." );
+	}
+
+	VkMemoryRequirements memRequirements;
+	vkGetBufferMemoryRequirements( mLogicalDevice, mVertexBuffer, &memRequirements );
+
+	VkMemoryAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memRequirements.size;
+	allocInfo.memoryTypeIndex = this->findMemoryType(
+		memRequirements.memoryTypeBits,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+
+	result = vkAllocateMemory( mLogicalDevice, &allocInfo, nullptr, &mVertexBufferMemory );
+
+	if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to allocate memory (vertices)." );
+		throw std::runtime_error( "Failed to allocate memory (vertices)." );
+	}
+
+	vkBindBufferMemory( mLogicalDevice, mVertexBuffer, mVertexBufferMemory, 0 );
+}
+
+
+/**
  * Debug callback for the validation layer.
  * @param  {VkDebugReportFlagsEXT}      flags
  * @param  {VkDebugReportObjectTypeEXT} objType
@@ -1017,6 +1061,30 @@ void VulkanHandler::drawFrame() {
 		Logger::logError( "[VulkanHandler] Failed to present swap chain image." );
 		throw std::runtime_error( "Failed to present swap chain image." );
 	}
+}
+
+
+/**
+ * Find suitable memory type.
+ * @param  {uint32_t}              typeFilter
+ * @param  {VkMemoryPropertyFlags} properties
+ * @return {uint32_t}
+ */
+uint32_t VulkanHandler::findMemoryType( uint32_t typeFilter, VkMemoryPropertyFlags properties ) {
+	VkPhysicalDeviceMemoryProperties memProperties;
+	vkGetPhysicalDeviceMemoryProperties( mPhysicalDevice, &memProperties );
+
+	for( uint32_t i = 0; i < memProperties.memoryTypeCount; i++ ) {
+		if(
+			( typeFilter & ( 1 << i ) ) &&
+			( memProperties.memoryTypes[i].propertyFlags & properties ) == properties
+		) {
+			return i;
+		}
+	}
+
+	Logger::logError( "[VulkanHandler] Failed to find suitable memory type." );
+	throw std::runtime_error( "Failed to find suitable memory type." );
 }
 
 
@@ -1472,6 +1540,7 @@ void VulkanHandler::setup() {
 	this->createGraphicsPipeline();
 	this->createFramebuffers();
 	this->createCommandPool();
+	this->createVertexBuffer();
 	this->createCommandBuffers();
 	this->createSemaphores();
 
@@ -1541,6 +1610,18 @@ void VulkanHandler::teardown() {
 		vkDestroySemaphore( mLogicalDevice, mRenderFinishedSemaphore, nullptr );
 		mRenderFinishedSemaphore = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[VulkanHandler] VkSemaphore (render finished) destroyed." );
+	}
+
+	if( mVertexBufferMemory != VK_NULL_HANDLE ) {
+		vkFreeMemory( mLogicalDevice, mVertexBufferMemory, nullptr );
+		mVertexBufferMemory = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkDeviceMemory (vertices) freed." );
+	}
+
+	if( mVertexBuffer != VK_NULL_HANDLE ) {
+		vkDestroyBuffer( mLogicalDevice, mVertexBuffer, nullptr );
+		mVertexBuffer = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkBuffer (vertices) destroyed." );
 	}
 
 	if( mCommandPool != VK_NULL_HANDLE ) {

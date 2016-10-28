@@ -3,7 +3,9 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <fstream>
 #include <limits>
@@ -13,7 +15,44 @@
 #include "Cfg.h"
 #include "Logger.h"
 
+using std::array;
 using std::vector;
+
+
+struct Vertex {
+	glm::vec2 pos;
+	glm::vec3 color;
+
+	static array<VkVertexInputAttributeDescription, 2> getAttributeDescription() {
+		array<VkVertexInputAttributeDescription, 2> attrDesc = {};
+		attrDesc[0].binding = 0;
+		attrDesc[0].location = 0;
+		attrDesc[0].format = VK_FORMAT_R32G32_SFLOAT;
+		attrDesc[0].offset = offsetof( Vertex, pos );
+
+		attrDesc[1].binding = 0;
+		attrDesc[1].location = 1;
+		attrDesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attrDesc[1].offset = offsetof( Vertex, color );
+
+		return attrDesc;
+	}
+
+	static VkVertexInputBindingDescription getBindingDescription() {
+		VkVertexInputBindingDescription bindingDesc = {};
+		bindingDesc.binding = 0;
+		bindingDesc.stride = sizeof( Vertex );
+		bindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		return bindingDesc;
+	}
+};
+
+const vector<Vertex> vertices = {
+	{ { 0.0f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
+	{ { 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f } },
+	{ { -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } }
+};
 
 
 const vector<const char*> VALIDATION_LAYERS = {
@@ -73,6 +112,7 @@ class VulkanHandler {
 		void createSemaphores();
 		void createSurface();
 		void createSwapChain();
+		void createVertexBuffer();
 		void destroyDebugCallback();
 		void destroyImageViews();
 		void drawFrame();
@@ -81,6 +121,7 @@ class VulkanHandler {
 			int* graphicsFamily,
 			int* presentFamily
 		);
+		uint32_t findMemoryType( uint32_t typeFitler, VkMemoryPropertyFlags properties );
 		SwapChainSupportDetails querySwapChainSupport( VkPhysicalDevice device );
 		void recreateSwapchain();
 		void retrieveSwapchainImageHandles();
@@ -106,9 +147,11 @@ class VulkanHandler {
 		vector<VkFramebuffer> mFramebuffers;
 		vector<VkImage> mSwapchainImages;
 		vector<VkImageView> mSwapchainImageViews;
+		VkBuffer mVertexBuffer = VK_NULL_HANDLE;
 		VkCommandPool mCommandPool = VK_NULL_HANDLE;
 		VkDebugReportCallbackEXT mDebugCallback;
 		VkDevice mLogicalDevice = VK_NULL_HANDLE;
+		VkDeviceMemory mVertexBufferMemory = VK_NULL_HANDLE;
 		VkExtent2D mSwapchainExtent;
 		VkFormat mSwapchainFormat;
 		VkInstance mInstance = VK_NULL_HANDLE;
