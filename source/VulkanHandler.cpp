@@ -260,6 +260,11 @@ void VulkanHandler::createCommandBuffers() {
 		vkCmdBindPipeline(
 			mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline
 		);
+
+		VkBuffer vertexBuffers[] = { mVertexBuffer };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers( mCommandBuffers[i], 0, 1, vertexBuffers, offsets );
+
 		vkCmdDraw( mCommandBuffers[i], 3, 1, 0, 0 );
 		vkCmdEndRenderPass( mCommandBuffers[i] );
 
@@ -928,6 +933,11 @@ void VulkanHandler::createVertexBuffer() {
 	}
 
 	vkBindBufferMemory( mLogicalDevice, mVertexBuffer, mVertexBufferMemory, 0 );
+
+	void* data;
+	vkMapMemory( mLogicalDevice, mVertexBufferMemory, 0, bufferInfo.size, 0, &data );
+	memcpy( data, vertices.data(), (size_t) bufferInfo.size );
+	vkUnmapMemory( mLogicalDevice, mVertexBufferMemory );
 }
 
 
