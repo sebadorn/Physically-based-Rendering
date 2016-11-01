@@ -101,6 +101,14 @@ class VulkanHandler {
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(
 			const vector<VkSurfaceFormatKHR>& availableFormats
 		);
+		void copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size );
+		void createBuffer(
+			VkDeviceSize size,
+			VkBufferUsageFlags usage,
+			VkMemoryPropertyFlags properties,
+			VkBuffer& buffer,
+			VkDeviceMemory& bufferMemory
+		);
 		void createCommandBuffers();
 		void createCommandPool();
 		void createFramebuffers();

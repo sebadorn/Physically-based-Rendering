@@ -199,6 +199,98 @@ VkSurfaceFormatKHR VulkanHandler::chooseSwapSurfaceFormat(
 
 
 /**
+ * Copy VkBuffer.
+ * @param {VkBuffer}     srcBuffer
+ * @param {VkBuffer}     dstBuffer
+ * @param {VkDeviceSize} size
+ */
+void VulkanHandler::copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size ) {
+	VkCommandBufferAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = mCommandPool;
+	allocInfo.commandBufferCount = 1;
+
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers( mLogicalDevice, &allocInfo, &commandBuffer );
+
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	vkBeginCommandBuffer( commandBuffer, &beginInfo );
+
+	VkBufferCopy copyRegion = {};
+	copyRegion.srcOffset = 0;
+	copyRegion.dstOffset = 0;
+	copyRegion.size = size;
+	vkCmdCopyBuffer( commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion );
+
+	vkEndCommandBuffer( commandBuffer );
+
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	vkQueueSubmit( mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE );
+	vkQueueWaitIdle( mGraphicsQueue );
+
+	vkFreeCommandBuffers( mLogicalDevice, mCommandPool, 1, &commandBuffer );
+}
+
+
+/**
+ * Create a VkBuffer.
+ * @param {VkDeviceSize}          size
+ * @param {VkBufferUsageFlags}    usage
+ * @param {VkMemoryPropertyFlags} properties
+ * @param {VkBuffer&}             buffer
+ * @param {VkDeviceMemory&}       bufferMemory
+ */
+void VulkanHandler::createBuffer(
+	VkDeviceSize size,
+	VkBufferUsageFlags usage,
+	VkMemoryPropertyFlags properties,
+	VkBuffer& buffer,
+	VkDeviceMemory& bufferMemory
+) {
+	VkBufferCreateInfo bufferInfo = {};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = size;
+	bufferInfo.usage = usage;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	VkResult result = vkCreateBuffer( mLogicalDevice, &bufferInfo, nullptr, &buffer );
+
+	if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to create VkBuffer." );
+		throw std::runtime_error( "Failed to create VkBuffer." );
+	}
+
+	VkMemoryRequirements memRequirements;
+	vkGetBufferMemoryRequirements( mLogicalDevice, buffer, &memRequirements );
+
+	VkMemoryAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memRequirements.size;
+	allocInfo.memoryTypeIndex = this->findMemoryType(
+		memRequirements.memoryTypeBits,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+
+	result = vkAllocateMemory( mLogicalDevice, &allocInfo, nullptr, &bufferMemory );
+
+	if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to allocate memory." );
+		throw std::runtime_error( "Failed to allocate memory." );
+	}
+
+	vkBindBufferMemory( mLogicalDevice, buffer, bufferMemory, 0 );
+}
+
+
+/**
  * Create the command buffers.
  */
 void VulkanHandler::createCommandBuffers() {
@@ -899,45 +991,34 @@ void VulkanHandler::createSwapChain() {
  * Create vertex buffer.
  */
 void VulkanHandler::createVertexBuffer() {
-	VkBufferCreateInfo bufferInfo = {};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = sizeof( vertices[0] ) * vertices.size();
-	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	VkDeviceSize bufferSize = sizeof( vertices[0] ) * vertices.size();
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
 
-	VkResult result = vkCreateBuffer(
-		mLogicalDevice, &bufferInfo, nullptr, &mVertexBuffer
+	this->createBuffer(
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer,
+		stagingBufferMemory
 	);
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create VkBuffer (vertices)." );
-		throw std::runtime_error( "Failed to create VkBuffer (vertices)." );
-	}
-
-	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements( mLogicalDevice, mVertexBuffer, &memRequirements );
-
-	VkMemoryAllocateInfo allocInfo = {};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = this->findMemoryType(
-		memRequirements.memoryTypeBits,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-	);
-
-	result = vkAllocateMemory( mLogicalDevice, &allocInfo, nullptr, &mVertexBufferMemory );
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to allocate memory (vertices)." );
-		throw std::runtime_error( "Failed to allocate memory (vertices)." );
-	}
-
-	vkBindBufferMemory( mLogicalDevice, mVertexBuffer, mVertexBufferMemory, 0 );
 
 	void* data;
-	vkMapMemory( mLogicalDevice, mVertexBufferMemory, 0, bufferInfo.size, 0, &data );
-	memcpy( data, vertices.data(), (size_t) bufferInfo.size );
-	vkUnmapMemory( mLogicalDevice, mVertexBufferMemory );
+	vkMapMemory( mLogicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data );
+	memcpy( data, vertices.data(), (size_t) bufferSize );
+	vkUnmapMemory( mLogicalDevice, stagingBufferMemory );
+
+	this->createBuffer(
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		mVertexBuffer,
+		mVertexBufferMemory
+	);
+	this->copyBuffer( stagingBuffer, mVertexBuffer, bufferSize );
+
+	vkFreeMemory( mLogicalDevice, stagingBufferMemory, nullptr );
+	vkDestroyBuffer( mLogicalDevice, stagingBuffer, nullptr );
 }
 
 
