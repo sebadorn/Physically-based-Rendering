@@ -14,5 +14,5 @@ out gl_PerVertex {
 
 void main() {
 	gl_Position = vec4( inPosition, 0.0, 1.0 );
-	fragColor = inColor;
+	fragColor = vec3( ( inPosition.x + 1.0 ) * 0.5, ( inPosition.y + 1.0 ) * 0.5, 0.5 );
 }

@@ -3,6 +3,10 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+
+#include <imgui.h>
+#include <imgui_impl_glfw_vulkan.h>
+
 #include <glm/glm.hpp>
 #include <algorithm>
 #include <array>
@@ -49,9 +53,12 @@ struct Vertex {
 };
 
 const vector<Vertex> vertices = {
-	{ { 0.0f, -0.5f }, { 1.0f, 1.0f, 1.0f } },
-	{ { 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f } },
-	{ { -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } }
+	{ { -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f } },
+	{ { 1.0f, -1.0f }, { 0.0f, 1.0f, 0.0f } },
+	{ { 1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f } },
+	{ { -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f } },
+	{ { 1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f } },
+	{ { -1.0f, 1.0f }, { 0.0f, 1.0f, 0.0f } }
 };
 
 
@@ -83,6 +90,7 @@ class VulkanHandler {
 		void mainLoop();
 		void printDeviceDebugInfo( VkPhysicalDevice device );
 		void setup();
+		void setupImGui();
 		void teardown();
 
 		static uint32_t getVersionPBR();
@@ -136,6 +144,7 @@ class VulkanHandler {
 		VkPhysicalDevice selectDevice();
 		void setupDebugCallback();
 
+		static void checkImGuiVkResult( VkResult result );
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 			VkDebugReportFlagsEXT flags,
 			VkDebugReportObjectTypeEXT objType,
@@ -149,6 +158,7 @@ class VulkanHandler {
 		static void onWindowResize( GLFWwindow* window, int width, int height );
 
 	private:
+		bool mIsImGuiSetupDone = false;
 		bool mUseValidationLayer;
 		GLFWwindow* mWindow = nullptr;
 		vector<VkCommandBuffer> mCommandBuffers;

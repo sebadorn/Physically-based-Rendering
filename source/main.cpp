@@ -38,6 +38,11 @@ int main( int argc, char** argv ) {
 	}
 
 	Logger::logInfo( "--------------------" );
+	Logger::logInfo( "[main] Setup imgui." );
+
+	vkHandler.setupImGui();
+
+	Logger::logInfo( "--------------------" );
 	Logger::logInfo( "[main] Starting main loop." );
 
 	vkHandler.mainLoop();

@@ -79,6 +79,25 @@ const bool VulkanHandler::checkDeviceExtensionSupport( VkPhysicalDevice device )
 
 
 /**
+ * Check VkResults from ImGui.
+ * @param {VkResult} result
+ */
+void VulkanHandler::checkImGuiVkResult( VkResult result ) {
+	if( result == VK_SUCCESS ) {
+		return;
+	}
+
+	if( result < 0 ) {
+		Logger::logErrorf(
+			"[VulkanHandler] Received error in ImGui VkResult check: %d",
+			result
+		);
+		throw std::runtime_error( "Error received in checkImGuiVkResult()." );
+	}
+}
+
+
+/**
  * Check if the requested validation layers are supported.
  * @return {const bool}
  */
@@ -357,7 +376,7 @@ void VulkanHandler::createCommandBuffers() {
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers( mCommandBuffers[i], 0, 1, vertexBuffers, offsets );
 
-		vkCmdDraw( mCommandBuffers[i], 3, 1, 0, 0 );
+		vkCmdDraw( mCommandBuffers[i], vertices.size(), 1, 0, 0 );
 		vkCmdEndRenderPass( mCommandBuffers[i] );
 
 		VkResult resultEnd = vkEndCommandBuffer( mCommandBuffers[i] );
@@ -1641,6 +1660,26 @@ void VulkanHandler::setup() {
 
 
 /**
+ * Setup ImGui.
+ */
+void VulkanHandler::setupImGui() {
+	ImGui_ImplGlfwVulkan_Init_Data initData = {};
+	initData.allocator = VK_NULL_HANDLE;
+	initData.gpu = mPhysicalDevice;
+	initData.device = mLogicalDevice;
+	initData.render_pass = mRenderPass;
+	initData.pipeline_cache = VK_NULL_HANDLE;
+	initData.descriptor_pool = VK_NULL_HANDLE;
+	initData.check_vk_result = VulkanHandler::checkImGuiVkResult;
+
+	ImGui_ImplGlfwVulkan_Init( mWindow, true, &initData );
+
+	Logger::logDebug( "[VulkanHandler] ImGui setup done." );
+	mIsImGuiSetupDone = true;
+}
+
+
+/**
  * Setup the Vulkan debug callback for the validation layer.
  */
 void VulkanHandler::setupDebugCallback() {
@@ -1682,6 +1721,11 @@ void VulkanHandler::setupDebugCallback() {
 void VulkanHandler::teardown() {
 	Logger::logInfo( "[VulkanHandler] Teardown beginning ..." );
 	Logger::indentChange( 2 );
+
+	if( mIsImGuiSetupDone ) {
+		ImGui_ImplGlfwVulkan_Shutdown();
+		Logger::logDebug( "[VulkanHandler] ImGui shutdown function called." );
+	}
 
 	if( mWindow != nullptr ) {
 		glfwDestroyWindow( mWindow );
