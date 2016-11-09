@@ -119,6 +119,7 @@ class VulkanHandler {
 		);
 		void createCommandBuffers();
 		void createCommandPool();
+		void createDescriptorPool();
 		void createFramebuffers();
 		void createGraphicsPipeline();
 		void createImageViews();
@@ -131,20 +132,23 @@ class VulkanHandler {
 		void createVertexBuffer();
 		void destroyDebugCallback();
 		void destroyImageViews();
-		void drawFrame();
+		bool drawFrame( uint32_t* imageIndex );
+		void drawImGui( uint32_t imageIndex );
 		const bool findQueueFamilyIndices(
 			VkPhysicalDevice device,
 			int* graphicsFamily,
 			int* presentFamily
 		);
 		uint32_t findMemoryType( uint32_t typeFitler, VkMemoryPropertyFlags properties );
+		const char* imGuiGetClipboardText();
+		void imGuiRenderDrawList( ImDrawData* drawData );
+		void imGuiSetClipboardText( const char* text );
 		SwapChainSupportDetails querySwapChainSupport( VkPhysicalDevice device );
 		void recreateSwapchain();
 		void retrieveSwapchainImageHandles();
 		VkPhysicalDevice selectDevice();
 		void setupDebugCallback();
 
-		static void checkImGuiVkResult( VkResult result );
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 			VkDebugReportFlagsEXT flags,
 			VkDebugReportObjectTypeEXT objType,
@@ -158,16 +162,17 @@ class VulkanHandler {
 		static void onWindowResize( GLFWwindow* window, int width, int height );
 
 	private:
-		bool mIsImGuiSetupDone = false;
 		bool mUseValidationLayer;
 		GLFWwindow* mWindow = nullptr;
 		vector<VkCommandBuffer> mCommandBuffers;
+		vector<VkCommandBuffer> mCommandBuffersImGui;
 		vector<VkFramebuffer> mFramebuffers;
 		vector<VkImage> mSwapchainImages;
 		vector<VkImageView> mSwapchainImageViews;
 		VkBuffer mVertexBuffer = VK_NULL_HANDLE;
 		VkCommandPool mCommandPool = VK_NULL_HANDLE;
 		VkDebugReportCallbackEXT mDebugCallback;
+		VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
 		VkDevice mLogicalDevice = VK_NULL_HANDLE;
 		VkDeviceMemory mVertexBufferMemory = VK_NULL_HANDLE;
 		VkExtent2D mSwapchainExtent;

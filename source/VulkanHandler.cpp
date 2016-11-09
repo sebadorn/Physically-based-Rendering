@@ -79,25 +79,6 @@ const bool VulkanHandler::checkDeviceExtensionSupport( VkPhysicalDevice device )
 
 
 /**
- * Check VkResults from ImGui.
- * @param {VkResult} result
- */
-void VulkanHandler::checkImGuiVkResult( VkResult result ) {
-	if( result == VK_SUCCESS ) {
-		return;
-	}
-
-	if( result < 0 ) {
-		Logger::logErrorf(
-			"[VulkanHandler] Received error in ImGui VkResult check: %d",
-			result
-		);
-		throw std::runtime_error( "Error received in checkImGuiVkResult()." );
-	}
-}
-
-
-/**
  * Check if the requested validation layers are supported.
  * @return {const bool}
  */
@@ -417,6 +398,40 @@ void VulkanHandler::createCommandPool() {
 	}
 	else {
 		Logger::logInfo( "[VulkanHandler] Created VkCommandPool." );
+	}
+}
+
+
+/**
+ * Create a VkDescriptorPool.
+ */
+void VulkanHandler::createDescriptorPool() {
+	VkDescriptorPoolSize poolSize[11] = {
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1 },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1 },
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1 }
+	};
+
+	VkDescriptorPoolCreateInfo poolInfo = {};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.poolSizeCount = 11;
+	poolInfo.pPoolSizes = poolSize;
+	poolInfo.maxSets = 11 * 1;
+	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+
+	VkResult result = vkCreateDescriptorPool( mLogicalDevice, &poolInfo, nullptr, &mDescriptorPool );
+
+	if( result != VK_SUCCESS ) {
+		Logger::logError( "[VulkanHandler] Failed to create VkDescriptorPool." );
+		throw std::runtime_error( "Failed to create VkDescriptorPool." );
 	}
 }
 
@@ -754,6 +769,8 @@ void VulkanHandler::createLogicalDevice() {
 	}
 
 	VkPhysicalDeviceFeatures deviceFeatures = {};
+	deviceFeatures.shaderClipDistance = VK_TRUE;
+	deviceFeatures.shaderCullDistance = VK_TRUE;
 
 	VkDeviceCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1106,22 +1123,22 @@ void VulkanHandler::destroyImageViews() {
 
 /**
  * Draw the next frame.
+ * @param  {uint32_t*} imageIndex
+ * @return {bool}
  */
-void VulkanHandler::drawFrame() {
-	uint32_t imageIndex;
-
+bool VulkanHandler::drawFrame( uint32_t* imageIndex ) {
 	VkResult result = vkAcquireNextImageKHR(
 		mLogicalDevice,
 		mSwapchain,
 		std::numeric_limits< uint64_t >::max(), // disable timeout
 		mImageAvailableSemaphore,
 		VK_NULL_HANDLE,
-		&imageIndex
+		imageIndex
 	);
 
 	if( result == VK_ERROR_OUT_OF_DATE_KHR ) {
 		this->recreateSwapchain();
-		return;
+		return true;
 	}
 	else if( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
 		Logger::logError( "[VulkanHandler] Failed to acquire swap chain image." );
@@ -1136,9 +1153,8 @@ void VulkanHandler::drawFrame() {
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
-
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &mCommandBuffers[imageIndex];
+	submitInfo.pCommandBuffers = &mCommandBuffers[*imageIndex];
 
 	VkSemaphore signalSemaphores[] = { mRenderFinishedSemaphore };
 	submitInfo.signalSemaphoreCount = 1;
@@ -1159,18 +1175,31 @@ void VulkanHandler::drawFrame() {
 	VkSwapchainKHR swapchains[] = { mSwapchain };
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = swapchains;
-	presentInfo.pImageIndices = &imageIndex;
+	presentInfo.pImageIndices = imageIndex;
 	presentInfo.pResults = nullptr;
 
 	result = vkQueuePresentKHR( mPresentQueue, &presentInfo );
 
 	if( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ) {
 		this->recreateSwapchain();
+		return true;
 	}
 	else if( result != VK_SUCCESS ) {
 		Logger::logError( "[VulkanHandler] Failed to present swap chain image." );
 		throw std::runtime_error( "Failed to present swap chain image." );
 	}
+
+	return false;
+}
+
+
+/**
+ * Draw the ImGui.
+ * @param {uint32_t} imageIndex
+ */
+void VulkanHandler::drawImGui( uint32_t imageIndex ) {
+	// TODO: ImGui setup, update, draw.
+	// ImGui::Text( "Hello, world!" );
 }
 
 
@@ -1278,6 +1307,33 @@ uint32_t VulkanHandler::getVersionPBR() {
 	const uint32_t vPatch = Cfg::get().value<uint32_t>( Cfg::VERSION_PATCH );
 
 	return VK_MAKE_VERSION( vMajor, vMinor, vPatch );
+}
+
+
+/**
+ * Get the clipboard text.
+ * @return {const char*}
+ */
+const char* VulkanHandler::imGuiGetClipboardText() {
+	return glfwGetClipboardString( mWindow );
+}
+
+
+/**
+ * ImGui draw function.
+ * @param {ImDrawData*} drawData
+ */
+void VulkanHandler::imGuiRenderDrawList( ImDrawData* drawData ) {
+	// TODO:
+}
+
+
+/**
+ * Set the clipboard text.
+ * @param {const char*} text
+ */
+void VulkanHandler::imGuiSetClipboardText( const char* text ) {
+	glfwSetClipboardString( mWindow, text );
 }
 
 
@@ -1441,10 +1497,16 @@ vector<char> VulkanHandler::loadFileSPV( const string& filename ) {
 void VulkanHandler::mainLoop() {
 	double lastTime = 0.0;
 	uint64_t nbFrames = 0;
+	uint32_t imageIndex = 0;
 
 	while( !glfwWindowShouldClose( mWindow ) ) {
 		glfwPollEvents();
-		this->drawFrame();
+
+		bool isSwapChainRecreated = this->drawFrame( &imageIndex );
+
+		if( !isSwapChainRecreated ) {
+			this->drawImGui( imageIndex );
+		}
 
 		double currentTime = glfwGetTime();
 		double delta = currentTime - lastTime;
@@ -1651,6 +1713,8 @@ void VulkanHandler::setup() {
 	this->createFramebuffers();
 	this->createCommandPool();
 	this->createVertexBuffer();
+	this->createDescriptorPool();
+	this->setupImGui();
 	this->createCommandBuffers();
 	this->createSemaphores();
 
@@ -1663,19 +1727,32 @@ void VulkanHandler::setup() {
  * Setup ImGui.
  */
 void VulkanHandler::setupImGui() {
-	ImGui_ImplGlfwVulkan_Init_Data initData = {};
-	initData.allocator = VK_NULL_HANDLE;
-	initData.gpu = mPhysicalDevice;
-	initData.device = mLogicalDevice;
-	initData.render_pass = mRenderPass;
-	initData.pipeline_cache = VK_NULL_HANDLE;
-	initData.descriptor_pool = VK_NULL_HANDLE;
-	initData.check_vk_result = VulkanHandler::checkImGuiVkResult;
+	ImGuiIO& io = ImGui::GetIO();
+	io.KeyMap[ImGuiKey_Tab] = GLFW_KEY_TAB;
+	io.KeyMap[ImGuiKey_LeftArrow] = GLFW_KEY_LEFT;
+	io.KeyMap[ImGuiKey_RightArrow] = GLFW_KEY_RIGHT;
+	io.KeyMap[ImGuiKey_UpArrow] = GLFW_KEY_UP;
+	io.KeyMap[ImGuiKey_DownArrow] = GLFW_KEY_DOWN;
+	io.KeyMap[ImGuiKey_PageUp] = GLFW_KEY_PAGE_UP;
+	io.KeyMap[ImGuiKey_PageDown] = GLFW_KEY_PAGE_DOWN;
+	io.KeyMap[ImGuiKey_Home] = GLFW_KEY_HOME;
+	io.KeyMap[ImGuiKey_End] = GLFW_KEY_END;
+	io.KeyMap[ImGuiKey_Delete] = GLFW_KEY_DELETE;
+	io.KeyMap[ImGuiKey_Backspace] = GLFW_KEY_BACKSPACE;
+	io.KeyMap[ImGuiKey_Enter] = GLFW_KEY_ENTER;
+	io.KeyMap[ImGuiKey_Escape] = GLFW_KEY_ESCAPE;
+	io.KeyMap[ImGuiKey_A] = GLFW_KEY_A;
+	io.KeyMap[ImGuiKey_C] = GLFW_KEY_C;
+	io.KeyMap[ImGuiKey_V] = GLFW_KEY_V;
+	io.KeyMap[ImGuiKey_X] = GLFW_KEY_X;
+	io.KeyMap[ImGuiKey_Y] = GLFW_KEY_Y;
+	io.KeyMap[ImGuiKey_Z] = GLFW_KEY_Z;
 
-	ImGui_ImplGlfwVulkan_Init( mWindow, true, &initData );
+	io.RenderDrawListsFn = (void (*)( ImDrawData* )) &VulkanHandler::imGuiRenderDrawList;
+	io.SetClipboardTextFn = (void (*)( const char* )) &VulkanHandler::imGuiSetClipboardText;
+	io.GetClipboardTextFn = (const char* (*)()) &VulkanHandler::imGuiGetClipboardText;
 
 	Logger::logDebug( "[VulkanHandler] ImGui setup done." );
-	mIsImGuiSetupDone = true;
 }
 
 
@@ -1722,11 +1799,6 @@ void VulkanHandler::teardown() {
 	Logger::logInfo( "[VulkanHandler] Teardown beginning ..." );
 	Logger::indentChange( 2 );
 
-	if( mIsImGuiSetupDone ) {
-		ImGui_ImplGlfwVulkan_Shutdown();
-		Logger::logDebug( "[VulkanHandler] ImGui shutdown function called." );
-	}
-
 	if( mWindow != nullptr ) {
 		glfwDestroyWindow( mWindow );
 		glfwTerminate();
@@ -1745,6 +1817,12 @@ void VulkanHandler::teardown() {
 		vkDestroySemaphore( mLogicalDevice, mRenderFinishedSemaphore, nullptr );
 		mRenderFinishedSemaphore = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[VulkanHandler] VkSemaphore (render finished) destroyed." );
+	}
+
+	if( mDescriptorPool != VK_NULL_HANDLE ) {
+		vkDestroyDescriptorPool( mLogicalDevice, mDescriptorPool, nullptr );
+		mDescriptorPool = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkDescriptorPool destroyed." );
 	}
 
 	if( mVertexBufferMemory != VK_NULL_HANDLE ) {
