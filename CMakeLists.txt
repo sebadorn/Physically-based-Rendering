@@ -46,7 +46,6 @@ add_executable(
 	${TRUNK}/main.cpp
 	${IMGUI_DIR}/imgui.cpp
 	${IMGUI_DIR}/imgui_draw.cpp
-	${IMGUI_DIR}/examples/vulkan_example/imgui_impl_glfw_vulkan.cpp
 	${SOURCES_CPP}
 )
 

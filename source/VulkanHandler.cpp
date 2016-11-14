@@ -6,6 +6,7 @@ using std::string;
 using std::vector;
 
 
+
 /**
  * Build the VkApplicationInfo for the VkInstanceCreateInfo.
  * @return {VkApplicationInfo}
@@ -105,6 +106,22 @@ const bool VulkanHandler::checkValidationLayerSupport() {
 	}
 
 	return true;
+}
+
+
+/**
+ * Check a VkResult and throw an error if not a VK_SUCCESS.
+ * @param {VkResult}    result
+ * @param {const char*} errorMessage
+ * @param {const char*} className
+ */
+void VulkanHandler::checkVkResult(
+	VkResult result, const char* errorMessage, const char* className
+) {
+	if( result != VK_SUCCESS ) {
+		Logger::logErrorf( "[%s] %s", className, errorMessage );
+		throw std::runtime_error( errorMessage );
+	}
 }
 
 
@@ -262,11 +279,7 @@ void VulkanHandler::createBuffer(
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 	VkResult result = vkCreateBuffer( mLogicalDevice, &bufferInfo, nullptr, &buffer );
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create VkBuffer." );
-		throw std::runtime_error( "Failed to create VkBuffer." );
-	}
+	VulkanHandler::checkVkResult( result, "Failed to create VkBuffer." );
 
 	VkMemoryRequirements memRequirements;
 	vkGetBufferMemoryRequirements( mLogicalDevice, buffer, &memRequirements );
@@ -280,11 +293,7 @@ void VulkanHandler::createBuffer(
 	);
 
 	result = vkAllocateMemory( mLogicalDevice, &allocInfo, nullptr, &bufferMemory );
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to allocate memory." );
-		throw std::runtime_error( "Failed to allocate memory." );
-	}
+	VulkanHandler::checkVkResult( result, "Failed to allocate memory." );
 
 	vkBindBufferMemory( mLogicalDevice, buffer, bufferMemory, 0 );
 }
@@ -297,7 +306,10 @@ void VulkanHandler::createCommandBuffers() {
 	// Free old command buffers.
 	if( mCommandBuffers.size() > 0 ) {
 		vkFreeCommandBuffers(
-			mLogicalDevice, mCommandPool, mCommandBuffers.size(), mCommandBuffers.data()
+			mLogicalDevice,
+			mCommandPool,
+			mCommandBuffers.size(),
+			mCommandBuffers.data()
 		);
 	}
 
@@ -312,20 +324,12 @@ void VulkanHandler::createCommandBuffers() {
 	VkResult result = vkAllocateCommandBuffers(
 		mLogicalDevice, &allocInfo, mCommandBuffers.data()
 	);
+	VulkanHandler::checkVkResult( result, "Failed to allocate VkCommandBuffers." );
 
-	if( result != VK_SUCCESS ) {
-		Logger::logErrorf(
-			"[VulkanHandler] Failed to allocate %u VkCommandBuffers.",
-			mCommandBuffers.size()
-		);
-		throw std::runtime_error( "Failed to allocate VkCommandBuffers." );
-	}
-	else {
-		Logger::logInfof(
-			"[VulkanHandler] Allocated %u VkCommandBuffers.",
-			mCommandBuffers.size()
-		);
-	}
+	Logger::logInfof(
+		"[VulkanHandler] Allocated %u VkCommandBuffers.",
+		mCommandBuffers.size()
+	);
 
 	for( size_t i = 0; i < mCommandBuffers.size(); i++ ) {
 		VkCommandBufferBeginInfo beginInfo = {};
@@ -360,15 +364,8 @@ void VulkanHandler::createCommandBuffers() {
 		vkCmdDraw( mCommandBuffers[i], vertices.size(), 1, 0, 0 );
 		vkCmdEndRenderPass( mCommandBuffers[i] );
 
-		VkResult resultEnd = vkEndCommandBuffer( mCommandBuffers[i] );
-
-		if( resultEnd != VK_SUCCESS ) {
-			Logger::logErrorf(
-				"[VulkanHandler] Failed to record command buffer (%u/%u).",
-				i, mCommandBuffers.size()
-			);
-			throw std::runtime_error( "Failed to record command buffer." );
-		}
+		result = vkEndCommandBuffer( mCommandBuffers[i] );
+		VulkanHandler::checkVkResult( result, "Failed to record command buffer." );
 	}
 
 	Logger::logDebug( "[VulkanHandler] Recorded command buffers." );
@@ -391,14 +388,8 @@ void VulkanHandler::createCommandPool() {
 	VkResult result = vkCreateCommandPool(
 		mLogicalDevice, &poolInfo, nullptr, &mCommandPool
 	);
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create VkCommandPool." );
-		throw std::runtime_error( "Failed to create VkCommandPool." );
-	}
-	else {
-		Logger::logInfo( "[VulkanHandler] Created VkCommandPool." );
-	}
+	VulkanHandler::checkVkResult( result, "Failed to create VkCommandPool." );
+	Logger::logInfo( "[VulkanHandler] Created VkCommandPool." );
 }
 
 
@@ -427,12 +418,10 @@ void VulkanHandler::createDescriptorPool() {
 	poolInfo.maxSets = 11 * 1;
 	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 
-	VkResult result = vkCreateDescriptorPool( mLogicalDevice, &poolInfo, nullptr, &mDescriptorPool );
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create VkDescriptorPool." );
-		throw std::runtime_error( "Failed to create VkDescriptorPool." );
-	}
+	VkResult result = vkCreateDescriptorPool(
+		mLogicalDevice, &poolInfo, nullptr, &mDescriptorPool
+	);
+	VulkanHandler::checkVkResult( result, "Failed to create VkDescriptorPool." );
 }
 
 
@@ -466,14 +455,13 @@ void VulkanHandler::createFramebuffers() {
 		VkResult result = vkCreateFramebuffer(
 			mLogicalDevice, &framebufferInfo, nullptr, &( mFramebuffers[i] )
 		);
-
-		if( result != VK_SUCCESS ) {
-			Logger::logError( "[VulkanHandler] Failed to create VkFramebuffer." );
-			throw std::runtime_error( "Failed to create VkFramebuffer." );
-		}
+		VulkanHandler::checkVkResult( result, "Failed to create VkFramebuffer." );
 	}
 
-	Logger::logInfof( "[VulkanHandler] Created %u VkFramebuffers.", mFramebuffers.size() );
+	Logger::logInfof(
+		"[VulkanHandler] Created %u VkFramebuffers.",
+		mFramebuffers.size()
+	);
 }
 
 
@@ -623,14 +611,8 @@ void VulkanHandler::createGraphicsPipeline() {
 	VkResult resultLayout = vkCreatePipelineLayout(
 		mLogicalDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout
 	);
-
-	if( resultLayout != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create VkPipelineLayout." );
-		throw std::runtime_error( "Failed to create VkPipelineLayout." );
-	}
-	else {
-		Logger::logDebug( "[VulkanHandler] Created VkPipelineLayout." );
-	}
+	VulkanHandler::checkVkResult( resultLayout, "Failed to create VkPipelineLayout." );
+	Logger::logDebug( "[VulkanHandler] Created VkPipelineLayout." );
 
 
 	VkGraphicsPipelineCreateInfo pipelineInfo = {};
@@ -655,14 +637,10 @@ void VulkanHandler::createGraphicsPipeline() {
 	VkResult resultPipeline = vkCreateGraphicsPipelines(
 		mLogicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &mGraphicsPipeline
 	);
-
-	if( resultPipeline != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create graphics VkPipeline." );
-		throw std::runtime_error( "Failed to create graphics VkPipeline." );
-	}
-	else {
-		Logger::logInfo( "[VulkanHandler] Created graphics VkPipeline." );
-	}
+	VulkanHandler::checkVkResult(
+		resultPipeline, "Failed to create graphics VkPipeline."
+	);
+	Logger::logInfo( "[VulkanHandler] Created graphics VkPipeline." );
 
 
 	vkDestroyShaderModule( mLogicalDevice, vertShaderModule, nullptr );
@@ -700,11 +678,7 @@ void VulkanHandler::createImageViews() {
 		VkResult result = vkCreateImageView(
 			mLogicalDevice, &createInfo, nullptr, &( mSwapchainImageViews[i] )
 		);
-
-		if( result != VK_SUCCESS ) {
-			Logger::logErrorf( "[VulkanHandler] Failed to create VkImageView %u.", i );
-			throw std::runtime_error( "Failed to create VkImageView." );
-		}
+		VulkanHandler::checkVkResult( result, "Failed to create VkImageView." );
 	}
 
 	Logger::logDebugf( "[VulkanHandler] Created %u VkImageViews.", mSwapchainImages.size() );
@@ -736,11 +710,7 @@ VkInstance VulkanHandler::createInstance() {
 
 	VkInstance instance;
 	VkResult result = vkCreateInstance( &createInfo, nullptr, &instance );
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create VkInstance." );
-		throw std::runtime_error( "Failed to create VkInstance." );
-	}
+	VulkanHandler::checkVkResult( result, "Failed to create VkInstance." );
 
 	return instance;
 }
@@ -788,15 +758,11 @@ void VulkanHandler::createLogicalDevice() {
 		createInfo.enabledLayerCount = 0;
 	}
 
-	VkResult result = vkCreateDevice( mPhysicalDevice, &createInfo, nullptr, &mLogicalDevice );
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create logical device (VkDevice)." );
-		throw std::runtime_error( "Failed to create logical device." );
-	}
-	else {
-		Logger::logInfo( "[VulkanHandler] Logical device (VkDevice) created." );
-	}
+	VkResult result = vkCreateDevice(
+		mPhysicalDevice, &createInfo, nullptr, &mLogicalDevice
+	);
+	VulkanHandler::checkVkResult( result, "Failed to create logical VkDevice." );
+	Logger::logInfo( "[VulkanHandler] Logical VkDevice created." );
 
 	vkGetDeviceQueue( mLogicalDevice, graphicsFamily, 0, &mGraphicsQueue );
 	vkGetDeviceQueue( mLogicalDevice, presentFamily, 0, &mPresentQueue );
@@ -850,15 +816,11 @@ void VulkanHandler::createRenderPass() {
 	renderPassInfo.dependencyCount = 1;
 	renderPassInfo.pDependencies = &dependency;
 
-	VkResult result = vkCreateRenderPass( mLogicalDevice, &renderPassInfo, nullptr, &mRenderPass );
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create VkRenderPass." );
-		throw std::runtime_error( "Failed to create VkRenderPass." );
-	}
-	else {
-		Logger::logInfo( "[VulkanHandler] Created VkRenderPass." );
-	}
+	VkResult result = vkCreateRenderPass(
+		mLogicalDevice, &renderPassInfo, nullptr, &mRenderPass
+	);
+	VulkanHandler::checkVkResult( result, "Failed to create VkRenderPass." );
+	Logger::logInfo( "[VulkanHandler] Created VkRenderPass." );
 }
 
 
@@ -866,32 +828,25 @@ void VulkanHandler::createRenderPass() {
  * Create semaphores for the draw frames function.
  */
 void VulkanHandler::createSemaphores() {
+	VkResult result;
 	VkSemaphoreCreateInfo semaphoreInfo = {};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-	VkResult result = vkCreateSemaphore(
+	result = vkCreateSemaphore(
 		mLogicalDevice, &semaphoreInfo, nullptr, &mImageAvailableSemaphore
 	);
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create VkSemaphore (image available)." );
-		throw std::runtime_error( "Failed to create VkSemaphore (image available)." );
-	}
-	else {
-		Logger::logDebugVerbose( "[VulkanHandler] Created VkSemaphore (image available)." );
-	}
+	VulkanHandler::checkVkResult(
+		result, "Failed to create VkSemaphore (image available)."
+	);
+	Logger::logDebugVerbose( "[VulkanHandler] Created VkSemaphore (image available)." );
 
 	result = vkCreateSemaphore(
 		mLogicalDevice, &semaphoreInfo, nullptr, &mRenderFinishedSemaphore
 	);
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create VkSemaphore (render finished)." );
-		throw std::runtime_error( "Failed to create VkSemaphore (render finished)." );
-	}
-	else {
-		Logger::logDebugVerbose( "[VulkanHandler] Created VkSemaphore (render finished)." );
-	}
+	VulkanHandler::checkVkResult(
+		result, "Failed to create VkSemaphore (render finished)."
+	);
+	Logger::logDebugVerbose( "[VulkanHandler] Created VkSemaphore (render finished)." );
 }
 
 
@@ -908,12 +863,10 @@ VkShaderModule VulkanHandler::createShaderModule( const vector<char>& code ) {
 	createInfo.codeSize = code.size();
 	createInfo.pCode = (uint32_t*) code.data();
 
-	VkResult result = vkCreateShaderModule( mLogicalDevice, &createInfo, nullptr, &shaderModule );
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create shader module." );
-		throw std::runtime_error( "Failed to create shader module." );
-	}
+	VkResult result = vkCreateShaderModule(
+		mLogicalDevice, &createInfo, nullptr, &shaderModule
+	);
+	VulkanHandler::checkVkResult( result, "Failed to create VkShaderModule." );
 
 	return shaderModule;
 }
@@ -924,14 +877,8 @@ VkShaderModule VulkanHandler::createShaderModule( const vector<char>& code ) {
  */
 void VulkanHandler::createSurface() {
 	VkResult result = glfwCreateWindowSurface( mInstance, mWindow, nullptr, &mSurface );
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create window surface (VkSurfaceKHR)." );
-		throw std::runtime_error( "Failed to create window surface." );
-	}
-	else {
-		Logger::logInfo( "[VulkanHandler] Window surface (VkSurfaceKHR) created." );
-	}
+	VulkanHandler::checkVkResult( result, "Failed to create VkSurfaceKHR." );
+	Logger::logInfo( "[VulkanHandler] Window surface (VkSurfaceKHR) created." );
 }
 
 
@@ -1003,14 +950,8 @@ void VulkanHandler::createSwapChain() {
 
 	VkSwapchainKHR newSwapchain;
 	VkResult result = vkCreateSwapchainKHR( mLogicalDevice, &createInfo, nullptr, &newSwapchain );
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to create VkSwapchainKHR." );
-		throw std::runtime_error( "Failed to create VkSwapchainKHR." );
-	}
-	else {
-		Logger::logInfo( "[VulkanHandler] VkSwapchainKHR created." );
-	}
+	VulkanHandler::checkVkResult( result, "Failed to create VkSwapchainKHR." );
+	Logger::logInfo( "[VulkanHandler] VkSwapchainKHR created." );
 
 	// Destroy old swap chain if existing.
 	if( mSwapchain != VK_NULL_HANDLE ) {
@@ -1123,17 +1064,16 @@ void VulkanHandler::destroyImageViews() {
 
 /**
  * Draw the next frame.
- * @param  {uint32_t*} imageIndex
  * @return {bool}
  */
-bool VulkanHandler::drawFrame( uint32_t* imageIndex ) {
+bool VulkanHandler::drawFrame() {
 	VkResult result = vkAcquireNextImageKHR(
 		mLogicalDevice,
 		mSwapchain,
 		std::numeric_limits< uint64_t >::max(), // disable timeout
 		mImageAvailableSemaphore,
 		VK_NULL_HANDLE,
-		imageIndex
+		&mFrameIndex
 	);
 
 	if( result == VK_ERROR_OUT_OF_DATE_KHR ) {
@@ -1154,18 +1094,14 @@ bool VulkanHandler::drawFrame( uint32_t* imageIndex ) {
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &mCommandBuffers[*imageIndex];
+	submitInfo.pCommandBuffers = &mCommandBuffers[mFrameIndex];
 
 	VkSemaphore signalSemaphores[] = { mRenderFinishedSemaphore };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
 	result = vkQueueSubmit( mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE );
-
-	if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to submit queue (graphics)." );
-		throw std::runtime_error( "Failed to submit queue (graphics)." );
-	}
+	VulkanHandler::checkVkResult( result, "Failed to submit graphics queue." );
 
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -1175,7 +1111,7 @@ bool VulkanHandler::drawFrame( uint32_t* imageIndex ) {
 	VkSwapchainKHR swapchains[] = { mSwapchain };
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = swapchains;
-	presentInfo.pImageIndices = imageIndex;
+	presentInfo.pImageIndices = &mFrameIndex;
 	presentInfo.pResults = nullptr;
 
 	result = vkQueuePresentKHR( mPresentQueue, &presentInfo );
@@ -1190,16 +1126,6 @@ bool VulkanHandler::drawFrame( uint32_t* imageIndex ) {
 	}
 
 	return false;
-}
-
-
-/**
- * Draw the ImGui.
- * @param {uint32_t} imageIndex
- */
-void VulkanHandler::drawImGui( uint32_t imageIndex ) {
-	// TODO: ImGui setup, update, draw.
-	// ImGui::Text( "Hello, world!" );
 }
 
 
@@ -1307,33 +1233,6 @@ uint32_t VulkanHandler::getVersionPBR() {
 	const uint32_t vPatch = Cfg::get().value<uint32_t>( Cfg::VERSION_PATCH );
 
 	return VK_MAKE_VERSION( vMajor, vMinor, vPatch );
-}
-
-
-/**
- * Get the clipboard text.
- * @return {const char*}
- */
-const char* VulkanHandler::imGuiGetClipboardText() {
-	return glfwGetClipboardString( mWindow );
-}
-
-
-/**
- * ImGui draw function.
- * @param {ImDrawData*} drawData
- */
-void VulkanHandler::imGuiRenderDrawList( ImDrawData* drawData ) {
-	// TODO:
-}
-
-
-/**
- * Set the clipboard text.
- * @param {const char*} text
- */
-void VulkanHandler::imGuiSetClipboardText( const char* text ) {
-	glfwSetClipboardString( mWindow, text );
 }
 
 
@@ -1475,7 +1374,7 @@ const bool VulkanHandler::isDeviceSuitable( VkPhysicalDevice device ) {
 vector<char> VulkanHandler::loadFileSPV( const string& filename ) {
 	std::ifstream file( filename, std::ios::ate | std::ios::binary );
 
-	if (!file.is_open()) {
+	if( !file.is_open() ) {
 		Logger::logErrorf( "[VulkanHandler] Failed to open SPV file: %s", filename );
 		throw std::runtime_error( "Failed to open file." );
 	}
@@ -1497,15 +1396,14 @@ vector<char> VulkanHandler::loadFileSPV( const string& filename ) {
 void VulkanHandler::mainLoop() {
 	double lastTime = 0.0;
 	uint64_t nbFrames = 0;
-	uint32_t imageIndex = 0;
 
 	while( !glfwWindowShouldClose( mWindow ) ) {
 		glfwPollEvents();
 
-		bool isSwapChainRecreated = this->drawFrame( &imageIndex );
+		bool isSwapChainRecreated = this->drawFrame();
 
 		if( !isSwapChainRecreated ) {
-			this->drawImGui( imageIndex );
+			mImGuiHandler->draw();
 		}
 
 		double currentTime = glfwGetTime();
@@ -1714,45 +1612,14 @@ void VulkanHandler::setup() {
 	this->createCommandPool();
 	this->createVertexBuffer();
 	this->createDescriptorPool();
-	this->setupImGui();
 	this->createCommandBuffers();
 	this->createSemaphores();
 
+	mImGuiHandler = new ImGuiHandler();
+	mImGuiHandler->setup( this );
+
 	Logger::indentChange( -2 );
 	Logger::logInfo( "[VulkanHandler] Setup done." );
-}
-
-
-/**
- * Setup ImGui.
- */
-void VulkanHandler::setupImGui() {
-	ImGuiIO& io = ImGui::GetIO();
-	io.KeyMap[ImGuiKey_Tab] = GLFW_KEY_TAB;
-	io.KeyMap[ImGuiKey_LeftArrow] = GLFW_KEY_LEFT;
-	io.KeyMap[ImGuiKey_RightArrow] = GLFW_KEY_RIGHT;
-	io.KeyMap[ImGuiKey_UpArrow] = GLFW_KEY_UP;
-	io.KeyMap[ImGuiKey_DownArrow] = GLFW_KEY_DOWN;
-	io.KeyMap[ImGuiKey_PageUp] = GLFW_KEY_PAGE_UP;
-	io.KeyMap[ImGuiKey_PageDown] = GLFW_KEY_PAGE_DOWN;
-	io.KeyMap[ImGuiKey_Home] = GLFW_KEY_HOME;
-	io.KeyMap[ImGuiKey_End] = GLFW_KEY_END;
-	io.KeyMap[ImGuiKey_Delete] = GLFW_KEY_DELETE;
-	io.KeyMap[ImGuiKey_Backspace] = GLFW_KEY_BACKSPACE;
-	io.KeyMap[ImGuiKey_Enter] = GLFW_KEY_ENTER;
-	io.KeyMap[ImGuiKey_Escape] = GLFW_KEY_ESCAPE;
-	io.KeyMap[ImGuiKey_A] = GLFW_KEY_A;
-	io.KeyMap[ImGuiKey_C] = GLFW_KEY_C;
-	io.KeyMap[ImGuiKey_V] = GLFW_KEY_V;
-	io.KeyMap[ImGuiKey_X] = GLFW_KEY_X;
-	io.KeyMap[ImGuiKey_Y] = GLFW_KEY_Y;
-	io.KeyMap[ImGuiKey_Z] = GLFW_KEY_Z;
-
-	io.RenderDrawListsFn = (void (*)( ImDrawData* )) &VulkanHandler::imGuiRenderDrawList;
-	io.SetClipboardTextFn = (void (*)( const char* )) &VulkanHandler::imGuiSetClipboardText;
-	io.GetClipboardTextFn = (const char* (*)()) &VulkanHandler::imGuiGetClipboardText;
-
-	Logger::logDebug( "[VulkanHandler] ImGui setup done." );
 }
 
 
@@ -1778,17 +1645,11 @@ void VulkanHandler::setupDebugCallback() {
 		throw std::runtime_error( "VK_ERROR_EXTENSION_NOT_PRESENT" );
 	}
 
-	VkResult createResult = fnCreateDebugCallback(
+	VkResult result = fnCreateDebugCallback(
 		mInstance, &createInfo, nullptr, &mDebugCallback
 	);
-
-	if( createResult != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to setup debug callback." );
-		throw std::runtime_error( "Failed to setup debug callback." );
-	}
-	else {
-		Logger::logDebug( "[VulkanHandler] Debug callback setup." );
-	}
+	VulkanHandler::checkVkResult( result, "Failed to setup debug callback." );
+	Logger::logDebug( "[VulkanHandler] Debug callback setup." );
 }
 
 
@@ -1818,6 +1679,9 @@ void VulkanHandler::teardown() {
 		mRenderFinishedSemaphore = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[VulkanHandler] VkSemaphore (render finished) destroyed." );
 	}
+
+	mImGuiHandler->teardown();
+	delete mImGuiHandler;
 
 	if( mDescriptorPool != VK_NULL_HANDLE ) {
 		vkDestroyDescriptorPool( mLogicalDevice, mDescriptorPool, nullptr );
@@ -1870,7 +1734,10 @@ void VulkanHandler::teardown() {
 	}
 
 	this->destroyImageViews();
-	Logger::logDebugf( "[VulkanHandler] Destroyed %u VkImageViews.", mSwapchainImageViews.size() );
+	Logger::logDebugf(
+		"[VulkanHandler] Destroyed %u VkImageViews.",
+		mSwapchainImageViews.size()
+	);
 
 	if( mSwapchain != VK_NULL_HANDLE ) {
 		vkDestroySwapchainKHR( mLogicalDevice, mSwapchain, nullptr );
