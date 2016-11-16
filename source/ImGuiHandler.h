@@ -28,6 +28,7 @@ class ImGuiHandler {
 	protected:
 		void bindRenderData();
 		void createDescriptors();
+		void createPipeline( VkShaderModule* vertModule, VkShaderModule* fragModule );
 		void createShaders( VkShaderModule* vertModule, VkShaderModule* fragModule );
 		void drawImGuiData( ImDrawData* drawData );
 		const char* getClipboardText();

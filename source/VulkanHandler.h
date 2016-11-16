@@ -88,6 +88,7 @@ class VulkanHandler {
 		GLFWwindow* mWindow = nullptr;
 		VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
 		VkDevice mLogicalDevice = VK_NULL_HANDLE;
+		VkRenderPass mRenderPass = VK_NULL_HANDLE;
 
 		const bool checkValidationLayerSupport();
 		VkShaderModule createShaderModule( const vector<char>& code );
@@ -187,7 +188,6 @@ class VulkanHandler {
 		VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
 		VkQueue mGraphicsQueue;
 		VkQueue mPresentQueue;
-		VkRenderPass mRenderPass = VK_NULL_HANDLE;
 		VkSemaphore mImageAvailableSemaphore = VK_NULL_HANDLE;
 		VkSemaphore mRenderFinishedSemaphore = VK_NULL_HANDLE;
 		VkSurfaceKHR mSurface = VK_NULL_HANDLE;

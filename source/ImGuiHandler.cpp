@@ -249,6 +249,144 @@ void ImGuiHandler::createDescriptors() {
 
 
 /**
+ * Create the pipeline.
+ * @param {VkShaderModule*} vertModule
+ * @param {VkShaderModule*} fragModule
+ */
+void ImGuiHandler::createPipeline( VkShaderModule* vertModule, VkShaderModule* fragModule ) {
+	VkPushConstantRange pushConstants[1] = {};
+	pushConstants[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	pushConstants[0].offset = 0;
+	pushConstants[0].size = sizeof( float ) * 4;
+
+	VkDescriptorSetLayout setLayout[1] = { mDescriptorSetLayout };
+
+	VkPipelineLayoutCreateInfo layoutInfo = {};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layoutInfo.setLayoutCount = 1;
+	layoutInfo.pSetLayouts = setLayout;
+	layoutInfo.pushConstantRangeCount = 1;
+	layoutInfo.pPushConstantRanges = pushConstants;
+
+	VkResult result = vkCreatePipelineLayout(
+		mVH->mLogicalDevice, &layoutInfo, nullptr, &mPipelineLayout
+	);
+	VulkanHandler::checkVkResult(
+		result, "Failed to create VkPipelineLayout.", "ImGuiHandler"
+	);
+
+	VkPipelineShaderStageCreateInfo stage[2] = {};
+	stage[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	stage[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+	stage[0].module = *vertModule;
+	stage[0].pName = "main";
+	stage[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	stage[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	stage[1].module = *fragModule;
+	stage[1].pName = "main";
+
+	VkVertexInputBindingDescription bindingDesc[1] = {};
+	bindingDesc[0].stride = sizeof( ImDrawVert );
+	bindingDesc[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	VkVertexInputAttributeDescription attrDesc[3] = {};
+	attrDesc[0].location = 0;
+	attrDesc[0].binding = bindingDesc[0].binding;
+	attrDesc[0].format = VK_FORMAT_R32G32_SFLOAT;
+	attrDesc[0].offset = (size_t) &( (ImDrawVert*) 0 )->pos;
+	attrDesc[1].location = 1;
+	attrDesc[1].binding = bindingDesc[0].binding;
+	attrDesc[1].format = VK_FORMAT_R32G32_SFLOAT;
+	attrDesc[1].offset = (size_t) &( (ImDrawVert*) 0 )->uv;
+	attrDesc[2].location = 2;
+	attrDesc[2].binding = bindingDesc[0].binding;
+	attrDesc[2].format = VK_FORMAT_R8G8B8A8_UNORM;
+	attrDesc[2].offset = (size_t) &( (ImDrawVert*) 0 )->col;
+
+	VkPipelineVertexInputStateCreateInfo vertexInfo = {};
+	vertexInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertexInfo.vertexBindingDescriptionCount = 1;
+	vertexInfo.pVertexBindingDescriptions = bindingDesc;
+	vertexInfo.vertexAttributeDescriptionCount = 3;
+	vertexInfo.pVertexAttributeDescriptions = attrDesc;
+
+	VkPipelineInputAssemblyStateCreateInfo iaInfo = {};
+	iaInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	iaInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+	VkPipelineViewportStateCreateInfo viewportInfo = {};
+	viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportInfo.viewportCount = 1;
+	viewportInfo.scissorCount = 1;
+
+	VkPipelineRasterizationStateCreateInfo rasterInfo = {};
+	rasterInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterInfo.polygonMode = VK_POLYGON_MODE_FILL;
+	rasterInfo.cullMode = VK_CULL_MODE_NONE;
+	rasterInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	rasterInfo.lineWidth = 1.0f;
+
+	VkPipelineMultisampleStateCreateInfo msInfo = {};
+	msInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	msInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+	VkPipelineColorBlendAttachmentState colorAttachment[1] = {};
+	colorAttachment[0].blendEnable = VK_TRUE;
+	colorAttachment[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	colorAttachment[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	colorAttachment[0].colorBlendOp = VK_BLEND_OP_ADD;
+	colorAttachment[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	colorAttachment[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colorAttachment[0].alphaBlendOp = VK_BLEND_OP_ADD;
+	colorAttachment[0].colorWriteMask =
+		VK_COLOR_COMPONENT_R_BIT |
+		VK_COLOR_COMPONENT_G_BIT |
+		VK_COLOR_COMPONENT_B_BIT |
+		VK_COLOR_COMPONENT_A_BIT;
+
+	VkPipelineDepthStencilStateCreateInfo depthInfo = {};
+	depthInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+
+	VkPipelineColorBlendStateCreateInfo blendInfo = {};
+	blendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	blendInfo.attachmentCount = 1;
+	blendInfo.pAttachments = colorAttachment;
+
+	VkDynamicState dynamicStates[2] = {
+		VK_DYNAMIC_STATE_VIEWPORT,
+		VK_DYNAMIC_STATE_SCISSOR
+	};
+	VkPipelineDynamicStateCreateInfo dynamicState = {};
+	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicState.dynamicStateCount = 2;
+	dynamicState.pDynamicStates = dynamicStates;
+
+	VkGraphicsPipelineCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	info.flags = 0;
+	info.stageCount = 2;
+	info.pStages = stage;
+	info.pVertexInputState = &vertexInfo;
+	info.pInputAssemblyState = &iaInfo;
+	info.pViewportState = &viewportInfo;
+	info.pRasterizationState = &rasterInfo;
+	info.pMultisampleState = &msInfo;
+	info.pDepthStencilState = &depthInfo;
+	info.pColorBlendState = &blendInfo;
+	info.pDynamicState = &dynamicState;
+	info.layout = mPipelineLayout;
+	info.renderPass = mVH->mRenderPass;
+
+	result = vkCreateGraphicsPipelines(
+		mVH->mLogicalDevice, VK_NULL_HANDLE, 1, &info, nullptr, &mGraphicsPipeline
+	);
+	VulkanHandler::checkVkResult(
+		result, "Failed to create graphics pipelines.", "ImGuiHandler"
+	);
+}
+
+
+/**
  * Create the ImGui shader modules.
  */
 void ImGuiHandler::createShaders( VkShaderModule* vertModule, VkShaderModule* fragModule ) {
@@ -407,6 +545,7 @@ void ImGuiHandler::setup( VulkanHandler* vh ) {
 	this->createShaders( &vertModule, &fragModule );
 	this->setupFontSampler();
 	this->createDescriptors();
+	this->createPipeline( &vertModule, &fragModule );
 
 	vkDestroyShaderModule( mVH->mLogicalDevice, vertModule, nullptr );
 	vkDestroyShaderModule( mVH->mLogicalDevice, fragModule, nullptr );
@@ -468,6 +607,18 @@ void ImGuiHandler::setupFontSampler() {
  * Teardown ImGui.
  */
 void ImGuiHandler::teardown() {
+	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
+		vkDestroyPipeline( mVH->mLogicalDevice, mGraphicsPipeline, nullptr );
+		mGraphicsPipeline = VK_NULL_HANDLE;
+		Logger::logDebug( "[ImGuiHandler] VkPipeline (graphics) destroyed." );
+	}
+
+	if( mPipelineLayout != VK_NULL_HANDLE ) {
+		vkDestroyPipelineLayout( mVH->mLogicalDevice, mPipelineLayout, nullptr );
+		mPipelineLayout = VK_NULL_HANDLE;
+		Logger::logDebug( "[ImGuiHandler] VkPipelineLayout destroyed." );
+	}
+
 	if( mDescriptorSetLayout != VK_NULL_HANDLE ) {
 		vkDestroyDescriptorSetLayout( mVH->mLogicalDevice, mDescriptorSetLayout, nullptr );
 		mDescriptorSetLayout = VK_NULL_HANDLE;
