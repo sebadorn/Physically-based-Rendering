@@ -204,6 +204,43 @@ void ImGuiHandler::bindRenderData() {
 
 
 /**
+ * Create command pool and command buffers.
+ */
+void ImGuiHandler::createCommandBuffers() {
+	int graphicsFamily = -1;
+	int presentFamily = -1;
+	mVH->findQueueFamilyIndices( mVH->mPhysicalDevice, &graphicsFamily, &presentFamily );
+
+	VkResult result;
+
+	VkCommandPoolCreateInfo poolInfo = {};
+	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	poolInfo.queueFamilyIndex = graphicsFamily;
+
+	result = vkCreateCommandPool( mVH->mLogicalDevice, &poolInfo, nullptr, &mCommandPool );
+	VulkanHandler::checkVkResult(
+		result, "Failed to create VkCommandPool.", "ImGuiHandler"
+	);
+
+	int numBuffers = mVH->mSwapchainImages.size();
+
+	for( int i = 0; i < numBuffers; i++ ) {
+		VkCommandBufferAllocateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		info.commandPool = mCommandPool;
+		info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		info.commandBufferCount = 1;
+
+		result = vkAllocateCommandBuffers( mVH->mLogicalDevice, &info, &mCommandBuffers[i] );
+		VulkanHandler::checkVkResult(
+			result, "Failed to allocate command buffer.", "ImGuiHandler"
+		);
+	}
+}
+
+
+/**
  * Create everything descriptor related for ImGui.
  */
 void ImGuiHandler::createDescriptors() {
@@ -244,6 +281,35 @@ void ImGuiHandler::createDescriptors() {
 	);
 	VulkanHandler::checkVkResult(
 		result, "Failed to allocate descriptor set.", "ImGuiHandler"
+	);
+}
+
+
+/**
+ * Create the fences and semaphores.
+ */
+void ImGuiHandler::createFences() {
+	VkResult result;
+
+	mFences.resize( mVH->mSwapchainImages.size() );
+
+	for( int i = 0; i < mVH->mSwapchainImages.size(); i++ ) {
+		VkFenceCreateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+		result = vkCreateFence( mVH->mLogicalDevice, &info, nullptr, &mFences[i] );
+		VulkanHandler::checkVkResult(
+			result, "Failed to create fence.", "ImGuiHandler"
+		);
+	}
+
+	VkSemaphoreCreateInfo semInfo = {};
+	semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	result = vkCreateSemaphore( mVH->mLogicalDevice, &semInfo, nullptr, &mSemaphore );
+	VulkanHandler::checkVkResult(
+		result, "Failed to create semaphore.", "ImGuiHandler"
 	);
 }
 
@@ -418,8 +484,112 @@ void ImGuiHandler::createShaders( VkShaderModule* vertModule, VkShaderModule* fr
  * Draw the ImGui.
  */
 void ImGuiHandler::draw() {
-	// TODO: ImGui setup, update, draw.
-	// ImGui::Text( "Hello, world!" );
+	ImGuiIO& io = ImGui::GetIO();
+
+	int w, h;
+	int displayW, displayH;
+	glfwGetWindowSize( mVH->mWindow, &displayW, &displayH );
+	io.DisplaySize = ImVec2( (float) w, (float) h );
+	io.DisplayFramebufferScale = ImVec2(
+		( w > 0 ) ? ( (float) displayW / w ) : 0,
+		( h > 0 ) ? ( (float) displayH / h ) : 0
+	);
+
+	double currentTime = glfwGetTime();
+	io.DeltaTime = ( mTime > 0.0 ) ? (float) ( currentTime - mTime ) : ( 1.0f / 60.0f );
+	mTime = currentTime;
+
+	if( glfwGetWindowAttrib( mVH->mWindow, GLFW_FOCUSED ) ) {
+		double mouseX, mouseY;
+		glfwGetCursorPos( mVH->mWindow, &mouseX, &mouseY );
+		io.MousePos = ImVec2( mouseX, mouseY );
+	}
+	else {
+		io.MousePos = ImVec2( -1, -1 );
+	}
+
+	for( int i = 0; i < 3; i++ ) {
+		io.MouseDown[i] = mMousePressed[i] || ( glfwGetMouseButton( mVH->mWindow, i ) != 0 );
+		mMousePressed[i] = false;
+	}
+
+	io.MouseWheel = mMouseWheel;
+	mMouseWheel = 0.0f;
+
+	glfwSetInputMode( mVH->mWindow, GLFW_CURSOR, io.MouseDrawCursor ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL );
+
+	ImGui::NewFrame();
+
+
+	ImGui::Text( "Hello, world!" );
+
+
+	VkResult result;
+
+	while( true ) {
+		result = vkWaitForFences(
+			mVH->mLogicalDevice, 1, &mFences[mVH->mFrameIndex], VK_TRUE, 100
+		);
+
+		if( result == VK_SUCCESS ) {
+			break;
+		}
+		if( result == VK_TIMEOUT ) {
+			continue;
+		}
+
+		VulkanHandler::checkVkResult( result, "Waiting for fence failed.", "ImGuiHandler" );
+	}
+
+	result = vkResetCommandPool( mVH->mLogicalDevice, mCommandPool, 0 );
+	VulkanHandler::checkVkResult( result, "Resetting command pool failed.", "ImGuiHandler" );
+
+	{
+		VkCommandBufferBeginInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		result = vkBeginCommandBuffer( mCommandBuffers[mVH->mFrameIndex], &info );
+		VulkanHandler::checkVkResult( result, "Failed to begin command buffer.", "ImGuiHandler" );
+	}
+
+	{
+		VkRenderPassBeginInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		info.renderPass = mVH->mRenderPass; // TODO: use own render pass?
+		info.framebuffer = mVH->mFramebuffers[mVH->mFrameIndex];
+		info.renderArea.extent = mVH->mSwapchainExtent;
+		info.clearValueCount = 0;
+		info.pClearValues = nullptr;
+
+		vkCmdBeginRenderPass( mCommandBuffers[mVH->mFrameIndex], &info, VK_SUBPASS_CONTENTS_INLINE );
+	}
+
+
+	ImGui::Render();
+
+
+	vkCmdEndRenderPass( mCommandBuffers[mVH->mFrameIndex] );
+
+	{
+		VkImageMemoryBarrier barrier = {};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.image = mVH->mSwapchainImages[mVH->mFrameIndex];
+		barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+		vkCmdPipelineBarrier(
+			mCommandBuffers[mVH->mFrameIndex],
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+			0, 0, NULL, 0, NULL, 1, &barrier
+		);
+	}
 }
 
 
@@ -542,6 +712,7 @@ void ImGuiHandler::setup( VulkanHandler* vh ) {
 	VkShaderModule vertModule;
 	VkShaderModule fragModule;
 
+	this->createFences();
 	this->createShaders( &vertModule, &fragModule );
 	this->setupFontSampler();
 	this->createDescriptors();
@@ -574,6 +745,8 @@ void ImGuiHandler::setup( VulkanHandler* vh ) {
 	io.RenderDrawListsFn = ( void (*)( ImDrawData* ) ) &ImGuiHandler::renderDrawList;
 	io.SetClipboardTextFn = ( void (*)( const char* ) ) &ImGuiHandler::setClipboardText;
 	io.GetClipboardTextFn = ( const char* (*)() ) &ImGuiHandler::getClipboardText;
+
+	this->uploadFonts();
 
 	Logger::logDebug( "[ImGuiHandler] Setup done." );
 }
@@ -642,6 +815,20 @@ void ImGuiHandler::teardown() {
 		mVertexBuffer = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] VkBuffer (vertices) destroyed." );
 	}
+}
+
+
+void ImGuiHandler::uploadFonts() {
+	VkResult result;
+
+	result = vkResetCommandPool( mVH->mLogicalDevice, mCommandPool, 0 );
+	VulkandHandler::checkVkResult( result, "Failed to reset command pool.", "ImGuiHandler" );
+
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	// TODO: ImGui fonts
 }
 
 

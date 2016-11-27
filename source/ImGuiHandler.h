@@ -27,7 +27,9 @@ class ImGuiHandler {
 
 	protected:
 		void bindRenderData();
+		void createCommandBuffers();
 		void createDescriptors();
+		void createFences();
 		void createPipeline( VkShaderModule* vertModule, VkShaderModule* fragModule );
 		void createShaders( VkShaderModule* vertModule, VkShaderModule* fragModule );
 		void drawImGuiData( ImDrawData* drawData );
@@ -37,15 +39,21 @@ class ImGuiHandler {
 		void setupFontSampler();
 		size_t updateIndexBuffer( ImDrawData* drawData );
 		size_t updateVertexBuffer( ImDrawData* drawData );
+		void uploadFonts();
 		void uploadRenderData( ImDrawData* drawData, size_t verticesSize, size_t indicesSize );
 
 
 	private:
+		bool mMousePressed[3] = { false, false, false };
+		double mTime = 0.0f;
+		float mMouseWheel = 0.0f;
 		VulkanHandler* mVH;
 
 		vector<VkCommandBuffer> mCommandBuffers;
+		vector<VkFence> mFences;
 		VkBuffer mIndexBuffer = VK_NULL_HANDLE;
 		VkBuffer mVertexBuffer = VK_NULL_HANDLE;
+		VkCommandPool mCommandPool = VK_NULL_HANDLE;
 		VkDescriptorSet mDescriptorSet = VK_NULL_HANDLE;
 		VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
 		VkDeviceMemory mIndexBufferMemory = VK_NULL_HANDLE;
@@ -53,6 +61,7 @@ class ImGuiHandler {
 		VkPipeline mGraphicsPipeline = VK_NULL_HANDLE;
 		VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
 		VkSampler mFontSampler = VK_NULL_HANDLE;
+		VkSemaphore mSemaphore = VK_NULL_HANDLE;
 
 
 };
