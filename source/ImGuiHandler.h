@@ -52,12 +52,17 @@ class ImGuiHandler {
 		vector<VkCommandBuffer> mCommandBuffers;
 		vector<VkFence> mFences;
 		VkBuffer mIndexBuffer = VK_NULL_HANDLE;
+		VkBuffer mUploadBuffer = VK_NULL_HANDLE;
 		VkBuffer mVertexBuffer = VK_NULL_HANDLE;
 		VkCommandPool mCommandPool = VK_NULL_HANDLE;
 		VkDescriptorSet mDescriptorSet = VK_NULL_HANDLE;
 		VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
+		VkDeviceMemory mFontMemory = VK_NULL_HANDLE;
 		VkDeviceMemory mIndexBufferMemory = VK_NULL_HANDLE;
+		VkDeviceMemory mUploadBufferMemory = VK_NULL_HANDLE;
 		VkDeviceMemory mVertexBufferMemory = VK_NULL_HANDLE;
+		VkImage mFontImage = VK_NULL_HANDLE;
+		VkImageView mFontView = VK_NULL_HANDLE;
 		VkPipeline mGraphicsPipeline = VK_NULL_HANDLE;
 		VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
 		VkSampler mFontSampler = VK_NULL_HANDLE;

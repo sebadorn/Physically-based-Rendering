@@ -90,6 +90,8 @@ class VulkanHandler {
 		VkDevice mLogicalDevice = VK_NULL_HANDLE;
 		VkExtent2D mSwapchainExtent;
 		VkPhysicalDevice mPhysicalDevice;
+		VkQueue mGraphicsQueue;
+		VkQueue mPresentQueue;
 		VkRenderPass mRenderPass = VK_NULL_HANDLE;
 		vector<VkFramebuffer> mFramebuffers;
 		vector<VkImage> mSwapchainImages;
@@ -186,8 +188,6 @@ class VulkanHandler {
 		VkInstance mInstance = VK_NULL_HANDLE;
 		VkPipeline mGraphicsPipeline = VK_NULL_HANDLE;
 		VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
-		VkQueue mGraphicsQueue;
-		VkQueue mPresentQueue;
 		VkSemaphore mImageAvailableSemaphore = VK_NULL_HANDLE;
 		VkSemaphore mRenderFinishedSemaphore = VK_NULL_HANDLE;
 		VkSurfaceKHR mSurface = VK_NULL_HANDLE;

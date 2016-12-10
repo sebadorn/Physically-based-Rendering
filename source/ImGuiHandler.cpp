@@ -224,6 +224,7 @@ void ImGuiHandler::createCommandBuffers() {
 	);
 
 	int numBuffers = mVH->mSwapchainImages.size();
+	mCommandBuffers.resize( numBuffers );
 
 	for( int i = 0; i < numBuffers; i++ ) {
 		VkCommandBufferAllocateInfo info = {};
@@ -516,7 +517,10 @@ void ImGuiHandler::draw() {
 	io.MouseWheel = mMouseWheel;
 	mMouseWheel = 0.0f;
 
-	glfwSetInputMode( mVH->mWindow, GLFW_CURSOR, io.MouseDrawCursor ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL );
+	glfwSetInputMode(
+		mVH->mWindow, GLFW_CURSOR,
+		io.MouseDrawCursor ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL
+	);
 
 	ImGui::NewFrame();
 
@@ -559,8 +563,10 @@ void ImGuiHandler::draw() {
 		info.renderPass = mVH->mRenderPass; // TODO: use own render pass?
 		info.framebuffer = mVH->mFramebuffers[mVH->mFrameIndex];
 		info.renderArea.extent = mVH->mSwapchainExtent;
-		info.clearValueCount = 0;
-		info.pClearValues = nullptr;
+
+		VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+		info.clearValueCount = 1;
+		info.pClearValues = &clearColor;
 
 		vkCmdBeginRenderPass( mCommandBuffers[mVH->mFrameIndex], &info, VK_SUBPASS_CONTENTS_INLINE );
 	}
@@ -715,6 +721,7 @@ void ImGuiHandler::setup( VulkanHandler* vh ) {
 	this->createFences();
 	this->createShaders( &vertModule, &fragModule );
 	this->setupFontSampler();
+	this->createCommandBuffers();
 	this->createDescriptors();
 	this->createPipeline( &vertModule, &fragModule );
 
@@ -818,17 +825,221 @@ void ImGuiHandler::teardown() {
 }
 
 
+/**
+ * Create and upload ImGui font texture.
+ */
 void ImGuiHandler::uploadFonts() {
 	VkResult result;
 
 	result = vkResetCommandPool( mVH->mLogicalDevice, mCommandPool, 0 );
-	VulkandHandler::checkVkResult( result, "Failed to reset command pool.", "ImGuiHandler" );
+	VulkanHandler::checkVkResult( result, "Failed to reset command pool.", "ImGuiHandler" );
 
 	VkCommandBufferBeginInfo beginInfo = {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-	// TODO: ImGui fonts
+
+	ImGuiIO& io = ImGui::GetIO();
+	unsigned char* pixels;
+	int width = 0;
+	int height = 0;
+	io.Fonts->GetTexDataAsRGBA32( &pixels, &width, &height );
+	size_t uploadSize = width * height * 4 * sizeof( char );
+
+	// Create the image.
+	{
+		VkImageCreateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		info.imageType = VK_IMAGE_TYPE_2D;
+		info.format = VK_FORMAT_R8G8B8A8_UNORM;
+		info.extent.width = width;
+		info.extent.height = height;
+		info.extent.depth = 1;
+		info.mipLevels = 1;
+		info.arrayLayers = 1;
+		info.samples = VK_SAMPLE_COUNT_1_BIT;
+		info.tiling = VK_IMAGE_TILING_OPTIMAL;
+		info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+		result = vkCreateImage( mVH->mLogicalDevice, &info, nullptr, &mFontImage );
+		VulkanHandler::checkVkResult( result, "Failed to create image.", "ImGuiHandler" );
+
+		VkMemoryRequirements req;
+		vkGetImageMemoryRequirements( mVH->mLogicalDevice, mFontImage, &req );
+		VkMemoryAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = req.size;
+		allocInfo.memoryTypeIndex = mVH->findMemoryType(
+			req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+		);
+
+		result = vkAllocateMemory( mVH->mLogicalDevice, &allocInfo, nullptr, &mFontMemory );
+		VulkanHandler::checkVkResult( result, "Failed to allocate memory.", "ImGuiHandler" );
+
+		result = vkBindImageMemory( mVH->mLogicalDevice, mFontImage, mFontMemory, 0 );
+		VulkanHandler::checkVkResult( result, "Failed to bind image memory.", "ImGuiHandler" );
+	}
+
+	// Create the image view.
+	{
+		VkImageViewCreateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		info.image = mFontImage;
+		info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		info.format = VK_FORMAT_R8G8B8A8_UNORM;
+		info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		info.subresourceRange.levelCount = 1;
+		info.subresourceRange.layerCount = 1;
+
+		result = vkCreateImageView( mVH->mLogicalDevice, &info, nullptr, &mFontView );
+		VulkanHandler::checkVkResult( result, "Failed to create image view.", "ImGuiHandler" );
+	}
+
+	// Update descriptor set.
+	{
+		VkDescriptorImageInfo descImage[1] = {};
+		descImage[0].sampler = mFontSampler;
+		descImage[0].imageView = mFontView;
+		descImage[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		VkWriteDescriptorSet writeDesc[1] = {};
+		writeDesc[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writeDesc[0].dstSet = mDescriptorSet;
+		writeDesc[0].descriptorCount = 1;
+		writeDesc[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		writeDesc[0].pImageInfo = descImage;
+
+		vkUpdateDescriptorSets( mVH->mLogicalDevice, 1, writeDesc, 0, NULL );
+	}
+
+	size_t bufferMemoryAlignment = 256;
+
+	// Create upload buffer.
+	{
+		VkBufferCreateInfo bufferInfo = {};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = uploadSize;
+		bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		result = vkCreateBuffer( mVH->mLogicalDevice, &bufferInfo, nullptr, &mUploadBuffer );
+		VulkanHandler::checkVkResult( result, "Failed to create buffer.", "ImGuiHandler" );
+
+		VkMemoryRequirements req;
+		vkGetBufferMemoryRequirements( mVH->mLogicalDevice, mUploadBuffer, &req );
+		bufferMemoryAlignment = req.alignment;
+
+		VkMemoryAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = req.size;
+		allocInfo.memoryTypeIndex = mVH->findMemoryType(
+			req.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+		);
+
+		result = vkAllocateMemory( mVH->mLogicalDevice, &allocInfo, nullptr, &mUploadBufferMemory );
+		VulkanHandler::checkVkResult( result, "Failed to allocate memory.", "ImGuiHandler" );
+
+		result = vkBindBufferMemory( mVH->mLogicalDevice, mUploadBuffer, mUploadBufferMemory, 0 );
+		VulkanHandler::checkVkResult( result, "Failed to bind buffer memory.", "ImGuiHandler" );
+	}
+
+	// Upload to buffer.
+	{
+		char* map = NULL;
+
+		result = vkMapMemory( mVH->mLogicalDevice, mUploadBufferMemory, 0, uploadSize, 0, (void**)( &map ) );
+		VulkanHandler::checkVkResult( result, "Failed to map memory.", "ImGuiHandler" );
+
+		memcpy( map, pixels, uploadSize );
+		VkMappedMemoryRange range[1] = {};
+		range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+		range[0].memory = mUploadBufferMemory;
+		range[0].size = uploadSize;
+
+		result = vkFlushMappedMemoryRanges( mVH->mLogicalDevice, 1, range );
+		VulkanHandler::checkVkResult( result, "Failed to flush mapped memory ranges.", "ImGuiHandler" );
+
+		vkUnmapMemory( mVH->mLogicalDevice, mUploadBufferMemory );
+	}
+
+	// Copy to image.
+	{
+		VkImageMemoryBarrier copyBarrier[1] = {};
+		copyBarrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		copyBarrier[0].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		copyBarrier[0].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		copyBarrier[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		copyBarrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		copyBarrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		copyBarrier[0].image = mFontImage;
+		copyBarrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		copyBarrier[0].subresourceRange.levelCount = 1;
+		copyBarrier[0].subresourceRange.layerCount = 1;
+		vkCmdPipelineBarrier(
+			mCommandBuffers[0],
+			VK_PIPELINE_STAGE_HOST_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			0, 0, NULL, 0, NULL, 1,
+			copyBarrier
+		);
+
+		VkBufferImageCopy region = {};
+		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.imageSubresource.layerCount = 1;
+		region.imageExtent.width = width;
+		region.imageExtent.height = height;
+		vkCmdCopyBufferToImage(
+			mCommandBuffers[0],
+			mUploadBuffer,
+			mFontImage,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &region
+		);
+
+		VkImageMemoryBarrier useBarrier[1] = {};
+		useBarrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		useBarrier[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		useBarrier[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		useBarrier[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		useBarrier[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		useBarrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		useBarrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		useBarrier[0].image = mFontImage;
+		useBarrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		useBarrier[0].subresourceRange.levelCount = 1;
+		useBarrier[0].subresourceRange.layerCount = 1;
+		vkCmdPipelineBarrier(
+			mCommandBuffers[0],
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			0, 0, NULL, 0, NULL, 1, useBarrier
+		);
+	}
+
+	io.Fonts->TexID = (void *)(intptr_t) mFontImage;
+
+
+	VkSubmitInfo endInfo = {};
+	endInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	endInfo.commandBufferCount = 1;
+	endInfo.pCommandBuffers = &mCommandBuffers[0];
+
+	result = vkEndCommandBuffer( mCommandBuffers[0] );
+	VulkanHandler::checkVkResult( result, "Failed to end command buffer.", "ImGuiHandler" );
+
+	result = vkQueueSubmit( mVH->mGraphicsQueue, 1, &endInfo, VK_NULL_HANDLE );
+	VulkanHandler::checkVkResult( result, "Failed to submit queue.", "ImGuiHandler" );
+
+	result = vkDeviceWaitIdle( mVH->mLogicalDevice );
+	VulkanHandler::checkVkResult( result, "Failed to wait for device.", "ImGuiHandler" );
+
+
+	vkDestroyBuffer( mVH->mLogicalDevice, mUploadBuffer, nullptr );
+	mUploadBuffer = VK_NULL_HANDLE;
+	vkFreeMemory( mVH->mLogicalDevice, mUploadBufferMemory, nullptr );
+	mUploadBufferMemory = VK_NULL_HANDLE;
 }
 
 
