@@ -1103,6 +1103,8 @@ bool VulkanHandler::drawFrame() {
 	result = vkQueueSubmit( mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE );
 	VulkanHandler::checkVkResult( result, "Failed to submit graphics queue." );
 
+	mImGuiHandler->draw(); // TODO: ?
+
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
@@ -1397,13 +1399,13 @@ void VulkanHandler::mainLoop() {
 	double lastTime = 0.0;
 	uint64_t nbFrames = 0;
 
-	while( !glfwWindowShouldClose( mWindow ) ) {
+	// while( !glfwWindowShouldClose( mWindow ) ) {
 		glfwPollEvents();
 
 		bool isSwapChainRecreated = this->drawFrame();
 
 		if( !isSwapChainRecreated ) {
-			mImGuiHandler->draw();
+			// mImGuiHandler->draw();
 		}
 
 		double currentTime = glfwGetTime();
@@ -1418,9 +1420,10 @@ void VulkanHandler::mainLoop() {
 			nbFrames = 0;
 			lastTime = currentTime;
 		}
-	}
+	// }
 
-	vkDeviceWaitIdle( mLogicalDevice );
+	VkResult result = vkDeviceWaitIdle( mLogicalDevice );
+	VulkanHandler::checkVkResult( result, "Failed to wait until idle." );
 }
 
 

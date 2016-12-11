@@ -47,6 +47,7 @@ class ImGuiHandler {
 		bool mMousePressed[3] = { false, false, false };
 		double mTime = 0.0f;
 		float mMouseWheel = 0.0f;
+		size_t mBufferMemoryAlignment = 256;
 		VulkanHandler* mVH;
 
 		vector<VkCommandBuffer> mCommandBuffers;

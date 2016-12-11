@@ -489,7 +489,8 @@ void ImGuiHandler::draw() {
 
 	int w, h;
 	int displayW, displayH;
-	glfwGetWindowSize( mVH->mWindow, &displayW, &displayH );
+	glfwGetWindowSize( mVH->mWindow, &w, &h );
+	glfwGetFramebufferSize( mVH->mWindow, &displayW, &displayH );
 	io.DisplaySize = ImVec2( (float) w, (float) h );
 	io.DisplayFramebufferScale = ImVec2(
 		( w > 0 ) ? ( (float) displayW / w ) : 0,
@@ -523,7 +524,9 @@ void ImGuiHandler::draw() {
 	);
 
 	ImGui::NewFrame();
+	ImGui::Begin( "I am a window." );
 	ImGui::Text( "Hello, world!" );
+	ImGui::End();
 
 
 	VkResult result;
@@ -552,7 +555,9 @@ void ImGuiHandler::draw() {
 		info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
 		result = vkBeginCommandBuffer( mCommandBuffers[mVH->mFrameIndex], &info );
-		VulkanHandler::checkVkResult( result, "Failed to begin command buffer.", "ImGuiHandler" );
+		VulkanHandler::checkVkResult(
+			result, "Failed to begin command buffer.", "ImGuiHandler"
+		);
 	}
 
 	{
@@ -566,7 +571,11 @@ void ImGuiHandler::draw() {
 		info.clearValueCount = 1;
 		info.pClearValues = &clearColor;
 
-		vkCmdBeginRenderPass( mCommandBuffers[mVH->mFrameIndex], &info, VK_SUBPASS_CONTENTS_INLINE );
+		vkCmdBeginRenderPass(
+			mCommandBuffers[mVH->mFrameIndex],
+			&info,
+			VK_SUBPASS_CONTENTS_INLINE
+		);
 	}
 
 
@@ -689,9 +698,9 @@ const char* ImGuiHandler::getClipboardText() {
  * @param {ImDrawData*} drawData
  */
 void ImGuiHandler::renderDrawList( ImDrawData* drawData ) {
-	size_t verticesSize = this->updateVertexBuffer( drawData );
-	size_t indicesSize = this->updateIndexBuffer( drawData );
-	this->uploadRenderData( drawData, verticesSize, indicesSize );
+	size_t vertexBufferSize = this->updateVertexBuffer( drawData );
+	size_t indexBufferSize = this->updateIndexBuffer( drawData );
+	this->uploadRenderData( drawData, vertexBufferSize, indexBufferSize );
 	this->bindRenderData();
 	this->drawImGuiData( drawData );
 }
@@ -862,7 +871,13 @@ void ImGuiHandler::teardown() {
 	if( mFontView != VK_NULL_HANDLE ) {
 		vkDestroyImageView( mVH->mLogicalDevice, mFontView, nullptr );
 		mFontView = VK_NULL_HANDLE;
-		Logger::logDebugVerbosef( "[ImGuiHandler] Destroyed VkImageView." );
+		Logger::logDebugVerbose( "[ImGuiHandler] Destroyed VkImageView (font)." );
+	}
+
+	if( mFontImage != VK_NULL_HANDLE ) {
+		vkDestroyImage( mVH->mLogicalDevice, mFontImage, nullptr );
+		mFontImage = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[ImGuiHandler] Destroyed VkImage (font)." );
 	}
 }
 
@@ -959,8 +974,6 @@ void ImGuiHandler::uploadFonts() {
 		vkUpdateDescriptorSets( mVH->mLogicalDevice, 1, writeDesc, 0, NULL );
 	}
 
-	size_t bufferMemoryAlignment = 256;
-
 	// Create upload buffer.
 	{
 		VkBufferCreateInfo bufferInfo = {};
@@ -974,7 +987,7 @@ void ImGuiHandler::uploadFonts() {
 
 		VkMemoryRequirements req;
 		vkGetBufferMemoryRequirements( mVH->mLogicalDevice, mUploadBuffer, &req );
-		bufferMemoryAlignment = req.alignment;
+		mBufferMemoryAlignment = ( mBufferMemoryAlignment > req.alignment ) ? mBufferMemoryAlignment : req.alignment;
 
 		VkMemoryAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -1105,9 +1118,12 @@ size_t ImGuiHandler::updateIndexBuffer( ImDrawData* drawData ) {
 		vkFreeMemory( mVH->mLogicalDevice, mIndexBufferMemory, nullptr );
 	}
 
+
+	size_t indexBufferSize = ( ( indicesSize - 1 ) / mBufferMemoryAlignment + 1 ) * mBufferMemoryAlignment;
+
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = indicesSize;
+	bufferInfo.size = indexBufferSize;
 	bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -1122,13 +1138,14 @@ size_t ImGuiHandler::updateIndexBuffer( ImDrawData* drawData ) {
 	vkGetBufferMemoryRequirements(
 		mVH->mLogicalDevice, mIndexBuffer, &memReq
 	);
+	mBufferMemoryAlignment = ( mBufferMemoryAlignment > memReq.alignment ) ? mBufferMemoryAlignment : memReq.alignment;
 
 	VkMemoryAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memReq.size;
 	allocInfo.memoryTypeIndex = mVH->findMemoryType(
 		memReq.memoryTypeBits,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
 	);
 
 	result = vkAllocateMemory(
@@ -1148,7 +1165,7 @@ size_t ImGuiHandler::updateIndexBuffer( ImDrawData* drawData ) {
 		result, "Failed to bind index buffer memory.", "ImGuiHandler"
 	);
 
-	return indicesSize;
+	return indexBufferSize;
 }
 
 
@@ -1160,6 +1177,7 @@ size_t ImGuiHandler::updateIndexBuffer( ImDrawData* drawData ) {
 size_t ImGuiHandler::updateVertexBuffer( ImDrawData* drawData ) {
 	VkResult result;
 	size_t verticesSize = drawData->TotalVtxCount * sizeof( ImDrawVert );
+	// TODO: drawData->TotalVtxCount causes segfault
 
 	if( mVertexBuffer != VK_NULL_HANDLE ) {
 		vkDestroyBuffer( mVH->mLogicalDevice, mVertexBuffer, nullptr );
@@ -1169,9 +1187,11 @@ size_t ImGuiHandler::updateVertexBuffer( ImDrawData* drawData ) {
 		vkFreeMemory( mVH->mLogicalDevice, mVertexBufferMemory, nullptr );
 	}
 
+	size_t vertexBufferSize = ( ( verticesSize - 1 ) / mBufferMemoryAlignment + 1 ) * mBufferMemoryAlignment;
+
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = verticesSize;
+	bufferInfo.size = vertexBufferSize;
 	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -1186,13 +1206,14 @@ size_t ImGuiHandler::updateVertexBuffer( ImDrawData* drawData ) {
 	vkGetBufferMemoryRequirements(
 		mVH->mLogicalDevice, mVertexBuffer, &memReq
 	);
+	mBufferMemoryAlignment = ( mBufferMemoryAlignment > memReq.alignment ) ? mBufferMemoryAlignment : memReq.alignment;
 
 	VkMemoryAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memReq.size;
 	allocInfo.memoryTypeIndex = mVH->findMemoryType(
 		memReq.memoryTypeBits,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
 	);
 
 	result = vkAllocateMemory(
@@ -1212,18 +1233,18 @@ size_t ImGuiHandler::updateVertexBuffer( ImDrawData* drawData ) {
 		result, "Failed to bind vertex buffer memory.", "ImGuiHandler"
 	);
 
-	return verticesSize;
+	return vertexBufferSize;
 }
 
 
 /**
  * Upload the buffer data.
  * @param {ImDrawData*} drawData
- * @param {size_t}      verticesSize
- * @param {size_t}      indicesSize
+ * @param {size_t}      vertexBufferSize
+ * @param {size_t}      indexBufferSize
  */
 void ImGuiHandler::uploadRenderData(
-	ImDrawData* drawData, size_t verticesSize, size_t indicesSize
+	ImDrawData* drawData, size_t vertexBufferSize, size_t indexBufferSize
 ) {
 	VkResult result;
 	ImDrawVert* vertexDst;
@@ -1232,7 +1253,7 @@ void ImGuiHandler::uploadRenderData(
 	result = vkMapMemory(
 		mVH->mLogicalDevice,
 		mVertexBufferMemory,
-		0, verticesSize, 0,
+		0, vertexBufferSize, 0,
 		( void** )( &vertexDst )
 	);
 	VulkanHandler::checkVkResult(
@@ -1242,7 +1263,7 @@ void ImGuiHandler::uploadRenderData(
 	result = vkMapMemory(
 		mVH->mLogicalDevice,
 		mIndexBufferMemory,
-		0, indicesSize, 0,
+		0, indexBufferSize, 0,
 		( void** )( &indexDst )
 	);
 	VulkanHandler::checkVkResult(
@@ -1268,10 +1289,10 @@ void ImGuiHandler::uploadRenderData(
 	VkMappedMemoryRange range[2] = {};
 	range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
 	range[0].memory = mVertexBufferMemory;
-	range[0].size = verticesSize;
+	range[0].size = vertexBufferSize;
 	range[1].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
 	range[1].memory = mIndexBufferMemory;
-	range[1].size = indicesSize;
+	range[1].size = indexBufferSize;
 
 	result = vkFlushMappedMemoryRanges( mVH->mLogicalDevice, 2, range );
 	VulkanHandler::checkVkResult(
