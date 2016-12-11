@@ -523,8 +523,6 @@ void ImGuiHandler::draw() {
 	);
 
 	ImGui::NewFrame();
-
-
 	ImGui::Text( "Hello, world!" );
 
 
@@ -560,7 +558,7 @@ void ImGuiHandler::draw() {
 	{
 		VkRenderPassBeginInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		info.renderPass = mVH->mRenderPass; // TODO: use own render pass?
+		info.renderPass = mVH->mRenderPass;
 		info.framebuffer = mVH->mFramebuffers[mVH->mFrameIndex];
 		info.renderArea.extent = mVH->mSwapchainExtent;
 
@@ -787,6 +785,20 @@ void ImGuiHandler::setupFontSampler() {
  * Teardown ImGui.
  */
 void ImGuiHandler::teardown() {
+	if( mSemaphore != VK_NULL_HANDLE ) {
+		vkDestroySemaphore( mVH->mLogicalDevice, mSemaphore, nullptr );
+		mSemaphore = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[ImGuiHandler] VkSemaphore destroyed." );
+	}
+
+	for( int i = 0; i < mFences.size(); i++ ) {
+		if( mFences[i] != VK_NULL_HANDLE ) {
+			vkDestroyFence( mVH->mLogicalDevice, mFences[i], nullptr );
+			mFences[i] = VK_NULL_HANDLE;
+			Logger::logDebugVerbose( "[ImGuiHandler] VkFence destroyed." );
+		}
+	}
+
 	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
 		vkDestroyPipeline( mVH->mLogicalDevice, mGraphicsPipeline, nullptr );
 		mGraphicsPipeline = VK_NULL_HANDLE;
@@ -811,6 +823,18 @@ void ImGuiHandler::teardown() {
 		Logger::logDebugVerbose( "[ImGuiHandler] VkSampler (font) destroyed." );
 	}
 
+	if( mIndexBufferMemory != VK_NULL_HANDLE ) {
+		vkFreeMemory( mVH->mLogicalDevice, mIndexBufferMemory, nullptr );
+		mIndexBufferMemory = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[ImGuiHandler] VkDeviceMemory (indices) freed." );
+	}
+
+	if( mIndexBuffer != VK_NULL_HANDLE ) {
+		vkDestroyBuffer( mVH->mLogicalDevice, mIndexBuffer, nullptr );
+		mIndexBuffer = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[ImGuiHandler] VkBuffer (indices) destroyed." );
+	}
+
 	if( mVertexBufferMemory != VK_NULL_HANDLE ) {
 		vkFreeMemory( mVH->mLogicalDevice, mVertexBufferMemory, nullptr );
 		mVertexBufferMemory = VK_NULL_HANDLE;
@@ -821,6 +845,24 @@ void ImGuiHandler::teardown() {
 		vkDestroyBuffer( mVH->mLogicalDevice, mVertexBuffer, nullptr );
 		mVertexBuffer = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] VkBuffer (vertices) destroyed." );
+	}
+
+	if( mCommandPool != VK_NULL_HANDLE ) {
+		vkDestroyCommandPool( mVH->mLogicalDevice, mCommandPool, nullptr );
+		mCommandPool = VK_NULL_HANDLE;
+		Logger::logDebug( "[ImGuiHandler] VkCommandPool destroyed." );
+	}
+
+	if( mFontMemory != VK_NULL_HANDLE ) {
+		vkFreeMemory( mVH->mLogicalDevice, mFontMemory, nullptr );
+		mFontMemory = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[ImGuiHandler] VkDeviceMemory (font) freed." );
+	}
+
+	if( mFontView != VK_NULL_HANDLE ) {
+		vkDestroyImageView( mVH->mLogicalDevice, mFontView, nullptr );
+		mFontView = VK_NULL_HANDLE;
+		Logger::logDebugVerbosef( "[ImGuiHandler] Destroyed VkImageView." );
 	}
 }
 
@@ -837,6 +879,9 @@ void ImGuiHandler::uploadFonts() {
 	VkCommandBufferBeginInfo beginInfo = {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	result = vkBeginCommandBuffer( mCommandBuffers[0], &beginInfo );
+	VulkanHandler::checkVkResult( result, "Failed to begin command buffer.", "ImGuiHandler" );
 
 
 	ImGuiIO& io = ImGui::GetIO();
