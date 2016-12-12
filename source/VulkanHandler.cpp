@@ -1085,6 +1085,8 @@ bool VulkanHandler::drawFrame() {
 		throw std::runtime_error( "Failed to acquire swap chain image." );
 	}
 
+	mImGuiHandler->draw();
+
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -1102,8 +1104,6 @@ bool VulkanHandler::drawFrame() {
 
 	result = vkQueueSubmit( mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE );
 	VulkanHandler::checkVkResult( result, "Failed to submit graphics queue." );
-
-	mImGuiHandler->draw(); // TODO: ?
 
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -1400,13 +1400,10 @@ void VulkanHandler::mainLoop() {
 	uint64_t nbFrames = 0;
 
 	// while( !glfwWindowShouldClose( mWindow ) ) {
+	for ( int i = 0; i < 200; i++ ) { // Playing it save for now.
 		glfwPollEvents();
 
 		bool isSwapChainRecreated = this->drawFrame();
-
-		if( !isSwapChainRecreated ) {
-			// mImGuiHandler->draw();
-		}
 
 		double currentTime = glfwGetTime();
 		double delta = currentTime - lastTime;
@@ -1420,7 +1417,7 @@ void VulkanHandler::mainLoop() {
 			nbFrames = 0;
 			lastTime = currentTime;
 		}
-	// }
+	}
 
 	VkResult result = vkDeviceWaitIdle( mLogicalDevice );
 	VulkanHandler::checkVkResult( result, "Failed to wait until idle." );

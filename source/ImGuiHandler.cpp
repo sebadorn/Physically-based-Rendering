@@ -580,29 +580,30 @@ void ImGuiHandler::draw() {
 
 
 	ImGui::Render();
+	this->renderDrawList( ImGui::GetDrawData() );
 
 
 	vkCmdEndRenderPass( mCommandBuffers[mVH->mFrameIndex] );
 
-	{
-		VkImageMemoryBarrier barrier = {};
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.image = mVH->mSwapchainImages[mVH->mFrameIndex];
-		barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+	// {
+	// 	VkImageMemoryBarrier barrier = {};
+	// 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	// 	barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	// 	barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	// 	barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	// 	barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	// 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	// 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	// 	barrier.image = mVH->mSwapchainImages[mVH->mFrameIndex];
+	// 	barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 
-		vkCmdPipelineBarrier(
-			mCommandBuffers[mVH->mFrameIndex],
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-			0, 0, NULL, 0, NULL, 1, &barrier
-		);
-	}
+	// 	vkCmdPipelineBarrier(
+	// 		mCommandBuffers[mVH->mFrameIndex],
+	// 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+	// 		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+	// 		0, 0, NULL, 0, NULL, 1, &barrier
+	// 	);
+	// }
 }
 
 
@@ -756,7 +757,10 @@ void ImGuiHandler::setup( VulkanHandler* vh ) {
 	io.KeyMap[ImGuiKey_Y] = GLFW_KEY_Y;
 	io.KeyMap[ImGuiKey_Z] = GLFW_KEY_Z;
 
-	io.RenderDrawListsFn = ( void (*)( ImDrawData* ) ) &ImGuiHandler::renderDrawList;
+	io.RenderDrawListsFn = NULL;
+
+	// TODO: These two function calls will probably not work.
+	// At least io.RenderDrawListsFn didn't.
 	io.SetClipboardTextFn = ( void (*)( const char* ) ) &ImGuiHandler::setClipboardText;
 	io.GetClipboardTextFn = ( const char* (*)() ) &ImGuiHandler::getClipboardText;
 
@@ -1177,7 +1181,6 @@ size_t ImGuiHandler::updateIndexBuffer( ImDrawData* drawData ) {
 size_t ImGuiHandler::updateVertexBuffer( ImDrawData* drawData ) {
 	VkResult result;
 	size_t verticesSize = drawData->TotalVtxCount * sizeof( ImDrawVert );
-	// TODO: drawData->TotalVtxCount causes segfault
 
 	if( mVertexBuffer != VK_NULL_HANDLE ) {
 		vkDestroyBuffer( mVH->mLogicalDevice, mVertexBuffer, nullptr );
