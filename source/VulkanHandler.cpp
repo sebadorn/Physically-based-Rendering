@@ -331,45 +331,6 @@ void VulkanHandler::createCommandBuffers() {
 		"[VulkanHandler] Allocated %u VkCommandBuffers.",
 		mCommandBuffers.size()
 	);
-
-	// for( size_t i = 0; i < mCommandBuffers.size(); i++ ) {
-	// 	VkCommandBufferBeginInfo beginInfo = {};
-	// 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	// 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-	// 	beginInfo.pInheritanceInfo = nullptr;
-
-	// 	vkBeginCommandBuffer( mCommandBuffers[i], &beginInfo );
-
-	// 	VkRenderPassBeginInfo renderPassInfo = {};
-	// 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	// 	renderPassInfo.renderPass = mRenderPass;
-	// 	renderPassInfo.framebuffer = mFramebuffers[i];
-	// 	renderPassInfo.renderArea.offset = { 0, 0 };
-	// 	renderPassInfo.renderArea.extent = mSwapchainExtent;
-
-	// 	VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-	// 	renderPassInfo.clearValueCount = 1;
-	// 	renderPassInfo.pClearValues = &clearColor;
-
-	// 	vkCmdBeginRenderPass(
-	// 		mCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE
-	// 	);
-	// 	vkCmdBindPipeline(
-	// 		mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline
-	// 	);
-
-	// 	VkBuffer vertexBuffers[] = { mVertexBuffer };
-	// 	VkDeviceSize offsets[] = { 0 };
-	// 	vkCmdBindVertexBuffers( mCommandBuffers[i], 0, 1, vertexBuffers, offsets );
-
-	// 	vkCmdDraw( mCommandBuffers[i], vertices.size(), 1, 0, 0 );
-	// 	vkCmdEndRenderPass( mCommandBuffers[i] );
-
-	// 	result = vkEndCommandBuffer( mCommandBuffers[i] );
-	// 	VulkanHandler::checkVkResult( result, "Failed to record command buffer." );
-	// }
-
-	// Logger::logDebug( "[VulkanHandler] Recorded command buffers." );
 }
 
 
@@ -1093,47 +1054,6 @@ void VulkanHandler::destroyImageViews() {
 }
 
 
-void VulkanHandler::recordCommand() {
-	VkResult result = vkResetCommandPool( mLogicalDevice, mCommandPool, 0 );
-	VulkanHandler::checkVkResult( result, "Resetting command pool failed." );
-
-	VkCommandBufferBeginInfo beginInfo = {};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-	beginInfo.pInheritanceInfo = nullptr;
-
-	vkBeginCommandBuffer( mCommandBuffers[mFrameIndex], &beginInfo );
-
-	VkRenderPassBeginInfo renderPassInfo = {};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = mRenderPassInitial ? mRenderPassInitial : mRenderPass;
-	renderPassInfo.framebuffer = mFramebuffers[mFrameIndex];
-	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = mSwapchainExtent;
-
-	VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-	renderPassInfo.clearValueCount = 1;
-	renderPassInfo.pClearValues = &clearColor;
-
-	vkCmdBeginRenderPass(
-		mCommandBuffers[mFrameIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE
-	);
-	vkCmdBindPipeline(
-		mCommandBuffers[mFrameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline
-	);
-
-	VkBuffer vertexBuffers[] = { mVertexBuffer };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers( mCommandBuffers[mFrameIndex], 0, 1, vertexBuffers, offsets );
-
-	vkCmdDraw( mCommandBuffers[mFrameIndex], vertices.size(), 1, 0, 0 );
-	vkCmdEndRenderPass( mCommandBuffers[mFrameIndex] );
-
-	result = vkEndCommandBuffer( mCommandBuffers[mFrameIndex] );
-	VulkanHandler::checkVkResult( result, "Failed to record command buffer." );
-}
-
-
 /**
  * Draw the next frame.
  * @return {bool}
@@ -1479,11 +1399,11 @@ void VulkanHandler::mainLoop() {
 	double lastTime = 0.0;
 	uint64_t nbFrames = 0;
 
-	while( !glfwWindowShouldClose( mWindow ) ) {
-	// for ( int i = 0; i < 400; i++ ) { // Playing it save for now.
-	// 	if( glfwWindowShouldClose( mWindow ) ) {
-	// 		break;
-	// 	}
+	// while( !glfwWindowShouldClose( mWindow ) ) {
+	for ( int i = 0; i < 300; i++ ) { // Playing it save for now.
+		if( glfwWindowShouldClose( mWindow ) ) {
+			break;
+		}
 
 		glfwPollEvents();
 
@@ -1616,6 +1536,50 @@ SwapChainSupportDetails VulkanHandler::querySwapChainSupport( VkPhysicalDevice d
 	}
 
 	return details;
+}
+
+
+/**
+ * Record the command for this render pass.
+ */
+void VulkanHandler::recordCommand() {
+	VkResult result = vkResetCommandPool( mLogicalDevice, mCommandPool, 0 );
+	VulkanHandler::checkVkResult( result, "Resetting command pool failed." );
+
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+	beginInfo.pInheritanceInfo = nullptr;
+
+	vkBeginCommandBuffer( mCommandBuffers[mFrameIndex], &beginInfo );
+
+	VkRenderPassBeginInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = mRenderPassInitial ? mRenderPassInitial : mRenderPass;
+	renderPassInfo.framebuffer = mFramebuffers[mFrameIndex];
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = mSwapchainExtent;
+
+	VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+	renderPassInfo.clearValueCount = 1;
+	renderPassInfo.pClearValues = &clearColor;
+
+	vkCmdBeginRenderPass(
+		mCommandBuffers[mFrameIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE
+	);
+	vkCmdBindPipeline(
+		mCommandBuffers[mFrameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline
+	);
+
+	VkBuffer vertexBuffers[] = { mVertexBuffer };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers( mCommandBuffers[mFrameIndex], 0, 1, vertexBuffers, offsets );
+
+	vkCmdDraw( mCommandBuffers[mFrameIndex], vertices.size(), 1, 0, 0 );
+	vkCmdEndRenderPass( mCommandBuffers[mFrameIndex] );
+
+	result = vkEndCommandBuffer( mCommandBuffers[mFrameIndex] );
+	VulkanHandler::checkVkResult( result, "Failed to record command buffer." );
 }
 
 
