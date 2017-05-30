@@ -313,6 +313,7 @@ void VulkanHandler::createCommandBuffers() {
 		);
 	}
 
+	mCommandBuffersNow.resize( 2 );
 	mCommandBuffers.resize( mFramebuffers.size() );
 
 	VkCommandBufferAllocateInfo allocInfo = {};
@@ -331,44 +332,44 @@ void VulkanHandler::createCommandBuffers() {
 		mCommandBuffers.size()
 	);
 
-	for( size_t i = 0; i < mCommandBuffers.size(); i++ ) {
-		VkCommandBufferBeginInfo beginInfo = {};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-		beginInfo.pInheritanceInfo = nullptr;
+	// for( size_t i = 0; i < mCommandBuffers.size(); i++ ) {
+	// 	VkCommandBufferBeginInfo beginInfo = {};
+	// 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	// 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+	// 	beginInfo.pInheritanceInfo = nullptr;
 
-		vkBeginCommandBuffer( mCommandBuffers[i], &beginInfo );
+	// 	vkBeginCommandBuffer( mCommandBuffers[i], &beginInfo );
 
-		VkRenderPassBeginInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = mRenderPass;
-		renderPassInfo.framebuffer = mFramebuffers[i];
-		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = mSwapchainExtent;
+	// 	VkRenderPassBeginInfo renderPassInfo = {};
+	// 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	// 	renderPassInfo.renderPass = mRenderPass;
+	// 	renderPassInfo.framebuffer = mFramebuffers[i];
+	// 	renderPassInfo.renderArea.offset = { 0, 0 };
+	// 	renderPassInfo.renderArea.extent = mSwapchainExtent;
 
-		VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearColor;
+	// 	VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+	// 	renderPassInfo.clearValueCount = 1;
+	// 	renderPassInfo.pClearValues = &clearColor;
 
-		vkCmdBeginRenderPass(
-			mCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE
-		);
-		vkCmdBindPipeline(
-			mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline
-		);
+	// 	vkCmdBeginRenderPass(
+	// 		mCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE
+	// 	);
+	// 	vkCmdBindPipeline(
+	// 		mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline
+	// 	);
 
-		VkBuffer vertexBuffers[] = { mVertexBuffer };
-		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers( mCommandBuffers[i], 0, 1, vertexBuffers, offsets );
+	// 	VkBuffer vertexBuffers[] = { mVertexBuffer };
+	// 	VkDeviceSize offsets[] = { 0 };
+	// 	vkCmdBindVertexBuffers( mCommandBuffers[i], 0, 1, vertexBuffers, offsets );
 
-		vkCmdDraw( mCommandBuffers[i], vertices.size(), 1, 0, 0 );
-		vkCmdEndRenderPass( mCommandBuffers[i] );
+	// 	vkCmdDraw( mCommandBuffers[i], vertices.size(), 1, 0, 0 );
+	// 	vkCmdEndRenderPass( mCommandBuffers[i] );
 
-		result = vkEndCommandBuffer( mCommandBuffers[i] );
-		VulkanHandler::checkVkResult( result, "Failed to record command buffer." );
-	}
+	// 	result = vkEndCommandBuffer( mCommandBuffers[i] );
+	// 	VulkanHandler::checkVkResult( result, "Failed to record command buffer." );
+	// }
 
-	Logger::logDebug( "[VulkanHandler] Recorded command buffers." );
+	// Logger::logDebug( "[VulkanHandler] Recorded command buffers." );
 }
 
 
@@ -422,6 +423,31 @@ void VulkanHandler::createDescriptorPool() {
 		mLogicalDevice, &poolInfo, nullptr, &mDescriptorPool
 	);
 	VulkanHandler::checkVkResult( result, "Failed to create VkDescriptorPool." );
+}
+
+
+/**
+ * Create the fences.
+ */
+void VulkanHandler::createFences() {
+	mFences.resize( 2 );
+
+	VkFenceCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+
+	VkResult result = vkCreateFence( mLogicalDevice, &info, nullptr, &mImageAvailableFence );
+	VulkanHandler::checkVkResult( result, "Failed to create fence (image available)." );
+
+	result = vkCreateFence( mLogicalDevice, &info, nullptr, &mRenderFinishedFence );
+	VulkanHandler::checkVkResult( result, "Failed to create fence (render finished)." );
+
+	mFences[0] = mImageAvailableFence;
+	mFences[1] = mRenderFinishedFence;
+
+	Logger::logInfof(
+		"[VulkanHandler] Created %u VkFences.",
+		mFences.size()
+	);
 }
 
 
@@ -782,7 +808,7 @@ void VulkanHandler::createRenderPass() {
 	VkAttachmentDescription colorAttachment = {};
 	colorAttachment.format = mSwapchainFormat;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -821,6 +847,11 @@ void VulkanHandler::createRenderPass() {
 	);
 	VulkanHandler::checkVkResult( result, "Failed to create VkRenderPass." );
 	Logger::logInfo( "[VulkanHandler] Created VkRenderPass." );
+
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	vkCreateRenderPass(
+		mLogicalDevice, &renderPassInfo, nullptr, &mRenderPassInitial
+	);
 }
 
 
@@ -1062,6 +1093,47 @@ void VulkanHandler::destroyImageViews() {
 }
 
 
+void VulkanHandler::recordCommand() {
+	VkResult result = vkResetCommandPool( mLogicalDevice, mCommandPool, 0 );
+	VulkanHandler::checkVkResult( result, "Resetting command pool failed." );
+
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+	beginInfo.pInheritanceInfo = nullptr;
+
+	vkBeginCommandBuffer( mCommandBuffers[mFrameIndex], &beginInfo );
+
+	VkRenderPassBeginInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = mRenderPassInitial ? mRenderPassInitial : mRenderPass;
+	renderPassInfo.framebuffer = mFramebuffers[mFrameIndex];
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = mSwapchainExtent;
+
+	VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+	renderPassInfo.clearValueCount = 1;
+	renderPassInfo.pClearValues = &clearColor;
+
+	vkCmdBeginRenderPass(
+		mCommandBuffers[mFrameIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE
+	);
+	vkCmdBindPipeline(
+		mCommandBuffers[mFrameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline
+	);
+
+	VkBuffer vertexBuffers[] = { mVertexBuffer };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers( mCommandBuffers[mFrameIndex], 0, 1, vertexBuffers, offsets );
+
+	vkCmdDraw( mCommandBuffers[mFrameIndex], vertices.size(), 1, 0, 0 );
+	vkCmdEndRenderPass( mCommandBuffers[mFrameIndex] );
+
+	result = vkEndCommandBuffer( mCommandBuffers[mFrameIndex] );
+	VulkanHandler::checkVkResult( result, "Failed to record command buffer." );
+}
+
+
 /**
  * Draw the next frame.
  * @return {bool}
@@ -1072,7 +1144,7 @@ bool VulkanHandler::drawFrame() {
 		mSwapchain,
 		std::numeric_limits< uint64_t >::max(), // disable timeout
 		mImageAvailableSemaphore,
-		VK_NULL_HANDLE,
+		mImageAvailableFence,
 		&mFrameIndex
 	);
 
@@ -1085,6 +1157,7 @@ bool VulkanHandler::drawFrame() {
 		throw std::runtime_error( "Failed to acquire swap chain image." );
 	}
 
+	this->recordCommand();
 	mImGuiHandler->draw();
 
 	VkSubmitInfo submitInfo = {};
@@ -1095,14 +1168,20 @@ bool VulkanHandler::drawFrame() {
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &mCommandBuffers[mFrameIndex];
 
 	VkSemaphore signalSemaphores[] = { mRenderFinishedSemaphore };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	result = vkQueueSubmit( mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE );
+	// Render main image.
+	mCommandBuffersNow[0] = mCommandBuffers[mFrameIndex];
+	// Then render user interface on top.
+	mCommandBuffersNow[1] = mImGuiHandler->mCommandBuffers[mFrameIndex];
+
+	submitInfo.commandBufferCount = 2;
+	submitInfo.pCommandBuffers = &mCommandBuffersNow[0];
+
+	result = vkQueueSubmit( mGraphicsQueue, 1, &submitInfo, mRenderFinishedFence );
 	VulkanHandler::checkVkResult( result, "Failed to submit graphics queue." );
 
 	VkPresentInfoKHR presentInfo = {};
@@ -1396,11 +1475,16 @@ vector<char> VulkanHandler::loadFileSPV( const string& filename ) {
  * Start the main loop.
  */
 void VulkanHandler::mainLoop() {
+	VkResult result;
 	double lastTime = 0.0;
 	uint64_t nbFrames = 0;
 
-	// while( !glfwWindowShouldClose( mWindow ) ) {
-	for ( int i = 0; i < 200; i++ ) { // Playing it save for now.
+	while( !glfwWindowShouldClose( mWindow ) ) {
+	// for ( int i = 0; i < 400; i++ ) { // Playing it save for now.
+	// 	if( glfwWindowShouldClose( mWindow ) ) {
+	// 		break;
+	// 	}
+
 		glfwPollEvents();
 
 		bool isSwapChainRecreated = this->drawFrame();
@@ -1417,9 +1501,40 @@ void VulkanHandler::mainLoop() {
 			nbFrames = 0;
 			lastTime = currentTime;
 		}
+
+		result = vkWaitForFences(
+			mLogicalDevice,
+			mFences.size(),
+			&mFences[0],
+			VK_TRUE,
+			std::numeric_limits<uint64_t>::max()
+		);
+
+		if( result != VK_SUCCESS ) {
+			VulkanHandler::checkVkResult( result, "Failed to wait for fence(s)." );
+		}
+
+		vkResetFences( mLogicalDevice, mFences.size(), &mFences[0] );
+
+		// We have two slightly different render passes. The first one
+		// has a color attachment with "loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR"
+		// and is used for the first rendering of each frame. After that it
+		// is destroyed and the second render pass will be used, which uses
+		// "loadOp = VK_ATTACHMENT_LOAD_OP_LOAD". This is necessary to
+		// keep the image content after the first command (main rendering),
+		// so the second command (UI) will be visible on top.
+		//
+		// Error message, if LOAD_OP_LOAD is used from the get go:
+		//     vkCmdBeginRenderPass(): Cannot read invalid swapchain image,
+		//                             please fill the memory before using.
+
+		if( mRenderPassInitial != VK_NULL_HANDLE && nbFrames >= mFramebuffers.size() ) {
+			vkDestroyRenderPass( mLogicalDevice, mRenderPassInitial, nullptr );
+			mRenderPassInitial = VK_NULL_HANDLE;
+		}
 	}
 
-	VkResult result = vkDeviceWaitIdle( mLogicalDevice );
+	result = vkDeviceWaitIdle( mLogicalDevice );
 	VulkanHandler::checkVkResult( result, "Failed to wait until idle." );
 }
 
@@ -1613,6 +1728,7 @@ void VulkanHandler::setup() {
 	this->createVertexBuffer();
 	this->createDescriptorPool();
 	this->createCommandBuffers();
+	this->createFences();
 	this->createSemaphores();
 
 	mImGuiHandler = new ImGuiHandler();
@@ -1680,6 +1796,18 @@ void VulkanHandler::teardown() {
 		Logger::logDebugVerbose( "[VulkanHandler] VkSemaphore (render finished) destroyed." );
 	}
 
+	if( mImageAvailableFence != VK_NULL_HANDLE ) {
+		vkDestroyFence( mLogicalDevice, mImageAvailableFence, nullptr );
+		mImageAvailableFence = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkFence (image available) destroyed." );
+	}
+
+	if( mRenderFinishedFence != VK_NULL_HANDLE ) {
+		vkDestroyFence( mLogicalDevice, mRenderFinishedFence, nullptr );
+		mRenderFinishedFence = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkFence (render finished) destroyed." );
+	}
+
 	mImGuiHandler->teardown();
 	delete mImGuiHandler;
 
@@ -1731,6 +1859,12 @@ void VulkanHandler::teardown() {
 		vkDestroyRenderPass( mLogicalDevice, mRenderPass, nullptr );
 		mRenderPass = VK_NULL_HANDLE;
 		Logger::logDebug( "[VulkanHandler] VkRenderPass destroyed." );
+	}
+
+	if( mRenderPassInitial != VK_NULL_HANDLE ) {
+		vkDestroyRenderPass( mLogicalDevice, mRenderPassInitial, nullptr );
+		mRenderPassInitial = VK_NULL_HANDLE;
+		Logger::logDebug( "[VulkanHandler] VkRenderPass (initial) destroyed." );
 	}
 
 	this->destroyImageViews();

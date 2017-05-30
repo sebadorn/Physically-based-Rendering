@@ -13,7 +13,7 @@ Rendering 3D scenes physically-based through Path Tracing. Interaction of light 
 ## Requirements
 
 * **OS:** Linux  
-*Though it should be possible to built and run it on other platforms as well. I just never tried it.*
+*Though it should be possible to build and run it on other platforms as well. I just never tried it.*
 * **Hardware:** GPU with Vulkan capabilities  
 *Tested only with NVIDIA.*
 

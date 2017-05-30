@@ -24,6 +24,8 @@ class ImGuiHandler {
 		void setup( VulkanHandler* vh );
 		void teardown();
 
+		vector<VkCommandBuffer> mCommandBuffers;
+
 
 	protected:
 		void bindRenderData();
@@ -50,7 +52,6 @@ class ImGuiHandler {
 		size_t mBufferMemoryAlignment = 256;
 		VulkanHandler* mVH;
 
-		vector<VkCommandBuffer> mCommandBuffers;
 		vector<VkFence> mFences;
 		VkBuffer mIndexBuffer = VK_NULL_HANDLE;
 		VkBuffer mUploadBuffer = VK_NULL_HANDLE;

@@ -529,24 +529,7 @@ void ImGuiHandler::draw() {
 	ImGui::End();
 
 
-	VkResult result;
-
-	while( true ) {
-		result = vkWaitForFences(
-			mVH->mLogicalDevice, 1, &mFences[mVH->mFrameIndex], VK_TRUE, 100
-		);
-
-		if( result == VK_SUCCESS ) {
-			break;
-		}
-		if( result == VK_TIMEOUT ) {
-			continue;
-		}
-
-		VulkanHandler::checkVkResult( result, "Waiting for fence failed.", "ImGuiHandler" );
-	}
-
-	result = vkResetCommandPool( mVH->mLogicalDevice, mCommandPool, 0 );
+	VkResult result = vkResetCommandPool( mVH->mLogicalDevice, mCommandPool, 0 );
 	VulkanHandler::checkVkResult( result, "Resetting command pool failed.", "ImGuiHandler" );
 
 	{
@@ -585,25 +568,10 @@ void ImGuiHandler::draw() {
 
 	vkCmdEndRenderPass( mCommandBuffers[mVH->mFrameIndex] );
 
-	// {
-	// 	VkImageMemoryBarrier barrier = {};
-	// 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	// 	barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	// 	barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	// 	barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	// 	barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	// 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	// 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	// 	barrier.image = mVH->mSwapchainImages[mVH->mFrameIndex];
-	// 	barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-
-	// 	vkCmdPipelineBarrier(
-	// 		mCommandBuffers[mVH->mFrameIndex],
-	// 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-	// 		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-	// 		0, 0, NULL, 0, NULL, 1, &barrier
-	// 	);
-	// }
+	result = vkEndCommandBuffer( mCommandBuffers[mVH->mFrameIndex] );
+	VulkanHandler::checkVkResult(
+		result, "Failed to record ImGui command buffer.", "ImGuiHandler"
+	);
 }
 
 

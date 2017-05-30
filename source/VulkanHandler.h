@@ -93,6 +93,7 @@ class VulkanHandler {
 		VkQueue mGraphicsQueue;
 		VkQueue mPresentQueue;
 		VkRenderPass mRenderPass = VK_NULL_HANDLE;
+		VkRenderPass mRenderPassInitial = VK_NULL_HANDLE;
 		vector<VkFramebuffer> mFramebuffers;
 		vector<VkImage> mSwapchainImages;
 
@@ -143,6 +144,7 @@ class VulkanHandler {
 		void createCommandBuffers();
 		void createCommandPool();
 		void createDescriptorPool();
+		void createFences();
 		void createFramebuffers();
 		void createGraphicsPipeline();
 		void createImageViews();
@@ -157,6 +159,7 @@ class VulkanHandler {
 		void destroyImageViews();
 		bool drawFrame();
 		SwapChainSupportDetails querySwapChainSupport( VkPhysicalDevice device );
+		void recordCommand();
 		void recreateSwapchain();
 		void retrieveSwapchainImageHandles();
 		VkPhysicalDevice selectDevice();
@@ -179,11 +182,15 @@ class VulkanHandler {
 		bool mUseValidationLayer;
 		ImGuiHandler* mImGuiHandler;
 		vector<VkCommandBuffer> mCommandBuffers;
+		vector<VkCommandBuffer> mCommandBuffersNow;
+		vector<VkFence> mFences;
 		vector<VkImageView> mSwapchainImageViews;
 		VkBuffer mVertexBuffer = VK_NULL_HANDLE;
 		VkCommandPool mCommandPool = VK_NULL_HANDLE;
 		VkDebugReportCallbackEXT mDebugCallback;
 		VkDeviceMemory mVertexBufferMemory = VK_NULL_HANDLE;
+		VkFence mImageAvailableFence = VK_NULL_HANDLE;
+		VkFence mRenderFinishedFence = VK_NULL_HANDLE;
 		VkFormat mSwapchainFormat;
 		VkInstance mInstance = VK_NULL_HANDLE;
 		VkPipeline mGraphicsPipeline = VK_NULL_HANDLE;
