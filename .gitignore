@@ -10,6 +10,7 @@ source_old
 *.sublime-*
 CMakeCache.txt
 cmake_install.cmake
+imgui.ini
 make.log
 Makefile
 PBR

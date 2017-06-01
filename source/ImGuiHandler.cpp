@@ -550,10 +550,6 @@ void ImGuiHandler::draw() {
 		info.framebuffer = mVH->mFramebuffers[mVH->mFrameIndex];
 		info.renderArea.extent = mVH->mSwapchainExtent;
 
-		VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-		info.clearValueCount = 1;
-		info.pClearValues = &clearColor;
-
 		vkCmdBeginRenderPass(
 			mCommandBuffers[mVH->mFrameIndex],
 			&info,
@@ -745,6 +741,7 @@ void ImGuiHandler::setupFontSampler() {
 	VkSamplerCreateInfo samplerInfo = {};
 	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	samplerInfo.magFilter = VK_FILTER_LINEAR;
+	samplerInfo.maxAnisotropy = 1.0;
 	samplerInfo.minFilter = VK_FILTER_LINEAR;
 	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -1020,6 +1017,7 @@ void ImGuiHandler::uploadFonts() {
 		region.imageSubresource.layerCount = 1;
 		region.imageExtent.width = width;
 		region.imageExtent.height = height;
+		region.imageExtent.depth = 1;
 		vkCmdCopyBufferToImage(
 			mCommandBuffers[0],
 			mUploadBuffer,

@@ -16,7 +16,7 @@ int Logger::mLogLevel = 4;
  * @return {const std::string}
  */
 const string Logger::buildLogMessage( const char* format, va_list args ) {
-	const size_t size = std::strlen( format ) + 256;
+	const size_t size = std::strlen( format ) + 512;
 	char msg[size];
 	vsnprintf( msg, size, format, args );
 

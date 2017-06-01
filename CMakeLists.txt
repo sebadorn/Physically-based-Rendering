@@ -19,7 +19,7 @@ include_directories( ${IMGUI_DIR}/examples/vulkan_example )
 
 
 # Vulkan (LunarG SDK)
-set( VULKAN_SDK "/home/seba/programming/VulkanSDK/1.0.33.0/x86_64" )
+set( VULKAN_SDK "/home/seba/programming/VulkanSDK/1.0.49.0/x86_64" )
 include_directories( ${VULKAN_SDK}/include )
 set( LIBRARIES ${LIBRARIES} ${VULKAN_SDK}/lib/libvulkan.so.1 )
 
