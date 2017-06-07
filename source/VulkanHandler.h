@@ -8,51 +8,24 @@
 
 #include <glm/glm.hpp>
 #include <algorithm>
-#include <array>
 #include <cstring>
 #include <fstream>
 #include <limits>
 #include <set>
 #include <vector>
 
+#include "ActionHandler.h"
 #include "Cfg.h"
 #include "ImGuiHandler.h"
 #include "Logger.h"
+#include "Vertex.h"
 
-using std::array;
 using std::vector;
 
 
+struct ActionHandler;
 struct ImGuiHandler;
 
-struct Vertex {
-	glm::vec2 pos;
-	glm::vec3 color;
-
-	static array<VkVertexInputAttributeDescription, 2> getAttributeDescription() {
-		array<VkVertexInputAttributeDescription, 2> attrDesc = {};
-		attrDesc[0].binding = 0;
-		attrDesc[0].location = 0;
-		attrDesc[0].format = VK_FORMAT_R32G32_SFLOAT;
-		attrDesc[0].offset = offsetof( Vertex, pos );
-
-		attrDesc[1].binding = 0;
-		attrDesc[1].location = 1;
-		attrDesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrDesc[1].offset = offsetof( Vertex, color );
-
-		return attrDesc;
-	}
-
-	static VkVertexInputBindingDescription getBindingDescription() {
-		VkVertexInputBindingDescription bindingDesc = {};
-		bindingDesc.binding = 0;
-		bindingDesc.stride = sizeof( Vertex );
-		bindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-		return bindingDesc;
-	}
-};
 
 const vector<Vertex> vertices = {
 	{ { -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f } },
@@ -85,6 +58,7 @@ class VulkanHandler {
 
 	public:
 		uint32_t mFrameIndex = 0;
+		ActionHandler* mActionHandler = nullptr;
 		GLFWwindow* mWindow = nullptr;
 		VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
 		VkDevice mLogicalDevice = VK_NULL_HANDLE;
@@ -112,7 +86,7 @@ class VulkanHandler {
 		vector<char> loadFileSPV( const string& filename );
 		void mainLoop();
 		void printDeviceDebugInfo( VkPhysicalDevice device );
-		void setup();
+		void setup( ActionHandler* ah );
 		void teardown();
 
 		static void checkVkResult( VkResult result, const char* errorMessage, const char* className = "VulkanHandler" );
@@ -164,6 +138,8 @@ class VulkanHandler {
 		void retrieveSwapchainImageHandles();
 		VkPhysicalDevice selectDevice();
 		void setupDebugCallback();
+		void updateFPS( double* lastTime, uint64_t* numFrames );
+		void waitForFences();
 
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 			VkDebugReportFlagsEXT flags,

@@ -157,7 +157,7 @@ VkExtent2D VulkanHandler::chooseSwapExtent( const VkSurfaceCapabilitiesKHR& capa
 /**
  * Choose the presentation mode.
  * @param  {const std::vector<VkPresentModeKHR>&} availablePresentModes
- * @return {VkPresetnModeKHR}
+ * @return {VkPresentModeKHR}
  */
 VkPresentModeKHR VulkanHandler::chooseSwapPresentMode(
 	const vector<VkPresentModeKHR>& availablePresentModes
@@ -1395,46 +1395,21 @@ vector<char> VulkanHandler::loadFileSPV( const string& filename ) {
  * Start the main loop.
  */
 void VulkanHandler::mainLoop() {
-	VkResult result;
 	double lastTime = 0.0;
-	uint64_t nbFrames = 0;
+	uint64_t numFrames = 0;
+	int numFramebuffers = mFramebuffers.size();
 
 	// while( !glfwWindowShouldClose( mWindow ) ) {
-	for ( int i = 0; i < 300; i++ ) { // Playing it save for now.
+	for ( int i = 0; i < 5000; i++ ) { // Playing it save for now.
 		if( glfwWindowShouldClose( mWindow ) ) {
 			break;
 		}
 
 		glfwPollEvents();
 
-		bool isSwapChainRecreated = this->drawFrame();
-
-		double currentTime = glfwGetTime();
-		double delta = currentTime - lastTime;
-		nbFrames++;
-
-		if( delta >= 1.0 ) {
-			char title[32];
-			snprintf( title, 32, "PBR (FPS: %3.2f)", (double) nbFrames / delta );
-
-			glfwSetWindowTitle( mWindow, title );
-			nbFrames = 0;
-			lastTime = currentTime;
-		}
-
-		result = vkWaitForFences(
-			mLogicalDevice,
-			mFences.size(),
-			&mFences[0],
-			VK_TRUE,
-			std::numeric_limits<uint64_t>::max()
-		);
-
-		if( result != VK_SUCCESS ) {
-			VulkanHandler::checkVkResult( result, "Failed to wait for fence(s)." );
-		}
-
-		vkResetFences( mLogicalDevice, mFences.size(), &mFences[0] );
+		this->drawFrame();
+		this->updateFPS( &lastTime, &numFrames );
+		this->waitForFences();
 
 		// We have two slightly different render passes. The first one
 		// has a color attachment with "loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR"
@@ -1448,13 +1423,13 @@ void VulkanHandler::mainLoop() {
 		//     vkCmdBeginRenderPass(): Cannot read invalid swapchain image,
 		//                             please fill the memory before using.
 
-		if( mRenderPassInitial != VK_NULL_HANDLE && nbFrames >= mFramebuffers.size() ) {
+		if( mRenderPassInitial != VK_NULL_HANDLE && numFrames >= numFramebuffers ) {
 			vkDestroyRenderPass( mLogicalDevice, mRenderPassInitial, nullptr );
 			mRenderPassInitial = VK_NULL_HANDLE;
 		}
 	}
 
-	result = vkDeviceWaitIdle( mLogicalDevice );
+	VkResult result = vkDeviceWaitIdle( mLogicalDevice );
 	VulkanHandler::checkVkResult( result, "Failed to wait until idle." );
 }
 
@@ -1663,11 +1638,13 @@ VkPhysicalDevice VulkanHandler::selectDevice() {
 /**
  * Setup Vulkan: Create a VkInstance,
  * check for support, pick a device etc.
+ * @param {ActionHandler*} actionHandler
  */
-void VulkanHandler::setup() {
+void VulkanHandler::setup( ActionHandler* actionHandler ) {
 	Logger::logInfo( "[VulkanHandler] Setup beginning ..." );
 	Logger::indentChange( 2 );
 
+	mActionHandler = actionHandler;
 	this->initWindow();
 
 	mUseValidationLayer = Cfg::get().value<bool>( Cfg::VULKAN_VALIDATION_LAYER );
@@ -1867,4 +1844,44 @@ void VulkanHandler::teardown() {
 
 	Logger::indentChange( -2 );
 	Logger::logInfo( "[VulkanHandler] Teardown done." );
+}
+
+
+/**
+ * Update the FPS counter.
+ * @param {double*}   lastTime
+ * @param {uint64_t*} numFrames
+ */
+void VulkanHandler::updateFPS( double* lastTime, uint64_t* numFrames ) {
+	double currentTime = glfwGetTime();
+	double delta = currentTime - *lastTime;
+
+	*numFrames += 1;
+
+	if( delta >= 1.0 ) {
+		char title[32];
+		snprintf( title, 32, "PBR (FPS: %3.2f)", (double) *numFrames / delta );
+
+		glfwSetWindowTitle( mWindow, title );
+		*lastTime = currentTime;
+		*numFrames = 0;
+	}
+}
+
+
+/**
+ * Wait for the fences, then reset them.
+ */
+void VulkanHandler::waitForFences() {
+	VkResult result = vkWaitForFences(
+		mLogicalDevice,
+		mFences.size(),
+		&mFences[0],
+		VK_TRUE,
+		std::numeric_limits<uint64_t>::max()
+	);
+
+	VulkanHandler::checkVkResult( result, "Failed to wait for fence(s)." );
+
+	vkResetFences( mLogicalDevice, mFences.size(), &mFences[0] );
 }

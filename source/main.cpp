@@ -1,6 +1,7 @@
 #include <clocale>
 #include <stdexcept>
 
+#include "ActionHandler.h"
 #include "Cfg.h"
 #include "Logger.h"
 #include "VulkanHandler.h"
@@ -19,16 +20,18 @@ int main( int argc, char** argv ) {
 	Logger::setLogLevel( Cfg::get().value<int>( Cfg::LOG_LEVEL ) );
 	Logger::logInfo( "[main] Configuration loaded." );
 
+	ActionHandler* actionHandler = new ActionHandler();
 	VulkanHandler vkHandler;
 
 	try {
-		vkHandler.setup();
+		vkHandler.setup( actionHandler );
 	}
 	catch( const std::runtime_error &err ) {
 		Logger::logError( "[main] Vulkan setup failed. EXIT_FAILURE." );
 
 		try {
 			vkHandler.teardown();
+			delete actionHandler;
 		}
 		catch( const std::runtime_error &err2 ) {
 			Logger::logError( "[main] Vulkan teardown failed too." );
@@ -47,6 +50,7 @@ int main( int argc, char** argv ) {
 
 	try {
 		vkHandler.teardown();
+		delete actionHandler;
 	}
 	catch( const std::runtime_error &err ) {
 		Logger::logError( "[main] Vulkan teardown failed. EXIT_FAILURE." );

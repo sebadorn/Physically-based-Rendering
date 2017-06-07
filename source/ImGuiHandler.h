@@ -29,6 +29,7 @@ class ImGuiHandler {
 
 	protected:
 		void bindRenderData();
+		void buildUIStructure();
 		void createCommandBuffers();
 		void createDescriptors();
 		void createFences();

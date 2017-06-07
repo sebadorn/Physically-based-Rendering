@@ -15,7 +15,6 @@ include_directories( ${GLM_INCLUDE_DIRS} )
 # dear imgui
 set( IMGUI_DIR ../imgui )
 include_directories( ${IMGUI_DIR} )
-include_directories( ${IMGUI_DIR}/examples/vulkan_example )
 
 
 # Vulkan (LunarG SDK)

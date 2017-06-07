@@ -1,4 +1,7 @@
 #include "ImGuiHandler.h"
+#include "ModelLoader.h"
+#include "ObjParser.h"
+#include "accelstructures/BVH.h"
 
 using std::vector;
 
@@ -109,6 +112,37 @@ void ImGuiHandler::bindRenderData() {
 		mIndexBuffer,
 		0, VK_INDEX_TYPE_UINT16
 	);
+}
+
+
+/**
+ * Build the UI structure for the frame.
+ */
+void ImGuiHandler::buildUIStructure() {
+	// Main menu bar.
+	if( ImGui::BeginMainMenuBar() ) {
+		// Menu: File.
+		if( ImGui::BeginMenu( "File" ) ) {
+			if( ImGui::BeginMenu( "Model" ) ) {
+				if( ImGui::MenuItem( "Test" ) ) {
+					mVH->mActionHandler->loadModel(
+						"/home/seba/programming/Physically-based Rendering/resources/models/testing/",
+						"pillars.obj"
+					);
+				}
+
+				ImGui::EndMenu();
+			}
+
+			if( ImGui::MenuItem( "Exit" ) ) {
+				mVH->mActionHandler->exit( mVH );
+			}
+
+			ImGui::EndMenu();
+		}
+
+		ImGui::EndMainMenuBar();
+	}
 }
 
 
@@ -433,9 +467,7 @@ void ImGuiHandler::draw() {
 	);
 
 	ImGui::NewFrame();
-	ImGui::Begin( "I am a window." );
-	ImGui::Text( "Hello, world!" );
-	ImGui::End();
+	this->buildUIStructure();
 
 
 	VkResult result = vkResetCommandPool( mVH->mLogicalDevice, mCommandPool, 0 );
