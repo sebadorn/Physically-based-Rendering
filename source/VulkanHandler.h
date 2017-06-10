@@ -7,11 +7,7 @@
 #include <imgui.h>
 
 #include <glm/glm.hpp>
-#include <algorithm>
-#include <cstring>
 #include <fstream>
-#include <limits>
-#include <set>
 #include <vector>
 
 #include "ActionHandler.h"
@@ -19,6 +15,7 @@
 #include "ImGuiHandler.h"
 #include "Logger.h"
 #include "Vertex.h"
+#include "VulkanSetup.h"
 
 using std::vector;
 
@@ -37,22 +34,6 @@ const vector<Vertex> vertices = {
 };
 
 
-const vector<const char*> VALIDATION_LAYERS = {
-	"VK_LAYER_LUNARG_standard_validation"
-};
-
-const vector<const char*> DEVICE_EXTENSIONS = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME
-};
-
-
-struct SwapChainSupportDetails {
-	VkSurfaceCapabilitiesKHR capabilities;
-	vector<VkSurfaceFormatKHR> formats;
-	vector<VkPresentModeKHR> presentModes;
-};
-
-
 class VulkanHandler {
 
 
@@ -68,45 +49,34 @@ class VulkanHandler {
 		VkQueue mPresentQueue;
 		VkRenderPass mRenderPass = VK_NULL_HANDLE;
 		VkRenderPass mRenderPassInitial = VK_NULL_HANDLE;
+		VkSurfaceKHR mSurface = VK_NULL_HANDLE;
 		vector<VkFramebuffer> mFramebuffers;
 		vector<VkImage> mSwapchainImages;
 
-		const bool checkValidationLayerSupport();
 		VkShaderModule createShaderModule( const vector<char>& code );
 		uint32_t findMemoryType( uint32_t typeFitler, VkMemoryPropertyFlags properties );
-		const bool findQueueFamilyIndices(
-			VkPhysicalDevice device,
-			int* graphicsFamily,
-			int* presentFamily
-		);
-		vector<const char*> getRequiredExtensions();
 		void imGuiSetup();
 		void initWindow();
-		const bool isDeviceSuitable( VkPhysicalDevice device );
 		vector<char> loadFileSPV( const string& filename );
 		void mainLoop();
-		void printDeviceDebugInfo( VkPhysicalDevice device );
 		void setup( ActionHandler* ah );
 		void teardown();
 
+		static bool useValidationLayer;
+		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+			VkDebugReportFlagsEXT flags,
+			VkDebugReportObjectTypeEXT objType,
+			uint64_t obj,
+			size_t location,
+			int32_t code,
+			const char* layerPrefix,
+			const char* msg,
+			void* userData
+		);
 		static void checkVkResult( VkResult result, const char* errorMessage, const char* className = "VulkanHandler" );
-		static uint32_t getVersionPBR();
 
 
 	protected:
-		VkApplicationInfo buildApplicationInfo();
-		VkInstanceCreateInfo buildInstanceCreateInfo(
-			VkApplicationInfo* appInfo,
-			vector<const char*>* extensions
-		);
-		const bool checkDeviceExtensionSupport( VkPhysicalDevice device );
-		VkExtent2D chooseSwapExtent( const VkSurfaceCapabilitiesKHR& capabilities );
-		VkPresentModeKHR chooseSwapPresentMode(
-			const vector<VkPresentModeKHR>& availablePresentModes
-		);
-		VkSurfaceFormatKHR chooseSwapSurfaceFormat(
-			const vector<VkSurfaceFormatKHR>& availableFormats
-		);
 		void copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size );
 		void createBuffer(
 			VkDeviceSize size,
@@ -122,40 +92,23 @@ class VulkanHandler {
 		void createFramebuffers();
 		void createGraphicsPipeline();
 		void createImageViews();
-		VkInstance createInstance();
-		void createLogicalDevice();
 		void createRenderPass();
 		void createSemaphores();
-		void createSurface();
-		void createSwapChain();
 		void createVertexBuffer();
 		void destroyDebugCallback();
 		void destroyImageViews();
 		bool drawFrame();
-		SwapChainSupportDetails querySwapChainSupport( VkPhysicalDevice device );
 		void recordCommand();
 		void recreateSwapchain();
 		void retrieveSwapchainImageHandles();
-		VkPhysicalDevice selectDevice();
-		void setupDebugCallback();
+		void setupSwapchain();
 		void updateFPS( double* lastTime, uint64_t* numFrames );
 		void waitForFences();
 
-		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-			VkDebugReportFlagsEXT flags,
-			VkDebugReportObjectTypeEXT objType,
-			uint64_t obj,
-			size_t location,
-			int32_t code,
-			const char* layerPrefix,
-			const char* msg,
-			void* userData
-		);
 		static void onWindowResize( GLFWwindow* window, int width, int height );
 
 
 	private:
-		bool mUseValidationLayer;
 		ImGuiHandler* mImGuiHandler;
 		vector<VkCommandBuffer> mCommandBuffers;
 		vector<VkCommandBuffer> mCommandBuffersNow;
@@ -173,7 +126,6 @@ class VulkanHandler {
 		VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
 		VkSemaphore mImageAvailableSemaphore = VK_NULL_HANDLE;
 		VkSemaphore mRenderFinishedSemaphore = VK_NULL_HANDLE;
-		VkSurfaceKHR mSurface = VK_NULL_HANDLE;
 		VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
 
 

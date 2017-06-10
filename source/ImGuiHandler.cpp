@@ -152,7 +152,7 @@ void ImGuiHandler::buildUIStructure() {
 void ImGuiHandler::createCommandBuffers() {
 	int graphicsFamily = -1;
 	int presentFamily = -1;
-	mVH->findQueueFamilyIndices( mVH->mPhysicalDevice, &graphicsFamily, &presentFamily );
+	VulkanSetup::findQueueFamilyIndices( mVH->mPhysicalDevice, &graphicsFamily, &presentFamily, &mVH->mSurface );
 
 	VkResult result;
 

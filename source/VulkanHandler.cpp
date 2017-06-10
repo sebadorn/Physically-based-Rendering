@@ -1,112 +1,9 @@
 #include "VulkanHandler.h"
 
-using std::numeric_limits;
-using std::set;
-using std::string;
 using std::vector;
 
 
-
-/**
- * Build the VkApplicationInfo for the VkInstanceCreateInfo.
- * @return {VkApplicationInfo}
- */
-VkApplicationInfo VulkanHandler::buildApplicationInfo() {
-	VkApplicationInfo appInfo = {};
-	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.pApplicationName = "PBR";
-	appInfo.applicationVersion = VulkanHandler::getVersionPBR();
-	appInfo.pEngineName = "PBR";
-	appInfo.engineVersion = VulkanHandler::getVersionPBR();
-	appInfo.apiVersion = VK_API_VERSION_1_0;
-
-	return appInfo;
-}
-
-
-/**
- * Build the VkInstanceCreateInfo for the VkInstance.
- * @param  {VkApplicationInfo*}        appInfo
- * @param  {std::vector<const char*>*} extensions
- * @return {VkInstanceCreateInfo}
- */
-VkInstanceCreateInfo VulkanHandler::buildInstanceCreateInfo(
-	VkApplicationInfo* appInfo,
-	vector<const char*>* extensions
-) {
-	VkInstanceCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	createInfo.pApplicationInfo = appInfo;
-
-	createInfo.enabledExtensionCount = extensions->size();
-	createInfo.ppEnabledExtensionNames = extensions->data();
-
-	if( mUseValidationLayer ) {
-		createInfo.enabledLayerCount = VALIDATION_LAYERS.size();
-		createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-	}
-	else {
-		createInfo.enabledLayerCount = 0;
-	}
-
-	return createInfo;
-}
-
-
-/**
- * Check if the given device supports all required extensions.
- * @param  {VkPhysicalDevice} device
- * @return {const bool}
- */
-const bool VulkanHandler::checkDeviceExtensionSupport( VkPhysicalDevice device ) {
-	uint32_t extensionCount;
-	vkEnumerateDeviceExtensionProperties(
-		device, nullptr, &extensionCount, nullptr
-	);
-
-	vector<VkExtensionProperties> availableExtensions( extensionCount );
-	vkEnumerateDeviceExtensionProperties(
-		device, nullptr, &extensionCount, availableExtensions.data()
-	);
-
-	set<string> requiredExtensions( DEVICE_EXTENSIONS.begin(), DEVICE_EXTENSIONS.end() );
-
-	for( const auto& extension : availableExtensions ) {
-		requiredExtensions.erase( extension.extensionName );
-	}
-
-	return requiredExtensions.empty();
-}
-
-
-/**
- * Check if the requested validation layers are supported.
- * @return {const bool}
- */
-const bool VulkanHandler::checkValidationLayerSupport() {
-	uint32_t layerCount;
-	vkEnumerateInstanceLayerProperties( &layerCount, nullptr );
-
-	vector<VkLayerProperties> availableLayers( layerCount );
-	vkEnumerateInstanceLayerProperties( &layerCount, availableLayers.data() );
-
-	for( const char* layerName : VALIDATION_LAYERS ) {
-		bool layerFound = false;
-
-		for( const auto& layerProperties : availableLayers ) {
-			if( strcmp( layerName, layerProperties.layerName ) == 0 ) {
-				layerFound = true;
-				break;
-			}
-		}
-
-		if( !layerFound ) {
-			return false;
-		}
-	}
-
-	return true;
-}
+bool VulkanHandler::useValidationLayer = true;
 
 
 /**
@@ -122,96 +19,6 @@ void VulkanHandler::checkVkResult(
 		Logger::logErrorf( "[%s] %s", className, errorMessage );
 		throw std::runtime_error( errorMessage );
 	}
-}
-
-
-/**
- * Choose the swap extent.
- * @param  {const VkSurfaceCapabilities&} capabilities
- * @return {VkExtent2D}
- */
-VkExtent2D VulkanHandler::chooseSwapExtent( const VkSurfaceCapabilitiesKHR& capabilities ) {
-	if( capabilities.currentExtent.width != numeric_limits<uint32_t>::max() ) {
-		return capabilities.currentExtent;
-	}
-	else {
-		VkExtent2D actualExtent = {
-			Cfg::get().value<uint32_t>( Cfg::WINDOW_WIDTH ),
-			Cfg::get().value<uint32_t>( Cfg::WINDOW_HEIGHT )
-		};
-
-		actualExtent.width = std::max(
-			capabilities.minImageExtent.width,
-			std::min( capabilities.maxImageExtent.width, actualExtent.width )
-		);
-		actualExtent.height = std::max(
-			capabilities.minImageExtent.height,
-			std::min( capabilities.maxImageExtent.height, actualExtent.height )
-		);
-
-		return actualExtent;
-	}
-}
-
-
-/**
- * Choose the presentation mode.
- * @param  {const std::vector<VkPresentModeKHR>&} availablePresentModes
- * @return {VkPresentModeKHR}
- */
-VkPresentModeKHR VulkanHandler::chooseSwapPresentMode(
-	const vector<VkPresentModeKHR>& availablePresentModes
-) {
-	for( const auto& presentMode : availablePresentModes ) {
-		if( presentMode == VK_PRESENT_MODE_MAILBOX_KHR ) {
-			return presentMode;
-		}
-	}
-
-	return VK_PRESENT_MODE_FIFO_KHR;
-}
-
-
-/**
- * Choose the format for the swap sufrace.
- * @param  {const std::vector<VkSurfaceFormatKHR>&} availableFormats
- * @return {VkSurfaceFormatKHR}
- */
-VkSurfaceFormatKHR VulkanHandler::chooseSwapSurfaceFormat(
-	const vector<VkSurfaceFormatKHR>& availableFormats
-) {
-	// Surface has no preferred format.
-	if( availableFormats.size() == 1 && availableFormats[0].format == VK_FORMAT_UNDEFINED ) {
-		Logger::logDebugVerbosef(
-			"[VulkanHandler] Surface has no preferred format."
-			" Choosing BGRA 32bit and sRGB."
-		);
-		return {
-			VK_FORMAT_B8G8R8A8_UNORM,
-			VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
-		};
-	}
-
-	// Look if our preferred combination is available.
-	for( const auto& format : availableFormats ) {
-		if(
-			format.format == VK_FORMAT_B8G8R8A8_UNORM &&
-			format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
-		) {
-			Logger::logDebugVerbosef(
-				"[VulkanHandler] Surface supports BGRA 32bit and sRGB."
-			);
-			return format;
-		}
-	}
-
-	// Just use the first one.
-	Logger::logWarning(
-		"[VulkanHandler] Preferred surface format not found."
-		" Selecting first one available."
-	);
-
-	return availableFormats[0];
 }
 
 
@@ -340,7 +147,7 @@ void VulkanHandler::createCommandBuffers() {
 void VulkanHandler::createCommandPool() {
 	int graphicsFamily = -1;
 	int presentFamily = -1;
-	this->findQueueFamilyIndices( mPhysicalDevice, &graphicsFamily, &presentFamily );
+	VulkanSetup::findQueueFamilyIndices( mPhysicalDevice, &graphicsFamily, &presentFamily, &mSurface );
 
 	VkCommandPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -352,38 +159,6 @@ void VulkanHandler::createCommandPool() {
 	);
 	VulkanHandler::checkVkResult( result, "Failed to create VkCommandPool." );
 	Logger::logInfo( "[VulkanHandler] Created VkCommandPool." );
-}
-
-
-/**
- * Create a VkDescriptorPool.
- */
-void VulkanHandler::createDescriptorPool() {
-	VkDescriptorPoolSize poolSize[11] = {
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
-		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1 },
-		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1 },
-		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1 }
-	};
-
-	VkDescriptorPoolCreateInfo poolInfo = {};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 11;
-	poolInfo.pPoolSizes = poolSize;
-	poolInfo.maxSets = 11 * 1;
-	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-
-	VkResult result = vkCreateDescriptorPool(
-		mLogicalDevice, &poolInfo, nullptr, &mDescriptorPool
-	);
-	VulkanHandler::checkVkResult( result, "Failed to create VkDescriptorPool." );
 }
 
 
@@ -466,6 +241,8 @@ void VulkanHandler::createGraphicsPipeline() {
 		vkDestroyPipelineLayout( mLogicalDevice, mPipelineLayout, nullptr );
 	}
 
+	mPipelineLayout = VulkanSetup::createPipelineLayout( &mLogicalDevice );
+
 	auto vertShaderCode = this->loadFileSPV( "source/shaders/vert.spv" );
 	auto fragShaderCode = this->loadFileSPV( "source/shaders/frag.spv" );
 	Logger::logDebug( "[VulkanHandler] Loaded shader files." );
@@ -473,7 +250,6 @@ void VulkanHandler::createGraphicsPipeline() {
 	VkShaderModule vertShaderModule = this->createShaderModule( vertShaderCode );
 	VkShaderModule fragShaderModule = this->createShaderModule( fragShaderCode );
 	Logger::logInfo( "[VulkanHandler] Created shader modules." );
-
 
 	VkPipelineShaderStageCreateInfo vertShaderCreateInfo = {};
 	vertShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -492,143 +268,9 @@ void VulkanHandler::createGraphicsPipeline() {
 		fragShaderCreateInfo
 	};
 
-
-	auto bindingDescription = Vertex::getBindingDescription();
-	auto attributeDescription = Vertex::getAttributeDescription();
-
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
-	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 1;
-	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-	vertexInputInfo.vertexAttributeDescriptionCount = attributeDescription.size();
-	vertexInputInfo.pVertexAttributeDescriptions = attributeDescription.data();
-
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
-	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	inputAssembly.primitiveRestartEnable = VK_FALSE;
-
-	VkViewport viewport = {};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-	viewport.width = (float) mSwapchainExtent.width;
-	viewport.height = (float) mSwapchainExtent.height;
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-
-	VkRect2D scissor = {};
-	scissor.offset = { 0, 0 };
-	scissor.extent = mSwapchainExtent;
-
-	VkPipelineViewportStateCreateInfo viewportState = {};
-	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-	viewportState.viewportCount = 1;
-	viewportState.pViewports = &viewport;
-	viewportState.scissorCount = 1;
-	viewportState.pScissors = &scissor;
-
-
-	VkPipelineRasterizationStateCreateInfo rasterizer = {};
-	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	rasterizer.depthClampEnable = VK_FALSE;
-	rasterizer.rasterizerDiscardEnable = VK_FALSE;
-	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-	rasterizer.lineWidth = 1.0f;
-	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-	rasterizer.depthBiasEnable = VK_FALSE;
-	rasterizer.depthBiasConstantFactor = 0.0f;
-	rasterizer.depthBiasClamp = 0.0f;
-	rasterizer.depthBiasSlopeFactor = 0.0f;
-
-
-	VkPipelineMultisampleStateCreateInfo multisampling = {};
-	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisampling.sampleShadingEnable = VK_FALSE;
-	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-	multisampling.minSampleShading = 1.0f;
-	multisampling.pSampleMask = nullptr;
-	multisampling.alphaToCoverageEnable = VK_FALSE;
-	multisampling.alphaToOneEnable = VK_FALSE;
-
-
-	VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
-	colorBlendAttachment.colorWriteMask =
-		VK_COLOR_COMPONENT_R_BIT |
-		VK_COLOR_COMPONENT_G_BIT |
-		VK_COLOR_COMPONENT_B_BIT |
-		VK_COLOR_COMPONENT_A_BIT;
-	colorBlendAttachment.blendEnable = VK_FALSE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-
-	VkPipelineColorBlendStateCreateInfo colorBlending = {};
-	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-	colorBlending.logicOpEnable = VK_FALSE;
-	colorBlending.logicOp = VK_LOGIC_OP_COPY;
-	colorBlending.attachmentCount = 1;
-	colorBlending.pAttachments = &colorBlendAttachment;
-	colorBlending.blendConstants[0] = 0.0f;
-	colorBlending.blendConstants[1] = 0.0f;
-	colorBlending.blendConstants[2] = 0.0f;
-	colorBlending.blendConstants[3] = 0.0f;
-
-
-	VkDynamicState dynamicStates[] = {
-		VK_DYNAMIC_STATE_VIEWPORT
-	};
-
-	VkPipelineDynamicStateCreateInfo dynamicState = {};
-	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-	dynamicState.dynamicStateCount = 1;
-	dynamicState.pDynamicStates = dynamicStates;
-
-
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
-	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 0;
-	pipelineLayoutInfo.pSetLayouts = nullptr;
-	pipelineLayoutInfo.pushConstantRangeCount = 0;
-	pipelineLayoutInfo.pPushConstantRanges = nullptr;
-
-	VkResult resultLayout = vkCreatePipelineLayout(
-		mLogicalDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout
+	mGraphicsPipeline = VulkanSetup::createGraphicsPipeline(
+		&mLogicalDevice, &mPipelineLayout, &mRenderPass, shaderStages, &mSwapchainExtent
 	);
-	VulkanHandler::checkVkResult( resultLayout, "Failed to create VkPipelineLayout." );
-	Logger::logDebug( "[VulkanHandler] Created VkPipelineLayout." );
-
-
-	VkGraphicsPipelineCreateInfo pipelineInfo = {};
-	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipelineInfo.stageCount = 2;
-	pipelineInfo.pStages = shaderStages;
-	pipelineInfo.pVertexInputState = &vertexInputInfo;
-	pipelineInfo.pInputAssemblyState = &inputAssembly;
-	pipelineInfo.pViewportState = &viewportState;
-	pipelineInfo.pRasterizationState = &rasterizer;
-	pipelineInfo.pMultisampleState = &multisampling;
-	pipelineInfo.pDepthStencilState = nullptr;
-	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.pDynamicState = nullptr;
-
-	pipelineInfo.layout = mPipelineLayout;
-	pipelineInfo.renderPass = mRenderPass;
-	pipelineInfo.subpass = 0;
-	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-	pipelineInfo.basePipelineIndex = -1;
-
-	VkResult resultPipeline = vkCreateGraphicsPipelines(
-		mLogicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &mGraphicsPipeline
-	);
-	VulkanHandler::checkVkResult(
-		resultPipeline, "Failed to create graphics VkPipeline."
-	);
-	Logger::logInfo( "[VulkanHandler] Created graphics VkPipeline." );
-
 
 	vkDestroyShaderModule( mLogicalDevice, vertShaderModule, nullptr );
 	vkDestroyShaderModule( mLogicalDevice, fragShaderModule, nullptr );
@@ -669,91 +311,6 @@ void VulkanHandler::createImageViews() {
 	}
 
 	Logger::logDebugf( "[VulkanHandler] Created %u VkImageViews.", mSwapchainImages.size() );
-}
-
-
-/**
- * Create a VkInstance.
- * @return {VkInstance}
- */
-VkInstance VulkanHandler::createInstance() {
-	if( mUseValidationLayer && !this->checkValidationLayerSupport() ) {
-		Logger::logError( "[VulkanHandler] No validation layer support found. Will proceed without validation layer." );
-		mUseValidationLayer = false;
-	}
-
-	VkApplicationInfo appInfo = this->buildApplicationInfo();
-	vector<const char*> extensions = this->getRequiredExtensions();
-	VkInstanceCreateInfo createInfo = this->buildInstanceCreateInfo( &appInfo, &extensions );
-
-	for( const char* extension : extensions ) {
-		Logger::logDebugVerbosef( "[VulkanHandler] Required extension: %s", extension );
-	}
-
-	Logger::logDebugVerbosef(
-		"[VulkanHandler] VkInstanceCreateInfo.enabledLayerCount = %u",
-		createInfo.enabledLayerCount
-	);
-
-	VkInstance instance;
-	VkResult result = vkCreateInstance( &createInfo, nullptr, &instance );
-	VulkanHandler::checkVkResult( result, "Failed to create VkInstance." );
-
-	return instance;
-}
-
-
-/**
- * Create a logical device.
- */
-void VulkanHandler::createLogicalDevice() {
-	int graphicsFamily = -1;
-	int presentFamily = -1;
-	this->findQueueFamilyIndices( mPhysicalDevice, &graphicsFamily, &presentFamily );
-
-	float queuePriority = 1.0f;
-	vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-	set<int> uniqueQueueFamilies = { graphicsFamily, presentFamily };
-
-	for( int queueFamily : uniqueQueueFamilies ) {
-		VkDeviceQueueCreateInfo queueCreateInfo = {};
-		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-		queueCreateInfo.queueFamilyIndex = queueFamily;
-		queueCreateInfo.queueCount = 1;
-		queueCreateInfo.pQueuePriorities = &queuePriority;
-
-		queueCreateInfos.push_back( queueCreateInfo );
-	}
-
-	VkPhysicalDeviceFeatures deviceFeatures = {};
-	deviceFeatures.shaderClipDistance = VK_TRUE;
-	deviceFeatures.shaderCullDistance = VK_TRUE;
-
-	VkDeviceCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	createInfo.pQueueCreateInfos = queueCreateInfos.data();
-	createInfo.queueCreateInfoCount = (uint32_t) queueCreateInfos.size();
-	createInfo.pEnabledFeatures = &deviceFeatures;
-	createInfo.enabledExtensionCount = (uint32_t) DEVICE_EXTENSIONS.size();
-	createInfo.ppEnabledExtensionNames = DEVICE_EXTENSIONS.data();
-
-	if( mUseValidationLayer ) {
-		createInfo.enabledLayerCount = VALIDATION_LAYERS.size();
-		createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-	}
-	else {
-		createInfo.enabledLayerCount = 0;
-	}
-
-	VkResult result = vkCreateDevice(
-		mPhysicalDevice, &createInfo, nullptr, &mLogicalDevice
-	);
-	VulkanHandler::checkVkResult( result, "Failed to create logical VkDevice." );
-	Logger::logInfo( "[VulkanHandler] Logical VkDevice created." );
-
-	vkGetDeviceQueue( mLogicalDevice, graphicsFamily, 0, &mGraphicsQueue );
-	vkGetDeviceQueue( mLogicalDevice, presentFamily, 0, &mPresentQueue );
-	Logger::logInfo( "[VulkanHandler] Retrieved graphics and presentation queues (VkQueue)." );
 }
 
 
@@ -861,98 +418,6 @@ VkShaderModule VulkanHandler::createShaderModule( const vector<char>& code ) {
 	VulkanHandler::checkVkResult( result, "Failed to create VkShaderModule." );
 
 	return shaderModule;
-}
-
-
-/**
- * Create the window surface.
- */
-void VulkanHandler::createSurface() {
-	VkResult result = glfwCreateWindowSurface( mInstance, mWindow, nullptr, &mSurface );
-	VulkanHandler::checkVkResult( result, "Failed to create VkSurfaceKHR." );
-	Logger::logInfo( "[VulkanHandler] Window surface (VkSurfaceKHR) created." );
-}
-
-
-/**
- * Create the swap chain.
- */
-void VulkanHandler::createSwapChain() {
-	SwapChainSupportDetails swapChainSupport = this->querySwapChainSupport( mPhysicalDevice );
-
-	VkSurfaceFormatKHR surfaceFormat = this->chooseSwapSurfaceFormat( swapChainSupport.formats );
-	VkPresentModeKHR presentMode = this->chooseSwapPresentMode( swapChainSupport.presentModes );
-	VkExtent2D extent = this->chooseSwapExtent( swapChainSupport.capabilities );
-
-	uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
-
-	if(
-		swapChainSupport.capabilities.maxImageCount > 0 &&
-		imageCount > swapChainSupport.capabilities.maxImageCount
-	) {
-		imageCount = swapChainSupport.capabilities.maxImageCount;
-	}
-
-	VkSwapchainCreateInfoKHR createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	createInfo.surface = mSurface;
-	createInfo.minImageCount = imageCount;
-	createInfo.imageFormat = surfaceFormat.format;
-	createInfo.imageColorSpace = surfaceFormat.colorSpace;
-	createInfo.imageExtent = extent;
-	createInfo.imageArrayLayers = 1;
-	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-	int graphicsFamily = -1;
-	int presentFamily = -1;
-	this->findQueueFamilyIndices( mPhysicalDevice, &graphicsFamily, &presentFamily );
-	uint32_t queueFamilyIndices[] = {
-		(uint32_t) graphicsFamily,
-		(uint32_t) presentFamily
-	};
-
-	if( graphicsFamily != presentFamily ) {
-		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-		createInfo.queueFamilyIndexCount = 2;
-		createInfo.pQueueFamilyIndices = queueFamilyIndices;
-
-		Logger::logDebugVerbosef(
-			"[VulkanHandler] Image sharing mode will"
-			" be VK_SHARING_MODE_CONCURRENT."
-		);
-	}
-	else {
-		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		createInfo.queueFamilyIndexCount = 0;
-		createInfo.pQueueFamilyIndices = nullptr;
-
-		Logger::logDebugVerbosef(
-			"[VulkanHandler] Image sharing mode will"
-			" be VK_SHARING_MODE_EXCLUSIVE."
-		);
-	}
-
-	createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
-	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	createInfo.presentMode = presentMode;
-	createInfo.clipped = VK_FALSE;
-
-	VkSwapchainKHR oldSwapchain = mSwapchain;
-	createInfo.oldSwapchain = oldSwapchain;
-
-	VkSwapchainKHR newSwapchain;
-	VkResult result = vkCreateSwapchainKHR( mLogicalDevice, &createInfo, nullptr, &newSwapchain );
-	VulkanHandler::checkVkResult( result, "Failed to create VkSwapchainKHR." );
-	Logger::logInfo( "[VulkanHandler] VkSwapchainKHR created." );
-
-	// Destroy old swap chain if existing.
-	if( mSwapchain != VK_NULL_HANDLE ) {
-		vkDestroySwapchainKHR( mLogicalDevice, mSwapchain, nullptr );
-	}
-
-	mSwapchain = newSwapchain;
-	mSwapchainFormat = surfaceFormat.format;
-	mSwapchainExtent = extent;
 }
 
 
@@ -1155,89 +620,6 @@ uint32_t VulkanHandler::findMemoryType( uint32_t typeFilter, VkMemoryPropertyFla
 
 
 /**
- * Check if the device supports the graphics queue family.
- * @param  {VkPhysicalDevice} device
- * @param  {int*}             graphicsFamily
- * @param  {int*}             presentFamily
- * @return {const bool}
- */
-const bool VulkanHandler::findQueueFamilyIndices(
-	VkPhysicalDevice device, int* graphicsFamily, int* presentFamily
-) {
-	uint32_t queueFamilyCount = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties( device, &queueFamilyCount, nullptr );
-
-	vector<VkQueueFamilyProperties> queueFamilies( queueFamilyCount );
-	vkGetPhysicalDeviceQueueFamilyProperties(
-		device, &queueFamilyCount, queueFamilies.data()
-	);
-
-	*graphicsFamily = -1;
-	*presentFamily = -1;
-	int i = -1;
-
-	for( const auto& queueFamily : queueFamilies ) {
-		i++;
-
-		if( queueFamily.queueCount <= 0 ) {
-			continue;
-		}
-
-		if( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) {
-			*graphicsFamily = i;
-		}
-
-		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR( device, i, mSurface, &presentSupport );
-
-		if( presentSupport ) {
-			*presentFamily = i;
-		}
-
-		if( *graphicsFamily >= 0 && *presentFamily >= 0 ) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-
-/**
- * Get a list of the required extensions.
- * @return {std::vector<const char*>}
- */
-vector<const char*> VulkanHandler::getRequiredExtensions() {
-	vector<const char*> extensions;
-	uint32_t glfwExtensionCount = 0;
-	const char** glfwExtensions = glfwGetRequiredInstanceExtensions( &glfwExtensionCount );
-
-	for( uint32_t i = 0; i < glfwExtensionCount; i++ ) {
-		extensions.push_back( glfwExtensions[i] );
-	}
-
-	if( mUseValidationLayer ) {
-		extensions.push_back( VK_EXT_DEBUG_REPORT_EXTENSION_NAME );
-	}
-
-	return extensions;
-}
-
-
-/**
- * Get the version number for this application/engine.
- * @return {uint32_t}
- */
-uint32_t VulkanHandler::getVersionPBR() {
-	const uint32_t vMajor = Cfg::get().value<uint32_t>( Cfg::VERSION_MAJOR );
-	const uint32_t vMinor = Cfg::get().value<uint32_t>( Cfg::VERSION_MINOR );
-	const uint32_t vPatch = Cfg::get().value<uint32_t>( Cfg::VERSION_PATCH );
-
-	return VK_MAKE_VERSION( vMajor, vMinor, vPatch );
-}
-
-
-/**
  * Initialize the window.
  */
 void VulkanHandler::initWindow() {
@@ -1270,100 +652,6 @@ void VulkanHandler::initWindow() {
 	);
 	glfwSetWindowUserPointer( mWindow, this );
 	glfwSetWindowSizeCallback( mWindow, VulkanHandler::onWindowResize );
-}
-
-
-/**
- * Check if the given device is suitable for Vulkan.
- * @param  {VkPhysicalDevice} device
- * @return {const bool}
- */
-const bool VulkanHandler::isDeviceSuitable( VkPhysicalDevice device ) {
-	VkPhysicalDeviceProperties properties;
-	VkPhysicalDeviceFeatures features;
-
-	vkGetPhysicalDeviceProperties( device, &properties );
-	vkGetPhysicalDeviceFeatures( device, &features );
-
-	Logger::logDebugf(
-		"[VulkanHandler] Checking if device is suitable: %s",
-		properties.deviceName
-	);
-	Logger::indentChange( 2 );
-
-	if( properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ) {
-		Logger::logDebugf(
-			"[VulkanHandler] Device not suitable,"
-			" because it isn't a discrete GPU."
-		);
-		Logger::indentChange( -2 );
-
-		return false;
-	}
-
-	if( !features.geometryShader ) {
-		Logger::logDebugf(
-			"[VulkanHandler] Device not suitable, because"
-			" it doesn't support geometry shaders."
-		);
-		Logger::indentChange( -2 );
-
-		return false;
-	}
-
-	int graphicsFamily = -1;
-	int presentFamily = -1;
-	const bool queuesFound = this->findQueueFamilyIndices(
-		device, &graphicsFamily, &presentFamily
-	);
-
-	if( !queuesFound ) {
-		Logger::logDebugf(
-			"[VulkanHandler] Device not suitable, because the"
-			" necessary queue families could not be found."
-		);
-		Logger::indentChange( -2 );
-
-		return false;
-	}
-
-	const bool extensionsSupported = this->checkDeviceExtensionSupport( device );
-
-	if( !extensionsSupported ) {
-		Logger::logDebugf(
-			"[VulkanHandler] Device not suitable, because the"
-			" required extensions are not supported."
-		);
-		Logger::indentChange( -2 );
-
-		return false;
-	}
-
-	SwapChainSupportDetails swapChainDetails = this->querySwapChainSupport( device );
-
-	if( swapChainDetails.formats.empty() ) {
-		Logger::logDebugf(
-			"[VulkanHandler] Device not suitable, because"
-			" it does not support any image formats."
-		);
-		Logger::indentChange( -2 );
-
-		return false;
-	}
-
-	if( swapChainDetails.presentModes.empty() ) {
-		Logger::logDebugf(
-			"[VulkanHandler] Device not suitable, because it"
-			" does not support any presentation modes."
-		);
-		Logger::indentChange( -2 );
-
-		return false;
-	}
-
-	Logger::indentChange( -2 );
-
-	return true;
 }
 
 
@@ -1451,70 +739,6 @@ void VulkanHandler::onWindowResize( GLFWwindow* window, int width, int height ) 
 
 
 /**
- * Print some debug data about the selected device.
- * @param {VkPhysicalDevice} device
- */
-void VulkanHandler::printDeviceDebugInfo( VkPhysicalDevice device ) {
-	if( device == VK_NULL_HANDLE ) {
-		Logger::logWarning( "[VulkanHandler] No device given." );
-		return;
-	}
-
-	VkPhysicalDeviceProperties properties;
-	vkGetPhysicalDeviceProperties( device, &properties );
-
-	Logger::logInfof( "[VulkanHandler] Name: %s", properties.deviceName );
-	Logger::logInfof(
-		"[VulkanHandler] Vulkan API: %u.%u.%u",
-		VK_VERSION_MAJOR( properties.apiVersion ),
-		VK_VERSION_MINOR( properties.apiVersion ),
-		VK_VERSION_PATCH( properties.apiVersion )
-	);
-	Logger::logDebugf( "[VulkanHandler] Vendor ID: %u", properties.vendorID );
-	Logger::logDebugf( "[VulkanHandler] Device ID: %u", properties.deviceID );
-	Logger::logDebugf( "[VulkanHandler] Driver: %u", properties.driverVersion );
-}
-
-
-/**
- * Query the device's swap chain support.
- * @param  {VkPhysicalDevice}        device
- * @return {SwapChainSupportDetails}
- */
-SwapChainSupportDetails VulkanHandler::querySwapChainSupport( VkPhysicalDevice device ) {
-	SwapChainSupportDetails details;
-
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-		device, mSurface, &details.capabilities
-	);
-
-	uint32_t formatCount = 0;
-	vkGetPhysicalDeviceSurfaceFormatsKHR( device, mSurface, &formatCount, nullptr );
-
-	if( formatCount > 0 ) {
-		details.formats.resize( formatCount );
-		vkGetPhysicalDeviceSurfaceFormatsKHR(
-			device, mSurface, &formatCount, details.formats.data()
-		);
-	}
-
-	uint32_t presentModeCount = 0;
-	vkGetPhysicalDeviceSurfacePresentModesKHR(
-		device, mSurface, &presentModeCount, nullptr
-	);
-
-	if( presentModeCount > 0 ) {
-		details.presentModes.resize( presentModeCount );
-		vkGetPhysicalDeviceSurfacePresentModesKHR(
-			device, mSurface, &presentModeCount, details.presentModes.data()
-		);
-	}
-
-	return details;
-}
-
-
-/**
  * Record the command for this render pass.
  */
 void VulkanHandler::recordCommand() {
@@ -1530,7 +754,6 @@ void VulkanHandler::recordCommand() {
 
 	VkRenderPassBeginInfo renderPassInfo = {};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = mRenderPassInitial ? mRenderPassInitial : mRenderPass;
 	renderPassInfo.framebuffer = mFramebuffers[mFrameIndex];
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = mSwapchainExtent;
@@ -1539,6 +762,11 @@ void VulkanHandler::recordCommand() {
 		VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
 		renderPassInfo.clearValueCount = 1;
 		renderPassInfo.pClearValues = &clearColor;
+
+		renderPassInfo.renderPass = mRenderPassInitial;
+	}
+	else {
+		renderPassInfo.renderPass = mRenderPass;
 	}
 
 	vkCmdBeginRenderPass(
@@ -1570,8 +798,7 @@ void VulkanHandler::recreateSwapchain() {
 
 	vkDeviceWaitIdle( mLogicalDevice );
 
-	this->createSwapChain();
-	this->retrieveSwapchainImageHandles();
+	this->setupSwapchain();
 	this->createImageViews();
 	this->createRenderPass();
 	this->createGraphicsPipeline();
@@ -1598,44 +825,6 @@ void VulkanHandler::retrieveSwapchainImageHandles() {
 
 
 /**
- * Select a GPU.
- * @return {VkPhysicalDevice}
- */
-VkPhysicalDevice VulkanHandler::selectDevice() {
-	uint32_t deviceCount = 0;
-	vkEnumeratePhysicalDevices( mInstance, &deviceCount, nullptr );
-
-	if( deviceCount == 0 ) {
-		Logger::logError( "[VulkanHandler] No GPU with Vulkan support found." );
-		throw std::runtime_error( "No GPU with Vulkan support found." );
-	}
-
-	VkPhysicalDevice selectedDevice = VK_NULL_HANDLE;
-	vector<VkPhysicalDevice> devices( deviceCount );
-	vkEnumeratePhysicalDevices( mInstance, &deviceCount, devices.data() );
-
-	for( const auto& device : devices ) {
-		if( this->isDeviceSuitable( device ) ) {
-			selectedDevice = device;
-			break;
-		}
-	}
-
-	if( selectedDevice == VK_NULL_HANDLE ) {
-		Logger::logError( "[VulkanHandler] None of the found GPUs support Vulkan." );
-		throw std::runtime_error( "None of the found GPUs support Vulkan." );
-	}
-
-	Logger::logInfo( "[VulkanHandler] Suitable GPU found." );
-	Logger::indentChange( 2 );
-	this->printDeviceDebugInfo( selectedDevice );
-	Logger::indentChange( -2 );
-
-	return selectedDevice;
-}
-
-
-/**
  * Setup Vulkan: Create a VkInstance,
  * check for support, pick a device etc.
  * @param {ActionHandler*} actionHandler
@@ -1647,29 +836,32 @@ void VulkanHandler::setup( ActionHandler* actionHandler ) {
 	mActionHandler = actionHandler;
 	this->initWindow();
 
-	mUseValidationLayer = Cfg::get().value<bool>( Cfg::VULKAN_VALIDATION_LAYER );
+	VulkanHandler::useValidationLayer = Cfg::get().value<bool>( Cfg::VULKAN_VALIDATION_LAYER );
 
-	if( mUseValidationLayer ) {
+	if( VulkanHandler::useValidationLayer ) {
 		Logger::logInfo( "[VulkanHandler] Validation layer usage is enabled." );
 	}
 	else {
 		Logger::logInfo( "[VulkanHandler] Validation layer usage is disabled." );
 	}
 
-	mInstance = this->createInstance();
-	this->setupDebugCallback();
-	this->createSurface();
-	mPhysicalDevice = this->selectDevice();
-	this->createLogicalDevice();
-	this->createSwapChain();
-	this->retrieveSwapchainImageHandles();
+	mInstance = VulkanSetup::createInstance();
+	VulkanSetup::setupDebugCallback( &mInstance, &mDebugCallback );
+	VulkanSetup::createSurface( &mInstance, mWindow, &mSurface );
+	mPhysicalDevice = VulkanSetup::selectDevice( &mInstance, &mSurface );
+	VulkanSetup::createLogicalDevice(
+		&mSurface, &mPhysicalDevice, &mLogicalDevice,
+		&mGraphicsQueue, &mPresentQueue
+	);
+
+	this->setupSwapchain();
 	this->createImageViews();
 	this->createRenderPass();
 	this->createGraphicsPipeline();
 	this->createFramebuffers();
 	this->createCommandPool();
 	this->createVertexBuffer();
-	this->createDescriptorPool();
+	mDescriptorPool = VulkanSetup::createDescriptorPool( &mLogicalDevice );
 	this->createCommandBuffers();
 	this->createFences();
 	this->createSemaphores();
@@ -1683,32 +875,23 @@ void VulkanHandler::setup( ActionHandler* actionHandler ) {
 
 
 /**
- * Setup the Vulkan debug callback for the validation layer.
+ * Setup everything swapchain related.
  */
-void VulkanHandler::setupDebugCallback() {
-	if( !mUseValidationLayer ) {
-		return;
-	}
+void VulkanHandler::setupSwapchain() {
+	SwapChainSupportDetails swapchainSupport = VulkanSetup::querySwapChainSupport( mPhysicalDevice, &mSurface );
+	VkSurfaceFormatKHR surfaceFormat = VulkanSetup::chooseSwapSurfaceFormat( swapchainSupport.formats );
 
-	VkDebugReportCallbackCreateInfoEXT createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-	createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
-	createInfo.pfnCallback = VulkanHandler::debugCallback;
+	mSwapchainExtent = VulkanSetup::chooseSwapExtent( swapchainSupport.capabilities );
+	mSwapchainFormat = surfaceFormat.format;
 
-	auto fnCreateDebugCallback = (PFN_vkCreateDebugReportCallbackEXT) vkGetInstanceProcAddr(
-		mInstance, "vkCreateDebugReportCallbackEXT"
+	mSwapchain = VulkanSetup::createSwapchain(
+		&mSwapchain, &swapchainSupport,
+		&mPhysicalDevice, &mLogicalDevice,
+		&mSurface, surfaceFormat,
+		mSwapchainExtent
 	);
 
-	if( fnCreateDebugCallback == nullptr ) {
-		Logger::logError( "[VulkanHandler] Cannot setup debug callback. No such function: \"vkCreateDebugReportCallbackEXT\"" );
-		throw std::runtime_error( "VK_ERROR_EXTENSION_NOT_PRESENT" );
-	}
-
-	VkResult result = fnCreateDebugCallback(
-		mInstance, &createInfo, nullptr, &mDebugCallback
-	);
-	VulkanHandler::checkVkResult( result, "Failed to setup debug callback." );
-	Logger::logDebug( "[VulkanHandler] Debug callback setup." );
+	this->retrieveSwapchainImageHandles();
 }
 
 
