@@ -126,6 +126,7 @@ void ImGuiHandler::buildUIStructure() {
 			if( ImGui::BeginMenu( "Model" ) ) {
 				if( ImGui::MenuItem( "Test" ) ) {
 					mVH->mActionHandler->loadModel(
+						mVH,
 						"/home/seba/programming/Physically-based Rendering/resources/models/testing/",
 						"pillars.obj"
 					);
@@ -143,6 +144,21 @@ void ImGuiHandler::buildUIStructure() {
 
 		ImGui::EndMainMenuBar();
 	}
+
+	ImGui::Begin( "Camera" );
+	ImGui::Text( "Eye" );
+	ImGui::SliderFloat( "x##EyeX", &( mVH->mCameraEye.x ), -1000.0f, 1000.0f );
+	ImGui::SliderFloat( "y##EyeY", &( mVH->mCameraEye.y ), -1000.0f, 1000.0f );
+	ImGui::SliderFloat( "z##EyeZ", &( mVH->mCameraEye.z ), -1000.0f, 1000.0f );
+
+	ImGui::Text( "Center" );
+	ImGui::SliderFloat( "x##CenterX", &( mVH->mCameraCenter.x ), -1000.0f, 1000.0f );
+	ImGui::SliderFloat( "y##CenterY", &( mVH->mCameraCenter.y ), -1000.0f, 1000.0f );
+	ImGui::SliderFloat( "z##CenterZ", &( mVH->mCameraCenter.z ), -1000.0f, 1000.0f );
+
+	ImGui::Text( "Perspective" );
+	ImGui::SliderInt( "FOV", &( mVH->mFOV ), 1, 200 );
+	ImGui::End();
 }
 
 

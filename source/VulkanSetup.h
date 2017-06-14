@@ -44,6 +44,7 @@ class VulkanSetup {
 			const vector<VkSurfaceFormatKHR>& availableFormats
 		);
 		static VkDescriptorPool createDescriptorPool( VkDevice* logicalDevice );
+		static VkDescriptorSetLayout createDescriptorSetLayout( VkDevice* logicalDevice );
 		static VkPipeline createGraphicsPipeline(
 			VkDevice *logicalDevice,
 			VkPipelineLayout* pipelineLayout,
@@ -59,7 +60,10 @@ class VulkanSetup {
 			VkQueue* graphicsQueue,
 			VkQueue* presentQueue
 		);
-		static VkPipelineLayout createPipelineLayout( VkDevice* logicalDevice );
+		static VkPipelineLayout createPipelineLayout(
+			VkDevice* logicalDevice,
+			VkDescriptorSetLayout* descriptorSetLayout
+		);
 		static void createSurface( VkInstance* instance, GLFWwindow* window, VkSurfaceKHR* surface );
 		static VkSwapchainKHR createSwapchain(
 			VkSwapchainKHR* oldSwapchain,

@@ -18,13 +18,16 @@ void ActionHandler::exit( VulkanHandler* vh ) {
 
 /**
  * Load a model.
- * @param {const string&} filepath
- * @param {const string&} filename
+ * @param {VulkanHandler*} vh
+ * @param {const string&}  filepath
+ * @param {const string&}  filename
  */
-void ActionHandler::loadModel( const string& filepath, const string& filename ) {
+void ActionHandler::loadModel( VulkanHandler* vh, const string& filepath, const string& filename ) {
 	ModelLoader* ml = new ModelLoader();
 	ml->loadModel( filepath, filename );
 
 	ObjParser* op = ml->getObjParser();
 	AccelStructure* accelStruct = new BVH( op->getObjects(), op->getVertices(), op->getNormals() );
+
+	vh->loadModelIntoBuffers( op, accelStruct );
 }

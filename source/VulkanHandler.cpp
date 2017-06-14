@@ -7,6 +7,27 @@ bool VulkanHandler::useValidationLayer = true;
 
 
 /**
+ * Calculate the matrices for view, model, model-view-projection and normals.
+ */
+void VulkanHandler::calculateMatrices() {
+	glm::mat4 modelMatrix = glm::mat4( 1.0f );
+	glm::mat4 viewMatrix = glm::lookAt( mCameraEye, mCameraCenter, mCameraUp );
+
+	int width;
+	int height;
+	glfwGetWindowSize( mWindow, &width, &height );
+
+	glm::mat4 projectionMatrix = glm::perspectiveFov(
+		(GLfloat) mFOV, (GLfloat) width, (GLfloat) height,
+		Cfg::get().value<GLfloat>( Cfg::PERS_ZNEAR ),
+		Cfg::get().value<GLfloat>( Cfg::PERS_ZFAR )
+	);
+
+	mModelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
+}
+
+
+/**
  * Check a VkResult and throw an error if not a VK_SUCCESS.
  * @param {VkResult}    result
  * @param {const char*} errorMessage
@@ -241,7 +262,7 @@ void VulkanHandler::createGraphicsPipeline() {
 		vkDestroyPipelineLayout( mLogicalDevice, mPipelineLayout, nullptr );
 	}
 
-	mPipelineLayout = VulkanSetup::createPipelineLayout( &mLogicalDevice );
+	mPipelineLayout = VulkanSetup::createPipelineLayout( &mLogicalDevice, &mDescriptorSetLayout );
 
 	auto vertShaderCode = this->loadFileSPV( "source/shaders/vert.spv" );
 	auto fragShaderCode = this->loadFileSPV( "source/shaders/frag.spv" );
@@ -418,6 +439,22 @@ VkShaderModule VulkanHandler::createShaderModule( const vector<char>& code ) {
 	VulkanHandler::checkVkResult( result, "Failed to create VkShaderModule." );
 
 	return shaderModule;
+}
+
+
+/**
+ * Create the uniform buffer.
+ */
+void VulkanHandler::createUniformBuffer() {
+	VkDeviceSize bufferSize = sizeof( UniformCamera );
+
+	this->createBuffer(
+		bufferSize,
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		mUniformBuffer,
+		mUniformBufferMemory
+	);
 }
 
 
@@ -680,6 +717,47 @@ vector<char> VulkanHandler::loadFileSPV( const string& filename ) {
 
 
 /**
+ * Load the loaded model into buffers for the shader.
+ * @param {ObjParser*}      op
+ * @param {AccelStructure*} accelStruct
+ */
+void VulkanHandler::loadModelIntoBuffers( ObjParser* op, AccelStructure* accelStruct ) {
+	mObjParser = op;
+
+	// Vertices
+	vector<float> objVertices = op->getVertices();
+	VkDeviceSize bufferSize = sizeof( float ) * objVertices.size();
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+
+	this->createBuffer(
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer,
+		stagingBufferMemory
+	);
+
+	void* data;
+	vkMapMemory( mLogicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data );
+	memcpy( data, objVertices.data(), (size_t) bufferSize );
+	vkUnmapMemory( mLogicalDevice, stagingBufferMemory );
+
+	this->createBuffer(
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		mModelVerticesBuffer,
+		mModelVerticesBufferMemory
+	);
+	this->copyBuffer( stagingBuffer, mModelVerticesBuffer, bufferSize );
+
+	vkFreeMemory( mLogicalDevice, stagingBufferMemory, nullptr );
+	vkDestroyBuffer( mLogicalDevice, stagingBuffer, nullptr );
+}
+
+
+/**
  * Start the main loop.
  */
 void VulkanHandler::mainLoop() {
@@ -688,7 +766,7 @@ void VulkanHandler::mainLoop() {
 	int numFramebuffers = mFramebuffers.size();
 
 	// while( !glfwWindowShouldClose( mWindow ) ) {
-	for ( int i = 0; i < 5000; i++ ) { // Playing it save for now.
+	for( int i = 0; i < 5000; i++ ) { // Playing it save for now.
 		if( glfwWindowShouldClose( mWindow ) ) {
 			break;
 		}
@@ -745,6 +823,9 @@ void VulkanHandler::recordCommand() {
 	VkResult result = vkResetCommandPool( mLogicalDevice, mCommandPool, 0 );
 	VulkanHandler::checkVkResult( result, "Resetting command pool failed." );
 
+	this->calculateMatrices();
+	this->updateUniformBuffer();
+
 	VkCommandBufferBeginInfo beginInfo = {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
@@ -779,8 +860,17 @@ void VulkanHandler::recordCommand() {
 	VkBuffer vertexBuffers[] = { mVertexBuffer };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers( mCommandBuffers[mFrameIndex], 0, 1, vertexBuffers, offsets );
-
 	vkCmdDraw( mCommandBuffers[mFrameIndex], vertices.size(), 1, 0, 0 );
+
+	// if( mModelVerticesBuffer ) {
+	// 	VkBuffer buffers[] = { mModelVerticesBuffer };
+	// 	VkDeviceSize offsets[] = { 0 };
+	// 	vkCmdBindVertexBuffers(
+	// 		mCommandBuffers[mFrameIndex], 0, 1, buffers, offsets
+	// 	);
+	// 	vkCmdDraw( mCommandBuffers[mFrameIndex], mObjParser->getVertices().size(), 1, 0, 0 );
+	// }
+
 	vkCmdEndRenderPass( mCommandBuffers[mFrameIndex] );
 
 	result = vkEndCommandBuffer( mCommandBuffers[mFrameIndex] );
@@ -857,10 +947,12 @@ void VulkanHandler::setup( ActionHandler* actionHandler ) {
 	this->setupSwapchain();
 	this->createImageViews();
 	this->createRenderPass();
+	mDescriptorSetLayout = VulkanSetup::createDescriptorSetLayout( &mLogicalDevice );
 	this->createGraphicsPipeline();
 	this->createFramebuffers();
 	this->createCommandPool();
 	this->createVertexBuffer();
+	this->createUniformBuffer();
 	mDescriptorPool = VulkanSetup::createDescriptorPool( &mLogicalDevice );
 	this->createCommandBuffers();
 	this->createFences();
@@ -937,10 +1029,28 @@ void VulkanHandler::teardown() {
 	mImGuiHandler->teardown();
 	delete mImGuiHandler;
 
+	if( mDescriptorSetLayout != VK_NULL_HANDLE ) {
+		vkDestroyDescriptorSetLayout( mLogicalDevice, mDescriptorSetLayout, nullptr );
+		mDescriptorSetLayout = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkDescriptorSetLayout destroyed." );
+	}
+
 	if( mDescriptorPool != VK_NULL_HANDLE ) {
 		vkDestroyDescriptorPool( mLogicalDevice, mDescriptorPool, nullptr );
 		mDescriptorPool = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[VulkanHandler] VkDescriptorPool destroyed." );
+	}
+
+	if( mUniformBufferMemory != VK_NULL_HANDLE ) {
+		vkFreeMemory( mLogicalDevice, mUniformBufferMemory, nullptr );
+		mUniformBufferMemory = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkDeviceMemory (uniform) freed." );
+	}
+
+	if( mUniformBuffer != VK_NULL_HANDLE ) {
+		vkDestroyBuffer( mLogicalDevice, mUniformBuffer, nullptr );
+		mUniformBuffer = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkBuffer (uniform) destroyed." );
 	}
 
 	if( mVertexBufferMemory != VK_NULL_HANDLE ) {
@@ -953,6 +1063,18 @@ void VulkanHandler::teardown() {
 		vkDestroyBuffer( mLogicalDevice, mVertexBuffer, nullptr );
 		mVertexBuffer = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[VulkanHandler] VkBuffer (vertices) destroyed." );
+	}
+
+	if( mModelVerticesBufferMemory != VK_NULL_HANDLE ) {
+		vkFreeMemory( mLogicalDevice, mModelVerticesBufferMemory, nullptr );
+		mModelVerticesBufferMemory = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkDeviceMemory (model vertices) freed." );
+	}
+
+	if( mModelVerticesBuffer != VK_NULL_HANDLE ) {
+		vkDestroyBuffer( mLogicalDevice, mModelVerticesBuffer, nullptr );
+		mModelVerticesBuffer = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkBuffer (model vertices) destroyed." );
 	}
 
 	if( mCommandPool != VK_NULL_HANDLE ) {
@@ -1049,6 +1171,24 @@ void VulkanHandler::updateFPS( double* lastTime, uint64_t* numFrames ) {
 		*lastTime = currentTime;
 		*numFrames = 0;
 	}
+}
+
+
+/**
+ * Update the uniform buffer.
+ */
+void VulkanHandler::updateUniformBuffer() {
+	void* data;
+
+	UniformCamera uniformCamera = {};
+	uniformCamera.mvp = mModelViewProjectionMatrix;
+
+	vkMapMemory(
+		mLogicalDevice, mUniformBufferMemory, 0,
+		sizeof( uniformCamera ), 0, &data
+	);
+	memcpy( data, &uniformCamera, sizeof( uniformCamera ) );
+	vkUnmapMemory( mLogicalDevice, mUniformBufferMemory );
 }
 
 

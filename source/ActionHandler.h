@@ -15,7 +15,7 @@ class ActionHandler {
 
 	public:
 		void exit( VulkanHandler* vh );
-		void loadModel( const string& filepath, const string& filename );
+		void loadModel( VulkanHandler* vh, const string& filepath, const string& filename );
 
 
 	protected:

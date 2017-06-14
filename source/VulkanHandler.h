@@ -7,13 +7,17 @@
 #include <imgui.h>
 
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 #include <fstream>
 #include <vector>
 
+#include "accelstructures/AccelStructure.h"
 #include "ActionHandler.h"
 #include "Cfg.h"
 #include "ImGuiHandler.h"
 #include "Logger.h"
+#include "ObjParser.h"
 #include "Vertex.h"
 #include "VulkanSetup.h"
 
@@ -33,15 +37,25 @@ const vector<Vertex> vertices = {
 	{ { -1.0f, 1.0f }, { 0.0f, 1.0f, 0.0f } }
 };
 
+struct UniformCamera {
+	glm::mat4 mvp;
+};
+
 
 class VulkanHandler {
 
 
 	public:
+		int mFOV = 45;
 		uint32_t mFrameIndex = 0;
 		ActionHandler* mActionHandler = nullptr;
 		GLFWwindow* mWindow = nullptr;
+		glm::mat4 mModelViewProjectionMatrix;
+		glm::vec3 mCameraCenter = glm::vec3( 0.0f, 0.0f, 1.0f );
+		glm::vec3 mCameraEye = glm::vec3( 0.0f, 1.0f, 3.0f );
+		glm::vec3 mCameraUp = glm::vec3( 0.0f, 1.0f, 0.0f );
 		VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
+		VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
 		VkDevice mLogicalDevice = VK_NULL_HANDLE;
 		VkExtent2D mSwapchainExtent;
 		VkPhysicalDevice mPhysicalDevice;
@@ -53,11 +67,13 @@ class VulkanHandler {
 		vector<VkFramebuffer> mFramebuffers;
 		vector<VkImage> mSwapchainImages;
 
+		void calculateMatrices();
 		VkShaderModule createShaderModule( const vector<char>& code );
 		uint32_t findMemoryType( uint32_t typeFitler, VkMemoryPropertyFlags properties );
 		void imGuiSetup();
 		void initWindow();
 		vector<char> loadFileSPV( const string& filename );
+		void loadModelIntoBuffers( ObjParser* op, AccelStructure* accelStruct );
 		void mainLoop();
 		void setup( ActionHandler* ah );
 		void teardown();
@@ -73,7 +89,11 @@ class VulkanHandler {
 			const char* msg,
 			void* userData
 		);
-		static void checkVkResult( VkResult result, const char* errorMessage, const char* className = "VulkanHandler" );
+		static void checkVkResult(
+			VkResult result,
+			const char* errorMessage,
+			const char* className = "VulkanHandler"
+		);
 
 
 	protected:
@@ -94,6 +114,7 @@ class VulkanHandler {
 		void createImageViews();
 		void createRenderPass();
 		void createSemaphores();
+		void createUniformBuffer();
 		void createVertexBuffer();
 		void destroyDebugCallback();
 		void destroyImageViews();
@@ -103,6 +124,7 @@ class VulkanHandler {
 		void retrieveSwapchainImageHandles();
 		void setupSwapchain();
 		void updateFPS( double* lastTime, uint64_t* numFrames );
+		void updateUniformBuffer();
 		void waitForFences();
 
 		static void onWindowResize( GLFWwindow* window, int width, int height );
@@ -110,13 +132,18 @@ class VulkanHandler {
 
 	private:
 		ImGuiHandler* mImGuiHandler;
+		ObjParser* mObjParser;
 		vector<VkCommandBuffer> mCommandBuffers;
 		vector<VkCommandBuffer> mCommandBuffersNow;
 		vector<VkFence> mFences;
 		vector<VkImageView> mSwapchainImageViews;
+		VkBuffer mModelVerticesBuffer = VK_NULL_HANDLE;
+		VkBuffer mUniformBuffer = VK_NULL_HANDLE;
 		VkBuffer mVertexBuffer = VK_NULL_HANDLE;
 		VkCommandPool mCommandPool = VK_NULL_HANDLE;
 		VkDebugReportCallbackEXT mDebugCallback;
+		VkDeviceMemory mModelVerticesBufferMemory = VK_NULL_HANDLE;
+		VkDeviceMemory mUniformBufferMemory = VK_NULL_HANDLE;
 		VkDeviceMemory mVertexBufferMemory = VK_NULL_HANDLE;
 		VkFence mImageAvailableFence = VK_NULL_HANDLE;
 		VkFence mRenderFinishedFence = VK_NULL_HANDLE;
