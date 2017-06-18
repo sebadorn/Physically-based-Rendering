@@ -184,6 +184,27 @@ void VulkanHandler::createCommandPool() {
 
 
 /**
+ * Create a descriptor set.
+ * @return {VkDescriptorSet}
+ */
+VkDescriptorSet VulkanHandler::createDescriptorSet() {
+	VkDescriptorSetLayout layouts[] = { mDescriptorSetLayout };
+
+	VkDescriptorSetAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = mDescriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = layouts;
+
+	VkDescriptorSet descriptorSet;
+	VkResult result = vkAllocateDescriptorSets( mLogicalDevice, &allocInfo, &descriptorSet );
+	VulkanHandler::checkVkResult( result, "Failed to allocate descriptor set." );
+
+	return descriptorSet;
+}
+
+
+/**
  * Create the fences.
  */
 void VulkanHandler::createFences() {
@@ -857,6 +878,13 @@ void VulkanHandler::recordCommand() {
 		mCommandBuffers[mFrameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline
 	);
 
+	vkCmdBindDescriptorSets(
+		mCommandBuffers[mFrameIndex],
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		mPipelineLayout, 0, 1,
+		&mDescriptorSet, 0, nullptr
+	);
+
 	VkBuffer vertexBuffers[] = { mVertexBuffer };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers( mCommandBuffers[mFrameIndex], 0, 1, vertexBuffers, offsets );
@@ -954,6 +982,8 @@ void VulkanHandler::setup( ActionHandler* actionHandler ) {
 	this->createVertexBuffer();
 	this->createUniformBuffer();
 	mDescriptorPool = VulkanSetup::createDescriptorPool( &mLogicalDevice );
+	mDescriptorSet = this->createDescriptorSet();
+	this->writeUniformToDescriptorSet();
 	this->createCommandBuffers();
 	this->createFences();
 	this->createSemaphores();
@@ -1207,4 +1237,28 @@ void VulkanHandler::waitForFences() {
 	VulkanHandler::checkVkResult( result, "Failed to wait for fence(s)." );
 
 	vkResetFences( mLogicalDevice, mFences.size(), &mFences[0] );
+}
+
+
+/**
+ * Write the uniform buffer to the descriptor set.
+ */
+void VulkanHandler::writeUniformToDescriptorSet() {
+	VkDescriptorBufferInfo bufferInfo = {};
+	bufferInfo.buffer = mUniformBuffer;
+	bufferInfo.offset = 0;
+	bufferInfo.range = sizeof( UniformCamera );
+
+	VkWriteDescriptorSet descriptorWrite = {};
+	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrite.dstSet = mDescriptorSet;
+	descriptorWrite.dstBinding = 0;
+	descriptorWrite.dstArrayElement = 0;
+	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorWrite.descriptorCount = 1;
+	descriptorWrite.pBufferInfo = &bufferInfo;
+	descriptorWrite.pImageInfo = nullptr;
+	descriptorWrite.pTexelBufferView = nullptr;
+
+	vkUpdateDescriptorSets( mLogicalDevice, 1, &descriptorWrite, 0, nullptr );
 }

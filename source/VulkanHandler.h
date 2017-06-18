@@ -107,7 +107,7 @@ class VulkanHandler {
 		);
 		void createCommandBuffers();
 		void createCommandPool();
-		void createDescriptorPool();
+		VkDescriptorSet createDescriptorSet();
 		void createFences();
 		void createFramebuffers();
 		void createGraphicsPipeline();
@@ -126,6 +126,7 @@ class VulkanHandler {
 		void updateFPS( double* lastTime, uint64_t* numFrames );
 		void updateUniformBuffer();
 		void waitForFences();
+		void writeUniformToDescriptorSet();
 
 		static void onWindowResize( GLFWwindow* window, int width, int height );
 
@@ -142,6 +143,7 @@ class VulkanHandler {
 		VkBuffer mVertexBuffer = VK_NULL_HANDLE;
 		VkCommandPool mCommandPool = VK_NULL_HANDLE;
 		VkDebugReportCallbackEXT mDebugCallback;
+		VkDescriptorSet mDescriptorSet = VK_NULL_HANDLE;
 		VkDeviceMemory mModelVerticesBufferMemory = VK_NULL_HANDLE;
 		VkDeviceMemory mUniformBufferMemory = VK_NULL_HANDLE;
 		VkDeviceMemory mVertexBufferMemory = VK_NULL_HANDLE;

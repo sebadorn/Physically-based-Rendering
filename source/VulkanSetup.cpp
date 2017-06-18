@@ -226,7 +226,7 @@ VkDescriptorPool VulkanSetup::createDescriptorPool( VkDevice* logicalDevice ) {
 	VkResult result = vkCreateDescriptorPool(
 		*logicalDevice, &poolInfo, nullptr, &descriptorPool
 	);
-	VulkanHandler::checkVkResult( result, "Failed to create VkDescriptorPool." );
+	VulkanHandler::checkVkResult( result, "Failed to create VkDescriptorPool.", "VulkanSetup" );
 
 	return descriptorPool;
 }
@@ -255,7 +255,7 @@ VkDescriptorSetLayout VulkanSetup::createDescriptorSetLayout( VkDevice* logicalD
 	VkResult result = vkCreateDescriptorSetLayout(
 		*logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout
 	);
-	VulkanHandler::checkVkResult( result, "Failed to create VkDescriptorSetLayout." );
+	VulkanHandler::checkVkResult( result, "Failed to create VkDescriptorSetLayout.", "VulkanSetup" );
 
 	return descriptorSetLayout;
 }
