@@ -39,6 +39,7 @@ const vector<Vertex> vertices = {
 
 struct UniformCamera {
 	glm::mat4 mvp;
+	glm::ivec2 size;
 };
 
 

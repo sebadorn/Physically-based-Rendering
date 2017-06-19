@@ -1213,6 +1213,8 @@ void VulkanHandler::updateUniformBuffer() {
 	UniformCamera uniformCamera = {};
 	uniformCamera.mvp = mModelViewProjectionMatrix;
 
+	glfwGetWindowSize( mWindow, &uniformCamera.size.x, &uniformCamera.size.y );
+
 	vkMapMemory(
 		mLogicalDevice, mUniformBufferMemory, 0,
 		sizeof( uniformCamera ), 0, &data
