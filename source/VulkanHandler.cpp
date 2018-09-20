@@ -368,7 +368,7 @@ void VulkanHandler::createRenderPass() {
 	VkAttachmentDescription colorAttachment = {};
 	colorAttachment.format = mSwapchainFormat;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -745,36 +745,82 @@ vector<char> VulkanHandler::loadFileSPV( const string& filename ) {
 void VulkanHandler::loadModelIntoBuffers( ObjParser* op, AccelStructure* accelStruct ) {
 	mObjParser = op;
 
-	// Vertices
-	vector<float> objVertices = op->getVertices();
-	VkDeviceSize bufferSize = sizeof( float ) * objVertices.size();
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
+
+	// TODO:
+	// Pass model data to fragment shader. But how? I cannot
+	// use vectors with dynamic length in shaders. Or should I
+	// recompile the shaders after loading the model? Maybe
+	// or probably there are certain methods to achieve this.
+	//
+	// -> Shader Storage Buffer Objects?
+	// http://www.geeks3d.com/20140704/tutorial-introduction-to-opengl-4-3-shader-storage-buffers-objects-ssbo-demo/
+
+
+	ModelVertices modelVert = {};
+	vector<float> vertices = op->getVertices();
+
+	for( int i = 0; i < vertices.size(); i += 3 ) {
+		float v0 = vertices[i];
+		float v1 = vertices[i + 1];
+		float v2 = vertices[i + 2];
+		glm::vec4 vec = glm::vec4( v0, v1, v2, 0.0 );
+
+		modelVert.vertices.push_back( vec );
+	}
+
+	VkDeviceSize vertBufSize = sizeof( glm::vec4 ) * modelVert.vertices.size();
+	VkBuffer vertStagingBuf;
+	VkDeviceMemory vertStagingBufMem;
 
 	this->createBuffer(
-		bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		vertBufSize,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		stagingBuffer,
-		stagingBufferMemory
+		vertStagingBuf,
+		vertStagingBufMem
 	);
 
 	void* data;
-	vkMapMemory( mLogicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data );
-	memcpy( data, objVertices.data(), (size_t) bufferSize );
-	vkUnmapMemory( mLogicalDevice, stagingBufferMemory );
+	vkMapMemory( mLogicalDevice, vertStagingBufMem, 0, vertBufSize, 0, &data );
+	memcpy( data, modelVert.vertices.data(), (size_t) vertBufSize );
+	vkUnmapMemory( mLogicalDevice, vertStagingBufMem );
 
-	this->createBuffer(
-		bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		mModelVerticesBuffer,
-		mModelVerticesBufferMemory
-	);
-	this->copyBuffer( stagingBuffer, mModelVerticesBuffer, bufferSize );
+	vkFreeMemory( mLogicalDevice, vertStagingBufMem, nullptr );
+	vkDestroyBuffer( mLogicalDevice, vertStagingBuf, nullptr );
 
-	vkFreeMemory( mLogicalDevice, stagingBufferMemory, nullptr );
-	vkDestroyBuffer( mLogicalDevice, stagingBuffer, nullptr );
+	// TODO: Bind buffer when recording the command for the current render pass?
+
+
+	// // Vertices
+	// vector<float> objVertices = op->getVertices();
+	// VkDeviceSize bufferSize = sizeof( float ) * objVertices.size();
+	// VkBuffer stagingBuffer;
+	// VkDeviceMemory stagingBufferMemory;
+
+	// this->createBuffer(
+	// 	bufferSize,
+	// 	VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	// 	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+	// 	stagingBuffer,
+	// 	stagingBufferMemory
+	// );
+
+	// void* data;
+	// vkMapMemory( mLogicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data );
+	// memcpy( data, objVertices.data(), (size_t) bufferSize );
+	// vkUnmapMemory( mLogicalDevice, stagingBufferMemory );
+
+	// this->createBuffer(
+	// 	bufferSize,
+	// 	VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	// 	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+	// 	mModelVerticesBuffer,
+	// 	mModelVerticesBufferMemory
+	// );
+	// this->copyBuffer( stagingBuffer, mModelVerticesBuffer, bufferSize );
+
+	// vkFreeMemory( mLogicalDevice, stagingBufferMemory, nullptr );
+	// vkDestroyBuffer( mLogicalDevice, stagingBuffer, nullptr );
 }
 
 
@@ -890,15 +936,6 @@ void VulkanHandler::recordCommand() {
 	vkCmdBindVertexBuffers( mCommandBuffers[mFrameIndex], 0, 1, vertexBuffers, offsets );
 	vkCmdDraw( mCommandBuffers[mFrameIndex], vertices.size(), 1, 0, 0 );
 
-	// if( mModelVerticesBuffer ) {
-	// 	VkBuffer buffers[] = { mModelVerticesBuffer };
-	// 	VkDeviceSize offsets[] = { 0 };
-	// 	vkCmdBindVertexBuffers(
-	// 		mCommandBuffers[mFrameIndex], 0, 1, buffers, offsets
-	// 	);
-	// 	vkCmdDraw( mCommandBuffers[mFrameIndex], mObjParser->getVertices().size(), 1, 0, 0 );
-	// }
-
 	vkCmdEndRenderPass( mCommandBuffers[mFrameIndex] );
 
 	result = vkEndCommandBuffer( mCommandBuffers[mFrameIndex] );
@@ -954,14 +991,7 @@ void VulkanHandler::setup( ActionHandler* actionHandler ) {
 	mActionHandler = actionHandler;
 	this->initWindow();
 
-	VulkanHandler::useValidationLayer = Cfg::get().value<bool>( Cfg::VULKAN_VALIDATION_LAYER );
-
-	if( VulkanHandler::useValidationLayer ) {
-		Logger::logInfo( "[VulkanHandler] Validation layer usage is enabled." );
-	}
-	else {
-		Logger::logInfo( "[VulkanHandler] Validation layer usage is disabled." );
-	}
+	VulkanHandler::setupValidationLayer();
 
 	mInstance = VulkanSetup::createInstance();
 	VulkanSetup::setupDebugCallback( &mInstance, &mDebugCallback );
@@ -1014,6 +1044,21 @@ void VulkanHandler::setupSwapchain() {
 	);
 
 	this->retrieveSwapchainImageHandles();
+}
+
+
+/**
+ * Set validation layer usage from config file.
+ */
+void VulkanHandler::setupValidationLayer() {
+	VulkanHandler::useValidationLayer = Cfg::get().value<bool>( Cfg::VULKAN_VALIDATION_LAYER );
+
+	if( VulkanHandler::useValidationLayer ) {
+		Logger::logInfo( "[VulkanHandler] Validation layer usage is enabled." );
+	}
+	else {
+		Logger::logInfo( "[VulkanHandler] Validation layer usage is disabled." );
+	}
 }
 
 

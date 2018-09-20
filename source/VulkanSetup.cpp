@@ -206,8 +206,8 @@ VkDescriptorPool VulkanSetup::createDescriptorPool( VkDevice* logicalDevice ) {
 		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1 },
 		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1 },
 		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 3 },
 		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
 		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1 },
 		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
@@ -420,6 +420,11 @@ VkInstance VulkanSetup::createInstance() {
 
 /**
  * Create a logical device.
+ * @param {VkSurfaceKHR*}     surface
+ * @param {VkPhysicalDevice*} physicalDevice
+ * @param {VkDevice*}         logicalDevice
+ * @param {VkQueue*}          graphicsQueue
+ * @param {VkQueue*}          presentQueue
  */
 void VulkanSetup::createLogicalDevice(
 	VkSurfaceKHR* surface,

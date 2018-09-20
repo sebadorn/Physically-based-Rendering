@@ -29,17 +29,21 @@ struct ImGuiHandler;
 
 
 const vector<Vertex> vertices = {
-	{ { -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f } },
-	{ { 1.0f, -1.0f }, { 0.0f, 1.0f, 0.0f } },
-	{ { 1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f } },
-	{ { -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f } },
-	{ { 1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f } },
-	{ { -1.0f, 1.0f }, { 0.0f, 1.0f, 0.0f } }
+	{ { -1.0f, -1.0f } },
+	{ { 1.0f, -1.0f } },
+	{ { 1.0f, 1.0f } },
+	{ { -1.0f, -1.0f } },
+	{ { 1.0f, 1.0f } },
+	{ { -1.0f, 1.0f } }
 };
 
 struct UniformCamera {
 	glm::mat4 mvp;
 	glm::ivec2 size;
+};
+
+struct ModelVertices {
+	vector<glm::vec4> vertices;
 };
 
 
@@ -80,6 +84,7 @@ class VulkanHandler {
 		void teardown();
 
 		static bool useValidationLayer;
+
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 			VkDebugReportFlagsEXT flags,
 			VkDebugReportObjectTypeEXT objType,
@@ -95,6 +100,7 @@ class VulkanHandler {
 			const char* errorMessage,
 			const char* className = "VulkanHandler"
 		);
+		static void setupValidationLayer();
 
 
 	protected:
