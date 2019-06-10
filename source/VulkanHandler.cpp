@@ -117,7 +117,7 @@ void VulkanHandler::createBuffer(
 	allocInfo.allocationSize = memRequirements.size;
 	allocInfo.memoryTypeIndex = this->findMemoryType(
 		memRequirements.memoryTypeBits,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		properties
 	);
 
 	result = vkAllocateMemory( mLogicalDevice, &allocInfo, nullptr, &bufferMemory );
@@ -774,7 +774,7 @@ void VulkanHandler::loadModelIntoBuffers( ObjParser* op, AccelStructure* accelSt
 
 	this->createBuffer(
 		vertBufSize,
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		vertStagingBuf,
 		vertStagingBufMem
@@ -783,10 +783,8 @@ void VulkanHandler::loadModelIntoBuffers( ObjParser* op, AccelStructure* accelSt
 	void* data;
 	vkMapMemory( mLogicalDevice, vertStagingBufMem, 0, vertBufSize, 0, &data );
 	memcpy( data, modelVert.vertices.data(), (size_t) vertBufSize );
-	vkUnmapMemory( mLogicalDevice, vertStagingBufMem );
 
-	vkFreeMemory( mLogicalDevice, vertStagingBufMem, nullptr );
-	vkDestroyBuffer( mLogicalDevice, vertStagingBuf, nullptr );
+
 
 	// TODO: Bind buffer when recording the command for the current render pass?
 
@@ -809,6 +807,28 @@ void VulkanHandler::loadModelIntoBuffers( ObjParser* op, AccelStructure* accelSt
 	// vkMapMemory( mLogicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data );
 	// memcpy( data, objVertices.data(), (size_t) bufferSize );
 	// vkUnmapMemory( mLogicalDevice, stagingBufferMemory );
+
+
+	// Shader Storage Buffer Object
+	VkBuffer storageBuffer;
+	VkDeviceMemory storageBufferMemory;
+
+	this->createBuffer(
+		vertBufSize,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		storageBuffer,
+		storageBufferMemory
+	);
+
+	// Has to be added to command buffer?
+	// https://software.intel.com/en-us/articles/api-without-secrets-introduction-to-vulkan-part-5
+
+	// memcpy( storageBuffer, vertStagingBuf, (size_t) vertBufSize );
+
+	vkUnmapMemory( mLogicalDevice, vertStagingBufMem );
+	vkFreeMemory( mLogicalDevice, vertStagingBufMem, nullptr );
+	vkDestroyBuffer( mLogicalDevice, vertStagingBuf, nullptr );
 
 	// this->createBuffer(
 	// 	bufferSize,
