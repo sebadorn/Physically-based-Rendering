@@ -285,8 +285,8 @@ void VulkanHandler::createGraphicsPipeline() {
 
 	mPipelineLayout = VulkanSetup::createPipelineLayout( &mLogicalDevice, &mDescriptorSetLayout );
 
-	auto vertShaderCode = this->loadFileSPV( "source/shaders/vert.spv" );
-	auto fragShaderCode = this->loadFileSPV( "source/shaders/frag.spv" );
+	auto vertShaderCode = this->loadFileSPV( "src/shaders/vert.spv" );
+	auto fragShaderCode = this->loadFileSPV( "src/shaders/frag.spv" );
 	Logger::logDebug( "[VulkanHandler] Loaded shader files." );
 
 	VkShaderModule vertShaderModule = this->createShaderModule( vertShaderCode );
@@ -1007,6 +1007,7 @@ void VulkanHandler::retrieveSwapchainImageHandles() {
 void VulkanHandler::setup( ActionHandler* actionHandler ) {
 	Logger::logInfo( "[VulkanHandler] Setup beginning ..." );
 	Logger::indentChange( 2 );
+	Logger::logInfof( "[VulkanHandler] VK_HEADER_VERSION: %d", VK_HEADER_VERSION );
 
 	mActionHandler = actionHandler;
 	this->initWindow();
