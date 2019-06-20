@@ -1,8 +1,6 @@
 #include "VulkanSetup.h"
 
 using std::numeric_limits;
-using std::set;
-using std::string;
 
 
 /**

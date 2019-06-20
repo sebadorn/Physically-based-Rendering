@@ -5,8 +5,6 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
-#include <cstring>
-#include <set>
 #include <vector>
 
 #include "../Cfg.h"

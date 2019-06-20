@@ -1,8 +1,5 @@
 #include "VulkanInstance.h"
 
-using std::set;
-using std::string;
-
 
 /**
  * Build the VkApplicationInfo for the VkInstanceCreateInfo.
@@ -13,7 +10,7 @@ VkApplicationInfo VulkanInstance::buildApplicationInfo() {
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pApplicationName = "PBR";
 	appInfo.applicationVersion = VulkanInstance::getVersionPBR();
-	appInfo.pEngineName = "PBR";
+	appInfo.pEngineName = "No Engine";
 	appInfo.engineVersion = VulkanInstance::getVersionPBR();
 	appInfo.apiVersion = VK_API_VERSION_1_0;
 
