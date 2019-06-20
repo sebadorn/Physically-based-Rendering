@@ -39,7 +39,7 @@ set( LIBRARIES ${LIBRARIES} "glfw" )
 # set( LIBRARIES ${LIBRARIES} ${IL_LIBRARIES} )
 
 
-file( GLOB SOURCES_CPP ${TRUNK}/*.cpp ${TRUNK}/accelstructures/*.cpp )
+file( GLOB SOURCES_CPP ${TRUNK}/*.cpp ${TRUNK}/accelstructures/*.cpp ${TRUNK}/vulkan/*.cpp )
 add_executable(
 	${PROJECT_NAME}
 	${TRUNK}/main.cpp

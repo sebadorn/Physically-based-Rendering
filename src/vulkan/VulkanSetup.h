@@ -9,19 +9,16 @@
 #include <set>
 #include <vector>
 
-#include "Cfg.h"
-#include "Logger.h"
-#include "VulkanHandler.h"
+#include "../Cfg.h"
+#include "../Logger.h"
+#include "../VulkanHandler.h"
+#include "VulkanDevice.h"
 
 using std::vector;
 
 
 const vector<const char*> VALIDATION_LAYERS = {
 	"VK_LAYER_LUNARG_standard_validation"
-};
-
-const vector<const char*> DEVICE_EXTENSIONS = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
 struct SwapChainSupportDetails {
@@ -53,13 +50,6 @@ class VulkanSetup {
 			VkExtent2D* swapchainExtent
 		);
 		static VkInstance createInstance();
-		static void createLogicalDevice(
-			VkSurfaceKHR* surface,
-			VkPhysicalDevice* physicalDevice,
-			VkDevice* logicalDevice,
-			VkQueue* graphicsQueue,
-			VkQueue* presentQueue
-		);
 		static VkPipelineLayout createPipelineLayout(
 			VkDevice* logicalDevice,
 			VkDescriptorSetLayout* descriptorSetLayout
@@ -74,18 +64,9 @@ class VulkanSetup {
 			VkSurfaceFormatKHR surfaceFormat,
 			VkExtent2D extent
 		);
-		static const bool findQueueFamilyIndices(
-			VkPhysicalDevice device,
-			int* graphicsFamily,
-			int* presentFamily,
-			VkSurfaceKHR* surface
-		);
 		static vector<const char*> getRequiredExtensions();
 		static uint32_t getVersionPBR();
-		static const bool isDeviceSuitable( VkPhysicalDevice device, VkSurfaceKHR* surface );
-		static void printDeviceDebugInfo( VkPhysicalDevice device );
 		static SwapChainSupportDetails querySwapChainSupport( VkPhysicalDevice device, VkSurfaceKHR* surface );
-		static VkPhysicalDevice selectDevice( VkInstance* instance, VkSurfaceKHR* surface );
 		static void setupDebugCallback( VkInstance* instance, VkDebugReportCallbackEXT* callback );
 
 
@@ -95,7 +76,6 @@ class VulkanSetup {
 			VkApplicationInfo* appInfo,
 			vector<const char*>* extensions
 		);
-		static const bool checkDeviceExtensionSupport( VkPhysicalDevice device );
 
 
 };

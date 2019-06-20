@@ -168,7 +168,7 @@ void VulkanHandler::createCommandBuffers() {
 void VulkanHandler::createCommandPool() {
 	int graphicsFamily = -1;
 	int presentFamily = -1;
-	VulkanSetup::findQueueFamilyIndices( mPhysicalDevice, &graphicsFamily, &presentFamily, &mSurface );
+	VulkanDevice::findQueueFamilyIndices( mPhysicalDevice, &graphicsFamily, &presentFamily, &mSurface );
 
 	VkCommandPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -1017,8 +1017,8 @@ void VulkanHandler::setup( ActionHandler* actionHandler ) {
 	mInstance = VulkanSetup::createInstance();
 	VulkanSetup::setupDebugCallback( &mInstance, &mDebugCallback );
 	VulkanSetup::createSurface( &mInstance, mWindow, &mSurface );
-	mPhysicalDevice = VulkanSetup::selectDevice( &mInstance, &mSurface );
-	VulkanSetup::createLogicalDevice(
+	mPhysicalDevice = VulkanDevice::selectDevice( &mInstance, &mSurface );
+	VulkanDevice::createLogicalDevice(
 		&mSurface, &mPhysicalDevice, &mLogicalDevice,
 		&mGraphicsQueue, &mPresentQueue
 	);

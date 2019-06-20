@@ -19,7 +19,8 @@
 #include "Logger.h"
 #include "ObjParser.h"
 #include "Vertex.h"
-#include "VulkanSetup.h"
+#include "vulkan/VulkanDevice.h"
+#include "vulkan/VulkanSetup.h"
 
 using std::vector;
 
