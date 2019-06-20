@@ -12,14 +12,9 @@
 #include "../Cfg.h"
 #include "../Logger.h"
 #include "../VulkanHandler.h"
-#include "VulkanDevice.h"
 
 using std::vector;
 
-
-const vector<const char*> VALIDATION_LAYERS = {
-	"VK_LAYER_LUNARG_standard_validation"
-};
 
 struct SwapChainSupportDetails {
 	VkSurfaceCapabilitiesKHR capabilities;
@@ -49,7 +44,6 @@ class VulkanSetup {
 			VkPipelineShaderStageCreateInfo shaderStages[],
 			VkExtent2D* swapchainExtent
 		);
-		static VkInstance createInstance();
 		static VkPipelineLayout createPipelineLayout(
 			VkDevice* logicalDevice,
 			VkDescriptorSetLayout* descriptorSetLayout
@@ -64,18 +58,7 @@ class VulkanSetup {
 			VkSurfaceFormatKHR surfaceFormat,
 			VkExtent2D extent
 		);
-		static vector<const char*> getRequiredExtensions();
-		static uint32_t getVersionPBR();
 		static SwapChainSupportDetails querySwapChainSupport( VkPhysicalDevice device, VkSurfaceKHR* surface );
-		static void setupDebugCallback( VkInstance* instance, VkDebugReportCallbackEXT* callback );
-
-
-	protected:
-		static VkApplicationInfo buildApplicationInfo();
-		static VkInstanceCreateInfo buildInstanceCreateInfo(
-			VkApplicationInfo* appInfo,
-			vector<const char*>* extensions
-		);
 
 
 };

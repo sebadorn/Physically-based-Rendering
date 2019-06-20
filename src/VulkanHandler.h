@@ -20,6 +20,7 @@
 #include "ObjParser.h"
 #include "Vertex.h"
 #include "vulkan/VulkanDevice.h"
+#include "vulkan/VulkanInstance.h"
 #include "vulkan/VulkanSetup.h"
 
 using std::vector;

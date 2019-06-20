@@ -1014,8 +1014,8 @@ void VulkanHandler::setup( ActionHandler* actionHandler ) {
 
 	VulkanHandler::setupValidationLayer();
 
-	mInstance = VulkanSetup::createInstance();
-	VulkanSetup::setupDebugCallback( &mInstance, &mDebugCallback );
+	mInstance = VulkanInstance::createInstance();
+	VulkanInstance::setupDebugCallback( &mInstance, &mDebugCallback );
 	VulkanSetup::createSurface( &mInstance, mWindow, &mSurface );
 	mPhysicalDevice = VulkanDevice::selectDevice( &mInstance, &mSurface );
 	VulkanDevice::createLogicalDevice(

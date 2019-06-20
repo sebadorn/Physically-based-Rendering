@@ -6,82 +6,6 @@ using std::string;
 
 
 /**
- * Build the VkApplicationInfo for the VkInstanceCreateInfo.
- * @return {VkApplicationInfo}
- */
-VkApplicationInfo VulkanSetup::buildApplicationInfo() {
-	VkApplicationInfo appInfo = {};
-	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.pApplicationName = "PBR";
-	appInfo.applicationVersion = VulkanSetup::getVersionPBR();
-	appInfo.pEngineName = "PBR";
-	appInfo.engineVersion = VulkanSetup::getVersionPBR();
-	appInfo.apiVersion = VK_API_VERSION_1_0;
-
-	return appInfo;
-}
-
-
-/**
- * Build the VkInstanceCreateInfo for the VkInstance.
- * @param  {VkApplicationInfo*}        appInfo
- * @param  {std::vector<const char*>*} extensions
- * @return {VkInstanceCreateInfo}
- */
-VkInstanceCreateInfo VulkanSetup::buildInstanceCreateInfo(
-	VkApplicationInfo* appInfo,
-	vector<const char*>* extensions
-) {
-	VkInstanceCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	createInfo.pApplicationInfo = appInfo;
-
-	createInfo.enabledExtensionCount = extensions->size();
-	createInfo.ppEnabledExtensionNames = extensions->data();
-
-	if( VulkanHandler::useValidationLayer ) {
-		createInfo.enabledLayerCount = VALIDATION_LAYERS.size();
-		createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-	}
-	else {
-		createInfo.enabledLayerCount = 0;
-	}
-
-	return createInfo;
-}
-
-
-/**
- * Check if the requested validation layers are supported.
- * @return {const bool}
- */
-const bool VulkanSetup::checkValidationLayerSupport() {
-	uint32_t layerCount;
-	vkEnumerateInstanceLayerProperties( &layerCount, nullptr );
-
-	vector<VkLayerProperties> availableLayers( layerCount );
-	vkEnumerateInstanceLayerProperties( &layerCount, availableLayers.data() );
-
-	for( const char* layerName : VALIDATION_LAYERS ) {
-		bool layerFound = false;
-
-		for( const auto& layerProperties : availableLayers ) {
-			if( strcmp( layerName, layerProperties.layerName ) == 0 ) {
-				layerFound = true;
-				break;
-			}
-		}
-
-		if( !layerFound ) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
-
-/**
  * Choose the swap extent.
  * @param  {const VkSurfaceCapabilities&} capabilities
  * @return {VkExtent2D}
@@ -107,6 +31,7 @@ VkExtent2D VulkanSetup::chooseSwapExtent( const VkSurfaceCapabilitiesKHR& capabi
 
 	return actualExtent;
 }
+
 
 /**
  * Choose the presentation mode.
@@ -368,40 +293,6 @@ VkPipeline VulkanSetup::createGraphicsPipeline(
 
 
 /**
- * Create a VkInstance.
- * @return {VkInstance}
- */
-VkInstance VulkanSetup::createInstance() {
-	if( VulkanHandler::useValidationLayer && !VulkanSetup::checkValidationLayerSupport() ) {
-		Logger::logError(
-			"[VulkanSetup] No validation layer support found."
-			" Will proceed without validation layer."
-		);
-		VulkanHandler::useValidationLayer = false;
-	}
-
-	VkApplicationInfo appInfo = VulkanSetup::buildApplicationInfo();
-	vector<const char*> extensions = VulkanSetup::getRequiredExtensions();
-	VkInstanceCreateInfo createInfo = VulkanSetup::buildInstanceCreateInfo( &appInfo, &extensions );
-
-	for( const char* extension : extensions ) {
-		Logger::logDebugVerbosef( "[VulkanSetup] Required extension: %s", extension );
-	}
-
-	Logger::logDebugVerbosef(
-		"[VulkanSetup] VkInstanceCreateInfo.enabledLayerCount = %u",
-		createInfo.enabledLayerCount
-	);
-
-	VkInstance instance;
-	VkResult result = vkCreateInstance( &createInfo, nullptr, &instance );
-	VulkanHandler::checkVkResult( result, "Failed to create VkInstance.", "VulkanSetup" );
-
-	return instance;
-}
-
-
-/**
  * Create the pipeline layout.
  * @param  {VkDevice*}              logicalDevice
  * @param  {VkDescriptorSetLayout*} descriptorSetLayout
@@ -537,40 +428,6 @@ VkSwapchainKHR VulkanSetup::createSwapchain(
 
 
 /**
- * Get a list of the required extensions.
- * @return {std::vector<const char*>}
- */
-vector<const char*> VulkanSetup::getRequiredExtensions() {
-	vector<const char*> extensions;
-	uint32_t glfwExtensionCount = 0;
-	const char** glfwExtensions = glfwGetRequiredInstanceExtensions( &glfwExtensionCount );
-
-	for( uint32_t i = 0; i < glfwExtensionCount; i++ ) {
-		extensions.push_back( glfwExtensions[i] );
-	}
-
-	if( VulkanHandler::useValidationLayer ) {
-		extensions.push_back( VK_EXT_DEBUG_REPORT_EXTENSION_NAME );
-	}
-
-	return extensions;
-}
-
-
-/**
- * Get the version number for this application/engine.
- * @return {uint32_t}
- */
-uint32_t VulkanSetup::getVersionPBR() {
-	const uint32_t vMajor = Cfg::get().value<uint32_t>( Cfg::VERSION_MAJOR );
-	const uint32_t vMinor = Cfg::get().value<uint32_t>( Cfg::VERSION_MINOR );
-	const uint32_t vPatch = Cfg::get().value<uint32_t>( Cfg::VERSION_PATCH );
-
-	return VK_MAKE_VERSION( vMajor, vMinor, vPatch );
-}
-
-
-/**
  * Query the device's swap chain support.
  * @param  {VkPhysicalDevice}        device
  * @param  {VkSurfaceKHR*}           surface
@@ -606,39 +463,4 @@ SwapChainSupportDetails VulkanSetup::querySwapChainSupport( VkPhysicalDevice dev
 	}
 
 	return details;
-}
-
-
-/**
- * Setup the Vulkan debug callback for the validation layer.
- * @param {VkInstance*}               instance
- * @param {VkDebugReportCallbackEXT*} callback
- */
-void VulkanSetup::setupDebugCallback( VkInstance* instance, VkDebugReportCallbackEXT* callback ) {
-	if( !VulkanHandler::useValidationLayer ) {
-		return;
-	}
-
-	VkDebugReportCallbackCreateInfoEXT createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-	createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
-	createInfo.pfnCallback = VulkanHandler::debugCallback;
-
-	auto fnCreateDebugCallback = (PFN_vkCreateDebugReportCallbackEXT) vkGetInstanceProcAddr(
-		*instance, "vkCreateDebugReportCallbackEXT"
-	);
-
-	if( fnCreateDebugCallback == nullptr ) {
-		Logger::logError(
-			"[VulkanSetup] Cannot setup debug callback."
-			" No such function: \"vkCreateDebugReportCallbackEXT\""
-		);
-		throw std::runtime_error( "VK_ERROR_EXTENSION_NOT_PRESENT" );
-	}
-
-	VkResult result = fnCreateDebugCallback(
-		*instance, &createInfo, nullptr, callback
-	);
-	VulkanHandler::checkVkResult( result, "Failed to setup debug callback.", "VulkanSetup" );
-	Logger::logDebug( "[VulkanSetup] Debug callback setup." );
 }
