@@ -69,7 +69,6 @@ class VulkanHandler {
 		VkQueue mGraphicsQueue;
 		VkQueue mPresentQueue;
 		VkRenderPass mRenderPass = VK_NULL_HANDLE;
-		VkRenderPass mRenderPassInitial = VK_NULL_HANDLE;
 		VkSurfaceKHR mSurface = VK_NULL_HANDLE;
 		vector<VkFramebuffer> mFramebuffers;
 		vector<VkImage> mSwapchainImages;

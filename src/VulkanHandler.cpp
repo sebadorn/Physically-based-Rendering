@@ -391,27 +391,24 @@ void VulkanHandler::createRenderPass() {
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subPass;
 
-	VkSubpassDependency dependency = {};
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	dependency.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	// NOTE: Not necessary?
 
-	renderPassInfo.dependencyCount = 1;
-	renderPassInfo.pDependencies = &dependency;
+	// VkSubpassDependency dependency = {};
+	// dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	// dependency.dstSubpass = 0;
+	// dependency.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	// dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	// dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	// dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	// renderPassInfo.dependencyCount = 1;
+	// renderPassInfo.pDependencies = &dependency;
 
 	VkResult result = vkCreateRenderPass(
 		mLogicalDevice, &renderPassInfo, nullptr, &mRenderPass
 	);
 	VulkanHandler::checkVkResult( result, "Failed to create VkRenderPass." );
 	Logger::logInfo( "[VulkanHandler] Created VkRenderPass." );
-
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	vkCreateRenderPass(
-		mLogicalDevice, &renderPassInfo, nullptr, &mRenderPassInitial
-	);
 }
 
 
@@ -863,23 +860,6 @@ void VulkanHandler::mainLoop() {
 		this->drawFrame();
 		this->updateFPS( &lastTime, &numFrames );
 		this->waitForFences();
-
-		// We have two slightly different render passes. The first one
-		// has a color attachment with "loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR"
-		// and is used for the first rendering of each frame. After that it
-		// is destroyed and the second render pass will be used, which uses
-		// "loadOp = VK_ATTACHMENT_LOAD_OP_LOAD". This is necessary to
-		// keep the image content after the first command (main rendering),
-		// so the second command (UI) will be visible on top.
-		//
-		// Error message, if LOAD_OP_LOAD is used from the get go:
-		//     vkCmdBeginRenderPass(): Cannot read invalid swapchain image,
-		//                             please fill the memory before using.
-
-		if( mRenderPassInitial != VK_NULL_HANDLE && numFrames >= numFramebuffers ) {
-			vkDestroyRenderPass( mLogicalDevice, mRenderPassInitial, nullptr );
-			mRenderPassInitial = VK_NULL_HANDLE;
-		}
 	}
 
 	VkResult result = vkDeviceWaitIdle( mLogicalDevice );
@@ -925,17 +905,7 @@ void VulkanHandler::recordCommand() {
 	renderPassInfo.framebuffer = mFramebuffers[mFrameIndex];
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = mSwapchainExtent;
-
-	if( mRenderPassInitial ) {
-		VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearColor;
-
-		renderPassInfo.renderPass = mRenderPassInitial;
-	}
-	else {
-		renderPassInfo.renderPass = mRenderPass;
-	}
+	renderPassInfo.renderPass = mRenderPass;
 
 	vkCmdBeginRenderPass(
 		mCommandBuffers[mFrameIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE
@@ -1203,12 +1173,6 @@ void VulkanHandler::teardown() {
 		vkDestroyRenderPass( mLogicalDevice, mRenderPass, nullptr );
 		mRenderPass = VK_NULL_HANDLE;
 		Logger::logDebug( "[VulkanHandler] VkRenderPass destroyed." );
-	}
-
-	if( mRenderPassInitial != VK_NULL_HANDLE ) {
-		vkDestroyRenderPass( mLogicalDevice, mRenderPassInitial, nullptr );
-		mRenderPassInitial = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkRenderPass (initial) destroyed." );
 	}
 
 	this->destroyImageViews();

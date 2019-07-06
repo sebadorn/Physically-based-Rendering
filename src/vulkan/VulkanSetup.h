@@ -25,7 +25,6 @@ class VulkanSetup {
 
 
 	public:
-		static const bool checkValidationLayerSupport();
 		static VkExtent2D chooseSwapExtent( const VkSurfaceCapabilitiesKHR& capabilities );
 		static VkPresentModeKHR chooseSwapPresentMode(
 			const vector<VkPresentModeKHR>& availablePresentModes
