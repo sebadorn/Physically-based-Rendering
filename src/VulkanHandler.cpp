@@ -289,8 +289,8 @@ void VulkanHandler::createGraphicsPipeline() {
 	auto fragShaderCode = this->loadFileSPV( "src/shaders/frag.spv" );
 	Logger::logDebug( "[VulkanHandler] Loaded shader files." );
 
-	VkShaderModule vertShaderModule = this->createShaderModule( vertShaderCode );
-	VkShaderModule fragShaderModule = this->createShaderModule( fragShaderCode );
+	VkShaderModule vertShaderModule = VulkanSetup::createShaderModule( &mLogicalDevice, vertShaderCode );
+	VkShaderModule fragShaderModule = VulkanSetup::createShaderModule( &mLogicalDevice, fragShaderCode );
 	Logger::logInfo( "[VulkanHandler] Created shader modules." );
 
 	VkPipelineShaderStageCreateInfo vertShaderCreateInfo = {};
@@ -435,28 +435,6 @@ void VulkanHandler::createSemaphores() {
 		result, "Failed to create VkSemaphore (render finished)."
 	);
 	Logger::logDebugVerbose( "[VulkanHandler] Created VkSemaphore (render finished)." );
-}
-
-
-/**
- * Create a VkShaderModule from loaded SPV code.
- * @param  {const std::vector<char>&} code
- * @return {VkShaderModule}
- */
-VkShaderModule VulkanHandler::createShaderModule( const vector<char>& code ) {
-	VkShaderModule shaderModule;
-
-	VkShaderModuleCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	createInfo.codeSize = code.size();
-	createInfo.pCode = (uint32_t*) code.data();
-
-	VkResult result = vkCreateShaderModule(
-		mLogicalDevice, &createInfo, nullptr, &shaderModule
-	);
-	VulkanHandler::checkVkResult( result, "Failed to create VkShaderModule." );
-
-	return shaderModule;
 }
 
 
@@ -990,7 +968,9 @@ void VulkanHandler::setup( ActionHandler* actionHandler ) {
 
 	mInstance = VulkanInstance::createInstance();
 	VulkanInstance::setupDebugCallback( &mInstance, &mDebugCallback );
+
 	VulkanSetup::createSurface( &mInstance, mWindow, &mSurface );
+
 	mPhysicalDevice = VulkanDevice::selectDevice( &mInstance, &mSurface );
 	VulkanDevice::createLogicalDevice(
 		&mSurface, &mPhysicalDevice, &mLogicalDevice,

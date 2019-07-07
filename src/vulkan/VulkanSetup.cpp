@@ -329,6 +329,32 @@ VkPipelineLayout VulkanSetup::createPipelineLayout(
 
 
 /**
+ * Create a VkShaderModule from loaded SPV code.
+ * @param  {VkDevice*}                logicalDevice
+ * @param  {const std::vector<char>&} code
+ * @return {VkShaderModule}
+ */
+VkShaderModule VulkanSetup::createShaderModule(
+	VkDevice* logicalDevice,
+	const vector<char>& code
+) {
+	VkShaderModule shaderModule;
+
+	VkShaderModuleCreateInfo createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	createInfo.codeSize = code.size();
+	createInfo.pCode = (uint32_t*) code.data();
+
+	VkResult result = vkCreateShaderModule(
+		*logicalDevice, &createInfo, nullptr, &shaderModule
+	);
+	VulkanHandler::checkVkResult( result, "Failed to create VkShaderModule." );
+
+	return shaderModule;
+}
+
+
+/**
  * Create the window surface.
  * @param {VkInstance*}   instance
  * @param {GLFWwindow*}   window

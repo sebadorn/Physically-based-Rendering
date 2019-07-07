@@ -45,6 +45,10 @@ class VulkanSetup {
 			VkDevice* logicalDevice,
 			VkDescriptorSetLayout* descriptorSetLayout
 		);
+		static VkShaderModule createShaderModule(
+			VkDevice* logicalDevice,
+			const vector<char>& code
+		);
 		static void createSurface( VkInstance* instance, GLFWwindow* window, VkSurfaceKHR* surface );
 		static VkSwapchainKHR createSwapchain(
 			VkSwapchainKHR* oldSwapchain,

@@ -75,7 +75,6 @@ class VulkanHandler {
 		vector<VkImage> mSwapchainImages;
 
 		void calculateMatrices();
-		VkShaderModule createShaderModule( const vector<char>& code );
 		uint32_t findMemoryType( uint32_t typeFitler, VkMemoryPropertyFlags properties );
 		void imGuiSetup();
 		void initWindow();
