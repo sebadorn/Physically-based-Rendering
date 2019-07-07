@@ -65,6 +65,7 @@ class VulkanHandler {
 		VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
 		VkDevice mLogicalDevice = VK_NULL_HANDLE;
 		VkExtent2D mSwapchainExtent;
+		VkFormat mSwapchainFormat;
 		VkPhysicalDevice mPhysicalDevice;
 		VkQueue mGraphicsQueue;
 		VkQueue mPresentQueue;
@@ -157,7 +158,6 @@ class VulkanHandler {
 		VkDeviceMemory mVertexBufferMemory = VK_NULL_HANDLE;
 		VkFence mImageAvailableFence = VK_NULL_HANDLE;
 		VkFence mRenderFinishedFence = VK_NULL_HANDLE;
-		VkFormat mSwapchainFormat;
 		VkInstance mInstance = VK_NULL_HANDLE;
 		VkPipeline mGraphicsPipeline = VK_NULL_HANDLE;
 		VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;

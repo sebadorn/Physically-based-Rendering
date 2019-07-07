@@ -403,7 +403,7 @@ void ImGuiHandler::createPipeline( VkShaderModule* vertModule, VkShaderModule* f
 	info.pColorBlendState = &blendInfo;
 	info.pDynamicState = &dynamicState;
 	info.layout = mPipelineLayout;
-	info.renderPass = mVH->mRenderPass;
+	info.renderPass = mRenderPass;
 
 	result = vkCreateGraphicsPipelines(
 		mVH->mLogicalDevice, VK_NULL_HANDLE, 1, &info, nullptr, &mGraphicsPipeline
@@ -411,6 +411,49 @@ void ImGuiHandler::createPipeline( VkShaderModule* vertModule, VkShaderModule* f
 	VulkanHandler::checkVkResult(
 		result, "Failed to create graphics pipelines.", "ImGuiHandler"
 	);
+}
+
+
+/**
+ *
+ */
+void ImGuiHandler::createRenderPass() {
+	// Destroy old render pass.
+	if( mRenderPass != VK_NULL_HANDLE ) {
+		vkDestroyRenderPass( mVH->mLogicalDevice, mRenderPass, nullptr );
+	}
+
+	VkAttachmentDescription colorAttachment = {};
+	colorAttachment.format = mVH->mSwapchainFormat;
+	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	VkAttachmentReference colorAttachmentRef = {};
+	colorAttachmentRef.attachment = 0;
+	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subPass = {};
+	subPass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subPass.colorAttachmentCount = 1;
+	subPass.pColorAttachments = &colorAttachmentRef;
+
+	VkRenderPassCreateInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments = &colorAttachment;
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subPass;
+
+	VkResult result = vkCreateRenderPass(
+		mVH->mLogicalDevice, &renderPassInfo, nullptr, &mRenderPass
+	);
+	VulkanHandler::checkVkResult( result, "Failed to create VkRenderPass." );
+	Logger::logInfo( "[ImGuiHandler] Created VkRenderPass." );
 }
 
 
@@ -505,7 +548,7 @@ void ImGuiHandler::draw() {
 	{
 		VkRenderPassBeginInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		info.renderPass = mVH->mRenderPass;
+		info.renderPass = mRenderPass;
 		info.framebuffer = mVH->mFramebuffers[mVH->mFrameIndex];
 		info.renderArea.extent = mVH->mSwapchainExtent;
 
@@ -654,6 +697,7 @@ void ImGuiHandler::setup( VulkanHandler* vh ) {
 	this->setupFontSampler();
 	this->createCommandBuffers();
 	this->createDescriptors();
+	this->createRenderPass();
 	this->createPipeline( &vertModule, &fragModule );
 
 	vkDestroyShaderModule( mVH->mLogicalDevice, vertModule, nullptr );
@@ -801,6 +845,12 @@ void ImGuiHandler::teardown() {
 		vkDestroyImage( mVH->mLogicalDevice, mFontImage, nullptr );
 		mFontImage = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] Destroyed VkImage (font)." );
+	}
+
+	if( mRenderPass != VK_NULL_HANDLE ) {
+		vkDestroyRenderPass( mVH->mLogicalDevice, mRenderPass, nullptr );
+		mRenderPass = VK_NULL_HANDLE;
+		Logger::logDebug( "[ImGuiHandler] VkRenderPass destroyed." );
 	}
 }
 

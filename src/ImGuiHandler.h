@@ -34,6 +34,7 @@ class ImGuiHandler {
 		void createDescriptors();
 		void createFences();
 		void createPipeline( VkShaderModule* vertModule, VkShaderModule* fragModule );
+		void createRenderPass();
 		void createShaders( VkShaderModule* vertModule, VkShaderModule* fragModule );
 		void drawImGuiData( ImDrawData* drawData );
 		const char* getClipboardText();
@@ -68,6 +69,7 @@ class ImGuiHandler {
 		VkImageView mFontView = VK_NULL_HANDLE;
 		VkPipeline mGraphicsPipeline = VK_NULL_HANDLE;
 		VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
+		VkRenderPass mRenderPass = VK_NULL_HANDLE;
 		VkSampler mFontSampler = VK_NULL_HANDLE;
 		VkSemaphore mSemaphore = VK_NULL_HANDLE;
 
