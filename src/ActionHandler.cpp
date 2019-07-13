@@ -29,5 +29,8 @@ void ActionHandler::loadModel( VulkanHandler* vh, const string& filepath, const 
 	ObjParser* op = ml->getObjParser();
 	AccelStructure* accelStruct = new BVH( op->getObjects(), op->getVertices(), op->getNormals() );
 
-	vh->loadModelIntoBuffers( op, accelStruct );
+	vh->mModelRenderer = new ModelRenderer();
+	vh->mModelRenderer->setup( vh, op );
+
+	// vh->loadModelIntoBuffers( op, accelStruct );
 }

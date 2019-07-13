@@ -1,7 +1,4 @@
 #include "ImGuiHandler.h"
-#include "ModelLoader.h"
-#include "ObjParser.h"
-#include "accelstructures/BVH.h"
 
 using std::vector;
 
@@ -166,18 +163,12 @@ void ImGuiHandler::buildUIStructure() {
  * Create command pool and command buffers.
  */
 void ImGuiHandler::createCommandBuffers() {
-	int graphicsFamily = -1;
-	int presentFamily = -1;
-	VulkanDevice::findQueueFamilyIndices(
-		mVH->mPhysicalDevice, &graphicsFamily, &presentFamily, &mVH->mSurface
-	);
-
 	VkResult result;
 
 	VkCommandPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	poolInfo.queueFamilyIndex = graphicsFamily;
+	poolInfo.queueFamilyIndex = mVH->mFamilyIndexGraphics;
 
 	result = vkCreateCommandPool( mVH->mLogicalDevice, &poolInfo, nullptr, &mCommandPool );
 	VulkanHandler::checkVkResult(

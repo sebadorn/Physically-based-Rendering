@@ -17,6 +17,7 @@
 #include "Cfg.h"
 #include "ImGuiHandler.h"
 #include "Logger.h"
+#include "ModelRenderer.h"
 #include "ObjParser.h"
 #include "Vertex.h"
 #include "vulkan/VulkanDevice.h"
@@ -28,6 +29,7 @@ using std::vector;
 
 struct ActionHandler;
 struct ImGuiHandler;
+struct ModelRenderer;
 
 
 const vector<Vertex> vertices = {
@@ -54,6 +56,8 @@ class VulkanHandler {
 
 	public:
 		int mFOV = 45;
+		int mFamilyIndexGraphics = -1;
+		int mFamilyIndexPresentation = -1;
 		uint32_t mFrameIndex = 0;
 		ActionHandler* mActionHandler = nullptr;
 		GLFWwindow* mWindow = nullptr;
@@ -61,6 +65,7 @@ class VulkanHandler {
 		glm::vec3 mCameraCenter = glm::vec3( 0.0f, 0.0f, 1.0f );
 		glm::vec3 mCameraEye = glm::vec3( 0.0f, 1.0f, 3.0f );
 		glm::vec3 mCameraUp = glm::vec3( 0.0f, 1.0f, 0.0f );
+		ModelRenderer* mModelRenderer;
 		VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
 		VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
 		VkDevice mLogicalDevice = VK_NULL_HANDLE;

@@ -166,13 +166,9 @@ void VulkanHandler::createCommandBuffers() {
  * Create the command pool for the graphics queue.
  */
 void VulkanHandler::createCommandPool() {
-	int graphicsFamily = -1;
-	int presentFamily = -1;
-	VulkanDevice::findQueueFamilyIndices( mPhysicalDevice, &graphicsFamily, &presentFamily, &mSurface );
-
 	VkCommandPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.queueFamilyIndex = graphicsFamily;
+	poolInfo.queueFamilyIndex = mFamilyIndexGraphics;
 	poolInfo.flags = 0;
 
 	VkResult result = vkCreateCommandPool(
@@ -578,6 +574,10 @@ bool VulkanHandler::drawFrame() {
 	this->recordCommand();
 	mImGuiHandler->draw();
 
+	if( mModelRenderer ) {
+		mModelRenderer->draw( mFrameIndex );
+	}
+
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -977,6 +977,10 @@ void VulkanHandler::setup( ActionHandler* actionHandler ) {
 		&mGraphicsQueue, &mPresentQueue
 	);
 
+	VulkanDevice::findQueueFamilyIndices(
+		mPhysicalDevice, &mFamilyIndexGraphics, &mFamilyIndexPresentation, &mSurface
+	);
+
 	this->setupSwapchain();
 	this->createImageViews();
 	this->createRenderPass();
@@ -1078,6 +1082,11 @@ void VulkanHandler::teardown() {
 
 	mImGuiHandler->teardown();
 	delete mImGuiHandler;
+
+	if( mModelRenderer ) {
+		mModelRenderer->teardown();
+		delete mModelRenderer;
+	}
 
 	if( mDescriptorSetLayout != VK_NULL_HANDLE ) {
 		vkDestroyDescriptorSetLayout( mLogicalDevice, mDescriptorSetLayout, nullptr );
