@@ -194,6 +194,90 @@ void ModelRenderer::setup( VulkanHandler* vh, ObjParser* op ) {
 
 
 /**
+ *
+ */
+void ModelRenderer::teardown() {
+	if( mDescriptorSetLayout != VK_NULL_HANDLE ) {
+		vkDestroyDescriptorSetLayout( mVH->mLogicalDevice, mDescriptorSetLayout, nullptr );
+		mDescriptorSetLayout = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkDescriptorSetLayout destroyed." );
+	}
+
+	if( mDescriptorPool != VK_NULL_HANDLE ) {
+		vkDestroyDescriptorPool( mVH->mLogicalDevice, mDescriptorPool, nullptr );
+		mDescriptorPool = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkDescriptorPool destroyed." );
+	}
+
+	const uint32_t numBuffersMemory = mUniformBuffersMemory.size();
+
+	for( size_t i = 0; i < numBuffersMemory; i++ ) {
+		VkDeviceMemory uniformBuffer = mUniformBuffersMemory[i];
+
+		if( uniformBuffer != VK_NULL_HANDLE ) {
+			vkFreeMemory( mVH->mLogicalDevice, uniformBuffer, nullptr );
+			uniformBuffer = VK_NULL_HANDLE;
+
+			char msg[256];
+			snprintf( msg, 256, "[VulkanHandler] VkDeviceMemory (uniform) freed (%d/%d).", (int) i + 1, numBuffersMemory );
+			Logger::logDebugVerbose( msg );
+		}
+	}
+
+	const uint32_t numBuffers = mUniformBuffers.size();
+
+	for( size_t i = 0; i < numBuffers; i++ ) {
+		VkBuffer uniformBuffer = mUniformBuffers[i];
+
+		if( uniformBuffer != VK_NULL_HANDLE ) {
+			vkDestroyBuffer( mVH->mLogicalDevice, uniformBuffer, nullptr );
+			uniformBuffer = VK_NULL_HANDLE;
+
+			char msg[256];
+			snprintf( msg, 256, "[VulkanHandler] VkBuffer (uniform) freed (%d/%d).", (int) i + 1, numBuffers );
+			Logger::logDebugVerbose( msg );
+		}
+	}
+
+	if( mVertexBufferMemory != VK_NULL_HANDLE ) {
+		vkFreeMemory( mVH->mLogicalDevice, mVertexBufferMemory, nullptr );
+		mVertexBufferMemory = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkDeviceMemory (vertices) freed." );
+	}
+
+	if( mVertexBuffer != VK_NULL_HANDLE ) {
+		vkDestroyBuffer( mVH->mLogicalDevice, mVertexBuffer, nullptr );
+		mVertexBuffer = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[VulkanHandler] VkBuffer (vertices) destroyed." );
+	}
+
+	if( mCommandPool != VK_NULL_HANDLE ) {
+		vkDestroyCommandPool( mVH->mLogicalDevice, mCommandPool, nullptr );
+		mCommandPool = VK_NULL_HANDLE;
+		Logger::logDebug( "[VulkanHandler] VkCommandPool destroyed." );
+	}
+
+	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
+		vkDestroyPipeline( mVH->mLogicalDevice, mGraphicsPipeline, nullptr );
+		mGraphicsPipeline = VK_NULL_HANDLE;
+		Logger::logDebug( "[VulkanHandler] VkPipeline (graphics) destroyed." );
+	}
+
+	if( mPipelineLayout != VK_NULL_HANDLE ) {
+		vkDestroyPipelineLayout( mVH->mLogicalDevice, mPipelineLayout, nullptr );
+		mPipelineLayout = VK_NULL_HANDLE;
+		Logger::logDebug( "[VulkanHandler] VkPipelineLayout destroyed." );
+	}
+
+	if( mRenderPass != VK_NULL_HANDLE ) {
+		vkDestroyRenderPass( mVH->mLogicalDevice, mRenderPass, nullptr );
+		mRenderPass = VK_NULL_HANDLE;
+		Logger::logDebug( "[VulkanHandler] VkRenderPass destroyed." );
+	}
+}
+
+
+/**
  * Update the uniform buffers.
  * @param {uint32_t} frameIndex
  */

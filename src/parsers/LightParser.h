@@ -10,7 +10,7 @@
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 
-#include "Logger.h"
+#include "../Logger.h"
 
 using std::string;
 using std::vector;

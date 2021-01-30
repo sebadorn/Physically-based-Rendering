@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "Logger.h"
-#include "ObjParser.h"
+#include "parsers/ObjParser.h"
 #include "VulkanHandler.h"
 
 using std::array;

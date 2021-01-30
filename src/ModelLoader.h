@@ -8,7 +8,7 @@
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 
-#include "ObjParser.h"
+#include "parsers/ObjParser.h"
 #include "utils.h"
 
 using std::string;

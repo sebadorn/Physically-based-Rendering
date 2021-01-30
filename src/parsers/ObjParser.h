@@ -12,7 +12,7 @@
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 
-#include "Logger.h"
+#include "../Logger.h"
 #include "MtlParser.h"
 #include "LightParser.h"
 

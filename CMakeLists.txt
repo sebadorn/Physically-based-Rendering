@@ -18,7 +18,7 @@ include_directories( ${IMGUI_DIR} )
 
 
 # Vulkan (LunarG SDK)
-set( VULKAN_SDK "/home/seba/programming/VulkanSDK/1.1.106.0/x86_64" )
+set( VULKAN_SDK "/home/seba/programming/VulkanSDK/1.2.162.1/x86_64" )
 include_directories( ${VULKAN_SDK}/include )
 set( LIBRARIES ${LIBRARIES} ${VULKAN_SDK}/lib/libvulkan.so.1 )
 
@@ -39,7 +39,7 @@ set( LIBRARIES ${LIBRARIES} "glfw" )
 # set( LIBRARIES ${LIBRARIES} ${IL_LIBRARIES} )
 
 
-file( GLOB SOURCES_CPP ${TRUNK}/*.cpp ${TRUNK}/accelstructures/*.cpp ${TRUNK}/vulkan/*.cpp )
+file( GLOB SOURCES_CPP ${TRUNK}/*.cpp ${TRUNK}/accelstructures/*.cpp ${TRUNK}/parsers/*.cpp ${TRUNK}/vulkan/*.cpp )
 add_executable(
 	${PROJECT_NAME}
 	${TRUNK}/main.cpp

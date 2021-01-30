@@ -18,7 +18,7 @@
 #include "ImGuiHandler.h"
 #include "Logger.h"
 #include "ModelRenderer.h"
-#include "ObjParser.h"
+#include "parsers/ObjParser.h"
 #include "Vertex.h"
 #include "vulkan/VulkanDevice.h"
 #include "vulkan/VulkanInstance.h"

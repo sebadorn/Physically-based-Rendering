@@ -1,6 +1,6 @@
 #include "ActionHandler.h"
 #include "ModelLoader.h"
-#include "ObjParser.h"
+#include "parsers/ObjParser.h"
 #include "accelstructures/BVH.h"
 
 
