@@ -14,7 +14,7 @@ using std::vector;
 
 
 const vector<const char*> VALIDATION_LAYERS = {
-	"VK_LAYER_LUNARG_standard_validation"
+	"VK_LAYER_KHRONOS_validation"
 };
 
 
