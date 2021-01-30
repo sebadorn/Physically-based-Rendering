@@ -281,8 +281,8 @@ void VulkanHandler::createGraphicsPipeline() {
 
 	mPipelineLayout = VulkanSetup::createPipelineLayout( &mLogicalDevice, &mDescriptorSetLayout );
 
-	auto vertShaderCode = this->loadFileSPV( "src/shaders/vert.spv" );
-	auto fragShaderCode = this->loadFileSPV( "src/shaders/frag.spv" );
+	auto vertShaderCode = VulkanHandler::loadFileSPV( "src/shaders/vert.spv" );
+	auto fragShaderCode = VulkanHandler::loadFileSPV( "src/shaders/frag.spv" );
 	Logger::logDebug( "[VulkanHandler] Loaded shader files." );
 
 	VkShaderModule vertShaderModule = VulkanSetup::createShaderModule( &mLogicalDevice, vertShaderCode );

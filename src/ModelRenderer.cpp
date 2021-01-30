@@ -158,6 +158,120 @@ void ModelRenderer::createDescriptorSets() {
 
 
 /**
+ * Create the graphics pipeline.
+ * @param {VkShaderModule*} vertModule
+ * @param {VkShaderModule*} fragModule
+ */
+void ModelRenderer::createPipeline( VkShaderModule* vertModule, VkShaderModule* fragModule ) {
+	// Destroy old graphics pipeline.
+	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
+		vkDestroyPipeline( mVH->mLogicalDevice, mGraphicsPipeline, nullptr );
+	}
+
+	// Destroy old pipeline layout.
+	if( mPipelineLayout != VK_NULL_HANDLE ) {
+		vkDestroyPipelineLayout( mVH->mLogicalDevice, mPipelineLayout, nullptr );
+	}
+
+	mPipelineLayout = VulkanSetup::createPipelineLayout( &mVH->mLogicalDevice, &mDescriptorSetLayout );
+
+	VkPipelineShaderStageCreateInfo vertShaderCreateInfo = {};
+	vertShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertShaderCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+	vertShaderCreateInfo.module = *vertModule;
+	vertShaderCreateInfo.pName = "main";
+
+	VkPipelineShaderStageCreateInfo fragShaderCreateInfo = {};
+	fragShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	fragShaderCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	fragShaderCreateInfo.module = *fragModule;
+	fragShaderCreateInfo.pName = "main";
+
+	VkPipelineShaderStageCreateInfo shaderStages[] = {
+		vertShaderCreateInfo,
+		fragShaderCreateInfo
+	};
+
+	mGraphicsPipeline = VulkanSetup::createGraphicsPipeline(
+		&mVH->mLogicalDevice, &mPipelineLayout, &mRenderPass, shaderStages, &mVH->mSwapchainExtent
+	);
+}
+
+
+/**
+ * Create the VkRenderPass.
+ */
+void ModelRenderer::createRenderPass() {
+	// Destroy old render pass.
+	if( mRenderPass != VK_NULL_HANDLE ) {
+		vkDestroyRenderPass( mVH->mLogicalDevice, mRenderPass, nullptr );
+	}
+
+	VkAttachmentDescription colorAttachment = {};
+	colorAttachment.format = mVH->mSwapchainFormat;
+	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	VkAttachmentReference colorAttachmentRef = {};
+	colorAttachmentRef.attachment = 0;
+	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subPass = {};
+	subPass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subPass.colorAttachmentCount = 1;
+	subPass.pColorAttachments = &colorAttachmentRef;
+
+	VkRenderPassCreateInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments = &colorAttachment;
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subPass;
+
+	// NOTE: Not necessary?
+
+	// VkSubpassDependency dependency = {};
+	// dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	// dependency.dstSubpass = 0;
+	// dependency.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	// dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	// dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	// dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	// renderPassInfo.dependencyCount = 1;
+	// renderPassInfo.pDependencies = &dependency;
+
+	VkResult result = vkCreateRenderPass(
+		mVH->mLogicalDevice, &renderPassInfo, nullptr, &mRenderPass
+	);
+	VulkanHandler::checkVkResult( result, "Failed to create VkRenderPass." );
+	Logger::logInfo( "[ModelRenderer] Created VkRenderPass." );
+}
+
+
+/**
+ *
+ * @param {VkShaderModule*} vertModule
+ * @param {VkShaderModule*} fragModule
+ */
+void ModelRenderer::createShaders( VkShaderModule* vertModule, VkShaderModule* fragModule ) {
+	auto vertShaderCode = VulkanHandler::loadFileSPV( "src/shaders/vert.spv" );
+	auto fragShaderCode = VulkanHandler::loadFileSPV( "src/shaders/frag.spv" );
+	Logger::logDebug( "[ModelRenderer] Loaded shader files." );
+
+	VkDevice logicalDevice = mVH->mLogicalDevice;
+	*vertModule = VulkanSetup::createShaderModule( &logicalDevice, vertShaderCode );
+	*fragModule = VulkanSetup::createShaderModule( &logicalDevice, fragShaderCode );
+	Logger::logInfo( "[ModelRenderer] Created shader modules." );
+}
+
+
+/**
  *
  * @param {uint32_t} frameIndex - The current frame/image index.
  */
@@ -200,13 +314,13 @@ void ModelRenderer::teardown() {
 	if( mDescriptorSetLayout != VK_NULL_HANDLE ) {
 		vkDestroyDescriptorSetLayout( mVH->mLogicalDevice, mDescriptorSetLayout, nullptr );
 		mDescriptorSetLayout = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkDescriptorSetLayout destroyed." );
+		Logger::logDebugVerbose( "[ModelRenderer] VkDescriptorSetLayout destroyed." );
 	}
 
 	if( mDescriptorPool != VK_NULL_HANDLE ) {
 		vkDestroyDescriptorPool( mVH->mLogicalDevice, mDescriptorPool, nullptr );
 		mDescriptorPool = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkDescriptorPool destroyed." );
+		Logger::logDebugVerbose( "[ModelRenderer] VkDescriptorPool destroyed." );
 	}
 
 	const uint32_t numBuffersMemory = mUniformBuffersMemory.size();
@@ -219,7 +333,7 @@ void ModelRenderer::teardown() {
 			uniformBuffer = VK_NULL_HANDLE;
 
 			char msg[256];
-			snprintf( msg, 256, "[VulkanHandler] VkDeviceMemory (uniform) freed (%d/%d).", (int) i + 1, numBuffersMemory );
+			snprintf( msg, 256, "[ModelRenderer] VkDeviceMemory (uniform) freed (%d/%d).", (int) i + 1, numBuffersMemory );
 			Logger::logDebugVerbose( msg );
 		}
 	}
@@ -234,7 +348,7 @@ void ModelRenderer::teardown() {
 			uniformBuffer = VK_NULL_HANDLE;
 
 			char msg[256];
-			snprintf( msg, 256, "[VulkanHandler] VkBuffer (uniform) freed (%d/%d).", (int) i + 1, numBuffers );
+			snprintf( msg, 256, "[ModelRenderer] VkBuffer (uniform) freed (%d/%d).", (int) i + 1, numBuffers );
 			Logger::logDebugVerbose( msg );
 		}
 	}
@@ -242,37 +356,37 @@ void ModelRenderer::teardown() {
 	if( mVertexBufferMemory != VK_NULL_HANDLE ) {
 		vkFreeMemory( mVH->mLogicalDevice, mVertexBufferMemory, nullptr );
 		mVertexBufferMemory = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkDeviceMemory (vertices) freed." );
+		Logger::logDebugVerbose( "[ModelRenderer] VkDeviceMemory (vertices) freed." );
 	}
 
 	if( mVertexBuffer != VK_NULL_HANDLE ) {
 		vkDestroyBuffer( mVH->mLogicalDevice, mVertexBuffer, nullptr );
 		mVertexBuffer = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkBuffer (vertices) destroyed." );
+		Logger::logDebugVerbose( "[ModelRenderer] VkBuffer (vertices) destroyed." );
 	}
 
 	if( mCommandPool != VK_NULL_HANDLE ) {
 		vkDestroyCommandPool( mVH->mLogicalDevice, mCommandPool, nullptr );
 		mCommandPool = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkCommandPool destroyed." );
+		Logger::logDebug( "[ModelRenderer] VkCommandPool destroyed." );
 	}
 
 	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
 		vkDestroyPipeline( mVH->mLogicalDevice, mGraphicsPipeline, nullptr );
 		mGraphicsPipeline = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkPipeline (graphics) destroyed." );
+		Logger::logDebug( "[ModelRenderer] VkPipeline (graphics) destroyed." );
 	}
 
 	if( mPipelineLayout != VK_NULL_HANDLE ) {
 		vkDestroyPipelineLayout( mVH->mLogicalDevice, mPipelineLayout, nullptr );
 		mPipelineLayout = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkPipelineLayout destroyed." );
+		Logger::logDebug( "[ModelRenderer] VkPipelineLayout destroyed." );
 	}
 
 	if( mRenderPass != VK_NULL_HANDLE ) {
 		vkDestroyRenderPass( mVH->mLogicalDevice, mRenderPass, nullptr );
 		mRenderPass = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkRenderPass destroyed." );
+		Logger::logDebug( "[ModelRenderer] VkRenderPass destroyed." );
 	}
 }
 

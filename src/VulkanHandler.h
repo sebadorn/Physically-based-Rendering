@@ -83,7 +83,6 @@ class VulkanHandler {
 		uint32_t findMemoryType( uint32_t typeFitler, VkMemoryPropertyFlags properties );
 		void imGuiSetup();
 		void initWindow();
-		vector<char> loadFileSPV( const string& filename );
 		void loadModelIntoBuffers( ObjParser* op, AccelStructure* accelStruct );
 		void mainLoop();
 		void setup( ActionHandler* ah );
@@ -106,6 +105,7 @@ class VulkanHandler {
 			const char* errorMessage,
 			const char* className = "VulkanHandler"
 		);
+		static vector<char> loadFileSPV( const string& filename );
 		static void setupValidationLayer();
 
 
