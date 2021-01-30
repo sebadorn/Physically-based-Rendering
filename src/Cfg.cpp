@@ -48,5 +48,29 @@ const char* Cfg::WINDOW_WIDTH = "window.width";
  * @param {const char*} filepath File path.
  */
 void Cfg::loadConfigFile( const char* filepath ) {
-	boost::property_tree::json_parser::read_json( filepath, mPropTree );
+	// Read file and remove comments.
+	std::ifstream fileIn( filepath );
+	std::string json;
+
+	while( fileIn.good() ) {
+		std::string line;
+		getline( fileIn, line );
+		boost::algorithm::trim( line );
+
+		size_t firstOf = line.find_first_of( "//" );
+
+		if( firstOf != 0 ) {
+			json.append( line );
+		}
+	}
+
+	fileIn.close();
+
+	// Write cleaned JSON to temporary file.
+	std::string filepathOut = std::string( filepath ).append( "_generated" );
+	std::ofstream fileOut( filepathOut.c_str() );
+	fileOut << json;
+	fileOut.close();
+
+	boost::property_tree::json_parser::read_json( filepathOut.c_str(), mPropTree );
 }

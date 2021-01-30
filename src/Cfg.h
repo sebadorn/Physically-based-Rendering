@@ -1,6 +1,7 @@
 #ifndef CFG_H
 #define CFG_H
 
+#include <boost/algorithm/string.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
