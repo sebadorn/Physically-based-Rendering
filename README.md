@@ -25,7 +25,7 @@ Rendering 3D scenes physically-based through Path Tracing. Interaction of light 
 ### Libraries/headers
 
 * GLFW: https://github.com/glfw/glfw (v3.4.0)
-* Dear ImGui: https://github.com/ocornut/imgui
+* Dear ImGui: https://github.com/ocornut/imgui (v1.80)
 * libboost-dev (v1.65.1)
 * libdevil-dev
 * libglm-dev

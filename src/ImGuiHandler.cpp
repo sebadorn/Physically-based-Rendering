@@ -4,7 +4,7 @@ using std::vector;
 
 
 static uint32_t __glsl_shader_vert_spv[] = {
-	0x07230203, 0x00010000, 0x00080001, 0x0000002e, 0x00000000, 0x00020011, 0x00000001, 0x0006000b,
+	0x07230203, 0x00010000, 0x0008000a, 0x0000002e, 0x00000000, 0x00020011, 0x00000001, 0x0006000b,
 	0x00000001, 0x4c534c47, 0x6474732e, 0x3035342e, 0x00000000, 0x0003000e, 0x00000000, 0x00000001,
 	0x000a000f, 0x00000000, 0x00000004, 0x6e69616d, 0x00000000, 0x0000000b, 0x0000000f, 0x00000015,
 	0x0000001b, 0x0000001c, 0x00030003, 0x00000002, 0x000001c2, 0x00040005, 0x00000004, 0x6e69616d,
@@ -48,7 +48,7 @@ static uint32_t __glsl_shader_vert_spv[] = {
 };
 
 static uint32_t __glsl_shader_frag_spv[] = {
-	0x07230203, 0x00010000, 0x00080001, 0x0000001e, 0x00000000, 0x00020011, 0x00000001, 0x0006000b,
+	0x07230203, 0x00010000, 0x0008000a, 0x0000001e, 0x00000000, 0x00020011, 0x00000001, 0x0006000b,
 	0x00000001, 0x4c534c47, 0x6474732e, 0x3035342e, 0x00000000, 0x0003000e, 0x00000000, 0x00000001,
 	0x0007000f, 0x00000004, 0x00000004, 0x6e69616d, 0x00000000, 0x00000009, 0x0000000d, 0x00030010,
 	0x00000004, 0x00000007, 0x00030003, 0x00000002, 0x000001c2, 0x00040005, 0x00000004, 0x6e69616d,
@@ -694,6 +694,7 @@ void ImGuiHandler::setup( VulkanHandler* vh ) {
 	vkDestroyShaderModule( mVH->mLogicalDevice, vertModule, nullptr );
 	vkDestroyShaderModule( mVH->mLogicalDevice, fragModule, nullptr );
 
+	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
 	io.KeyMap[ImGuiKey_Tab] = GLFW_KEY_TAB;
 	io.KeyMap[ImGuiKey_LeftArrow] = GLFW_KEY_LEFT;
@@ -714,8 +715,6 @@ void ImGuiHandler::setup( VulkanHandler* vh ) {
 	io.KeyMap[ImGuiKey_X] = GLFW_KEY_X;
 	io.KeyMap[ImGuiKey_Y] = GLFW_KEY_Y;
 	io.KeyMap[ImGuiKey_Z] = GLFW_KEY_Z;
-
-	io.RenderDrawListsFn = NULL;
 
 	this->uploadFonts();
 
@@ -843,6 +842,8 @@ void ImGuiHandler::teardown() {
 		mRenderPass = VK_NULL_HANDLE;
 		Logger::logDebug( "[ImGuiHandler] VkRenderPass destroyed." );
 	}
+
+	ImGui::DestroyContext();
 }
 
 

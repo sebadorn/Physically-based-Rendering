@@ -13,7 +13,7 @@ include_directories( ${GLM_INCLUDE_DIRS} )
 
 
 # dear imgui
-set( IMGUI_DIR ../imgui )
+set( IMGUI_DIR "../imgui-v1.80" )
 include_directories( ${IMGUI_DIR} )
 
 
@@ -45,6 +45,8 @@ add_executable(
 	${TRUNK}/main.cpp
 	${IMGUI_DIR}/imgui.cpp
 	${IMGUI_DIR}/imgui_draw.cpp
+	${IMGUI_DIR}/imgui_tables.cpp
+	${IMGUI_DIR}/imgui_widgets.cpp
 	${SOURCES_CPP}
 )
 
