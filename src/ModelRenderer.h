@@ -75,8 +75,8 @@ class ModelRenderer {
 		void createDescriptorPool();
 		void createDescriptorSets();
 		void createFences();
+		void createGraphicsPipeline( VkShaderModule* vertModule, VkShaderModule* fragModule );
 		void createIndexBuffer();
-		void createPipeline( VkShaderModule* vertModule, VkShaderModule* fragModule );
 		void createRenderPass();
 		void createShaders( VkShaderModule* vertModule, VkShaderModule* fragModule );
 		void createUniformBuffers();

@@ -114,6 +114,8 @@ void ModelRenderer::createDescriptorPool() {
 	VulkanHandler::checkVkResult(
 		result, "Failed to create VkDescriptorPool", "ModelRenderer"
 	);
+
+	Logger::logDebug( "[ModelRenderer] Created VkDescriptorPool." );
 }
 
 
@@ -137,6 +139,7 @@ void ModelRenderer::createDescriptorSets() {
 		result, "Failed to allocate DescriptorSets", "ModelRenderer"
 	);
 
+	// This part crashes -> Segmentation fault
 	for( size_t i = 0; i < numImages; i++ ) {
 		VkDescriptorBufferInfo bufferInfo = {};
 		bufferInfo.buffer = mUniformBuffers[i];
@@ -154,6 +157,8 @@ void ModelRenderer::createDescriptorSets() {
 
 		vkUpdateDescriptorSets( mVH->mLogicalDevice, 1, &descriptorWrite, 0, nullptr );
 	}
+
+	Logger::logDebug( "[ModelRenderer] Created VkDescriptorSets." );
 }
 
 
@@ -162,7 +167,7 @@ void ModelRenderer::createDescriptorSets() {
  * @param {VkShaderModule*} vertModule
  * @param {VkShaderModule*} fragModule
  */
-void ModelRenderer::createPipeline( VkShaderModule* vertModule, VkShaderModule* fragModule ) {
+void ModelRenderer::createGraphicsPipeline( VkShaderModule* vertModule, VkShaderModule* fragModule ) {
 	// Destroy old graphics pipeline.
 	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
 		vkDestroyPipeline( mVH->mLogicalDevice, mGraphicsPipeline, nullptr );
@@ -292,13 +297,14 @@ void ModelRenderer::setup( VulkanHandler* vh, ObjParser* op ) {
 	VkShaderModule vertModule;
 	VkShaderModule fragModule;
 
-	this->createShaders( &vertModule, &fragModule );
+	mDescriptorSetLayout = VulkanSetup::createDescriptorSetLayout( &( mVH->mLogicalDevice ) );
 	this->createRenderPass();
-	this->createCommandPool();
-	this->createCommandBuffers();
+	this->createShaders( &vertModule, &fragModule );
 	this->createDescriptorPool();
 	this->createDescriptorSets();
-	this->createPipeline( &vertModule, &fragModule );
+	this->createGraphicsPipeline( &vertModule, &fragModule );
+	this->createCommandPool();
+	this->createCommandBuffers();
 
 	vkDestroyShaderModule( mVH->mLogicalDevice, vertModule, nullptr );
 	vkDestroyShaderModule( mVH->mLogicalDevice, fragModule, nullptr );
