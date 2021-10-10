@@ -31,6 +31,7 @@ void ActionHandler::loadModel( VulkanHandler* vh, const string& filepath, const 
 
 	vh->mModelRenderer = new ModelRenderer();
 	vh->mModelRenderer->setup( vh, op );
+	vh->mHasModel = true;
 
 	// vh->loadModelIntoBuffers( op, accelStruct );
 }

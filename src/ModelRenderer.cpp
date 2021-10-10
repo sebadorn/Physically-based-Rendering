@@ -140,6 +140,7 @@ void ModelRenderer::createDescriptorSets() {
 	);
 
 	// This part crashes -> Segmentation fault
+	// mUniformBuffers has no data yet?
 	for( size_t i = 0; i < numImages; i++ ) {
 		VkDescriptorBufferInfo bufferInfo = {};
 		bufferInfo.buffer = mUniformBuffers[i];
@@ -291,6 +292,8 @@ void ModelRenderer::draw( uint32_t frameIndex ) {
  * @param {ObjParser*}     op
  */
 void ModelRenderer::setup( VulkanHandler* vh, ObjParser* op ) {
+	Logger::logDebug( "[ModelRenderer] Setup begin." );
+
 	mVH = vh;
 	mObjParser = op;
 
@@ -409,9 +412,10 @@ void ModelRenderer::updateUniformBuffers( uint32_t frameIndex ) {
 		glm::vec3( 0.0f, 0.0f, 0.0f ),
 		glm::vec3( 0.0f, 0.0f, 1.0f )
 	);
+	float ratio = (float) mVH->mSwapchainExtent.width / (float) mVH->mSwapchainExtent.height;
 	ubo.proj = glm::perspective(
 		glm::radians( 45.0f ),
-		mVH->mSwapchainExtent.width / (float) mVH->mSwapchainExtent.height, 0.1f, 100.0f
+		ratio, 0.1f, 100.0f
 	);
 	ubo.proj[1][1] *= -1;
 

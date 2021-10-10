@@ -55,6 +55,7 @@ class VulkanHandler {
 
 
 	public:
+		bool mHasModel = false;
 		int mFOV = 45;
 		int mFamilyIndexGraphics = -1;
 		int mFamilyIndexPresentation = -1;

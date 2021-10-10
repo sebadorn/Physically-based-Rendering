@@ -567,14 +567,14 @@ bool VulkanHandler::drawFrame() {
 		return true;
 	}
 	else if( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
-		Logger::logError( "[VulkanHandler] Failed to acquire swap chain image." );
-		throw std::runtime_error( "Failed to acquire swap chain image." );
+		Logger::logError( "[VulkanHandler] Failed to acquire swapchain image." );
+		throw std::runtime_error( "Failed to acquire swapchain image." );
 	}
 
 	this->recordCommand();
 	mImGuiHandler->draw();
 
-	if( mModelRenderer ) {
+	if( mHasModel ) {
 		mModelRenderer->draw( mFrameIndex );
 	}
 
@@ -1083,9 +1083,11 @@ void VulkanHandler::teardown() {
 	mImGuiHandler->teardown();
 	delete mImGuiHandler;
 
-	if( mModelRenderer ) {
+	if( mHasModel ) {
 		mModelRenderer->teardown();
 		delete mModelRenderer;
+
+		mHasModel = false;
 	}
 
 	if( mDescriptorSetLayout != VK_NULL_HANDLE ) {

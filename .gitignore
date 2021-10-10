@@ -13,6 +13,7 @@ cmake_install.cmake
 imgui.ini
 make.log
 Makefile
-PBR
-PBR-OpenCL
+/PBR
+/PBR-OpenCL
+/TODO.md
 valgrind.log
