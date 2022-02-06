@@ -9,7 +9,7 @@
 
 #include "../Cfg.h"
 #include "../Logger.h"
-#include "../VulkanHandler.h"
+#include "../PathTracer.h"
 
 using std::vector;
 
@@ -25,6 +25,13 @@ class VulkanSetup {
 
 
 	public:
+		static bool useValidationLayer;
+
+		static void checkVkResult(
+			VkResult result,
+			const char* errorMessage,
+			const char* className = "VulkanSetup"
+		);
 		static VkExtent2D chooseSwapExtent( const VkSurfaceCapabilitiesKHR& capabilities );
 		static VkPresentModeKHR chooseSwapPresentMode(
 			const vector<VkPresentModeKHR>& availablePresentModes
@@ -60,6 +67,7 @@ class VulkanSetup {
 			VkExtent2D extent
 		);
 		static SwapChainSupportDetails querySwapChainSupport( VkPhysicalDevice device, VkSurfaceKHR* surface );
+		static void setupValidationLayer();
 
 
 };

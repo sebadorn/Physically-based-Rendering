@@ -6,7 +6,7 @@
 
 #include "Logger.h"
 #include "parsers/ObjParser.h"
-#include "VulkanHandler.h"
+#include "PathTracer.h"
 
 using std::array;
 using std::vector;
@@ -55,7 +55,7 @@ struct ModelVertex {
     }
 };
 
-struct VulkanHandler;
+struct PathTracer;
 
 
 class ModelRenderer {
@@ -63,7 +63,7 @@ class ModelRenderer {
 
 	public:
 		void draw( uint32_t frameIndex );
-		void setup( VulkanHandler* vh, ObjParser* op );
+		void setup( PathTracer* pt, ObjParser* op );
 		void teardown();
 
 		vector<VkCommandBuffer> mCommandBuffers;
@@ -78,7 +78,7 @@ class ModelRenderer {
 		void createGraphicsPipeline( VkShaderModule* vertModule, VkShaderModule* fragModule );
 		void createIndexBuffer();
 		void createRenderPass();
-		void createShaders( VkShaderModule* vertModule, VkShaderModule* fragModule );
+		void createShaders( VkShaderModule* vertModule, VkShaderModule* fragModule, VkShaderModule* computeModule );
 		void createUniformBuffers();
 		void createVertexBuffer();
 		void updateUniformBuffers( uint32_t frameIndex );
@@ -86,7 +86,7 @@ class ModelRenderer {
 
 	private:
 		ObjParser* mObjParser;
-		VulkanHandler* mVH;
+		PathTracer* mPathTracer;
 
 		vector<VkBuffer> mUniformBuffers;
 		vector<VkDeviceMemory> mUniformBuffersMemory;

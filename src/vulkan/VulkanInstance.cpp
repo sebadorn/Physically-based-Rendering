@@ -35,7 +35,7 @@ VkInstanceCreateInfo VulkanInstance::buildInstanceCreateInfo(
 	createInfo.enabledExtensionCount = extensions->size();
 	createInfo.ppEnabledExtensionNames = extensions->data();
 
-	if( VulkanHandler::useValidationLayer ) {
+	if( VulkanSetup::useValidationLayer ) {
 		createInfo.enabledLayerCount = VALIDATION_LAYERS.size();
 		createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
 	}
@@ -82,12 +82,12 @@ const bool VulkanInstance::checkValidationLayerSupport() {
  * @return {VkInstance}
  */
 VkInstance VulkanInstance::createInstance() {
-	if( VulkanHandler::useValidationLayer && !VulkanInstance::checkValidationLayerSupport() ) {
+	if( VulkanSetup::useValidationLayer && !VulkanInstance::checkValidationLayerSupport() ) {
 		Logger::logError(
 			"[VulkanInstance] No validation layer support found."
 			" Will proceed without validation layer."
 		);
-		VulkanHandler::useValidationLayer = false;
+		VulkanSetup::useValidationLayer = false;
 	}
 
 	VkApplicationInfo appInfo = VulkanInstance::buildApplicationInfo();
@@ -105,7 +105,7 @@ VkInstance VulkanInstance::createInstance() {
 
 	VkInstance instance;
 	VkResult result = vkCreateInstance( &createInfo, nullptr, &instance );
-	VulkanHandler::checkVkResult( result, "Failed to create VkInstance.", "VulkanSetup" );
+	VulkanSetup::checkVkResult( result, "Failed to create VkInstance.", "VulkanSetup" );
 
 	return instance;
 }
@@ -124,7 +124,7 @@ vector<const char*> VulkanInstance::getRequiredExtensions() {
 		extensions.push_back( glfwExtensions[i] );
 	}
 
-	if( VulkanHandler::useValidationLayer ) {
+	if( VulkanSetup::useValidationLayer ) {
 		extensions.push_back( VK_EXT_DEBUG_REPORT_EXTENSION_NAME );
 	}
 
@@ -151,14 +151,14 @@ uint32_t VulkanInstance::getVersionPBR() {
  * @param {VkDebugReportCallbackEXT*} callback
  */
 void VulkanInstance::setupDebugCallback( VkInstance* instance, VkDebugReportCallbackEXT* callback ) {
-	if( !VulkanHandler::useValidationLayer ) {
+	if( !VulkanSetup::useValidationLayer ) {
 		return;
 	}
 
 	VkDebugReportCallbackCreateInfoEXT createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
 	createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
-	createInfo.pfnCallback = VulkanHandler::debugCallback;
+	createInfo.pfnCallback = PathTracer::debugCallback;
 
 	auto fnCreateDebugCallback = (PFN_vkCreateDebugReportCallbackEXT) vkGetInstanceProcAddr(
 		*instance, "vkCreateDebugReportCallbackEXT"
@@ -175,6 +175,6 @@ void VulkanInstance::setupDebugCallback( VkInstance* instance, VkDebugReportCall
 	VkResult result = fnCreateDebugCallback(
 		*instance, &createInfo, nullptr, callback
 	);
-	VulkanHandler::checkVkResult( result, "Failed to setup debug callback.", "VulkanInstance" );
+	VulkanSetup::checkVkResult( result, "Failed to setup debug callback.", "VulkanInstance" );
 	Logger::logDebug( "[VulkanInstance] Debug callback setup." );
 }

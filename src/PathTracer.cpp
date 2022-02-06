@@ -1,15 +1,13 @@
-#include "VulkanHandler.h"
+#include "PathTracer.h"
 
 using std::vector;
 
-
-bool VulkanHandler::useValidationLayer = true;
 
 
 /**
  * Calculate the matrices for view, model, model-view-projection and normals.
  */
-void VulkanHandler::calculateMatrices() {
+void PathTracer::calculateMatrices() {
 	glm::mat4 modelMatrix = glm::mat4( 1.0f );
 	glm::mat4 viewMatrix = glm::lookAt( mCameraEye, mCameraCenter, mCameraUp );
 
@@ -28,28 +26,12 @@ void VulkanHandler::calculateMatrices() {
 
 
 /**
- * Check a VkResult and throw an error if not a VK_SUCCESS.
- * @param {VkResult}    result
- * @param {const char*} errorMessage
- * @param {const char*} className
- */
-void VulkanHandler::checkVkResult(
-	VkResult result, const char* errorMessage, const char* className
-) {
-	if( result != VK_SUCCESS ) {
-		Logger::logErrorf( "[%s] %s", className, errorMessage );
-		throw std::runtime_error( errorMessage );
-	}
-}
-
-
-/**
  * Copy VkBuffer.
  * @param {VkBuffer}     srcBuffer
  * @param {VkBuffer}     dstBuffer
  * @param {VkDeviceSize} size
  */
-void VulkanHandler::copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size ) {
+void PathTracer::copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size ) {
 	VkCommandBufferAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -93,7 +75,7 @@ void VulkanHandler::copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevice
  * @param {VkBuffer&}             buffer
  * @param {VkDeviceMemory&}       bufferMemory
  */
-void VulkanHandler::createBuffer(
+void PathTracer::createBuffer(
 	VkDeviceSize size,
 	VkBufferUsageFlags usage,
 	VkMemoryPropertyFlags properties,
@@ -107,7 +89,7 @@ void VulkanHandler::createBuffer(
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 	VkResult result = vkCreateBuffer( mLogicalDevice, &bufferInfo, nullptr, &buffer );
-	VulkanHandler::checkVkResult( result, "Failed to create VkBuffer." );
+	VulkanSetup::checkVkResult( result, "Failed to create VkBuffer.", "PathTracer" );
 
 	VkMemoryRequirements memRequirements;
 	vkGetBufferMemoryRequirements( mLogicalDevice, buffer, &memRequirements );
@@ -121,7 +103,7 @@ void VulkanHandler::createBuffer(
 	);
 
 	result = vkAllocateMemory( mLogicalDevice, &allocInfo, nullptr, &bufferMemory );
-	VulkanHandler::checkVkResult( result, "Failed to allocate memory." );
+	VulkanSetup::checkVkResult( result, "Failed to allocate memory.", "PathTracer" );
 
 	vkBindBufferMemory( mLogicalDevice, buffer, bufferMemory, 0 );
 }
@@ -130,7 +112,7 @@ void VulkanHandler::createBuffer(
 /**
  * Create the command buffers.
  */
-void VulkanHandler::createCommandBuffers() {
+void PathTracer::createCommandBuffers() {
 	// Free old command buffers.
 	if( mCommandBuffers.size() > 0 ) {
 		vkFreeCommandBuffers(
@@ -153,10 +135,10 @@ void VulkanHandler::createCommandBuffers() {
 	VkResult result = vkAllocateCommandBuffers(
 		mLogicalDevice, &allocInfo, mCommandBuffers.data()
 	);
-	VulkanHandler::checkVkResult( result, "Failed to allocate VkCommandBuffers." );
+	VulkanSetup::checkVkResult( result, "Failed to allocate VkCommandBuffers.", "PathTracer" );
 
 	Logger::logInfof(
-		"[VulkanHandler] Allocated %u VkCommandBuffers.",
+		"[PathTracer] Allocated %u VkCommandBuffers.",
 		mCommandBuffers.size()
 	);
 }
@@ -165,7 +147,7 @@ void VulkanHandler::createCommandBuffers() {
 /**
  * Create the command pool for the graphics queue.
  */
-void VulkanHandler::createCommandPool() {
+void PathTracer::createCommandPool() {
 	VkCommandPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	poolInfo.queueFamilyIndex = mFamilyIndexGraphics;
@@ -174,8 +156,8 @@ void VulkanHandler::createCommandPool() {
 	VkResult result = vkCreateCommandPool(
 		mLogicalDevice, &poolInfo, nullptr, &mCommandPool
 	);
-	VulkanHandler::checkVkResult( result, "Failed to create VkCommandPool." );
-	Logger::logInfo( "[VulkanHandler] Created VkCommandPool." );
+	VulkanSetup::checkVkResult( result, "Failed to create VkCommandPool.", "PathTracer" );
+	Logger::logInfo( "[PathTracer] Created VkCommandPool." );
 }
 
 
@@ -183,7 +165,7 @@ void VulkanHandler::createCommandPool() {
  * Create a descriptor set.
  * @return {VkDescriptorSet}
  */
-VkDescriptorSet VulkanHandler::createDescriptorSet() {
+VkDescriptorSet PathTracer::createDescriptorSet() {
 	VkDescriptorSetLayout layouts[] = { mDescriptorSetLayout };
 
 	VkDescriptorSetAllocateInfo allocInfo = {};
@@ -194,7 +176,7 @@ VkDescriptorSet VulkanHandler::createDescriptorSet() {
 
 	VkDescriptorSet descriptorSet;
 	VkResult result = vkAllocateDescriptorSets( mLogicalDevice, &allocInfo, &descriptorSet );
-	VulkanHandler::checkVkResult( result, "Failed to allocate descriptor set." );
+	VulkanSetup::checkVkResult( result, "Failed to allocate descriptor set.", "PathTracer" );
 
 	return descriptorSet;
 }
@@ -203,23 +185,23 @@ VkDescriptorSet VulkanHandler::createDescriptorSet() {
 /**
  * Create the fences.
  */
-void VulkanHandler::createFences() {
+void PathTracer::createFences() {
 	mFences.resize( 2 );
 
 	VkFenceCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 
 	VkResult result = vkCreateFence( mLogicalDevice, &info, nullptr, &mImageAvailableFence );
-	VulkanHandler::checkVkResult( result, "Failed to create fence (image available)." );
+	VulkanSetup::checkVkResult( result, "Failed to create fence (image available).", "PathTracer" );
 
 	result = vkCreateFence( mLogicalDevice, &info, nullptr, &mRenderFinishedFence );
-	VulkanHandler::checkVkResult( result, "Failed to create fence (render finished)." );
+	VulkanSetup::checkVkResult( result, "Failed to create fence (render finished).", "PathTracer" );
 
 	mFences[0] = mImageAvailableFence;
 	mFences[1] = mRenderFinishedFence;
 
 	Logger::logInfof(
-		"[VulkanHandler] Created %u VkFences.",
+		"[PathTracer] Created %u VkFences.",
 		mFences.size()
 	);
 }
@@ -228,7 +210,7 @@ void VulkanHandler::createFences() {
 /**
  * Create the framebuffers.
  */
-void VulkanHandler::createFramebuffers() {
+void PathTracer::createFramebuffers() {
 	// Destroy old framebuffers.
 	if( mFramebuffers.size() > 0 ) {
 		for( size_t i = 0; i < mFramebuffers.size(); i++ ) {
@@ -255,11 +237,11 @@ void VulkanHandler::createFramebuffers() {
 		VkResult result = vkCreateFramebuffer(
 			mLogicalDevice, &framebufferInfo, nullptr, &( mFramebuffers[i] )
 		);
-		VulkanHandler::checkVkResult( result, "Failed to create VkFramebuffer." );
+		VulkanSetup::checkVkResult( result, "Failed to create VkFramebuffer.", "PathTracer" );
 	}
 
 	Logger::logInfof(
-		"[VulkanHandler] Created %u VkFramebuffers.",
+		"[PathTracer] Created %u VkFramebuffers.",
 		mFramebuffers.size()
 	);
 }
@@ -268,7 +250,7 @@ void VulkanHandler::createFramebuffers() {
 /**
  * Create the graphics pipeline.
  */
-void VulkanHandler::createGraphicsPipeline() {
+void PathTracer::createGraphicsPipeline() {
 	// Destroy old graphics pipeline.
 	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
 		vkDestroyPipeline( mLogicalDevice, mGraphicsPipeline, nullptr );
@@ -281,13 +263,13 @@ void VulkanHandler::createGraphicsPipeline() {
 
 	mPipelineLayout = VulkanSetup::createPipelineLayout( &mLogicalDevice, &mDescriptorSetLayout );
 
-	auto vertShaderCode = VulkanHandler::loadFileSPV( "src/shaders/vert.spv" );
-	auto fragShaderCode = VulkanHandler::loadFileSPV( "src/shaders/frag.spv" );
-	Logger::logDebug( "[VulkanHandler] Loaded shader files." );
+	auto vertShaderCode = PathTracer::loadFileSPV( "src/shaders/vert.spv" );
+	auto fragShaderCode = PathTracer::loadFileSPV( "src/shaders/frag.spv" );
+	Logger::logDebug( "[PathTracer] Loaded shader files." );
 
 	VkShaderModule vertShaderModule = VulkanSetup::createShaderModule( &mLogicalDevice, vertShaderCode );
 	VkShaderModule fragShaderModule = VulkanSetup::createShaderModule( &mLogicalDevice, fragShaderCode );
-	Logger::logInfo( "[VulkanHandler] Created shader modules." );
+	Logger::logInfo( "[PathTracer] Created shader modules." );
 
 	VkPipelineShaderStageCreateInfo vertShaderCreateInfo = {};
 	vertShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -312,14 +294,14 @@ void VulkanHandler::createGraphicsPipeline() {
 
 	vkDestroyShaderModule( mLogicalDevice, vertShaderModule, nullptr );
 	vkDestroyShaderModule( mLogicalDevice, fragShaderModule, nullptr );
-	Logger::logDebug( "[VulkanHandler] Destroyed shader modules. (Not needed anymore.)" );
+	Logger::logDebug( "[PathTracer] Destroyed shader modules. (Not needed anymore.)" );
 }
 
 
 /**
  * Create the swapchain image views.
  */
-void VulkanHandler::createImageViews() {
+void PathTracer::createImageViews() {
 	this->destroyImageViews();
 	mSwapchainImageViews.resize( mSwapchainImages.size(), VK_NULL_HANDLE );
 
@@ -345,17 +327,17 @@ void VulkanHandler::createImageViews() {
 		VkResult result = vkCreateImageView(
 			mLogicalDevice, &createInfo, nullptr, &( mSwapchainImageViews[i] )
 		);
-		VulkanHandler::checkVkResult( result, "Failed to create VkImageView." );
+		VulkanSetup::checkVkResult( result, "Failed to create VkImageView.", "PathTracer" );
 	}
 
-	Logger::logDebugf( "[VulkanHandler] Created %u VkImageViews.", mSwapchainImages.size() );
+	Logger::logDebugf( "[PathTracer] Created %u VkImageViews.", mSwapchainImages.size() );
 }
 
 
 /**
  * Create the VkRenderPass.
  */
-void VulkanHandler::createRenderPass() {
+void PathTracer::createRenderPass() {
 	// Destroy old render pass.
 	if( mRenderPass != VK_NULL_HANDLE ) {
 		vkDestroyRenderPass( mLogicalDevice, mRenderPass, nullptr );
@@ -387,31 +369,18 @@ void VulkanHandler::createRenderPass() {
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subPass;
 
-	// NOTE: Not necessary?
-
-	// VkSubpassDependency dependency = {};
-	// dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	// dependency.dstSubpass = 0;
-	// dependency.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	// dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	// dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	// dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-	// renderPassInfo.dependencyCount = 1;
-	// renderPassInfo.pDependencies = &dependency;
-
 	VkResult result = vkCreateRenderPass(
 		mLogicalDevice, &renderPassInfo, nullptr, &mRenderPass
 	);
-	VulkanHandler::checkVkResult( result, "Failed to create VkRenderPass." );
-	Logger::logInfo( "[VulkanHandler] Created VkRenderPass." );
+	VulkanSetup::checkVkResult( result, "Failed to create VkRenderPass.", "PathTracer" );
+	Logger::logInfo( "[PathTracer] Created VkRenderPass." );
 }
 
 
 /**
  * Create semaphores for the draw frames function.
  */
-void VulkanHandler::createSemaphores() {
+void PathTracer::createSemaphores() {
 	VkResult result;
 	VkSemaphoreCreateInfo semaphoreInfo = {};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -419,25 +388,25 @@ void VulkanHandler::createSemaphores() {
 	result = vkCreateSemaphore(
 		mLogicalDevice, &semaphoreInfo, nullptr, &mImageAvailableSemaphore
 	);
-	VulkanHandler::checkVkResult(
-		result, "Failed to create VkSemaphore (image available)."
+	VulkanSetup::checkVkResult(
+		result, "Failed to create VkSemaphore (image available).", "PathTracer"
 	);
-	Logger::logDebugVerbose( "[VulkanHandler] Created VkSemaphore (image available)." );
+	Logger::logDebugVerbose( "[PathTracer] Created VkSemaphore (image available)." );
 
 	result = vkCreateSemaphore(
 		mLogicalDevice, &semaphoreInfo, nullptr, &mRenderFinishedSemaphore
 	);
-	VulkanHandler::checkVkResult(
-		result, "Failed to create VkSemaphore (render finished)."
+	VulkanSetup::checkVkResult(
+		result, "Failed to create VkSemaphore (render finished).", "PathTracer"
 	);
-	Logger::logDebugVerbose( "[VulkanHandler] Created VkSemaphore (render finished)." );
+	Logger::logDebugVerbose( "[PathTracer] Created VkSemaphore (render finished)." );
 }
 
 
 /**
  * Create the uniform buffer.
  */
-void VulkanHandler::createUniformBuffer() {
+void PathTracer::createUniformBuffer() {
 	VkDeviceSize bufferSize = sizeof( UniformCamera );
 
 	this->createBuffer(
@@ -453,7 +422,7 @@ void VulkanHandler::createUniformBuffer() {
 /**
  * Create vertex buffer.
  */
-void VulkanHandler::createVertexBuffer() {
+void PathTracer::createVertexBuffer() {
 	VkDeviceSize bufferSize = sizeof( vertices[0] ) * vertices.size();
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -497,7 +466,7 @@ void VulkanHandler::createVertexBuffer() {
  * @param  {void*}                      userData
  * @return {VKAPI_ATTR VkBool32 VKAPI_CALL}
  */
-VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandler::debugCallback(
+VKAPI_ATTR VkBool32 VKAPI_CALL PathTracer::debugCallback(
 	VkDebugReportFlagsEXT flags,
 	VkDebugReportObjectTypeEXT objType,
 	uint64_t obj,
@@ -507,7 +476,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandler::debugCallback(
 	const char* msg,
 	void* userData
 ) {
-	Logger::logErrorf( "[VulkanHandler] Validation layer: %s", msg );
+	Logger::logErrorf( "[PathTracer] Validation layer: %s", msg );
 
 	return VK_FALSE;
 }
@@ -516,7 +485,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandler::debugCallback(
 /**
  * Destroy the validation layer debug callback.
  */
-void VulkanHandler::destroyDebugCallback() {
+void PathTracer::destroyDebugCallback() {
 	if( !mDebugCallback ) {
 		return;
 	}
@@ -527,7 +496,7 @@ void VulkanHandler::destroyDebugCallback() {
 
 	if( fnDestroyDebugCallback != nullptr ) {
 		fnDestroyDebugCallback( mInstance, mDebugCallback, nullptr );
-		Logger::logDebug( "[VulkanHandler] Debug callback destroyed." );
+		Logger::logDebug( "[PathTracer] Debug callback destroyed." );
 	}
 }
 
@@ -535,14 +504,14 @@ void VulkanHandler::destroyDebugCallback() {
 /**
  * Destroy the image views.
  */
-void VulkanHandler::destroyImageViews() {
+void PathTracer::destroyImageViews() {
 	for( uint32_t i = 0; i < mSwapchainImageViews.size(); i++ ) {
 		VkImageView imageView = mSwapchainImageViews[i];
 
 		if( imageView != VK_NULL_HANDLE ) {
 			vkDestroyImageView( mLogicalDevice, imageView, nullptr );
 			mSwapchainImageViews[i] = VK_NULL_HANDLE;
-			Logger::logDebugVerbosef( "[VulkanHandler] Destroyed VkImageView %u.", i );
+			Logger::logDebugVerbosef( "[PathTracer] Destroyed VkImageView %u.", i );
 		}
 	}
 }
@@ -552,11 +521,11 @@ void VulkanHandler::destroyImageViews() {
  * Draw the next frame.
  * @return {bool}
  */
-bool VulkanHandler::drawFrame() {
+bool PathTracer::drawFrame() {
 	VkResult result = vkAcquireNextImageKHR(
 		mLogicalDevice,
 		mSwapchain,
-		std::numeric_limits< uint64_t >::max(), // disable timeout
+		std::numeric_limits<uint64_t>::max(), // disable timeout
 		mImageAvailableSemaphore,
 		mImageAvailableFence,
 		&mFrameIndex
@@ -567,16 +536,16 @@ bool VulkanHandler::drawFrame() {
 		return true;
 	}
 	else if( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
-		Logger::logError( "[VulkanHandler] Failed to acquire swapchain image." );
+		Logger::logError( "[PathTracer] Failed to acquire swapchain image." );
 		throw std::runtime_error( "Failed to acquire swapchain image." );
 	}
 
 	this->recordCommand();
 	mImGuiHandler->draw();
 
-	if( mHasModel ) {
-		mModelRenderer->draw( mFrameIndex );
-	}
+	// if( mHasModel ) {
+	// 	mModelRenderer->draw( mFrameIndex );
+	// }
 
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -594,13 +563,14 @@ bool VulkanHandler::drawFrame() {
 	// Render main image.
 	mCommandBuffersNow[0] = mCommandBuffers[mFrameIndex];
 	// Then render user interface on top.
+	// TODO: except it is not working that way
 	mCommandBuffersNow[1] = mImGuiHandler->mCommandBuffers[mFrameIndex];
 
-	submitInfo.commandBufferCount = 2;
+	submitInfo.commandBufferCount = mCommandBuffersNow.size();
 	submitInfo.pCommandBuffers = &mCommandBuffersNow[0];
 
 	result = vkQueueSubmit( mGraphicsQueue, 1, &submitInfo, mRenderFinishedFence );
-	VulkanHandler::checkVkResult( result, "Failed to submit graphics queue." );
+	VulkanSetup::checkVkResult( result, "Failed to submit graphics queue.", "PathTracer" );
 
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -620,11 +590,177 @@ bool VulkanHandler::drawFrame() {
 		return true;
 	}
 	else if( result != VK_SUCCESS ) {
-		Logger::logError( "[VulkanHandler] Failed to present swap chain image." );
+		Logger::logError( "[PathTracer] Failed to present swap chain image." );
 		throw std::runtime_error( "Failed to present swap chain image." );
 	}
 
 	return false;
+}
+
+
+/**
+ * Clean up everything Vulkan related.
+ */
+void PathTracer::exit() {
+	Logger::logInfo( "[PathTracer] Teardown beginning ..." );
+	Logger::indentChange( 2 );
+
+	if( mWindow != nullptr ) {
+		glfwDestroyWindow( mWindow );
+		glfwTerminate();
+		mWindow = nullptr;
+
+		Logger::logDebug( "[PathTracer] GLFW window destroyed and terminated." );
+	}
+
+	if( mImageAvailableSemaphore != VK_NULL_HANDLE ) {
+		vkDestroySemaphore( mLogicalDevice, mImageAvailableSemaphore, nullptr );
+		mImageAvailableSemaphore = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[PathTracer] VkSemaphore (image available) destroyed." );
+	}
+
+	if( mRenderFinishedSemaphore != VK_NULL_HANDLE ) {
+		vkDestroySemaphore( mLogicalDevice, mRenderFinishedSemaphore, nullptr );
+		mRenderFinishedSemaphore = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[PathTracer] VkSemaphore (render finished) destroyed." );
+	}
+
+	if( mImageAvailableFence != VK_NULL_HANDLE ) {
+		vkDestroyFence( mLogicalDevice, mImageAvailableFence, nullptr );
+		mImageAvailableFence = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[PathTracer] VkFence (image available) destroyed." );
+	}
+
+	if( mRenderFinishedFence != VK_NULL_HANDLE ) {
+		vkDestroyFence( mLogicalDevice, mRenderFinishedFence, nullptr );
+		mRenderFinishedFence = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[PathTracer] VkFence (render finished) destroyed." );
+	}
+
+	mImGuiHandler->teardown();
+	delete mImGuiHandler;
+
+	if( mHasModel ) {
+		mModelRenderer->teardown();
+		delete mModelRenderer;
+
+		mHasModel = false;
+	}
+
+	if( mDescriptorSetLayout != VK_NULL_HANDLE ) {
+		vkDestroyDescriptorSetLayout( mLogicalDevice, mDescriptorSetLayout, nullptr );
+		mDescriptorSetLayout = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[PathTracer] VkDescriptorSetLayout destroyed." );
+	}
+
+	if( mDescriptorPool != VK_NULL_HANDLE ) {
+		vkDestroyDescriptorPool( mLogicalDevice, mDescriptorPool, nullptr );
+		mDescriptorPool = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[PathTracer] VkDescriptorPool destroyed." );
+	}
+
+	if( mUniformBufferMemory != VK_NULL_HANDLE ) {
+		vkFreeMemory( mLogicalDevice, mUniformBufferMemory, nullptr );
+		mUniformBufferMemory = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[PathTracer] VkDeviceMemory (uniform) freed." );
+	}
+
+	if( mUniformBuffer != VK_NULL_HANDLE ) {
+		vkDestroyBuffer( mLogicalDevice, mUniformBuffer, nullptr );
+		mUniformBuffer = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[PathTracer] VkBuffer (uniform) destroyed." );
+	}
+
+	if( mVertexBufferMemory != VK_NULL_HANDLE ) {
+		vkFreeMemory( mLogicalDevice, mVertexBufferMemory, nullptr );
+		mVertexBufferMemory = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[PathTracer] VkDeviceMemory (vertices) freed." );
+	}
+
+	if( mVertexBuffer != VK_NULL_HANDLE ) {
+		vkDestroyBuffer( mLogicalDevice, mVertexBuffer, nullptr );
+		mVertexBuffer = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[PathTracer] VkBuffer (vertices) destroyed." );
+	}
+
+	if( mModelVerticesBufferMemory != VK_NULL_HANDLE ) {
+		vkFreeMemory( mLogicalDevice, mModelVerticesBufferMemory, nullptr );
+		mModelVerticesBufferMemory = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[PathTracer] VkDeviceMemory (model vertices) freed." );
+	}
+
+	if( mModelVerticesBuffer != VK_NULL_HANDLE ) {
+		vkDestroyBuffer( mLogicalDevice, mModelVerticesBuffer, nullptr );
+		mModelVerticesBuffer = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[PathTracer] VkBuffer (model vertices) destroyed." );
+	}
+
+	if( mCommandPool != VK_NULL_HANDLE ) {
+		vkDestroyCommandPool( mLogicalDevice, mCommandPool, nullptr );
+		mCommandPool = VK_NULL_HANDLE;
+		Logger::logDebug( "[PathTracer] VkCommandPool destroyed." );
+	}
+
+	if( mFramebuffers.size() > 0 ) {
+		for( size_t i = 0; i < mFramebuffers.size(); i++ ) {
+			vkDestroyFramebuffer( mLogicalDevice, mFramebuffers[i], nullptr );
+		}
+
+		Logger::logDebugf( "[PathTracer] %u VkFramebuffers destroyed.", mFramebuffers.size() );
+	}
+
+	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
+		vkDestroyPipeline( mLogicalDevice, mGraphicsPipeline, nullptr );
+		mGraphicsPipeline = VK_NULL_HANDLE;
+		Logger::logDebug( "[PathTracer] VkPipeline (graphics) destroyed." );
+	}
+
+	if( mPipelineLayout != VK_NULL_HANDLE ) {
+		vkDestroyPipelineLayout( mLogicalDevice, mPipelineLayout, nullptr );
+		mPipelineLayout = VK_NULL_HANDLE;
+		Logger::logDebug( "[PathTracer] VkPipelineLayout destroyed." );
+	}
+
+	if( mRenderPass != VK_NULL_HANDLE ) {
+		vkDestroyRenderPass( mLogicalDevice, mRenderPass, nullptr );
+		mRenderPass = VK_NULL_HANDLE;
+		Logger::logDebug( "[PathTracer] VkRenderPass destroyed." );
+	}
+
+	this->destroyImageViews();
+	Logger::logDebugf(
+		"[PathTracer] Destroyed %u VkImageViews.",
+		mSwapchainImageViews.size()
+	);
+
+	if( mSwapchain != VK_NULL_HANDLE ) {
+		vkDestroySwapchainKHR( mLogicalDevice, mSwapchain, nullptr );
+		mSwapchain = VK_NULL_HANDLE;
+		Logger::logDebug( "[PathTracer] VkSwapchainKHR destroyed." );
+	}
+
+	if( mLogicalDevice != VK_NULL_HANDLE ) {
+		vkDestroyDevice( mLogicalDevice, nullptr );
+		mLogicalDevice = VK_NULL_HANDLE;
+		Logger::logDebug( "[PathTracer] VkDevice destroyed." );
+	}
+
+	if( mSurface != VK_NULL_HANDLE ) {
+		vkDestroySurfaceKHR( mInstance, mSurface, nullptr );
+		mSurface = VK_NULL_HANDLE;
+		Logger::logDebug( "[PathTracer] VkSurfaceKHR destroyed." );
+	}
+
+	this->destroyDebugCallback();
+
+	if( mInstance != VK_NULL_HANDLE ) {
+		vkDestroyInstance( mInstance, nullptr );
+		mInstance = VK_NULL_HANDLE;
+		Logger::logDebug( "[PathTracer] VkInstance destroyed." );
+	}
+
+	Logger::indentChange( -2 );
+	Logger::logInfo( "[PathTracer] Teardown done." );
 }
 
 
@@ -634,7 +770,7 @@ bool VulkanHandler::drawFrame() {
  * @param  {VkMemoryPropertyFlags} properties
  * @return {uint32_t}
  */
-uint32_t VulkanHandler::findMemoryType( uint32_t typeFilter, VkMemoryPropertyFlags properties ) {
+uint32_t PathTracer::findMemoryType( uint32_t typeFilter, VkMemoryPropertyFlags properties ) {
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties( mPhysicalDevice, &memProperties );
 
@@ -647,7 +783,7 @@ uint32_t VulkanHandler::findMemoryType( uint32_t typeFilter, VkMemoryPropertyFla
 		}
 	}
 
-	Logger::logError( "[VulkanHandler] Failed to find suitable memory type." );
+	Logger::logError( "[PathTracer] Failed to find suitable memory type." );
 	throw std::runtime_error( "Failed to find suitable memory type." );
 }
 
@@ -655,7 +791,7 @@ uint32_t VulkanHandler::findMemoryType( uint32_t typeFilter, VkMemoryPropertyFla
 /**
  * Initialize the window.
  */
-void VulkanHandler::initWindow() {
+void PathTracer::initWindow() {
 	glfwInit();
 
 	int glfwVersionMajor = 0;
@@ -664,12 +800,12 @@ void VulkanHandler::initWindow() {
 	glfwGetVersion( &glfwVersionMajor, &glfwVersionMinor, &glfwVersionRev );
 
 	Logger::logInfof(
-		"[VulkanHandler] GLFW version: %d.%d.%d",
+		"[PathTracer] GLFW version: %d.%d.%d",
 		glfwVersionMajor, glfwVersionMinor, glfwVersionRev
 	);
 
 	if( !glfwVulkanSupported() ) {
-		Logger::logError( "[VulkanHandler] GLFW says it doesn't support Vulkan." );
+		Logger::logError( "[PathTracer] GLFW says it doesn't support Vulkan." );
 		glfwTerminate();
 
 		throw std::runtime_error( "GLFW does not support Vulkan." );
@@ -684,7 +820,7 @@ void VulkanHandler::initWindow() {
 		"PBR-Vulkan", nullptr, nullptr
 	);
 	glfwSetWindowUserPointer( mWindow, this );
-	glfwSetWindowSizeCallback( mWindow, VulkanHandler::onWindowResize );
+	glfwSetWindowSizeCallback( mWindow, PathTracer::onWindowResize );
 }
 
 
@@ -693,11 +829,11 @@ void VulkanHandler::initWindow() {
  * @param  {const std::string&} filename
  * @return {std::vector<char>}
  */
-vector<char> VulkanHandler::loadFileSPV( const string& filename ) {
+vector<char> PathTracer::loadFileSPV( const string& filename ) {
 	std::ifstream file( filename, std::ios::ate | std::ios::binary );
 
 	if( !file.is_open() ) {
-		Logger::logErrorf( "[VulkanHandler] Failed to open SPV file: %s", filename );
+		Logger::logErrorf( "[PathTracer] Failed to open SPV file: %s", filename );
 		throw std::runtime_error( "Failed to open file." );
 	}
 
@@ -713,116 +849,9 @@ vector<char> VulkanHandler::loadFileSPV( const string& filename ) {
 
 
 /**
- * Load the loaded model into buffers for the shader.
- * @param {ObjParser*}      op
- * @param {AccelStructure*} accelStruct
- */
-void VulkanHandler::loadModelIntoBuffers( ObjParser* op, AccelStructure* accelStruct ) {
-	mObjParser = op;
-
-
-	// TODO:
-	// Pass model data to fragment shader. But how? I cannot
-	// use vectors with dynamic length in shaders. Or should I
-	// recompile the shaders after loading the model? Maybe
-	// or probably there are certain methods to achieve this.
-	//
-	// -> Shader Storage Buffer Objects?
-	// http://www.geeks3d.com/20140704/tutorial-introduction-to-opengl-4-3-shader-storage-buffers-objects-ssbo-demo/
-
-
-	ModelVertices modelVert = {};
-	vector<float> vertices = op->getVertices();
-
-	for( int i = 0; i < vertices.size(); i += 3 ) {
-		float v0 = vertices[i];
-		float v1 = vertices[i + 1];
-		float v2 = vertices[i + 2];
-		glm::vec4 vec = glm::vec4( v0, v1, v2, 0.0 );
-
-		modelVert.vertices.push_back( vec );
-	}
-
-	VkDeviceSize vertBufSize = sizeof( glm::vec4 ) * modelVert.vertices.size();
-	VkBuffer vertStagingBuf;
-	VkDeviceMemory vertStagingBufMem;
-
-	this->createBuffer(
-		vertBufSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		vertStagingBuf,
-		vertStagingBufMem
-	);
-
-	void* data;
-	vkMapMemory( mLogicalDevice, vertStagingBufMem, 0, vertBufSize, 0, &data );
-	memcpy( data, modelVert.vertices.data(), (size_t) vertBufSize );
-
-
-
-	// TODO: Bind buffer when recording the command for the current render pass?
-
-
-	// // Vertices
-	// vector<float> objVertices = op->getVertices();
-	// VkDeviceSize bufferSize = sizeof( float ) * objVertices.size();
-	// VkBuffer stagingBuffer;
-	// VkDeviceMemory stagingBufferMemory;
-
-	// this->createBuffer(
-	// 	bufferSize,
-	// 	VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-	// 	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-	// 	stagingBuffer,
-	// 	stagingBufferMemory
-	// );
-
-	// void* data;
-	// vkMapMemory( mLogicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data );
-	// memcpy( data, objVertices.data(), (size_t) bufferSize );
-	// vkUnmapMemory( mLogicalDevice, stagingBufferMemory );
-
-
-	// Shader Storage Buffer Object
-	VkBuffer storageBuffer;
-	VkDeviceMemory storageBufferMemory;
-
-	this->createBuffer(
-		vertBufSize,
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		storageBuffer,
-		storageBufferMemory
-	);
-
-	// Has to be added to command buffer?
-	// https://software.intel.com/en-us/articles/api-without-secrets-introduction-to-vulkan-part-5
-
-	// memcpy( storageBuffer, vertStagingBuf, (size_t) vertBufSize );
-
-	vkUnmapMemory( mLogicalDevice, vertStagingBufMem );
-	vkFreeMemory( mLogicalDevice, vertStagingBufMem, nullptr );
-	vkDestroyBuffer( mLogicalDevice, vertStagingBuf, nullptr );
-
-	// this->createBuffer(
-	// 	bufferSize,
-	// 	VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-	// 	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-	// 	mModelVerticesBuffer,
-	// 	mModelVerticesBufferMemory
-	// );
-	// this->copyBuffer( stagingBuffer, mModelVerticesBuffer, bufferSize );
-
-	// vkFreeMemory( mLogicalDevice, stagingBufferMemory, nullptr );
-	// vkDestroyBuffer( mLogicalDevice, stagingBuffer, nullptr );
-}
-
-
-/**
  * Start the main loop.
  */
-void VulkanHandler::mainLoop() {
+void PathTracer::mainLoop() {
 	double lastTime = 0.0;
 	uint64_t numFrames = 0;
 	int numFramebuffers = mFramebuffers.size();
@@ -841,7 +870,7 @@ void VulkanHandler::mainLoop() {
 	}
 
 	VkResult result = vkDeviceWaitIdle( mLogicalDevice );
-	VulkanHandler::checkVkResult( result, "Failed to wait until idle." );
+	VulkanSetup::checkVkResult( result, "Failed to wait until idle.", "PathTracer" );
 }
 
 
@@ -851,12 +880,12 @@ void VulkanHandler::mainLoop() {
  * @param {int}         width
  * @param {int]         height
  */
-void VulkanHandler::onWindowResize( GLFWwindow* window, int width, int height ) {
+void PathTracer::onWindowResize( GLFWwindow* window, int width, int height ) {
 	if( width == 0 || height == 0 ) {
 		return;
 	}
 
-	VulkanHandler* vk = reinterpret_cast<VulkanHandler*>( glfwGetWindowUserPointer( window ) );
+	PathTracer* vk = reinterpret_cast<PathTracer*>( glfwGetWindowUserPointer( window ) );
 	vk->recreateSwapchain();
 }
 
@@ -864,12 +893,12 @@ void VulkanHandler::onWindowResize( GLFWwindow* window, int width, int height ) 
 /**
  * Record the command for this render pass.
  */
-void VulkanHandler::recordCommand() {
+void PathTracer::recordCommand() {
 	VkResult result = vkResetCommandPool( mLogicalDevice, mCommandPool, 0 );
-	VulkanHandler::checkVkResult( result, "Resetting command pool failed." );
+	VulkanSetup::checkVkResult( result, "Resetting command pool failed.", "PathTracer" );
 
-	this->calculateMatrices();
-	this->updateUniformBuffer();
+	// this->calculateMatrices();
+	// this->updateUniformBuffer();
 
 	VkCommandBufferBeginInfo beginInfo = {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -911,16 +940,16 @@ void VulkanHandler::recordCommand() {
 	vkCmdEndRenderPass( mCommandBuffers[mFrameIndex] );
 
 	result = vkEndCommandBuffer( mCommandBuffers[mFrameIndex] );
-	VulkanHandler::checkVkResult( result, "Failed to record command buffer." );
+	VulkanSetup::checkVkResult( result, "Failed to record command buffer.", "PathTracer" );
 }
 
 
 /**
  * Recreate the swapchain.
  */
-void VulkanHandler::recreateSwapchain() {
+void PathTracer::recreateSwapchain() {
 	Logger::mute();
-	Logger::logDebug( "[VulkanHandler] Recreating swap chain ..." );
+	Logger::logDebug( "[PathTracer] Recreating swap chain ..." );
 	Logger::indentChange( 2 );
 
 	vkDeviceWaitIdle( mLogicalDevice );
@@ -933,7 +962,7 @@ void VulkanHandler::recreateSwapchain() {
 	this->createCommandBuffers();
 
 	Logger::indentChange( -2 );
-	Logger::logDebug( "[VulkanHandler] Swap chain recreated." );
+	Logger::logDebug( "[PathTracer] Swap chain recreated." );
 	Logger::unmute();
 }
 
@@ -941,13 +970,13 @@ void VulkanHandler::recreateSwapchain() {
 /**
  * Retrieve the handles for the swapchain images.
  */
-void VulkanHandler::retrieveSwapchainImageHandles() {
+void PathTracer::retrieveSwapchainImageHandles() {
 	uint32_t imageCount = 0;
 	vkGetSwapchainImagesKHR( mLogicalDevice, mSwapchain, &imageCount, nullptr );
 	mSwapchainImages.resize( imageCount );
 	vkGetSwapchainImagesKHR( mLogicalDevice, mSwapchain, &imageCount, mSwapchainImages.data() );
 
-	Logger::logDebug( "[VulkanHandler] Retrieved swapchain VkImage handles." );
+	Logger::logDebug( "[PathTracer] Retrieved swapchain VkImage handles." );
 }
 
 
@@ -956,15 +985,15 @@ void VulkanHandler::retrieveSwapchainImageHandles() {
  * check for support, pick a device etc.
  * @param {ActionHandler*} actionHandler
  */
-void VulkanHandler::setup( ActionHandler* actionHandler ) {
-	Logger::logInfo( "[VulkanHandler] Setup beginning ..." );
+void PathTracer::setup( ActionHandler* actionHandler ) {
+	Logger::logInfo( "[PathTracer] Setup beginning ..." );
 	Logger::indentChange( 2 );
-	Logger::logInfof( "[VulkanHandler] VK_HEADER_VERSION: %d", VK_HEADER_VERSION );
+	Logger::logInfof( "[PathTracer] VK_HEADER_VERSION: %d", VK_HEADER_VERSION );
 
 	mActionHandler = actionHandler;
 	this->initWindow();
 
-	VulkanHandler::setupValidationLayer();
+	VulkanSetup::setupValidationLayer();
 
 	mInstance = VulkanInstance::createInstance();
 	VulkanInstance::setupDebugCallback( &mInstance, &mDebugCallback );
@@ -974,11 +1003,15 @@ void VulkanHandler::setup( ActionHandler* actionHandler ) {
 	mPhysicalDevice = VulkanDevice::selectDevice( &mInstance, &mSurface );
 	VulkanDevice::createLogicalDevice(
 		&mSurface, &mPhysicalDevice, &mLogicalDevice,
-		&mGraphicsQueue, &mPresentQueue
+		&mGraphicsQueue, &mPresentQueue, &mComputeQueue
 	);
 
 	VulkanDevice::findQueueFamilyIndices(
-		mPhysicalDevice, &mFamilyIndexGraphics, &mFamilyIndexPresentation, &mSurface
+		mPhysicalDevice,
+		&mFamilyIndexGraphics,
+		&mFamilyIndexPresentation,
+		&mFamilyIndexCompute,
+		&mSurface
 	);
 
 	this->setupSwapchain();
@@ -1001,14 +1034,14 @@ void VulkanHandler::setup( ActionHandler* actionHandler ) {
 	mImGuiHandler->setup( this );
 
 	Logger::indentChange( -2 );
-	Logger::logInfo( "[VulkanHandler] Setup done." );
+	Logger::logInfo( "[PathTracer] Setup done." );
 }
 
 
 /**
  * Setup everything swapchain related.
  */
-void VulkanHandler::setupSwapchain() {
+void PathTracer::setupSwapchain() {
 	SwapChainSupportDetails swapchainSupport = VulkanSetup::querySwapChainSupport( mPhysicalDevice, &mSurface );
 	VkSurfaceFormatKHR surfaceFormat = VulkanSetup::chooseSwapSurfaceFormat( swapchainSupport.formats );
 
@@ -1027,192 +1060,11 @@ void VulkanHandler::setupSwapchain() {
 
 
 /**
- * Set validation layer usage from config file.
- */
-void VulkanHandler::setupValidationLayer() {
-	VulkanHandler::useValidationLayer = Cfg::get().value<bool>( Cfg::VULKAN_VALIDATION_LAYER );
-
-	if( VulkanHandler::useValidationLayer ) {
-		Logger::logInfo( "[VulkanHandler] Validation layer usage is enabled." );
-	}
-	else {
-		Logger::logInfo( "[VulkanHandler] Validation layer usage is disabled." );
-	}
-}
-
-
-/**
- * Clean up everything Vulkan related.
- */
-void VulkanHandler::teardown() {
-	Logger::logInfo( "[VulkanHandler] Teardown beginning ..." );
-	Logger::indentChange( 2 );
-
-	if( mWindow != nullptr ) {
-		glfwDestroyWindow( mWindow );
-		glfwTerminate();
-		mWindow = nullptr;
-
-		Logger::logDebug( "[VulkanHandler] GLFW window destroyed and terminated." );
-	}
-
-	if( mImageAvailableSemaphore != VK_NULL_HANDLE ) {
-		vkDestroySemaphore( mLogicalDevice, mImageAvailableSemaphore, nullptr );
-		mImageAvailableSemaphore = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkSemaphore (image available) destroyed." );
-	}
-
-	if( mRenderFinishedSemaphore != VK_NULL_HANDLE ) {
-		vkDestroySemaphore( mLogicalDevice, mRenderFinishedSemaphore, nullptr );
-		mRenderFinishedSemaphore = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkSemaphore (render finished) destroyed." );
-	}
-
-	if( mImageAvailableFence != VK_NULL_HANDLE ) {
-		vkDestroyFence( mLogicalDevice, mImageAvailableFence, nullptr );
-		mImageAvailableFence = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkFence (image available) destroyed." );
-	}
-
-	if( mRenderFinishedFence != VK_NULL_HANDLE ) {
-		vkDestroyFence( mLogicalDevice, mRenderFinishedFence, nullptr );
-		mRenderFinishedFence = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkFence (render finished) destroyed." );
-	}
-
-	mImGuiHandler->teardown();
-	delete mImGuiHandler;
-
-	if( mHasModel ) {
-		mModelRenderer->teardown();
-		delete mModelRenderer;
-
-		mHasModel = false;
-	}
-
-	if( mDescriptorSetLayout != VK_NULL_HANDLE ) {
-		vkDestroyDescriptorSetLayout( mLogicalDevice, mDescriptorSetLayout, nullptr );
-		mDescriptorSetLayout = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkDescriptorSetLayout destroyed." );
-	}
-
-	if( mDescriptorPool != VK_NULL_HANDLE ) {
-		vkDestroyDescriptorPool( mLogicalDevice, mDescriptorPool, nullptr );
-		mDescriptorPool = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkDescriptorPool destroyed." );
-	}
-
-	if( mUniformBufferMemory != VK_NULL_HANDLE ) {
-		vkFreeMemory( mLogicalDevice, mUniformBufferMemory, nullptr );
-		mUniformBufferMemory = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkDeviceMemory (uniform) freed." );
-	}
-
-	if( mUniformBuffer != VK_NULL_HANDLE ) {
-		vkDestroyBuffer( mLogicalDevice, mUniformBuffer, nullptr );
-		mUniformBuffer = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkBuffer (uniform) destroyed." );
-	}
-
-	if( mVertexBufferMemory != VK_NULL_HANDLE ) {
-		vkFreeMemory( mLogicalDevice, mVertexBufferMemory, nullptr );
-		mVertexBufferMemory = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkDeviceMemory (vertices) freed." );
-	}
-
-	if( mVertexBuffer != VK_NULL_HANDLE ) {
-		vkDestroyBuffer( mLogicalDevice, mVertexBuffer, nullptr );
-		mVertexBuffer = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkBuffer (vertices) destroyed." );
-	}
-
-	if( mModelVerticesBufferMemory != VK_NULL_HANDLE ) {
-		vkFreeMemory( mLogicalDevice, mModelVerticesBufferMemory, nullptr );
-		mModelVerticesBufferMemory = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkDeviceMemory (model vertices) freed." );
-	}
-
-	if( mModelVerticesBuffer != VK_NULL_HANDLE ) {
-		vkDestroyBuffer( mLogicalDevice, mModelVerticesBuffer, nullptr );
-		mModelVerticesBuffer = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[VulkanHandler] VkBuffer (model vertices) destroyed." );
-	}
-
-	if( mCommandPool != VK_NULL_HANDLE ) {
-		vkDestroyCommandPool( mLogicalDevice, mCommandPool, nullptr );
-		mCommandPool = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkCommandPool destroyed." );
-	}
-
-	if( mFramebuffers.size() > 0 ) {
-		for( size_t i = 0; i < mFramebuffers.size(); i++ ) {
-			vkDestroyFramebuffer( mLogicalDevice, mFramebuffers[i], nullptr );
-		}
-
-		Logger::logDebugf( "[VulkanHandler] %u VkFramebuffers destroyed.", mFramebuffers.size() );
-	}
-
-	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
-		vkDestroyPipeline( mLogicalDevice, mGraphicsPipeline, nullptr );
-		mGraphicsPipeline = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkPipeline (graphics) destroyed." );
-	}
-
-	if( mPipelineLayout != VK_NULL_HANDLE ) {
-		vkDestroyPipelineLayout( mLogicalDevice, mPipelineLayout, nullptr );
-		mPipelineLayout = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkPipelineLayout destroyed." );
-	}
-
-	if( mRenderPass != VK_NULL_HANDLE ) {
-		vkDestroyRenderPass( mLogicalDevice, mRenderPass, nullptr );
-		mRenderPass = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkRenderPass destroyed." );
-	}
-
-	this->destroyImageViews();
-	Logger::logDebugf(
-		"[VulkanHandler] Destroyed %u VkImageViews.",
-		mSwapchainImageViews.size()
-	);
-
-	if( mSwapchain != VK_NULL_HANDLE ) {
-		vkDestroySwapchainKHR( mLogicalDevice, mSwapchain, nullptr );
-		mSwapchain = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkSwapchainKHR destroyed." );
-	}
-
-	if( mLogicalDevice != VK_NULL_HANDLE ) {
-		vkDestroyDevice( mLogicalDevice, nullptr );
-		mLogicalDevice = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkDevice destroyed." );
-	}
-
-	if( mSurface != VK_NULL_HANDLE ) {
-		vkDestroySurfaceKHR( mInstance, mSurface, nullptr );
-		mSurface = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkSurfaceKHR destroyed." );
-	}
-
-	this->destroyDebugCallback();
-
-	if( mInstance != VK_NULL_HANDLE ) {
-		vkDestroyInstance( mInstance, nullptr );
-		mInstance = VK_NULL_HANDLE;
-		Logger::logDebug( "[VulkanHandler] VkInstance destroyed." );
-	}
-
-	Logger::indentChange( -2 );
-	Logger::logInfo( "[VulkanHandler] Teardown done." );
-}
-
-
-/**
  * Update the FPS counter.
  * @param {double*}   lastTime
  * @param {uint64_t*} numFrames
  */
-void VulkanHandler::updateFPS( double* lastTime, uint64_t* numFrames ) {
+void PathTracer::updateFPS( double* lastTime, uint64_t* numFrames ) {
 	double currentTime = glfwGetTime();
 	double delta = currentTime - *lastTime;
 
@@ -1232,7 +1084,7 @@ void VulkanHandler::updateFPS( double* lastTime, uint64_t* numFrames ) {
 /**
  * Update the uniform buffer.
  */
-void VulkanHandler::updateUniformBuffer() {
+void PathTracer::updateUniformBuffer() {
 	void* data;
 
 	UniformCamera uniformCamera = {};
@@ -1252,7 +1104,7 @@ void VulkanHandler::updateUniformBuffer() {
 /**
  * Wait for the fences, then reset them.
  */
-void VulkanHandler::waitForFences() {
+void PathTracer::waitForFences() {
 	VkResult result = vkWaitForFences(
 		mLogicalDevice,
 		mFences.size(),
@@ -1261,7 +1113,7 @@ void VulkanHandler::waitForFences() {
 		std::numeric_limits<uint64_t>::max()
 	);
 
-	VulkanHandler::checkVkResult( result, "Failed to wait for fence(s)." );
+	VulkanSetup::checkVkResult( result, "Failed to wait for fence(s).", "PathTracer" );
 
 	vkResetFences( mLogicalDevice, mFences.size(), &mFences[0] );
 }
@@ -1270,7 +1122,7 @@ void VulkanHandler::waitForFences() {
 /**
  * Write the uniform buffer to the descriptor set.
  */
-void VulkanHandler::writeUniformToDescriptorSet() {
+void PathTracer::writeUniformToDescriptorSet() {
 	VkDescriptorBufferInfo bufferInfo = {};
 	bufferInfo.buffer = mUniformBuffer;
 	bufferInfo.offset = 0;

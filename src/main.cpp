@@ -4,7 +4,7 @@
 #include "ActionHandler.h"
 #include "Cfg.h"
 #include "Logger.h"
-#include "VulkanHandler.h"
+#include "PathTracer.h"
 
 
 /**
@@ -21,16 +21,16 @@ int main( int argc, char** argv ) {
 	Logger::logInfo( "[main] Configuration loaded." );
 
 	ActionHandler* actionHandler = new ActionHandler();
-	VulkanHandler vkHandler;
+	PathTracer pathTracer;
 
 	try {
-		vkHandler.setup( actionHandler );
+		pathTracer.setup( actionHandler );
 	}
 	catch( const std::runtime_error &err ) {
 		Logger::logError( "[main] Vulkan setup failed. EXIT_FAILURE." );
 
 		try {
-			vkHandler.teardown();
+			pathTracer.exit();
 			delete actionHandler;
 		}
 		catch( const std::runtime_error &err2 ) {
@@ -43,13 +43,13 @@ int main( int argc, char** argv ) {
 	Logger::logInfo( "--------------------" );
 	Logger::logInfo( "[main] Starting main loop." );
 
-	vkHandler.mainLoop();
+	pathTracer.mainLoop();
 
 	Logger::logInfo( "[main] Main loop stopped." );
 	Logger::logInfo( "--------------------" );
 
 	try {
-		vkHandler.teardown();
+		pathTracer.exit();
 		delete actionHandler;
 	}
 	catch( const std::runtime_error &err ) {

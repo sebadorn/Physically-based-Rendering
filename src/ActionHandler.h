@@ -2,28 +2,20 @@
 #define ACTIONHANDLER_H
 
 #include "Logger.h"
-#include "VulkanHandler.h"
+#include "PathTracer.h"
 
 using std::string;
 
 
-struct VulkanHandler;
+struct PathTracer;
 
 
 class ActionHandler {
 
 
 	public:
-		void exit( VulkanHandler* vh );
-		void loadModel( VulkanHandler* vh, const string& filepath, const string& filename );
-
-
-	protected:
-		//
-
-
-	private:
-		//
+		void exit( PathTracer* pt );
+		void loadModel( PathTracer* pt, const string& filepath, const string& filename );
 
 
 };

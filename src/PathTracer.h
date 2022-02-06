@@ -1,5 +1,5 @@
-#ifndef VULKANHANDLER_H
-#define VULKANHANDLER_H
+#ifndef PATHTRACER_H
+#define PATHTRACER_H
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -34,11 +34,11 @@ struct ModelRenderer;
 
 const vector<Vertex> vertices = {
 	{ { -1.0f, -1.0f } },
-	{ { 1.0f, -1.0f } },
-	{ { 1.0f, 1.0f } },
+	{ { +1.0f, -1.0f } },
+	{ { +1.0f, +1.0f } },
 	{ { -1.0f, -1.0f } },
-	{ { 1.0f, 1.0f } },
-	{ { -1.0f, 1.0f } }
+	{ { +1.0f, +1.0f } },
+	{ { -1.0f, +1.0f } }
 };
 
 struct UniformCamera {
@@ -51,12 +51,13 @@ struct ModelVertices {
 };
 
 
-class VulkanHandler {
+class PathTracer {
 
 
 	public:
 		bool mHasModel = false;
 		int mFOV = 45;
+		int mFamilyIndexCompute = -1;
 		int mFamilyIndexGraphics = -1;
 		int mFamilyIndexPresentation = -1;
 		uint32_t mFrameIndex = 0;
@@ -73,23 +74,22 @@ class VulkanHandler {
 		VkExtent2D mSwapchainExtent;
 		VkFormat mSwapchainFormat;
 		VkPhysicalDevice mPhysicalDevice;
+		VkQueue mComputeQueue;
 		VkQueue mGraphicsQueue;
 		VkQueue mPresentQueue;
 		VkRenderPass mRenderPass = VK_NULL_HANDLE;
 		VkSurfaceKHR mSurface = VK_NULL_HANDLE;
 		vector<VkFramebuffer> mFramebuffers;
 		vector<VkImage> mSwapchainImages;
+		vector<VkImageView> mSwapchainImageViews;
 
 		void calculateMatrices();
+		void exit();
 		uint32_t findMemoryType( uint32_t typeFitler, VkMemoryPropertyFlags properties );
 		void imGuiSetup();
 		void initWindow();
-		void loadModelIntoBuffers( ObjParser* op, AccelStructure* accelStruct );
 		void mainLoop();
 		void setup( ActionHandler* ah );
-		void teardown();
-
-		static bool useValidationLayer;
 
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 			VkDebugReportFlagsEXT flags,
@@ -101,13 +101,7 @@ class VulkanHandler {
 			const char* msg,
 			void* userData
 		);
-		static void checkVkResult(
-			VkResult result,
-			const char* errorMessage,
-			const char* className = "VulkanHandler"
-		);
 		static vector<char> loadFileSPV( const string& filename );
-		static void setupValidationLayer();
 
 
 	protected:
@@ -151,7 +145,6 @@ class VulkanHandler {
 		vector<VkCommandBuffer> mCommandBuffers;
 		vector<VkCommandBuffer> mCommandBuffersNow;
 		vector<VkFence> mFences;
-		vector<VkImageView> mSwapchainImageViews;
 		VkBuffer mModelVerticesBuffer = VK_NULL_HANDLE;
 		VkBuffer mUniformBuffer = VK_NULL_HANDLE;
 		VkBuffer mVertexBuffer = VK_NULL_HANDLE;

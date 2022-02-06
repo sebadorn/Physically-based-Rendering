@@ -81,7 +81,7 @@ static uint32_t __glsl_shader_frag_spv[] = {
  */
 void ImGuiHandler::bindRenderData() {
 	vkCmdBindPipeline(
-		mCommandBuffers[mVH->mFrameIndex],
+		mCommandBuffers[mPathTracer->mFrameIndex],
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		mGraphicsPipeline
 	);
@@ -89,7 +89,7 @@ void ImGuiHandler::bindRenderData() {
 	VkDescriptorSet descSet[1] = { mDescriptorSet };
 
 	vkCmdBindDescriptorSets(
-		mCommandBuffers[mVH->mFrameIndex],
+		mCommandBuffers[mPathTracer->mFrameIndex],
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		mPipelineLayout, 0, 1,
 		descSet, 0, NULL
@@ -99,13 +99,13 @@ void ImGuiHandler::bindRenderData() {
 	VkDeviceSize vertexOffset[1] = { 0 };
 
 	vkCmdBindVertexBuffers(
-		mCommandBuffers[mVH->mFrameIndex],
+		mCommandBuffers[mPathTracer->mFrameIndex],
 		0, 1,
 		vertexBuffers, vertexOffset
 	);
 
 	vkCmdBindIndexBuffer(
-		mCommandBuffers[mVH->mFrameIndex],
+		mCommandBuffers[mPathTracer->mFrameIndex],
 		mIndexBuffer,
 		0, VK_INDEX_TYPE_UINT16
 	);
@@ -122,8 +122,8 @@ void ImGuiHandler::buildUIStructure() {
 		if( ImGui::BeginMenu( "File" ) ) {
 			if( ImGui::BeginMenu( "Model" ) ) {
 				if( ImGui::MenuItem( "Test" ) ) {
-					mVH->mActionHandler->loadModel(
-						mVH,
+					mPathTracer->mActionHandler->loadModel(
+						mPathTracer,
 						"/home/seba/programming/Physically-based Rendering/resources/models/testing/",
 						"pillars.obj"
 					);
@@ -133,7 +133,7 @@ void ImGuiHandler::buildUIStructure() {
 			}
 
 			if( ImGui::MenuItem( "Exit" ) ) {
-				mVH->mActionHandler->exit( mVH );
+				mPathTracer->mActionHandler->exit( mPathTracer );
 			}
 
 			ImGui::EndMenu();
@@ -144,17 +144,17 @@ void ImGuiHandler::buildUIStructure() {
 
 	ImGui::Begin( "Camera" );
 	ImGui::Text( "Eye" );
-	ImGui::SliderFloat( "x##EyeX", &( mVH->mCameraEye.x ), -1000.0f, 1000.0f );
-	ImGui::SliderFloat( "y##EyeY", &( mVH->mCameraEye.y ), -1000.0f, 1000.0f );
-	ImGui::SliderFloat( "z##EyeZ", &( mVH->mCameraEye.z ), -1000.0f, 1000.0f );
+	ImGui::SliderFloat( "x##EyeX", &( mPathTracer->mCameraEye.x ), -1000.0f, 1000.0f );
+	ImGui::SliderFloat( "y##EyeY", &( mPathTracer->mCameraEye.y ), -1000.0f, 1000.0f );
+	ImGui::SliderFloat( "z##EyeZ", &( mPathTracer->mCameraEye.z ), -1000.0f, 1000.0f );
 
 	ImGui::Text( "Center" );
-	ImGui::SliderFloat( "x##CenterX", &( mVH->mCameraCenter.x ), -1000.0f, 1000.0f );
-	ImGui::SliderFloat( "y##CenterY", &( mVH->mCameraCenter.y ), -1000.0f, 1000.0f );
-	ImGui::SliderFloat( "z##CenterZ", &( mVH->mCameraCenter.z ), -1000.0f, 1000.0f );
+	ImGui::SliderFloat( "x##CenterX", &( mPathTracer->mCameraCenter.x ), -1000.0f, 1000.0f );
+	ImGui::SliderFloat( "y##CenterY", &( mPathTracer->mCameraCenter.y ), -1000.0f, 1000.0f );
+	ImGui::SliderFloat( "z##CenterZ", &( mPathTracer->mCameraCenter.z ), -1000.0f, 1000.0f );
 
 	ImGui::Text( "Perspective" );
-	ImGui::SliderInt( "FOV", &( mVH->mFOV ), 1, 200 );
+	ImGui::SliderInt( "FOV", &( mPathTracer->mFOV ), 1, 200 );
 	ImGui::End();
 }
 
@@ -168,14 +168,14 @@ void ImGuiHandler::createCommandBuffers() {
 	VkCommandPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	poolInfo.queueFamilyIndex = mVH->mFamilyIndexGraphics;
+	poolInfo.queueFamilyIndex = mPathTracer->mFamilyIndexGraphics;
 
-	result = vkCreateCommandPool( mVH->mLogicalDevice, &poolInfo, nullptr, &mCommandPool );
-	VulkanHandler::checkVkResult(
+	result = vkCreateCommandPool( mPathTracer->mLogicalDevice, &poolInfo, nullptr, &mCommandPool );
+	VulkanSetup::checkVkResult(
 		result, "Failed to create VkCommandPool.", "ImGuiHandler"
 	);
 
-	int numBuffers = mVH->mSwapchainImages.size();
+	int numBuffers = mPathTracer->mSwapchainImages.size();
 	mCommandBuffers.resize( numBuffers );
 
 	for( int i = 0; i < numBuffers; i++ ) {
@@ -185,8 +185,8 @@ void ImGuiHandler::createCommandBuffers() {
 		info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		info.commandBufferCount = 1;
 
-		result = vkAllocateCommandBuffers( mVH->mLogicalDevice, &info, &mCommandBuffers[i] );
-		VulkanHandler::checkVkResult(
+		result = vkAllocateCommandBuffers( mPathTracer->mLogicalDevice, &info, &mCommandBuffers[i] );
+		VulkanSetup::checkVkResult(
 			result, "Failed to allocate command buffer.", "ImGuiHandler"
 		);
 	}
@@ -203,21 +203,21 @@ void ImGuiHandler::createDescriptors() {
 
 	VkSampler sampler[1] = { mFontSampler };
 
-	VkDescriptorSetLayoutBinding binding[1] = {};
-	binding[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	binding[0].descriptorCount = 1;
-	binding[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	binding[0].pImmutableSamplers = sampler;
+	VkDescriptorSetLayoutBinding binding = {};
+	binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	binding.descriptorCount = 1;
+	binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	binding.pImmutableSamplers = sampler;
 
 	VkDescriptorSetLayoutCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	info.bindingCount = 1;
-	info.pBindings = binding;
+	info.pBindings = &binding;
 
 	result = vkCreateDescriptorSetLayout(
-		mVH->mLogicalDevice, &info, nullptr, &mDescriptorSetLayout
+		mPathTracer->mLogicalDevice, &info, nullptr, &mDescriptorSetLayout
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to create VkDescriptorSetLayout.", "ImGuiHandler"
 	);
 
@@ -225,14 +225,14 @@ void ImGuiHandler::createDescriptors() {
 
 	VkDescriptorSetAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = mVH->mDescriptorPool;
+	allocInfo.descriptorPool = mPathTracer->mDescriptorPool;
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = &mDescriptorSetLayout;
 
 	result = vkAllocateDescriptorSets(
-		mVH->mLogicalDevice, &allocInfo, &mDescriptorSet
+		mPathTracer->mLogicalDevice, &allocInfo, &mDescriptorSet
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to allocate descriptor set.", "ImGuiHandler"
 	);
 }
@@ -244,15 +244,15 @@ void ImGuiHandler::createDescriptors() {
 void ImGuiHandler::createFences() {
 	VkResult result;
 
-	mFences.resize( mVH->mSwapchainImages.size() );
+	mFences.resize( mPathTracer->mSwapchainImages.size() );
 
-	for( int i = 0; i < mVH->mSwapchainImages.size(); i++ ) {
+	for( int i = 0; i < mPathTracer->mSwapchainImages.size(); i++ ) {
 		VkFenceCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-		result = vkCreateFence( mVH->mLogicalDevice, &info, nullptr, &mFences[i] );
-		VulkanHandler::checkVkResult(
+		result = vkCreateFence( mPathTracer->mLogicalDevice, &info, nullptr, &mFences[i] );
+		VulkanSetup::checkVkResult(
 			result, "Failed to create fence.", "ImGuiHandler"
 		);
 	}
@@ -260,8 +260,8 @@ void ImGuiHandler::createFences() {
 	VkSemaphoreCreateInfo semInfo = {};
 	semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-	result = vkCreateSemaphore( mVH->mLogicalDevice, &semInfo, nullptr, &mSemaphore );
-	VulkanHandler::checkVkResult(
+	result = vkCreateSemaphore( mPathTracer->mLogicalDevice, &semInfo, nullptr, &mSemaphore );
+	VulkanSetup::checkVkResult(
 		result, "Failed to create semaphore.", "ImGuiHandler"
 	);
 }
@@ -288,9 +288,9 @@ void ImGuiHandler::createPipeline( VkShaderModule* vertModule, VkShaderModule* f
 	layoutInfo.pPushConstantRanges = pushConstants;
 
 	VkResult result = vkCreatePipelineLayout(
-		mVH->mLogicalDevice, &layoutInfo, nullptr, &mPipelineLayout
+		mPathTracer->mLogicalDevice, &layoutInfo, nullptr, &mPipelineLayout
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to create VkPipelineLayout.", "ImGuiHandler"
 	);
 
@@ -354,8 +354,8 @@ void ImGuiHandler::createPipeline( VkShaderModule* vertModule, VkShaderModule* f
 	colorAttachment[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 	colorAttachment[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	colorAttachment[0].colorBlendOp = VK_BLEND_OP_ADD;
-	colorAttachment[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	colorAttachment[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colorAttachment[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorAttachment[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	colorAttachment[0].alphaBlendOp = VK_BLEND_OP_ADD;
 	colorAttachment[0].colorWriteMask =
 		VK_COLOR_COMPONENT_R_BIT |
@@ -397,9 +397,9 @@ void ImGuiHandler::createPipeline( VkShaderModule* vertModule, VkShaderModule* f
 	info.renderPass = mRenderPass;
 
 	result = vkCreateGraphicsPipelines(
-		mVH->mLogicalDevice, VK_NULL_HANDLE, 1, &info, nullptr, &mGraphicsPipeline
+		mPathTracer->mLogicalDevice, VK_NULL_HANDLE, 1, &info, nullptr, &mGraphicsPipeline
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to create graphics pipelines.", "ImGuiHandler"
 	);
 }
@@ -411,17 +411,17 @@ void ImGuiHandler::createPipeline( VkShaderModule* vertModule, VkShaderModule* f
 void ImGuiHandler::createRenderPass() {
 	// Destroy old render pass.
 	if( mRenderPass != VK_NULL_HANDLE ) {
-		vkDestroyRenderPass( mVH->mLogicalDevice, mRenderPass, nullptr );
+		vkDestroyRenderPass( mPathTracer->mLogicalDevice, mRenderPass, nullptr );
 	}
 
 	VkAttachmentDescription colorAttachment = {};
-	colorAttachment.format = mVH->mSwapchainFormat;
+	colorAttachment.format = mPathTracer->mSwapchainFormat;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 	VkAttachmentReference colorAttachmentRef = {};
@@ -441,9 +441,9 @@ void ImGuiHandler::createRenderPass() {
 	renderPassInfo.pSubpasses = &subPass;
 
 	VkResult result = vkCreateRenderPass(
-		mVH->mLogicalDevice, &renderPassInfo, nullptr, &mRenderPass
+		mPathTracer->mLogicalDevice, &renderPassInfo, nullptr, &mRenderPass
 	);
-	VulkanHandler::checkVkResult( result, "Failed to create VkRenderPass." );
+	VulkanSetup::checkVkResult( result, "Failed to create VkRenderPass.", "ImGuiHandler" );
 	Logger::logInfo( "[ImGuiHandler] Created VkRenderPass." );
 }
 
@@ -459,8 +459,8 @@ void ImGuiHandler::createShaders( VkShaderModule* vertModule, VkShaderModule* fr
 	vertInfo.codeSize = sizeof( __glsl_shader_vert_spv );
 	vertInfo.pCode = (uint32_t*) __glsl_shader_vert_spv;
 
-	result = vkCreateShaderModule( mVH->mLogicalDevice, &vertInfo, nullptr, vertModule );
-	VulkanHandler::checkVkResult(
+	result = vkCreateShaderModule( mPathTracer->mLogicalDevice, &vertInfo, nullptr, vertModule );
+	VulkanSetup::checkVkResult(
 		result, "Failed to create vertex shader module.", "ImGuiHandler"
 	);
 
@@ -469,8 +469,8 @@ void ImGuiHandler::createShaders( VkShaderModule* vertModule, VkShaderModule* fr
 	fragInfo.codeSize = sizeof( __glsl_shader_frag_spv );
 	fragInfo.pCode = (uint32_t*) __glsl_shader_frag_spv;
 
-	result = vkCreateShaderModule( mVH->mLogicalDevice, &fragInfo, nullptr, fragModule );
-	VulkanHandler::checkVkResult(
+	result = vkCreateShaderModule( mPathTracer->mLogicalDevice, &fragInfo, nullptr, fragModule );
+	VulkanSetup::checkVkResult(
 		result, "Failed to create fragment shader module.", "ImGuiHandler"
 	);
 }
@@ -484,8 +484,8 @@ void ImGuiHandler::draw() {
 
 	int w, h;
 	int displayW, displayH;
-	glfwGetWindowSize( mVH->mWindow, &w, &h );
-	glfwGetFramebufferSize( mVH->mWindow, &displayW, &displayH );
+	glfwGetWindowSize( mPathTracer->mWindow, &w, &h );
+	glfwGetFramebufferSize( mPathTracer->mWindow, &displayW, &displayH );
 	io.DisplaySize = ImVec2( (float) w, (float) h );
 	io.DisplayFramebufferScale = ImVec2(
 		( w > 0 ) ? ( (float) displayW / w ) : 0,
@@ -496,9 +496,9 @@ void ImGuiHandler::draw() {
 	io.DeltaTime = ( mTime > 0.0 ) ? (float) ( currentTime - mTime ) : ( 1.0f / 60.0f );
 	mTime = currentTime;
 
-	if( glfwGetWindowAttrib( mVH->mWindow, GLFW_FOCUSED ) ) {
+	if( glfwGetWindowAttrib( mPathTracer->mWindow, GLFW_FOCUSED ) ) {
 		double mouseX, mouseY;
-		glfwGetCursorPos( mVH->mWindow, &mouseX, &mouseY );
+		glfwGetCursorPos( mPathTracer->mWindow, &mouseX, &mouseY );
 		io.MousePos = ImVec2( mouseX, mouseY );
 	}
 	else {
@@ -506,7 +506,7 @@ void ImGuiHandler::draw() {
 	}
 
 	for( int i = 0; i < 3; i++ ) {
-		io.MouseDown[i] = mMousePressed[i] || ( glfwGetMouseButton( mVH->mWindow, i ) != 0 );
+		io.MouseDown[i] = mMousePressed[i] || ( glfwGetMouseButton( mPathTracer->mWindow, i ) != 0 );
 		mMousePressed[i] = false;
 	}
 
@@ -514,7 +514,7 @@ void ImGuiHandler::draw() {
 	mMouseWheel = 0.0f;
 
 	glfwSetInputMode(
-		mVH->mWindow, GLFW_CURSOR,
+		mPathTracer->mWindow, GLFW_CURSOR,
 		io.MouseDrawCursor ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL
 	);
 
@@ -522,43 +522,39 @@ void ImGuiHandler::draw() {
 	this->buildUIStructure();
 
 
-	VkResult result = vkResetCommandPool( mVH->mLogicalDevice, mCommandPool, 0 );
-	VulkanHandler::checkVkResult( result, "Resetting command pool failed.", "ImGuiHandler" );
+	VkResult result = vkResetCommandPool( mPathTracer->mLogicalDevice, mCommandPool, 0 );
+	VulkanSetup::checkVkResult( result, "Resetting command pool failed.", "ImGuiHandler" );
 
-	{
-		VkCommandBufferBeginInfo info = {};
-		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	VkCommandBufferBeginInfo cmdBufBeginInfo = {};
+	cmdBufBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	cmdBufBeginInfo.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-		result = vkBeginCommandBuffer( mCommandBuffers[mVH->mFrameIndex], &info );
-		VulkanHandler::checkVkResult(
-			result, "Failed to begin command buffer.", "ImGuiHandler"
-		);
-	}
+	result = vkBeginCommandBuffer( mCommandBuffers[mPathTracer->mFrameIndex], &cmdBufBeginInfo );
+	VulkanSetup::checkVkResult(
+		result, "Failed to begin command buffer.", "ImGuiHandler"
+	);
 
-	{
-		VkRenderPassBeginInfo info = {};
-		info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		info.renderPass = mRenderPass;
-		info.framebuffer = mVH->mFramebuffers[mVH->mFrameIndex];
-		info.renderArea.extent = mVH->mSwapchainExtent;
+	VkRenderPassBeginInfo renderPassBeginInfo = {};
+	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassBeginInfo.renderPass = mRenderPass;
+	renderPassBeginInfo.framebuffer = mPathTracer->mFramebuffers[mPathTracer->mFrameIndex];
+	renderPassBeginInfo.renderArea.extent = mPathTracer->mSwapchainExtent;
 
-		vkCmdBeginRenderPass(
-			mCommandBuffers[mVH->mFrameIndex],
-			&info,
-			VK_SUBPASS_CONTENTS_INLINE
-		);
-	}
+	vkCmdBeginRenderPass(
+		mCommandBuffers[mPathTracer->mFrameIndex],
+		&renderPassBeginInfo,
+		VK_SUBPASS_CONTENTS_INLINE
+	);
 
 
 	ImGui::Render();
 	this->renderDrawList( ImGui::GetDrawData() );
 
 
-	vkCmdEndRenderPass( mCommandBuffers[mVH->mFrameIndex] );
+	vkCmdEndRenderPass( mCommandBuffers[mPathTracer->mFrameIndex] );
 
-	result = vkEndCommandBuffer( mCommandBuffers[mVH->mFrameIndex] );
-	VulkanHandler::checkVkResult(
+	result = vkEndCommandBuffer( mCommandBuffers[mPathTracer->mFrameIndex] );
+	VulkanSetup::checkVkResult(
 		result, "Failed to record ImGui command buffer.", "ImGuiHandler"
 	);
 }
@@ -578,7 +574,7 @@ void ImGuiHandler::drawImGuiData( ImDrawData* drawData ) {
 	viewport.height = io.DisplaySize.y;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport( mCommandBuffers[mVH->mFrameIndex], 0, 1, &viewport );
+	vkCmdSetViewport( mCommandBuffers[mPathTracer->mFrameIndex], 0, 1, &viewport );
 
 	// Scale and translation.
 	float scale[2] = {
@@ -588,7 +584,7 @@ void ImGuiHandler::drawImGuiData( ImDrawData* drawData ) {
 	float translate[2] = { -1.0f, -1.0f };
 
 	vkCmdPushConstants(
-		mCommandBuffers[mVH->mFrameIndex],
+		mCommandBuffers[mPathTracer->mFrameIndex],
 		mPipelineLayout,
 		VK_SHADER_STAGE_VERTEX_BIT,
 		sizeof( float ) * 0,
@@ -596,7 +592,7 @@ void ImGuiHandler::drawImGuiData( ImDrawData* drawData ) {
 		scale
 	);
 	vkCmdPushConstants(
-		mCommandBuffers[mVH->mFrameIndex],
+		mCommandBuffers[mPathTracer->mFrameIndex],
 		mPipelineLayout,
 		VK_SHADER_STAGE_VERTEX_BIT,
 		sizeof( float ) * 2,
@@ -624,11 +620,11 @@ void ImGuiHandler::drawImGuiData( ImDrawData* drawData ) {
 				scissor.extent.height = (uint32_t) ( pCmd->ClipRect.w - pCmd->ClipRect.y );
 
 				vkCmdSetScissor(
-					mCommandBuffers[mVH->mFrameIndex],
+					mCommandBuffers[mPathTracer->mFrameIndex],
 					0, 1, &scissor
 				);
 				vkCmdDrawIndexed(
-					mCommandBuffers[mVH->mFrameIndex],
+					mCommandBuffers[mPathTracer->mFrameIndex],
 					pCmd->ElemCount, 1,
 					indexOffset, vertexOffset, 0
 				);
@@ -647,7 +643,7 @@ void ImGuiHandler::drawImGuiData( ImDrawData* drawData ) {
  * @return {const char*}
  */
 const char* ImGuiHandler::getClipboardText() {
-	return glfwGetClipboardString( mVH->mWindow );
+	return glfwGetClipboardString( mPathTracer->mWindow );
 }
 
 
@@ -669,16 +665,16 @@ void ImGuiHandler::renderDrawList( ImDrawData* drawData ) {
  * @param {const char*} text
  */
 void ImGuiHandler::setClipboardText( const char* text ) {
-	glfwSetClipboardString( mVH->mWindow, text );
+	glfwSetClipboardString( mPathTracer->mWindow, text );
 }
 
 
 /**
  * Setup ImGui with Vulkan.
- * @param {VulkanHandler*} vh
+ * @param {PathTracer*} pt
  */
-void ImGuiHandler::setup( VulkanHandler* vh ) {
-	mVH = vh;
+void ImGuiHandler::setup( PathTracer* pt ) {
+	mPathTracer = pt;
 
 	VkShaderModule vertModule;
 	VkShaderModule fragModule;
@@ -691,8 +687,8 @@ void ImGuiHandler::setup( VulkanHandler* vh ) {
 	this->createRenderPass();
 	this->createPipeline( &vertModule, &fragModule );
 
-	vkDestroyShaderModule( mVH->mLogicalDevice, vertModule, nullptr );
-	vkDestroyShaderModule( mVH->mLogicalDevice, fragModule, nullptr );
+	vkDestroyShaderModule( mPathTracer->mLogicalDevice, vertModule, nullptr );
+	vkDestroyShaderModule( mPathTracer->mLogicalDevice, fragModule, nullptr );
 
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
@@ -739,9 +735,9 @@ void ImGuiHandler::setupFontSampler() {
 	samplerInfo.maxAnisotropy = 1.0f;
 
 	VkResult result = vkCreateSampler(
-		mVH->mLogicalDevice, &samplerInfo, nullptr, &mFontSampler
+		mPathTracer->mLogicalDevice, &samplerInfo, nullptr, &mFontSampler
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to create sampler.", "ImGuiHandler"
 	);
 }
@@ -752,93 +748,93 @@ void ImGuiHandler::setupFontSampler() {
  */
 void ImGuiHandler::teardown() {
 	if( mSemaphore != VK_NULL_HANDLE ) {
-		vkDestroySemaphore( mVH->mLogicalDevice, mSemaphore, nullptr );
+		vkDestroySemaphore( mPathTracer->mLogicalDevice, mSemaphore, nullptr );
 		mSemaphore = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] VkSemaphore destroyed." );
 	}
 
 	for( int i = 0; i < mFences.size(); i++ ) {
 		if( mFences[i] != VK_NULL_HANDLE ) {
-			vkDestroyFence( mVH->mLogicalDevice, mFences[i], nullptr );
+			vkDestroyFence( mPathTracer->mLogicalDevice, mFences[i], nullptr );
 			mFences[i] = VK_NULL_HANDLE;
 			Logger::logDebugVerbose( "[ImGuiHandler] VkFence destroyed." );
 		}
 	}
 
 	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
-		vkDestroyPipeline( mVH->mLogicalDevice, mGraphicsPipeline, nullptr );
+		vkDestroyPipeline( mPathTracer->mLogicalDevice, mGraphicsPipeline, nullptr );
 		mGraphicsPipeline = VK_NULL_HANDLE;
 		Logger::logDebug( "[ImGuiHandler] VkPipeline (graphics) destroyed." );
 	}
 
 	if( mPipelineLayout != VK_NULL_HANDLE ) {
-		vkDestroyPipelineLayout( mVH->mLogicalDevice, mPipelineLayout, nullptr );
+		vkDestroyPipelineLayout( mPathTracer->mLogicalDevice, mPipelineLayout, nullptr );
 		mPipelineLayout = VK_NULL_HANDLE;
 		Logger::logDebug( "[ImGuiHandler] VkPipelineLayout destroyed." );
 	}
 
 	if( mDescriptorSetLayout != VK_NULL_HANDLE ) {
-		vkDestroyDescriptorSetLayout( mVH->mLogicalDevice, mDescriptorSetLayout, nullptr );
+		vkDestroyDescriptorSetLayout( mPathTracer->mLogicalDevice, mDescriptorSetLayout, nullptr );
 		mDescriptorSetLayout = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] VkDescriptorSetLayout destroyed." );
 	}
 
 	if( mFontSampler != VK_NULL_HANDLE ) {
-		vkDestroySampler( mVH->mLogicalDevice, mFontSampler, nullptr );
+		vkDestroySampler( mPathTracer->mLogicalDevice, mFontSampler, nullptr );
 		mFontSampler = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] VkSampler (font) destroyed." );
 	}
 
 	if( mIndexBufferMemory != VK_NULL_HANDLE ) {
-		vkFreeMemory( mVH->mLogicalDevice, mIndexBufferMemory, nullptr );
+		vkFreeMemory( mPathTracer->mLogicalDevice, mIndexBufferMemory, nullptr );
 		mIndexBufferMemory = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] VkDeviceMemory (indices) freed." );
 	}
 
 	if( mIndexBuffer != VK_NULL_HANDLE ) {
-		vkDestroyBuffer( mVH->mLogicalDevice, mIndexBuffer, nullptr );
+		vkDestroyBuffer( mPathTracer->mLogicalDevice, mIndexBuffer, nullptr );
 		mIndexBuffer = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] VkBuffer (indices) destroyed." );
 	}
 
 	if( mVertexBufferMemory != VK_NULL_HANDLE ) {
-		vkFreeMemory( mVH->mLogicalDevice, mVertexBufferMemory, nullptr );
+		vkFreeMemory( mPathTracer->mLogicalDevice, mVertexBufferMemory, nullptr );
 		mVertexBufferMemory = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] VkDeviceMemory (vertices) freed." );
 	}
 
 	if( mVertexBuffer != VK_NULL_HANDLE ) {
-		vkDestroyBuffer( mVH->mLogicalDevice, mVertexBuffer, nullptr );
+		vkDestroyBuffer( mPathTracer->mLogicalDevice, mVertexBuffer, nullptr );
 		mVertexBuffer = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] VkBuffer (vertices) destroyed." );
 	}
 
 	if( mCommandPool != VK_NULL_HANDLE ) {
-		vkDestroyCommandPool( mVH->mLogicalDevice, mCommandPool, nullptr );
+		vkDestroyCommandPool( mPathTracer->mLogicalDevice, mCommandPool, nullptr );
 		mCommandPool = VK_NULL_HANDLE;
 		Logger::logDebug( "[ImGuiHandler] VkCommandPool destroyed." );
 	}
 
 	if( mFontMemory != VK_NULL_HANDLE ) {
-		vkFreeMemory( mVH->mLogicalDevice, mFontMemory, nullptr );
+		vkFreeMemory( mPathTracer->mLogicalDevice, mFontMemory, nullptr );
 		mFontMemory = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] VkDeviceMemory (font) freed." );
 	}
 
 	if( mFontView != VK_NULL_HANDLE ) {
-		vkDestroyImageView( mVH->mLogicalDevice, mFontView, nullptr );
+		vkDestroyImageView( mPathTracer->mLogicalDevice, mFontView, nullptr );
 		mFontView = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] Destroyed VkImageView (font)." );
 	}
 
 	if( mFontImage != VK_NULL_HANDLE ) {
-		vkDestroyImage( mVH->mLogicalDevice, mFontImage, nullptr );
+		vkDestroyImage( mPathTracer->mLogicalDevice, mFontImage, nullptr );
 		mFontImage = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ImGuiHandler] Destroyed VkImage (font)." );
 	}
 
 	if( mRenderPass != VK_NULL_HANDLE ) {
-		vkDestroyRenderPass( mVH->mLogicalDevice, mRenderPass, nullptr );
+		vkDestroyRenderPass( mPathTracer->mLogicalDevice, mRenderPass, nullptr );
 		mRenderPass = VK_NULL_HANDLE;
 		Logger::logDebug( "[ImGuiHandler] VkRenderPass destroyed." );
 	}
@@ -853,15 +849,15 @@ void ImGuiHandler::teardown() {
 void ImGuiHandler::uploadFonts() {
 	VkResult result;
 
-	result = vkResetCommandPool( mVH->mLogicalDevice, mCommandPool, 0 );
-	VulkanHandler::checkVkResult( result, "Failed to reset command pool.", "ImGuiHandler" );
+	result = vkResetCommandPool( mPathTracer->mLogicalDevice, mCommandPool, 0 );
+	VulkanSetup::checkVkResult( result, "Failed to reset command pool.", "ImGuiHandler" );
 
 	VkCommandBufferBeginInfo beginInfo = {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
 	result = vkBeginCommandBuffer( mCommandBuffers[0], &beginInfo );
-	VulkanHandler::checkVkResult( result, "Failed to begin command buffer.", "ImGuiHandler" );
+	VulkanSetup::checkVkResult( result, "Failed to begin command buffer.", "ImGuiHandler" );
 
 
 	ImGuiIO& io = ImGui::GetIO();
@@ -888,23 +884,23 @@ void ImGuiHandler::uploadFonts() {
 		info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-		result = vkCreateImage( mVH->mLogicalDevice, &info, nullptr, &mFontImage );
-		VulkanHandler::checkVkResult( result, "Failed to create image.", "ImGuiHandler" );
+		result = vkCreateImage( mPathTracer->mLogicalDevice, &info, nullptr, &mFontImage );
+		VulkanSetup::checkVkResult( result, "Failed to create image.", "ImGuiHandler" );
 
 		VkMemoryRequirements req;
-		vkGetImageMemoryRequirements( mVH->mLogicalDevice, mFontImage, &req );
+		vkGetImageMemoryRequirements( mPathTracer->mLogicalDevice, mFontImage, &req );
 		VkMemoryAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = req.size;
-		allocInfo.memoryTypeIndex = mVH->findMemoryType(
+		allocInfo.memoryTypeIndex = mPathTracer->findMemoryType(
 			req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		);
 
-		result = vkAllocateMemory( mVH->mLogicalDevice, &allocInfo, nullptr, &mFontMemory );
-		VulkanHandler::checkVkResult( result, "Failed to allocate memory.", "ImGuiHandler" );
+		result = vkAllocateMemory( mPathTracer->mLogicalDevice, &allocInfo, nullptr, &mFontMemory );
+		VulkanSetup::checkVkResult( result, "Failed to allocate memory.", "ImGuiHandler" );
 
-		result = vkBindImageMemory( mVH->mLogicalDevice, mFontImage, mFontMemory, 0 );
-		VulkanHandler::checkVkResult( result, "Failed to bind image memory.", "ImGuiHandler" );
+		result = vkBindImageMemory( mPathTracer->mLogicalDevice, mFontImage, mFontMemory, 0 );
+		VulkanSetup::checkVkResult( result, "Failed to bind image memory.", "ImGuiHandler" );
 	}
 
 	// Create the image view.
@@ -918,8 +914,8 @@ void ImGuiHandler::uploadFonts() {
 		info.subresourceRange.levelCount = 1;
 		info.subresourceRange.layerCount = 1;
 
-		result = vkCreateImageView( mVH->mLogicalDevice, &info, nullptr, &mFontView );
-		VulkanHandler::checkVkResult( result, "Failed to create image view.", "ImGuiHandler" );
+		result = vkCreateImageView( mPathTracer->mLogicalDevice, &info, nullptr, &mFontView );
+		VulkanSetup::checkVkResult( result, "Failed to create image view.", "ImGuiHandler" );
 	}
 
 	// Update descriptor set.
@@ -936,7 +932,7 @@ void ImGuiHandler::uploadFonts() {
 		writeDesc[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		writeDesc[0].pImageInfo = descImage;
 
-		vkUpdateDescriptorSets( mVH->mLogicalDevice, 1, writeDesc, 0, NULL );
+		vkUpdateDescriptorSets( mPathTracer->mLogicalDevice, 1, writeDesc, 0, NULL );
 	}
 
 	// Create upload buffer.
@@ -947,33 +943,33 @@ void ImGuiHandler::uploadFonts() {
 		bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		result = vkCreateBuffer( mVH->mLogicalDevice, &bufferInfo, nullptr, &mUploadBuffer );
-		VulkanHandler::checkVkResult( result, "Failed to create buffer.", "ImGuiHandler" );
+		result = vkCreateBuffer( mPathTracer->mLogicalDevice, &bufferInfo, nullptr, &mUploadBuffer );
+		VulkanSetup::checkVkResult( result, "Failed to create buffer.", "ImGuiHandler" );
 
 		VkMemoryRequirements req;
-		vkGetBufferMemoryRequirements( mVH->mLogicalDevice, mUploadBuffer, &req );
+		vkGetBufferMemoryRequirements( mPathTracer->mLogicalDevice, mUploadBuffer, &req );
 		mBufferMemoryAlignment = ( mBufferMemoryAlignment > req.alignment ) ? mBufferMemoryAlignment : req.alignment;
 
 		VkMemoryAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = req.size;
-		allocInfo.memoryTypeIndex = mVH->findMemoryType(
+		allocInfo.memoryTypeIndex = mPathTracer->findMemoryType(
 			req.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
 		);
 
-		result = vkAllocateMemory( mVH->mLogicalDevice, &allocInfo, nullptr, &mUploadBufferMemory );
-		VulkanHandler::checkVkResult( result, "Failed to allocate memory.", "ImGuiHandler" );
+		result = vkAllocateMemory( mPathTracer->mLogicalDevice, &allocInfo, nullptr, &mUploadBufferMemory );
+		VulkanSetup::checkVkResult( result, "Failed to allocate memory.", "ImGuiHandler" );
 
-		result = vkBindBufferMemory( mVH->mLogicalDevice, mUploadBuffer, mUploadBufferMemory, 0 );
-		VulkanHandler::checkVkResult( result, "Failed to bind buffer memory.", "ImGuiHandler" );
+		result = vkBindBufferMemory( mPathTracer->mLogicalDevice, mUploadBuffer, mUploadBufferMemory, 0 );
+		VulkanSetup::checkVkResult( result, "Failed to bind buffer memory.", "ImGuiHandler" );
 	}
 
 	// Upload to buffer.
 	{
 		char* map = NULL;
 
-		result = vkMapMemory( mVH->mLogicalDevice, mUploadBufferMemory, 0, uploadSize, 0, (void**)( &map ) );
-		VulkanHandler::checkVkResult( result, "Failed to map memory.", "ImGuiHandler" );
+		result = vkMapMemory( mPathTracer->mLogicalDevice, mUploadBufferMemory, 0, uploadSize, 0, (void**)( &map ) );
+		VulkanSetup::checkVkResult( result, "Failed to map memory.", "ImGuiHandler" );
 
 		memcpy( map, pixels, uploadSize );
 		VkMappedMemoryRange range[1] = {};
@@ -981,10 +977,10 @@ void ImGuiHandler::uploadFonts() {
 		range[0].memory = mUploadBufferMemory;
 		range[0].size = uploadSize;
 
-		result = vkFlushMappedMemoryRanges( mVH->mLogicalDevice, 1, range );
-		VulkanHandler::checkVkResult( result, "Failed to flush mapped memory ranges.", "ImGuiHandler" );
+		result = vkFlushMappedMemoryRanges( mPathTracer->mLogicalDevice, 1, range );
+		VulkanSetup::checkVkResult( result, "Failed to flush mapped memory ranges.", "ImGuiHandler" );
 
-		vkUnmapMemory( mVH->mLogicalDevice, mUploadBufferMemory );
+		vkUnmapMemory( mPathTracer->mLogicalDevice, mUploadBufferMemory );
 	}
 
 	// Copy to image.
@@ -1042,7 +1038,7 @@ void ImGuiHandler::uploadFonts() {
 		);
 	}
 
-	io.Fonts->TexID = (void *)(intptr_t) mFontImage;
+	io.Fonts->SetTexID( (ImTextureID)(intptr_t) mFontImage );
 
 
 	VkSubmitInfo endInfo = {};
@@ -1051,18 +1047,18 @@ void ImGuiHandler::uploadFonts() {
 	endInfo.pCommandBuffers = &mCommandBuffers[0];
 
 	result = vkEndCommandBuffer( mCommandBuffers[0] );
-	VulkanHandler::checkVkResult( result, "Failed to end command buffer.", "ImGuiHandler" );
+	VulkanSetup::checkVkResult( result, "Failed to end command buffer.", "ImGuiHandler" );
 
-	result = vkQueueSubmit( mVH->mGraphicsQueue, 1, &endInfo, VK_NULL_HANDLE );
-	VulkanHandler::checkVkResult( result, "Failed to submit queue.", "ImGuiHandler" );
+	result = vkQueueSubmit( mPathTracer->mGraphicsQueue, 1, &endInfo, VK_NULL_HANDLE );
+	VulkanSetup::checkVkResult( result, "Failed to submit queue.", "ImGuiHandler" );
 
-	result = vkDeviceWaitIdle( mVH->mLogicalDevice );
-	VulkanHandler::checkVkResult( result, "Failed to wait for device.", "ImGuiHandler" );
+	result = vkDeviceWaitIdle( mPathTracer->mLogicalDevice );
+	VulkanSetup::checkVkResult( result, "Failed to wait for device.", "ImGuiHandler" );
 
 
-	vkDestroyBuffer( mVH->mLogicalDevice, mUploadBuffer, nullptr );
+	vkDestroyBuffer( mPathTracer->mLogicalDevice, mUploadBuffer, nullptr );
 	mUploadBuffer = VK_NULL_HANDLE;
-	vkFreeMemory( mVH->mLogicalDevice, mUploadBufferMemory, nullptr );
+	vkFreeMemory( mPathTracer->mLogicalDevice, mUploadBufferMemory, nullptr );
 	mUploadBufferMemory = VK_NULL_HANDLE;
 }
 
@@ -1077,11 +1073,11 @@ size_t ImGuiHandler::updateIndexBuffer( ImDrawData* drawData ) {
 	size_t indicesSize = drawData->TotalIdxCount * sizeof( ImDrawIdx );
 
 	if( mIndexBuffer != VK_NULL_HANDLE ) {
-		vkDestroyBuffer( mVH->mLogicalDevice, mIndexBuffer, nullptr );
+		vkDestroyBuffer( mPathTracer->mLogicalDevice, mIndexBuffer, nullptr );
 	}
 
 	if( mIndexBufferMemory != VK_NULL_HANDLE ) {
-		vkFreeMemory( mVH->mLogicalDevice, mIndexBufferMemory, nullptr );
+		vkFreeMemory( mPathTracer->mLogicalDevice, mIndexBufferMemory, nullptr );
 	}
 
 
@@ -1094,40 +1090,40 @@ size_t ImGuiHandler::updateIndexBuffer( ImDrawData* drawData ) {
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 	result = vkCreateBuffer(
-		mVH->mLogicalDevice, &bufferInfo, nullptr, &mIndexBuffer
+		mPathTracer->mLogicalDevice, &bufferInfo, nullptr, &mIndexBuffer
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to create index buffer.", "ImGuiHandler"
 	);
 
 	VkMemoryRequirements memReq;
 	vkGetBufferMemoryRequirements(
-		mVH->mLogicalDevice, mIndexBuffer, &memReq
+		mPathTracer->mLogicalDevice, mIndexBuffer, &memReq
 	);
 	mBufferMemoryAlignment = ( mBufferMemoryAlignment > memReq.alignment ) ? mBufferMemoryAlignment : memReq.alignment;
 
 	VkMemoryAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memReq.size;
-	allocInfo.memoryTypeIndex = mVH->findMemoryType(
+	allocInfo.memoryTypeIndex = mPathTracer->findMemoryType(
 		memReq.memoryTypeBits,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
 	);
 
 	result = vkAllocateMemory(
-		mVH->mLogicalDevice, &allocInfo, nullptr, &mIndexBufferMemory
+		mPathTracer->mLogicalDevice, &allocInfo, nullptr, &mIndexBufferMemory
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to allocate index memory.", "ImGuiHandler"
 	);
 
 	result = vkBindBufferMemory(
-		mVH->mLogicalDevice,
+		mPathTracer->mLogicalDevice,
 		mIndexBuffer,
 		mIndexBufferMemory,
 		0
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to bind index buffer memory.", "ImGuiHandler"
 	);
 
@@ -1145,11 +1141,11 @@ size_t ImGuiHandler::updateVertexBuffer( ImDrawData* drawData ) {
 	size_t verticesSize = drawData->TotalVtxCount * sizeof( ImDrawVert );
 
 	if( mVertexBuffer != VK_NULL_HANDLE ) {
-		vkDestroyBuffer( mVH->mLogicalDevice, mVertexBuffer, nullptr );
+		vkDestroyBuffer( mPathTracer->mLogicalDevice, mVertexBuffer, nullptr );
 	}
 
 	if( mVertexBufferMemory != VK_NULL_HANDLE ) {
-		vkFreeMemory( mVH->mLogicalDevice, mVertexBufferMemory, nullptr );
+		vkFreeMemory( mPathTracer->mLogicalDevice, mVertexBufferMemory, nullptr );
 	}
 
 	size_t vertexBufferSize = ( ( verticesSize - 1 ) / mBufferMemoryAlignment + 1 ) * mBufferMemoryAlignment;
@@ -1161,40 +1157,40 @@ size_t ImGuiHandler::updateVertexBuffer( ImDrawData* drawData ) {
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 	result = vkCreateBuffer(
-		mVH->mLogicalDevice, &bufferInfo, nullptr, &mVertexBuffer
+		mPathTracer->mLogicalDevice, &bufferInfo, nullptr, &mVertexBuffer
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to create vertex buffer.", "ImGuiHandler"
 	);
 
 	VkMemoryRequirements memReq;
 	vkGetBufferMemoryRequirements(
-		mVH->mLogicalDevice, mVertexBuffer, &memReq
+		mPathTracer->mLogicalDevice, mVertexBuffer, &memReq
 	);
 	mBufferMemoryAlignment = ( mBufferMemoryAlignment > memReq.alignment ) ? mBufferMemoryAlignment : memReq.alignment;
 
 	VkMemoryAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memReq.size;
-	allocInfo.memoryTypeIndex = mVH->findMemoryType(
+	allocInfo.memoryTypeIndex = mPathTracer->findMemoryType(
 		memReq.memoryTypeBits,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
 	);
 
 	result = vkAllocateMemory(
-		mVH->mLogicalDevice, &allocInfo, nullptr, &mVertexBufferMemory
+		mPathTracer->mLogicalDevice, &allocInfo, nullptr, &mVertexBufferMemory
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to allocate vertex memory.", "ImGuiHandler"
 	);
 
 	result = vkBindBufferMemory(
-		mVH->mLogicalDevice,
+		mPathTracer->mLogicalDevice,
 		mVertexBuffer,
 		mVertexBufferMemory,
 		0
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to bind vertex buffer memory.", "ImGuiHandler"
 	);
 
@@ -1216,22 +1212,22 @@ void ImGuiHandler::uploadRenderData(
 	ImDrawIdx* indexDst;
 
 	result = vkMapMemory(
-		mVH->mLogicalDevice,
+		mPathTracer->mLogicalDevice,
 		mVertexBufferMemory,
 		0, vertexBufferSize, 0,
 		( void** )( &vertexDst )
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to map vertex memory.", "ImGuiHandler"
 	);
 
 	result = vkMapMemory(
-		mVH->mLogicalDevice,
+		mPathTracer->mLogicalDevice,
 		mIndexBufferMemory,
 		0, indexBufferSize, 0,
 		( void** )( &indexDst )
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		result, "Failed to map index memory.", "ImGuiHandler"
 	);
 
@@ -1259,11 +1255,11 @@ void ImGuiHandler::uploadRenderData(
 	range[1].memory = mIndexBufferMemory;
 	range[1].size = indexBufferSize;
 
-	result = vkFlushMappedMemoryRanges( mVH->mLogicalDevice, 2, range );
-	VulkanHandler::checkVkResult(
+	result = vkFlushMappedMemoryRanges( mPathTracer->mLogicalDevice, 2, range );
+	VulkanSetup::checkVkResult(
 		result, "Failed to flush mapped memory ranges.", "ImGuiHandler"
 	);
 
-	vkUnmapMemory( mVH->mLogicalDevice, mVertexBufferMemory );
-	vkUnmapMemory( mVH->mLogicalDevice, mIndexBufferMemory );
+	vkUnmapMemory( mPathTracer->mLogicalDevice, mVertexBufferMemory );
+	vkUnmapMemory( mPathTracer->mLogicalDevice, mIndexBufferMemory );
 }

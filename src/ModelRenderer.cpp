@@ -9,7 +9,7 @@ using std::vector;
  */
 void ModelRenderer::createCommandBuffers() {
 	VkResult result;
-	mCommandBuffers.resize( mVH->mFramebuffers.size() );
+	mCommandBuffers.resize( mPathTracer->mFramebuffers.size() );
 
 	VkCommandBufferAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -17,8 +17,8 @@ void ModelRenderer::createCommandBuffers() {
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocInfo.commandBufferCount = (uint32_t) mCommandBuffers.size();
 
-	result = vkAllocateCommandBuffers( mVH->mLogicalDevice, &allocInfo, mCommandBuffers.data() );
-	VulkanHandler::checkVkResult(
+	result = vkAllocateCommandBuffers( mPathTracer->mLogicalDevice, &allocInfo, mCommandBuffers.data() );
+	VulkanSetup::checkVkResult(
 		result, "Failed to allocate command buffers.", "ModelRenderer"
 	);
 
@@ -31,7 +31,7 @@ void ModelRenderer::createCommandBuffers() {
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
 		result = vkBeginCommandBuffer( mCommandBuffers[i], &beginInfo );
-		VulkanHandler::checkVkResult(
+		VulkanSetup::checkVkResult(
 			result, "Failed to begin command buffer.", "ModelRenderer"
 		);
 
@@ -42,9 +42,9 @@ void ModelRenderer::createCommandBuffers() {
 		VkRenderPassBeginInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = mRenderPass;
-		renderPassInfo.framebuffer = mVH->mFramebuffers[i];
+		renderPassInfo.framebuffer = mPathTracer->mFramebuffers[i];
 		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = mVH->mSwapchainExtent;
+		renderPassInfo.renderArea.extent = mPathTracer->mSwapchainExtent;
 		renderPassInfo.clearValueCount = static_cast<uint32_t>( clearValues.size() );
 		renderPassInfo.pClearValues = clearValues.data();
 
@@ -67,7 +67,7 @@ void ModelRenderer::createCommandBuffers() {
 		vkCmdEndRenderPass( mCommandBuffers[i] );
 
 		result = vkEndCommandBuffer( mCommandBuffers[i] );
-		VulkanHandler::checkVkResult(
+		VulkanSetup::checkVkResult(
 			result, "Failed to end command buffer.", "ModelRenderer"
 		);
 	}
@@ -82,10 +82,10 @@ void ModelRenderer::createCommandPool() {
 
 	VkCommandPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.queueFamilyIndex = mVH->mFamilyIndexGraphics;
+	poolInfo.queueFamilyIndex = mPathTracer->mFamilyIndexGraphics;
 
-	result = vkCreateCommandPool( mVH->mLogicalDevice, &poolInfo, nullptr, &mCommandPool );
-	VulkanHandler::checkVkResult(
+	result = vkCreateCommandPool( mPathTracer->mLogicalDevice, &poolInfo, nullptr, &mCommandPool );
+	VulkanSetup::checkVkResult(
 		result, "Failed to create VkCommandPool.", "ModelRenderer"
 	);
 }
@@ -96,7 +96,7 @@ void ModelRenderer::createCommandPool() {
  */
 void ModelRenderer::createDescriptorPool() {
 	VkResult result;
-	uint32_t numImages = static_cast<uint32_t>( mVH->mSwapchainImages.size() );
+	uint32_t numImages = static_cast<uint32_t>( mPathTracer->mSwapchainImages.size() );
 
 	array<VkDescriptorPoolSize, 2> poolSizes = {};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -110,8 +110,8 @@ void ModelRenderer::createDescriptorPool() {
 	poolInfo.pPoolSizes = poolSizes.data();
 	poolInfo.maxSets = numImages;
 
-	result = vkCreateDescriptorPool( mVH->mLogicalDevice, &poolInfo, nullptr, &mDescriptorPool );
-	VulkanHandler::checkVkResult(
+	result = vkCreateDescriptorPool( mPathTracer->mLogicalDevice, &poolInfo, nullptr, &mDescriptorPool );
+	VulkanSetup::checkVkResult(
 		result, "Failed to create VkDescriptorPool", "ModelRenderer"
 	);
 
@@ -124,7 +124,7 @@ void ModelRenderer::createDescriptorPool() {
  */
 void ModelRenderer::createDescriptorSets() {
 	VkResult result;
-	uint32_t numImages = static_cast<uint32_t>( mVH->mSwapchainImages.size() );
+	uint32_t numImages = static_cast<uint32_t>( mPathTracer->mSwapchainImages.size() );
 	vector<VkDescriptorSetLayout> layouts( numImages, mDescriptorSetLayout );
 
 	VkDescriptorSetAllocateInfo allocInfo = {};
@@ -134,30 +134,30 @@ void ModelRenderer::createDescriptorSets() {
 	allocInfo.pSetLayouts = layouts.data();
 
 	mDescriptorSets.resize( numImages );
-	result = vkAllocateDescriptorSets( mVH->mLogicalDevice, &allocInfo, mDescriptorSets.data() );
-	VulkanHandler::checkVkResult(
+	result = vkAllocateDescriptorSets( mPathTracer->mLogicalDevice, &allocInfo, mDescriptorSets.data() );
+	VulkanSetup::checkVkResult(
 		result, "Failed to allocate DescriptorSets", "ModelRenderer"
 	);
 
-	// This part crashes -> Segmentation fault
-	// mUniformBuffers has no data yet?
-	for( size_t i = 0; i < numImages; i++ ) {
-		VkDescriptorBufferInfo bufferInfo = {};
-		bufferInfo.buffer = mUniformBuffers[i];
-		bufferInfo.offset = 0;
-		bufferInfo.range = sizeof( UniformBufferObject );
+	// // This part crashes -> Segmentation fault
+	// // mUniformBuffers has no data yet?
+	// for( size_t i = 0; i < numImages; i++ ) {
+	// 	VkDescriptorBufferInfo bufferInfo = {};
+	// 	bufferInfo.buffer = mUniformBuffers[i];
+	// 	bufferInfo.offset = 0;
+	// 	bufferInfo.range = sizeof( UniformBufferObject );
 
-		VkWriteDescriptorSet descriptorWrite = {};
-		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrite.dstSet = mDescriptorSets[i];
-		descriptorWrite.dstBinding = 0;
-		descriptorWrite.dstArrayElement = 0;
-		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrite.descriptorCount = 1;
-		descriptorWrite.pBufferInfo = &bufferInfo;
+	// 	VkWriteDescriptorSet descriptorWrite = {};
+	// 	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	// 	descriptorWrite.dstSet = mDescriptorSets[i];
+	// 	descriptorWrite.dstBinding = 0;
+	// 	descriptorWrite.dstArrayElement = 0;
+	// 	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	// 	descriptorWrite.descriptorCount = 1;
+	// 	descriptorWrite.pBufferInfo = &bufferInfo;
 
-		vkUpdateDescriptorSets( mVH->mLogicalDevice, 1, &descriptorWrite, 0, nullptr );
-	}
+	// 	vkUpdateDescriptorSets( mPathTracer->mLogicalDevice, 1, &descriptorWrite, 0, nullptr );
+	// }
 
 	Logger::logDebug( "[ModelRenderer] Created VkDescriptorSets." );
 }
@@ -171,15 +171,15 @@ void ModelRenderer::createDescriptorSets() {
 void ModelRenderer::createGraphicsPipeline( VkShaderModule* vertModule, VkShaderModule* fragModule ) {
 	// Destroy old graphics pipeline.
 	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
-		vkDestroyPipeline( mVH->mLogicalDevice, mGraphicsPipeline, nullptr );
+		vkDestroyPipeline( mPathTracer->mLogicalDevice, mGraphicsPipeline, nullptr );
 	}
 
 	// Destroy old pipeline layout.
 	if( mPipelineLayout != VK_NULL_HANDLE ) {
-		vkDestroyPipelineLayout( mVH->mLogicalDevice, mPipelineLayout, nullptr );
+		vkDestroyPipelineLayout( mPathTracer->mLogicalDevice, mPipelineLayout, nullptr );
 	}
 
-	mPipelineLayout = VulkanSetup::createPipelineLayout( &mVH->mLogicalDevice, &mDescriptorSetLayout );
+	mPipelineLayout = VulkanSetup::createPipelineLayout( &mPathTracer->mLogicalDevice, &mDescriptorSetLayout );
 
 	VkPipelineShaderStageCreateInfo vertShaderCreateInfo = {};
 	vertShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -199,7 +199,7 @@ void ModelRenderer::createGraphicsPipeline( VkShaderModule* vertModule, VkShader
 	};
 
 	mGraphicsPipeline = VulkanSetup::createGraphicsPipeline(
-		&mVH->mLogicalDevice, &mPipelineLayout, &mRenderPass, shaderStages, &mVH->mSwapchainExtent
+		&mPathTracer->mLogicalDevice, &mPipelineLayout, &mRenderPass, shaderStages, &mPathTracer->mSwapchainExtent
 	);
 }
 
@@ -210,11 +210,11 @@ void ModelRenderer::createGraphicsPipeline( VkShaderModule* vertModule, VkShader
 void ModelRenderer::createRenderPass() {
 	// Destroy old render pass.
 	if( mRenderPass != VK_NULL_HANDLE ) {
-		vkDestroyRenderPass( mVH->mLogicalDevice, mRenderPass, nullptr );
+		vkDestroyRenderPass( mPathTracer->mLogicalDevice, mRenderPass, nullptr );
 	}
 
 	VkAttachmentDescription colorAttachment = {};
-	colorAttachment.format = mVH->mSwapchainFormat;
+	colorAttachment.format = mPathTracer->mSwapchainFormat;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -253,9 +253,9 @@ void ModelRenderer::createRenderPass() {
 	// renderPassInfo.pDependencies = &dependency;
 
 	VkResult result = vkCreateRenderPass(
-		mVH->mLogicalDevice, &renderPassInfo, nullptr, &mRenderPass
+		mPathTracer->mLogicalDevice, &renderPassInfo, nullptr, &mRenderPass
 	);
-	VulkanHandler::checkVkResult( result, "Failed to create VkRenderPass." );
+	VulkanSetup::checkVkResult( result, "Failed to create VkRenderPass." );
 	Logger::logInfo( "[ModelRenderer] Created VkRenderPass." );
 }
 
@@ -264,15 +264,18 @@ void ModelRenderer::createRenderPass() {
  *
  * @param {VkShaderModule*} vertModule
  * @param {VkShaderModule*} fragModule
+ * @param {VkShaderModule*} computeModule
  */
-void ModelRenderer::createShaders( VkShaderModule* vertModule, VkShaderModule* fragModule ) {
-	auto vertShaderCode = VulkanHandler::loadFileSPV( "src/shaders/vert.spv" );
-	auto fragShaderCode = VulkanHandler::loadFileSPV( "src/shaders/frag.spv" );
+void ModelRenderer::createShaders( VkShaderModule* vertModule, VkShaderModule* fragModule, VkShaderModule* computeModule ) {
+	auto vertShaderCode = PathTracer::loadFileSPV( "src/shaders/vert.spv" );
+	auto fragShaderCode = PathTracer::loadFileSPV( "src/shaders/frag.spv" );
+	auto computeShaderCode = PathTracer::loadFileSPV( "src/shaders/compute.spv" );
 	Logger::logDebug( "[ModelRenderer] Loaded shader files." );
 
-	VkDevice logicalDevice = mVH->mLogicalDevice;
+	VkDevice logicalDevice = mPathTracer->mLogicalDevice;
 	*vertModule = VulkanSetup::createShaderModule( &logicalDevice, vertShaderCode );
 	*fragModule = VulkanSetup::createShaderModule( &logicalDevice, fragShaderCode );
+	*computeModule = VulkanSetup::createShaderModule( &logicalDevice, computeShaderCode );
 	Logger::logInfo( "[ModelRenderer] Created shader modules." );
 }
 
@@ -282,35 +285,344 @@ void ModelRenderer::createShaders( VkShaderModule* vertModule, VkShaderModule* f
  * @param {uint32_t} frameIndex - The current frame/image index.
  */
 void ModelRenderer::draw( uint32_t frameIndex ) {
-	this->updateUniformBuffers( frameIndex );
+	// this->updateUniformBuffers( frameIndex );
 }
 
 
 /**
  *
- * @param {VulkanHandler*} vh
- * @param {ObjParser*}     op
+ * @param {PathTracer*} pt
+ * @param {ObjParser*}  op
  */
-void ModelRenderer::setup( VulkanHandler* vh, ObjParser* op ) {
+void ModelRenderer::setup( PathTracer* pt, ObjParser* op ) {
 	Logger::logDebug( "[ModelRenderer] Setup begin." );
 
-	mVH = vh;
+	mPathTracer = pt;
 	mObjParser = op;
 
 	VkShaderModule vertModule;
 	VkShaderModule fragModule;
+	VkShaderModule computeModule;
 
-	mDescriptorSetLayout = VulkanSetup::createDescriptorSetLayout( &( mVH->mLogicalDevice ) );
-	this->createRenderPass();
-	this->createShaders( &vertModule, &fragModule );
-	this->createDescriptorPool();
-	this->createDescriptorSets();
-	this->createGraphicsPipeline( &vertModule, &fragModule );
-	this->createCommandPool();
-	this->createCommandBuffers();
+	mDescriptorSetLayout = VulkanSetup::createDescriptorSetLayout( &( mPathTracer->mLogicalDevice ) );
+	// this->createRenderPass();
+	this->createShaders( &vertModule, &fragModule, &computeModule );
+	// this->createDescriptorPool();
+	// this->createDescriptorSets();
+	// this->createGraphicsPipeline( &vertModule, &fragModule );
+	// this->createCommandPool();
+	// this->createCommandBuffers();
 
-	vkDestroyShaderModule( mVH->mLogicalDevice, vertModule, nullptr );
-	vkDestroyShaderModule( mVH->mLogicalDevice, fragModule, nullptr );
+
+	//
+
+	VkResult result;
+	const uint32_t computeImageBinding = 0;
+	const uint32_t imageCount = static_cast<uint32_t>( mPathTracer->mSwapchainImages.size() );
+
+	int w, h;
+	glfwGetFramebufferSize( mPathTracer->mWindow, &w, &h );
+
+
+	VkDescriptorSetLayoutBinding computeDSLayoutBinding {
+		computeImageBinding,
+		VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		1,
+		VK_SHADER_STAGE_COMPUTE_BIT,
+		nullptr
+	};
+
+	VkDescriptorSetLayoutCreateInfo dsLayoutInfo {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		nullptr,
+		0,
+		1,
+		&computeDSLayoutBinding
+	};
+
+	VkDescriptorSetLayout computeDSLayout;
+	result = vkCreateDescriptorSetLayout( mPathTracer->mLogicalDevice, &dsLayoutInfo, nullptr, &computeDSLayout );
+	VulkanSetup::checkVkResult( result, "Failed to create compute descriptor set layout." );
+
+
+	VkDescriptorPoolSize poolSize {
+		VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		imageCount
+	};
+
+	VkDescriptorPoolCreateInfo dPoolInfo {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		nullptr,
+		0,
+		imageCount,
+		1,
+		&poolSize
+	};
+
+	VkDescriptorPool computeDPool;
+	result = vkCreateDescriptorPool( mPathTracer->mLogicalDevice, &dPoolInfo, nullptr, &computeDPool );
+	VulkanSetup::checkVkResult( result, "Failed to create compute descriptor pool." );
+
+
+	std::vector<VkDescriptorSetLayout> dsLayouts( imageCount, computeDSLayout );
+
+	VkDescriptorSetAllocateInfo dsInfo {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+		nullptr,
+		computeDPool,
+		static_cast<uint32_t>( dsLayouts.size() ),
+		dsLayouts.data()
+	};
+
+	std::vector<VkDescriptorSet> computeDSets( dsLayouts.size() );
+	result = vkAllocateDescriptorSets( mPathTracer->mLogicalDevice, &dsInfo, computeDSets.data() );
+	VulkanSetup::checkVkResult( result, "Failed to allocate compute descriptor sets." );
+
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo {
+		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		nullptr,
+		0,
+		1,
+		&computeDSLayout,
+		0,
+		nullptr
+	};
+
+	VkPipelineLayout computePipelineLayout;
+	result = vkCreatePipelineLayout( mPathTracer->mLogicalDevice, &pipelineLayoutInfo, nullptr, &computePipelineLayout );
+	VulkanSetup::checkVkResult( result, "Failed to create compute pipeline layout." );
+
+
+	const VkPipelineShaderStageCreateInfo computeShaderStage {
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		nullptr,
+		0,
+		VK_SHADER_STAGE_COMPUTE_BIT,
+		computeModule,
+		u8"main",
+		nullptr
+	};
+
+	VkComputePipelineCreateInfo pipelineInfo {
+		VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+		nullptr,
+		0,
+		computeShaderStage,
+		computePipelineLayout,
+		VK_NULL_HANDLE,
+		-1
+	};
+
+	VkPipeline computePipeline;
+	result = vkCreateComputePipelines( mPathTracer->mLogicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline );
+	VulkanSetup::checkVkResult( result, "Failed to create compute pipeline." );
+
+
+	VkSemaphoreCreateInfo semaphoreInfo {
+		VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		nullptr,
+		0
+	};
+
+	VkSemaphore computeDoneSemaphore;
+	result = vkCreateSemaphore( mPathTracer->mLogicalDevice, &semaphoreInfo, nullptr, &computeDoneSemaphore );
+	VulkanSetup::checkVkResult( result, "Failed to create semaphore for compute step." );
+
+
+	VkCommandPoolCreateInfo commandPoolInfo {
+		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		nullptr,
+		0,
+		static_cast<uint32_t>( mPathTracer->mFamilyIndexCompute )
+	};
+
+	VkCommandPool computeCommandPool;
+	result = vkCreateCommandPool( mPathTracer->mLogicalDevice, &commandPoolInfo, nullptr, &computeCommandPool );
+	VulkanSetup::checkVkResult( result, "Failed to create compute command pool." );
+
+
+	VkCommandBufferAllocateInfo commandBufferInfo {
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		nullptr,
+		computeCommandPool,
+		VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		imageCount
+	};
+
+	std::vector<VkCommandBuffer> computeCommandBuffers( imageCount );
+	result = vkAllocateCommandBuffers( mPathTracer->mLogicalDevice, &commandBufferInfo, computeCommandBuffers.data() );
+	VulkanSetup::checkVkResult( result, "Failed to allocate compute command buffers." );
+
+	for( size_t i = 0; i < imageCount; i++ ) {
+		// update descriptor set
+		VkDescriptorImageInfo imageInfo {
+			VK_NULL_HANDLE,
+			mPathTracer->mSwapchainImageViews[i],
+			VK_IMAGE_LAYOUT_GENERAL
+		};
+
+		VkWriteDescriptorSet descriptorWrite {
+			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			nullptr,
+			computeDSets[i],
+			computeImageBinding,
+			0,
+			1,
+			VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			&imageInfo,
+			nullptr,
+			nullptr
+		};
+
+		vkUpdateDescriptorSets( mPathTracer->mLogicalDevice, 1, &descriptorWrite, 0, nullptr );
+
+		// begin command buffer
+		VkCommandBufferBeginInfo commandBufferInfo {
+			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			nullptr,
+			VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
+			nullptr
+		};
+
+		result = vkBeginCommandBuffer( computeCommandBuffers[i], &commandBufferInfo );
+		VulkanSetup::checkVkResult( result, "Failed to begin compute command buffer." );
+
+		// record
+		vkCmdBindPipeline( computeCommandBuffers[i], VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline );
+		vkCmdBindDescriptorSets(
+			computeCommandBuffers[i],
+			VK_PIPELINE_BIND_POINT_COMPUTE,
+			computePipelineLayout,
+			0,
+			static_cast<uint32_t>( computeDSets.size() ),
+			computeDSets.data(),
+			0,
+			nullptr
+		);
+
+		// {
+		// 	VkImageSubresourceRange range {
+		// 		VK_IMAGE_ASPECT_COLOR_BIT,
+		// 		0, VK_REMAINING_MIP_LEVELS,
+		// 		0, VK_REMAINING_ARRAY_LAYERS
+		// 	};
+
+		// 	VkImageMemoryBarrier imageBarrier {
+		// 		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		// 		nullptr,
+		// 		0,
+		// 		VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+		// 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		// 		VK_IMAGE_LAYOUT_GENERAL,
+		// 		static_cast<uint32_t>( mPathTracer->mFamilyIndexGraphics ),
+		// 		static_cast<uint32_t>( mPathTracer->mFamilyIndexCompute ),
+		// 		mPathTracer->mSwapchainImages[i],
+		// 		range
+		// 	};
+
+		// 	vkCmdPipelineBarrier(
+		// 		computeCommandBuffers[i],
+		// 		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+		// 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		// 		0, 0, nullptr, 0, nullptr, 1,
+		// 		&imageBarrier
+		// 	);
+		// }
+
+		vkCmdDispatch( computeCommandBuffers[i], w, h, 1 );
+
+		{
+			VkImageSubresourceRange range {
+				VK_IMAGE_ASPECT_COLOR_BIT,
+				0, VK_REMAINING_MIP_LEVELS,
+				0, VK_REMAINING_ARRAY_LAYERS
+			};
+
+			VkImageMemoryBarrier imageBarrier {
+				VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				nullptr,
+				VK_ACCESS_SHADER_WRITE_BIT,
+				0,
+				VK_IMAGE_LAYOUT_GENERAL,
+				VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+				static_cast<uint32_t>( mPathTracer->mFamilyIndexCompute ),
+				static_cast<uint32_t>( mPathTracer->mFamilyIndexPresentation ),
+				mPathTracer->mSwapchainImages[i],
+				range
+			};
+
+			vkCmdPipelineBarrier(
+				computeCommandBuffers[i],
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				0, 0, nullptr, 0, nullptr, 1,
+				&imageBarrier
+			);
+		}
+
+		// end command buffer
+		result = vkEndCommandBuffer( computeCommandBuffers[i] );
+		VulkanSetup::checkVkResult( result, "Failed to end compute command buffer." );
+	}
+
+
+	vector<VkCommandBuffer> transferCommandBuffers( imageCount );
+	result = vkAllocateCommandBuffers( mPathTracer->mLogicalDevice, &commandBufferInfo, transferCommandBuffers.data() );
+	VulkanSetup::checkVkResult( result, "Failed to allocate transfer command buffers." );
+
+	for( size_t i = 0; i < transferCommandBuffers.size(); i++ ) {
+		// begin command buffer
+		VkCommandBufferBeginInfo commandBufferInfo {
+			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			nullptr,
+			VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
+			nullptr
+		};
+
+		result = vkBeginCommandBuffer( transferCommandBuffers[i], &commandBufferInfo );
+		VulkanSetup::checkVkResult( result, "Failed to begin transfer command buffer." );
+
+		{
+			VkImageSubresourceRange range {
+				VK_IMAGE_ASPECT_COLOR_BIT,
+				0, VK_REMAINING_MIP_LEVELS,
+				0, VK_REMAINING_ARRAY_LAYERS
+			};
+
+			VkImageMemoryBarrier imageBarrier {
+				VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				nullptr,
+				0,
+				0,
+				VK_IMAGE_LAYOUT_GENERAL,
+				VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+				static_cast<uint32_t>( mPathTracer->mFamilyIndexCompute ),
+				static_cast<uint32_t>( mPathTracer->mFamilyIndexPresentation ),
+				mPathTracer->mSwapchainImages[i],
+				range
+			};
+
+			vkCmdPipelineBarrier(
+				transferCommandBuffers[i],
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				0, 0, nullptr, 0, nullptr, 1,
+				&imageBarrier
+			);
+		}
+
+		// end command buffer
+		result = vkEndCommandBuffer( transferCommandBuffers[i] );
+		VulkanSetup::checkVkResult( result, "Failed to end transfer command buffer." );
+	}
+
+	//
+
+
+	vkDestroyShaderModule( mPathTracer->mLogicalDevice, vertModule, nullptr );
+	vkDestroyShaderModule( mPathTracer->mLogicalDevice, fragModule, nullptr );
+	vkDestroyShaderModule( mPathTracer->mLogicalDevice, computeModule, nullptr );
 
 	Logger::logDebug( "[ModelRenderer] Setup done." );
 }
@@ -321,13 +633,13 @@ void ModelRenderer::setup( VulkanHandler* vh, ObjParser* op ) {
  */
 void ModelRenderer::teardown() {
 	if( mDescriptorSetLayout != VK_NULL_HANDLE ) {
-		vkDestroyDescriptorSetLayout( mVH->mLogicalDevice, mDescriptorSetLayout, nullptr );
+		vkDestroyDescriptorSetLayout( mPathTracer->mLogicalDevice, mDescriptorSetLayout, nullptr );
 		mDescriptorSetLayout = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ModelRenderer] VkDescriptorSetLayout destroyed." );
 	}
 
 	if( mDescriptorPool != VK_NULL_HANDLE ) {
-		vkDestroyDescriptorPool( mVH->mLogicalDevice, mDescriptorPool, nullptr );
+		vkDestroyDescriptorPool( mPathTracer->mLogicalDevice, mDescriptorPool, nullptr );
 		mDescriptorPool = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ModelRenderer] VkDescriptorPool destroyed." );
 	}
@@ -338,7 +650,7 @@ void ModelRenderer::teardown() {
 		VkDeviceMemory uniformBuffer = mUniformBuffersMemory[i];
 
 		if( uniformBuffer != VK_NULL_HANDLE ) {
-			vkFreeMemory( mVH->mLogicalDevice, uniformBuffer, nullptr );
+			vkFreeMemory( mPathTracer->mLogicalDevice, uniformBuffer, nullptr );
 			uniformBuffer = VK_NULL_HANDLE;
 
 			char msg[256];
@@ -353,7 +665,7 @@ void ModelRenderer::teardown() {
 		VkBuffer uniformBuffer = mUniformBuffers[i];
 
 		if( uniformBuffer != VK_NULL_HANDLE ) {
-			vkDestroyBuffer( mVH->mLogicalDevice, uniformBuffer, nullptr );
+			vkDestroyBuffer( mPathTracer->mLogicalDevice, uniformBuffer, nullptr );
 			uniformBuffer = VK_NULL_HANDLE;
 
 			char msg[256];
@@ -363,37 +675,37 @@ void ModelRenderer::teardown() {
 	}
 
 	if( mVertexBufferMemory != VK_NULL_HANDLE ) {
-		vkFreeMemory( mVH->mLogicalDevice, mVertexBufferMemory, nullptr );
+		vkFreeMemory( mPathTracer->mLogicalDevice, mVertexBufferMemory, nullptr );
 		mVertexBufferMemory = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ModelRenderer] VkDeviceMemory (vertices) freed." );
 	}
 
 	if( mVertexBuffer != VK_NULL_HANDLE ) {
-		vkDestroyBuffer( mVH->mLogicalDevice, mVertexBuffer, nullptr );
+		vkDestroyBuffer( mPathTracer->mLogicalDevice, mVertexBuffer, nullptr );
 		mVertexBuffer = VK_NULL_HANDLE;
 		Logger::logDebugVerbose( "[ModelRenderer] VkBuffer (vertices) destroyed." );
 	}
 
 	if( mCommandPool != VK_NULL_HANDLE ) {
-		vkDestroyCommandPool( mVH->mLogicalDevice, mCommandPool, nullptr );
+		vkDestroyCommandPool( mPathTracer->mLogicalDevice, mCommandPool, nullptr );
 		mCommandPool = VK_NULL_HANDLE;
 		Logger::logDebug( "[ModelRenderer] VkCommandPool destroyed." );
 	}
 
 	if( mGraphicsPipeline != VK_NULL_HANDLE ) {
-		vkDestroyPipeline( mVH->mLogicalDevice, mGraphicsPipeline, nullptr );
+		vkDestroyPipeline( mPathTracer->mLogicalDevice, mGraphicsPipeline, nullptr );
 		mGraphicsPipeline = VK_NULL_HANDLE;
 		Logger::logDebug( "[ModelRenderer] VkPipeline (graphics) destroyed." );
 	}
 
 	if( mPipelineLayout != VK_NULL_HANDLE ) {
-		vkDestroyPipelineLayout( mVH->mLogicalDevice, mPipelineLayout, nullptr );
+		vkDestroyPipelineLayout( mPathTracer->mLogicalDevice, mPipelineLayout, nullptr );
 		mPipelineLayout = VK_NULL_HANDLE;
 		Logger::logDebug( "[ModelRenderer] VkPipelineLayout destroyed." );
 	}
 
 	if( mRenderPass != VK_NULL_HANDLE ) {
-		vkDestroyRenderPass( mVH->mLogicalDevice, mRenderPass, nullptr );
+		vkDestroyRenderPass( mPathTracer->mLogicalDevice, mRenderPass, nullptr );
 		mRenderPass = VK_NULL_HANDLE;
 		Logger::logDebug( "[ModelRenderer] VkRenderPass destroyed." );
 	}
@@ -412,7 +724,7 @@ void ModelRenderer::updateUniformBuffers( uint32_t frameIndex ) {
 		glm::vec3( 0.0f, 0.0f, 0.0f ),
 		glm::vec3( 0.0f, 0.0f, 1.0f )
 	);
-	float ratio = (float) mVH->mSwapchainExtent.width / (float) mVH->mSwapchainExtent.height;
+	float ratio = (float) mPathTracer->mSwapchainExtent.width / (float) mPathTracer->mSwapchainExtent.height;
 	ubo.proj = glm::perspective(
 		glm::radians( 45.0f ),
 		ratio, 0.1f, 100.0f
@@ -420,7 +732,7 @@ void ModelRenderer::updateUniformBuffers( uint32_t frameIndex ) {
 	ubo.proj[1][1] *= -1;
 
 	void* data;
-	vkMapMemory( mVH->mLogicalDevice, mUniformBuffersMemory[frameIndex], 0, sizeof( ubo ), 0, &data );
+	vkMapMemory( mPathTracer->mLogicalDevice, mUniformBuffersMemory[frameIndex], 0, sizeof( ubo ), 0, &data );
 	memcpy( data, &ubo, sizeof( ubo ) );
-	vkUnmapMemory( mVH->mLogicalDevice, mUniformBuffersMemory[frameIndex] );
+	vkUnmapMemory( mPathTracer->mLogicalDevice, mUniformBuffersMemory[frameIndex] );
 }

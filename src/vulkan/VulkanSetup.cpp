@@ -3,6 +3,26 @@
 using std::numeric_limits;
 
 
+bool VulkanSetup::useValidationLayer = true;
+
+
+
+/**
+ * Check a VkResult and throw an error if not a VK_SUCCESS.
+ * @param {VkResult}    result
+ * @param {const char*} errorMessage
+ * @param {const char*} className
+ */
+void VulkanSetup::checkVkResult(
+	VkResult result, const char* errorMessage, const char* className
+) {
+	if( result != VK_SUCCESS ) {
+		Logger::logErrorf( "[%s] %s", className, errorMessage );
+		throw std::runtime_error( errorMessage );
+	}
+}
+
+
 /**
  * Choose the swap extent.
  * @param  {const VkSurfaceCapabilities&} capabilities
@@ -123,7 +143,7 @@ VkDescriptorPool VulkanSetup::createDescriptorPool( VkDevice* logicalDevice ) {
 	VkResult result = vkCreateDescriptorPool(
 		*logicalDevice, &poolInfo, nullptr, &descriptorPool
 	);
-	VulkanHandler::checkVkResult( result, "Failed to create VkDescriptorPool.", "VulkanSetup" );
+	VulkanSetup::checkVkResult( result, "Failed to create VkDescriptorPool.", "VulkanSetup" );
 
 	return descriptorPool;
 }
@@ -152,7 +172,7 @@ VkDescriptorSetLayout VulkanSetup::createDescriptorSetLayout( VkDevice* logicalD
 	VkResult result = vkCreateDescriptorSetLayout(
 		*logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout
 	);
-	VulkanHandler::checkVkResult( result, "Failed to create VkDescriptorSetLayout.", "VulkanSetup" );
+	VulkanSetup::checkVkResult( result, "Failed to create VkDescriptorSetLayout.", "VulkanSetup" );
 
 	return descriptorSetLayout;
 }
@@ -281,7 +301,7 @@ VkPipeline VulkanSetup::createGraphicsPipeline(
 	VkResult resultPipeline = vkCreateGraphicsPipelines(
 		*logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline
 	);
-	VulkanHandler::checkVkResult(
+	VulkanSetup::checkVkResult(
 		resultPipeline, "Failed to create graphics VkPipeline.", "VulkanSetup"
 	);
 	Logger::logInfo( "[VulkanSetup] Created graphics VkPipeline." );
@@ -321,7 +341,7 @@ VkPipelineLayout VulkanSetup::createPipelineLayout(
 	VkResult result = vkCreatePipelineLayout(
 		*logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout
 	);
-	VulkanHandler::checkVkResult( result, "Failed to create VkPipelineLayout.", "VulkanSetup" );
+	VulkanSetup::checkVkResult( result, "Failed to create VkPipelineLayout.", "VulkanSetup" );
 	Logger::logDebug( "[VulkanSetup] Created VkPipelineLayout." );
 
 	return pipelineLayout;
@@ -348,7 +368,7 @@ VkShaderModule VulkanSetup::createShaderModule(
 	VkResult result = vkCreateShaderModule(
 		*logicalDevice, &createInfo, nullptr, &shaderModule
 	);
-	VulkanHandler::checkVkResult( result, "Failed to create VkShaderModule." );
+	VulkanSetup::checkVkResult( result, "Failed to create VkShaderModule." );
 
 	return shaderModule;
 }
@@ -362,7 +382,7 @@ VkShaderModule VulkanSetup::createShaderModule(
  */
 void VulkanSetup::createSurface( VkInstance* instance, GLFWwindow* window, VkSurfaceKHR* surface ) {
 	VkResult result = glfwCreateWindowSurface( *instance, window, nullptr, surface );
-	VulkanHandler::checkVkResult( result, "Failed to create VkSurfaceKHR.", "VulkanSetup" );
+	VulkanSetup::checkVkResult( result, "Failed to create VkSurfaceKHR.", "VulkanSetup" );
 	Logger::logInfo( "[VulkanSetup] Window surface (VkSurfaceKHR) created." );
 }
 
@@ -392,6 +412,21 @@ VkSwapchainKHR VulkanSetup::createSwapchain(
 		imageCount = swapchainSupport->capabilities.maxImageCount;
 	}
 
+	int graphicsFamily = -1;
+	int presentFamily = -1;
+	int computeFamily = -1;
+
+	VulkanDevice::findQueueFamilyIndices(
+		*physicalDevice,
+		&graphicsFamily, &presentFamily, &computeFamily,
+		surface
+	);
+
+	uint32_t queueFamilyIndices[] = {
+		(uint32_t) graphicsFamily,
+		(uint32_t) presentFamily
+	};
+
 	VkSwapchainCreateInfoKHR createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	createInfo.surface = *surface;
@@ -401,14 +436,6 @@ VkSwapchainKHR VulkanSetup::createSwapchain(
 	createInfo.imageExtent = extent;
 	createInfo.imageArrayLayers = 1;
 	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-	int graphicsFamily = -1;
-	int presentFamily = -1;
-	VulkanDevice::findQueueFamilyIndices( *physicalDevice, &graphicsFamily, &presentFamily, surface );
-	uint32_t queueFamilyIndices[] = {
-		(uint32_t) graphicsFamily,
-		(uint32_t) presentFamily
-	};
 
 	if( graphicsFamily != presentFamily ) {
 		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
@@ -439,7 +466,7 @@ VkSwapchainKHR VulkanSetup::createSwapchain(
 
 	VkSwapchainKHR newSwapchain;
 	VkResult result = vkCreateSwapchainKHR( *logicalDevice, &createInfo, nullptr, &newSwapchain );
-	VulkanHandler::checkVkResult( result, "Failed to create VkSwapchainKHR.", "VulkanSetup" );
+	VulkanSetup::checkVkResult( result, "Failed to create VkSwapchainKHR.", "VulkanSetup" );
 	Logger::logInfo( "[VulkanSetup] VkSwapchainKHR created." );
 
 	// Destroy old swap chain if existing.
@@ -487,4 +514,19 @@ SwapChainSupportDetails VulkanSetup::querySwapChainSupport( VkPhysicalDevice dev
 	}
 
 	return details;
+}
+
+
+/**
+ * Set validation layer usage from config file.
+ */
+void VulkanSetup::setupValidationLayer() {
+	VulkanSetup::useValidationLayer = Cfg::get().value<bool>( Cfg::VULKAN_VALIDATION_LAYER );
+
+	if( VulkanSetup::useValidationLayer ) {
+		Logger::logInfo( "[VulkanSetup] Validation layer usage is enabled." );
+	}
+	else {
+		Logger::logInfo( "[VulkanSetup] Validation layer usage is disabled." );
+	}
 }

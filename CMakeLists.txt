@@ -13,14 +13,18 @@ include_directories( ${GLM_INCLUDE_DIRS} )
 
 
 # dear imgui
-set( IMGUI_DIR "../imgui-v1.80" )
+set( IMGUI_DIR "../imgui" )
 include_directories( ${IMGUI_DIR} )
 
 
 # Vulkan (LunarG SDK)
-set( VULKAN_SDK "/home/seba/programming/VulkanSDK/1.2.189.0/x86_64" )
+set( VULKAN_SDK "/home/seba/programming/VulkanSDK/1.2.198.1/x86_64" )
 include_directories( ${VULKAN_SDK}/include )
 set( LIBRARIES ${LIBRARIES} ${VULKAN_SDK}/lib/libvulkan.so.1 )
+
+
+# Qt
+find_package( Qt5 COMPONENTS Core )
 
 
 # GLFW (required version >= 3.2)

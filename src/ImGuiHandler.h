@@ -8,12 +8,12 @@
 #include <vector>
 
 #include "Logger.h"
-#include "VulkanHandler.h"
+#include "PathTracer.h"
 
 using std::vector;
 
 
-struct VulkanHandler;
+struct PathTracer;
 
 
 class ImGuiHandler {
@@ -21,7 +21,7 @@ class ImGuiHandler {
 
 	public:
 		void draw();
-		void setup( VulkanHandler* vh );
+		void setup( PathTracer* pt );
 		void teardown();
 
 		vector<VkCommandBuffer> mCommandBuffers;
@@ -52,7 +52,7 @@ class ImGuiHandler {
 		double mTime = 0.0f;
 		float mMouseWheel = 0.0f;
 		size_t mBufferMemoryAlignment = 256;
-		VulkanHandler* mVH;
+		PathTracer* mPathTracer;
 
 		vector<VkFence> mFences;
 		VkBuffer mIndexBuffer = VK_NULL_HANDLE;

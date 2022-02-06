@@ -25,10 +25,10 @@ Rendering 3D scenes physically-based through Path Tracing. Interaction of light 
 ### Libraries/headers
 
 * GLFW: https://github.com/glfw/glfw (v3.4.0)
-* Dear ImGui: https://github.com/ocornut/imgui (v1.80)
+* Dear ImGui: https://github.com/ocornut/imgui (v1.86)
 * libboost-dev (v1.71)
 * libglm-dev
-* LunarG Vulkan SDK: https://vulkan.lunarg.com/sdk/home (v1.2.189.0)
+* LunarG Vulkan SDK: https://vulkan.lunarg.com/sdk/home (v1.2.198.1)
 
 
 ## Build and execute

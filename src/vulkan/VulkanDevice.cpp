@@ -36,21 +36,24 @@ const bool VulkanDevice::checkDeviceExtensionSupport( VkPhysicalDevice device ) 
  * @param {VkDevice*}         logicalDevice
  * @param {VkQueue*}          graphicsQueue
  * @param {VkQueue*}          presentQueue
+ * @param {VkQueue*}          computeQueue
  */
 void VulkanDevice::createLogicalDevice(
 	VkSurfaceKHR* surface,
 	VkPhysicalDevice* physicalDevice,
 	VkDevice* logicalDevice,
 	VkQueue* graphicsQueue,
-	VkQueue* presentQueue
+	VkQueue* presentQueue,
+	VkQueue* computeQueue
 ) {
 	int graphicsFamily = -1;
 	int presentFamily = -1;
-	VulkanDevice::findQueueFamilyIndices( *physicalDevice, &graphicsFamily, &presentFamily, surface );
+	int computeFamily = -1;
+	VulkanDevice::findQueueFamilyIndices( *physicalDevice, &graphicsFamily, &presentFamily, &computeFamily, surface );
 
 	float queuePriority = 1.0f;
 	vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-	set<int> uniqueQueueFamilies = { graphicsFamily, presentFamily };
+	set<int> uniqueQueueFamilies = { graphicsFamily, presentFamily, computeFamily };
 
 	for( int queueFamily : uniqueQueueFamilies ) {
 		VkDeviceQueueCreateInfo queueCreateInfo = {};
@@ -74,7 +77,7 @@ void VulkanDevice::createLogicalDevice(
 	createInfo.enabledExtensionCount = (uint32_t) DEVICE_EXTENSIONS.size();
 	createInfo.ppEnabledExtensionNames = DEVICE_EXTENSIONS.data();
 
-	if( VulkanHandler::useValidationLayer ) {
+	if( VulkanSetup::useValidationLayer ) {
 		createInfo.enabledLayerCount = VALIDATION_LAYERS.size();
 		createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
 	}
@@ -85,12 +88,13 @@ void VulkanDevice::createLogicalDevice(
 	VkResult result = vkCreateDevice(
 		*physicalDevice, &createInfo, nullptr, logicalDevice
 	);
-	VulkanHandler::checkVkResult( result, "Failed to create logical VkDevice.", "VulkanSetup" );
+	VulkanSetup::checkVkResult( result, "Failed to create logical VkDevice.", "VulkanSetup" );
 	Logger::logInfo( "[VulkanDevice] Logical VkDevice created." );
 
 	vkGetDeviceQueue( *logicalDevice, graphicsFamily, 0, graphicsQueue );
 	vkGetDeviceQueue( *logicalDevice, presentFamily, 0, presentQueue );
-	Logger::logInfo( "[VulkanDevice] Retrieved graphics and presentation queues (VkQueue)." );
+	vkGetDeviceQueue( *logicalDevice, computeFamily, 0, computeQueue );
+	Logger::logInfo( "[VulkanDevice] Retrieved graphics, presentation, and compute queues (VkQueue)." );
 }
 
 
@@ -99,11 +103,16 @@ void VulkanDevice::createLogicalDevice(
  * @param  {VkPhysicalDevice} device
  * @param  {int*}             graphicsFamily
  * @param  {int*}             presentFamily
+ * @param  {int*}             computeFamily
  * @param  {VkSurfaceKHR*}    surface
  * @return {const bool}
  */
 const bool VulkanDevice::findQueueFamilyIndices(
-	VkPhysicalDevice device, int* graphicsFamily, int* presentFamily, VkSurfaceKHR* surface
+	VkPhysicalDevice device,
+	int* graphicsFamily,
+	int* presentFamily,
+	int* computeFamily,
+	VkSurfaceKHR* surface
 ) {
 	uint32_t queueFamilyCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties( device, &queueFamilyCount, nullptr );
@@ -115,6 +124,7 @@ const bool VulkanDevice::findQueueFamilyIndices(
 
 	*graphicsFamily = -1;
 	*presentFamily = -1;
+	*computeFamily = -1;
 	int i = -1;
 
 	for( const auto& queueFamily : queueFamilies ) {
@@ -135,7 +145,11 @@ const bool VulkanDevice::findQueueFamilyIndices(
 			*presentFamily = i;
 		}
 
-		if( *graphicsFamily >= 0 && *presentFamily >= 0 ) {
+		if( queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT ) {
+			*computeFamily = i;
+		}
+
+		if( *graphicsFamily >= 0 && *presentFamily >= 0 && *computeFamily >= 0 ) {
 			return true;
 		}
 	}
@@ -185,8 +199,9 @@ const bool VulkanDevice::isDeviceSuitable( VkPhysicalDevice device, VkSurfaceKHR
 
 	int graphicsFamily = -1;
 	int presentFamily = -1;
+	int computeFamily = -1;
 	const bool queuesFound = VulkanDevice::findQueueFamilyIndices(
-		device, &graphicsFamily, &presentFamily, surface
+		device, &graphicsFamily, &presentFamily, &computeFamily, surface
 	);
 
 	if( !queuesFound ) {

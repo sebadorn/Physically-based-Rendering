@@ -1,10 +1,11 @@
 # directories
-CMakeFiles
-glfw_binary_dir
-resources
-!resources/models
-resources/models
-source_old
+CMakeFiles/
+glfw_binary_dir/
+PBR_autogen/
+resources/
+!resources/models/
+resources/models/
+source_old/
 
 # files
 *.sublime-*

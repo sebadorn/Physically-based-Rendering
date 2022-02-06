@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "../Logger.h"
-#include "../VulkanHandler.h"
+#include "../PathTracer.h"
 
 using std::vector;
 
@@ -24,12 +24,14 @@ class VulkanDevice {
 			VkPhysicalDevice* physicalDevice,
 			VkDevice* logicalDevice,
 			VkQueue* graphicsQueue,
-			VkQueue* presentQueue
+			VkQueue* presentQueue,
+			VkQueue* computeQueue
 		);
 		static const bool findQueueFamilyIndices(
 			VkPhysicalDevice device,
 			int* graphicsFamily,
 			int* presentFamily,
+			int* computeFamily,
 			VkSurfaceKHR* surface
 		);
 		static vector<const char*> getRequiredExtensions();

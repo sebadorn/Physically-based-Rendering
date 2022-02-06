@@ -8,7 +8,7 @@
 
 #include "../Cfg.h"
 #include "../Logger.h"
-#include "../VulkanHandler.h"
+#include "../PathTracer.h"
 
 using std::vector;
 
