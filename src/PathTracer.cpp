@@ -541,11 +541,12 @@ bool PathTracer::drawFrame() {
 	}
 
 	this->recordCommand();
-	mImGuiHandler->draw();
 
-	// if( mHasModel ) {
-	// 	mModelRenderer->draw( mFrameIndex );
-	// }
+	if( mHasModel ) {
+		mModelRenderer->draw( mFrameIndex );
+	}
+
+	mImGuiHandler->draw();
 
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -838,6 +839,12 @@ vector<char> PathTracer::loadFileSPV( const string& filename ) {
 	}
 
 	size_t filesize = (size_t) file.tellg();
+
+	if( filesize == 0 ) {
+		Logger::logErrorf( "[PathTracer] File exists but is empty: %s", filename );
+		throw std::runtime_error( "File unusable." );
+	}
+
 	vector<char> buffer( filesize );
 
 	file.seekg( 0 );
