@@ -18,6 +18,9 @@ class ComputeHandler {
 		void setup( PathTracer* pt );
 		void teardown();
 
+		VkSemaphore mSemaphoreComputeDone = VK_NULL_HANDLE;
+		VkSemaphore mSemaphoreTransferDone = VK_NULL_HANDLE;
+
 
 	protected:
 		vector<VkCommandBuffer> allocateCommandBuffers(
@@ -40,7 +43,13 @@ class ComputeHandler {
 		void endCommandBuffer( VkCommandBuffer cmdBuffer );
 		void initCommandBuffers();
 		void initCommandBuffersTransfer();
-		void recordCommandBuffer( VkCommandBuffer cmdBuffer, VkImage image, uint32_t width, uint32_t height );
+		void recordCommandBuffer(
+			VkCommandBuffer cmdBuffer,
+			VkDescriptorSet descSet,
+			VkImage image,
+			uint32_t width,
+			uint32_t height
+		);
 		void updateDescriptorSet( VkImageView imageView, VkDescriptorSet descSet );
 
 
@@ -55,7 +64,6 @@ class ComputeHandler {
 		VkDescriptorPool mDescPool = VK_NULL_HANDLE;
 		VkPipeline mPipe = VK_NULL_HANDLE;
 		VkPipelineLayout mPipeLayout = VK_NULL_HANDLE;
-		VkSemaphore mSemaphore = VK_NULL_HANDLE;
 
 };
 

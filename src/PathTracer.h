@@ -78,6 +78,8 @@ class PathTracer {
 		VkQueue mGraphicsQueue;
 		VkQueue mPresentQueue;
 		VkRenderPass mRenderPass = VK_NULL_HANDLE;
+		VkSemaphore mImageAvailableSemaphore = VK_NULL_HANDLE;
+		VkSemaphore mRenderFinishedSemaphore = VK_NULL_HANDLE;
 		VkSurfaceKHR mSurface = VK_NULL_HANDLE;
 		vector<VkFramebuffer> mFramebuffers;
 		vector<VkImage> mSwapchainImages;
@@ -126,14 +128,16 @@ class PathTracer {
 		void createVertexBuffer();
 		void destroyDebugCallback();
 		void destroyImageViews();
-		bool drawFrame();
+		bool drawFrameEmpty();
+		bool drawFrameModel();
 		void recordCommand();
 		void recreateSwapchain();
 		void retrieveSwapchainImageHandles();
 		void setupSwapchain();
 		void updateFPS( double* lastTime, uint64_t* numFrames );
 		void updateUniformBuffer();
-		void waitForFences();
+		void waitForFencesEmpty();
+		void waitForFencesModel();
 		void writeUniformToDescriptorSet();
 
 		static void onWindowResize( GLFWwindow* window, int width, int height );
@@ -159,8 +163,6 @@ class PathTracer {
 		VkInstance mInstance = VK_NULL_HANDLE;
 		VkPipeline mGraphicsPipeline = VK_NULL_HANDLE;
 		VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
-		VkSemaphore mImageAvailableSemaphore = VK_NULL_HANDLE;
-		VkSemaphore mRenderFinishedSemaphore = VK_NULL_HANDLE;
 		VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
 
 

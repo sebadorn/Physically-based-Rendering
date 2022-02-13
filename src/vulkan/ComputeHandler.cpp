@@ -24,6 +24,8 @@ vector<VkCommandBuffer> ComputeHandler::allocateCommandBuffers(
 		"ComputeHandler"
 	);
 
+	Logger::logInfof( "[ComputeHandler] Allocated %d command buffers.", numCmdBuffers );
+
 	return cmdBuffers;
 }
 
@@ -51,6 +53,8 @@ vector<VkDescriptorSet> ComputeHandler::allocateDescriptorSets(
 		"Failed to allocate compute descriptor sets.",
 		"ComputeHandler"
 	);
+
+	Logger::logInfof( "[ComputeHandler] Allocated %d DescriptorSets.", descSets.size() );
 
 	return descSets;
 }
@@ -90,6 +94,8 @@ VkCommandPool ComputeHandler::createCommandPool() {
 		"ComputeHandler"
 	);
 
+	Logger::logInfo( "[ComputeHandler] Created CommandPool." );
+
 	return cmdPool;
 }
 
@@ -116,6 +122,8 @@ VkDescriptorPool ComputeHandler::createDescriptorPool( uint32_t numImages ) {
 		"Failed to create descriptor pool.",
 		"ComputeHandler"
 	);
+
+	Logger::logInfo( "[ComputeHandler] Created DescriptorPool." );
 
 	return pool;
 }
@@ -145,6 +153,8 @@ VkDescriptorSetLayout ComputeHandler::createDescriptorSetLayout() {
 		"Failed to create descriptor set layout.",
 		"ComputeHandler"
 	);
+
+	Logger::logInfo( "[ComputeHandler] Created DescriptorSetLayout." );
 
 	return layout;
 }
@@ -181,6 +191,8 @@ VkPipeline ComputeHandler::createPipeline( VkPipelineLayout layout, VkShaderModu
 		"ComputeHandler"
 	);
 
+	Logger::logInfo( "[ComputeHandler] Created Pipeline." );
+
 	return pipe;
 }
 
@@ -205,6 +217,8 @@ VkPipelineLayout ComputeHandler::createPipelineLayout( VkDescriptorSetLayout des
 		"ComputeHandler"
 	);
 
+	Logger::logInfo( "[ComputeHandler] Created PipelineLayout." );
+
 	return layout;
 }
 
@@ -225,6 +239,8 @@ VkSemaphore ComputeHandler::createSemaphore() {
 		"ComputeHandler"
 	);
 
+	Logger::logInfo( "[ComputeHandler] Created Semaphore." );
+
 	return semaphore;
 }
 
@@ -242,7 +258,49 @@ VkShaderModule ComputeHandler::createShader() {
 
 
 void ComputeHandler::draw( uint32_t frameIndex ) {
-	// TODO: submit to queue
+	{
+		VkCommandBuffer cmdBuffer = mCmdBuffers[frameIndex];
+		VkPipelineStageFlags flags = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+		VkSubmitInfo info {};
+		info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		info.pNext = nullptr;
+		info.waitSemaphoreCount = 1;
+		info.pWaitSemaphores = &( mPathTracer->mImageAvailableSemaphore );
+		info.pWaitDstStageMask = &flags;
+		info.pCommandBuffers = &cmdBuffer;
+		info.signalSemaphoreCount = 1;
+		info.pSignalSemaphores = &mSemaphoreComputeDone;
+
+		VkResult result = vkQueueSubmit( mPathTracer->mComputeQueue, 1, &info, VK_NULL_HANDLE );
+		VulkanSetup::checkVkResult(
+			result,
+			"Failed to submit command buffer to queue.",
+			"ComputeHandler"
+		);
+	}
+
+	{
+		VkCommandBuffer cmdBufferTransfer = mCmdBuffersTransfer[frameIndex];
+		VkPipelineStageFlags flags = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+
+		VkSubmitInfo info {};
+		info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		info.pNext = nullptr;
+		info.waitSemaphoreCount = 1;
+		info.pWaitSemaphores = &mSemaphoreComputeDone;
+		info.pWaitDstStageMask = &flags;
+		info.pCommandBuffers = &cmdBufferTransfer;
+		info.signalSemaphoreCount = 1;
+		info.pSignalSemaphores = &mSemaphoreTransferDone;
+
+		VkResult result = vkQueueSubmit( mPathTracer->mPresentQueue, 1, &info, VK_NULL_HANDLE );
+		VulkanSetup::checkVkResult(
+			result,
+			"Failed to submit transfer command buffer to queue.",
+			"ComputeHandler"
+		);
+	}
 }
 
 
@@ -270,8 +328,10 @@ void ComputeHandler::initCommandBuffers() {
 		VkCommandBuffer cmdBuffer = mCmdBuffers[i];
 
 		this->updateDescriptorSet( imageView, descSet );
-		this->recordCommandBuffer( cmdBuffer, image, width, height );
+		this->recordCommandBuffer( cmdBuffer, descSet, image, width, height );
 	}
+
+	Logger::logInfo( "[ComputeHandler] Initialized command buffers." );
 }
 
 
@@ -314,11 +374,14 @@ void ComputeHandler::initCommandBuffersTransfer() {
 
 		this->endCommandBuffer( cmdBuffer );
 	}
+
+	Logger::logInfo( "[ComputeHandler] Initialized command buffers for transfer." );
 }
 
 
 void ComputeHandler::recordCommandBuffer(
 	VkCommandBuffer cmdBuffer,
+	VkDescriptorSet descSet,
 	VkImage image,
 	uint32_t width,
 	uint32_t height
@@ -335,41 +398,41 @@ void ComputeHandler::recordCommandBuffer(
 		cmdBuffer,
 		VK_PIPELINE_BIND_POINT_COMPUTE,
 		mPipeLayout,
-		0,
-		static_cast<uint32_t>( mDescSets.size() ),
-		mDescSets.data(),
-		0,
-		nullptr
+		0,        // firstSet
+		1,        // descriptorSetCount
+		&descSet, // pDescriptorSets
+		0,        // dynamicOffsetCount
+		nullptr   // pDynamicOffsets
 	);
 
-	// {
-	// 	VkImageSubresourceRange range {};
-	// 	range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	// 	range.baseMipLevel = 0;
-	// 	range.levelCount = VK_REMAINING_MIP_LEVELS;
-	// 	range.baseArrayLayer = 0;
-	// 	range.layerCount = VK_REMAINING_ARRAY_LAYERS;
+	{
+		VkImageSubresourceRange range {};
+		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		range.baseMipLevel = 0;
+		range.levelCount = VK_REMAINING_MIP_LEVELS;
+		range.baseArrayLayer = 0;
+		range.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
-	// 	VkImageMemoryBarrier barrier {};
-	// 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	// 	barrier.pNext = nullptr;
-	// 	barrier.srcAccessMask = 0;
-	// 	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-	// 	barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	// 	barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-	// 	barrier.srcQueueFamilyIndex = graphicsQueueIndex;
-	// 	barrier.dstQueueFamilyIndex = computeQueueIndex;
-	// 	barrier.image = image;
-	// 	barrier.subresourceRange = range;
+		VkImageMemoryBarrier barrier {};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.pNext = nullptr;
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+		barrier.srcQueueFamilyIndex = graphicsQueueIndex;
+		barrier.dstQueueFamilyIndex = computeQueueIndex;
+		barrier.image = image;
+		barrier.subresourceRange = range;
 
-	// 	vkCmdPipelineBarrier(
-	// 		cmdBuffer,
-	// 		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-	// 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-	// 		0, 0, nullptr, 0, nullptr, 1,
-	// 		&imageBarrier
-	// 	);
-	// }
+		vkCmdPipelineBarrier(
+			cmdBuffer,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0, 0, nullptr, 0, nullptr, 1,
+			&barrier
+		);
+	}
 
 	vkCmdDispatch( cmdBuffer, width, height, 1 );
 
@@ -389,7 +452,7 @@ void ComputeHandler::recordCommandBuffer(
 		barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
 		barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		barrier.srcQueueFamilyIndex = computeQueueIndex;
-		barrier.dstQueueFamilyIndex = graphicsQueueIndex;
+		barrier.dstQueueFamilyIndex = presentQueueIndex;
 		barrier.image = image;
 		barrier.subresourceRange = range;
 
@@ -420,7 +483,8 @@ void ComputeHandler::setup( PathTracer* pt ) {
 	mPipeLayout = this->createPipelineLayout( mDescSetLayout );
 	mPipe = this->createPipeline( mPipeLayout, shaderModule );
 
-	mSemaphore = this->createSemaphore();
+	mSemaphoreComputeDone = this->createSemaphore();
+	mSemaphoreTransferDone = this->createSemaphore();
 
 	mCmdPool = this->createCommandPool();
 	mCmdBuffers = this->allocateCommandBuffers( numImages, mCmdPool );
@@ -440,10 +504,16 @@ void ComputeHandler::teardown() {
 
 	VkDevice device = mPathTracer->mLogicalDevice;
 
-	if( mSemaphore != VK_NULL_HANDLE ) {
-		vkDestroySemaphore( device, mSemaphore, nullptr );
-		mSemaphore = VK_NULL_HANDLE;
-		Logger::logDebugVerbose( "[ComputeHandler] VkSemaphore destroyed." );
+	if( mSemaphoreComputeDone != VK_NULL_HANDLE ) {
+		vkDestroySemaphore( device, mSemaphoreComputeDone, nullptr );
+		mSemaphoreComputeDone = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[ComputeHandler] VkSemaphore for compute destroyed." );
+	}
+
+	if( mSemaphoreTransferDone != VK_NULL_HANDLE ) {
+		vkDestroySemaphore( device, mSemaphoreTransferDone, nullptr );
+		mSemaphoreTransferDone = VK_NULL_HANDLE;
+		Logger::logDebugVerbose( "[ComputeHandler] VkSemaphore for transfer destroyed." );
 	}
 
 	if( mDescSetLayout != VK_NULL_HANDLE ) {
@@ -462,6 +532,11 @@ void ComputeHandler::teardown() {
 		vkDestroyCommandPool( device, mCmdPool, nullptr );
 		mCmdPool = VK_NULL_HANDLE;
 		Logger::logDebug( "[ComputeHandler] VkCommandPool destroyed." );
+	}
+
+	if( mPipe != VK_NULL_HANDLE ) {
+		vkDestroyPipeline( mPathTracer->mLogicalDevice, mPipe, nullptr );
+		Logger::logDebug( "[ComputeHandler] VkPipeline destroyed." );
 	}
 
 	if( mPipeLayout != VK_NULL_HANDLE ) {

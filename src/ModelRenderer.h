@@ -68,51 +68,16 @@ class ModelRenderer {
 		void setup( PathTracer* pt, ObjParser* op );
 		void teardown();
 
-		vector<VkCommandBuffer> mCommandBuffers;
 		ComputeHandler* mCompute;
 
 
 	protected:
-		void createCommandBuffers();
-		void createCommandPool();
-		void createDescriptorPool();
-		void createDescriptorSets();
-		void createFences();
-		void createGraphicsPipeline( VkShaderModule* vertModule, VkShaderModule* fragModule );
-		void createIndexBuffer();
-		void createRenderPass();
-		void createShaders( VkShaderModule* vertModule, VkShaderModule* fragModule );
-		void createUniformBuffers();
-		void createVertexBuffer();
 		void updateUniformBuffers( uint32_t frameIndex );
 
 
 	private:
 		ObjParser* mObjParser;
 		PathTracer* mPathTracer;
-
-		vector<VkBuffer> mUniformBuffers;
-		vector<VkDeviceMemory> mUniformBuffersMemory;
-
-		VkBuffer mIndexBuffer;
-		VkDeviceMemory mIndexBufferMemory;
-
-		VkBuffer mVertexBuffer;
-		VkDeviceMemory mVertexBufferMemory;
-
-		VkImage mDepthImage;
-		VkDeviceMemory mDepthImageMemory;
-		VkImageView mDepthImageView;
-
-		VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
-		vector<VkDescriptorSet> mDescriptorSets;
-		VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
-
-		VkCommandPool mCommandPool = VK_NULL_HANDLE;
-		VkPipeline mGraphicsPipeline = VK_NULL_HANDLE;
-		VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
-		VkRenderPass mRenderPass = VK_NULL_HANDLE;
-		VkSemaphore mSemaphore = VK_NULL_HANDLE;
 
 
 };
