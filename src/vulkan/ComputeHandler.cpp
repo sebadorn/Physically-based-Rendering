@@ -396,12 +396,11 @@ void ComputeHandler::endCommandBuffer( VkCommandBuffer cmdBuffer ) {
 
 void ComputeHandler::initCommandBuffers( uint32_t index ) {
 	VkImage image = mPathTracer->mSwapchainImages[index];
-	VkImageView imageView = mPathTracer->mSwapchainImageViews[index];
 
 	VkDescriptorSet descSet = mDescSets[index];
 	VkCommandBuffer cmdBuffer = mCmdBuffers[index];
 
-	this->updateDescriptorSet( imageView, descSet );
+	this->updateDescriptorSet( mStorageImageView, descSet );
 	this->recordCommandBuffer(
 		cmdBuffer, descSet, image,
 		mPathTracer->mSwapchainExtent.width,
@@ -464,7 +463,7 @@ void ComputeHandler::recordCommandBuffer(
 
 	vkCmdBindPipeline( cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, mPipe );
 
-	vkCmdDispatch( cmdBuffer, width / 32 + 1, height / 32 + 1, 1 );
+	vkCmdDispatch( cmdBuffer, width, height, 1 );
 
 	{
 		VkImageSubresourceRange range1 {};
