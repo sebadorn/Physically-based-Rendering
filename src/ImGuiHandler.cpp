@@ -165,14 +165,10 @@ void ImGuiHandler::buildUIStructure() {
 void ImGuiHandler::createCommandBuffers() {
 	VkResult result;
 
-	VkCommandPoolCreateInfo poolInfo = {};
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	poolInfo.queueFamilyIndex = mPathTracer->mFamilyIndexGraphics;
-
-	result = vkCreateCommandPool( mPathTracer->mLogicalDevice, &poolInfo, nullptr, &mCommandPool );
-	VulkanSetup::checkVkResult(
-		result, "Failed to create VkCommandPool.", "ImGuiHandler"
+	mCommandPool = VulkanSetup::createCommandPool(
+		mPathTracer->mLogicalDevice,
+		VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+		mPathTracer->mFamilyIndexGraphics
 	);
 
 	int numBuffers = mPathTracer->mSwapchainImages.size();
@@ -257,13 +253,7 @@ void ImGuiHandler::createFences() {
 		);
 	}
 
-	VkSemaphoreCreateInfo semInfo = {};
-	semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-	result = vkCreateSemaphore( mPathTracer->mLogicalDevice, &semInfo, nullptr, &mSemaphore );
-	VulkanSetup::checkVkResult(
-		result, "Failed to create semaphore.", "ImGuiHandler"
-	);
+	mSemaphore = VulkanSetup::createSemaphore( mPathTracer->mLogicalDevice );
 }
 
 
@@ -444,7 +434,7 @@ void ImGuiHandler::createRenderPass() {
 		mPathTracer->mLogicalDevice, &renderPassInfo, nullptr, &mRenderPass
 	);
 	VulkanSetup::checkVkResult( result, "Failed to create VkRenderPass.", "ImGuiHandler" );
-	Logger::logInfo( "[ImGuiHandler] Created VkRenderPass." );
+	Logger::logDebug( "[ImGuiHandler] Created VkRenderPass." );
 }
 
 
@@ -674,6 +664,7 @@ void ImGuiHandler::setClipboardText( const char* text ) {
  * @param {PathTracer*} pt
  */
 void ImGuiHandler::setup( PathTracer* pt ) {
+	Logger::logInfof( "[ImGuiHandler] Setup. Using dear imgui version: %s", IMGUI_VERSION );
 	mPathTracer = pt;
 
 	VkShaderModule vertModule;

@@ -145,23 +145,6 @@ void PathTracer::createCommandBuffers() {
 
 
 /**
- * Create the command pool for the graphics queue.
- */
-void PathTracer::createCommandPool() {
-	VkCommandPoolCreateInfo poolInfo = {};
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.queueFamilyIndex = mFamilyIndexGraphics;
-	poolInfo.flags = 0;
-
-	VkResult result = vkCreateCommandPool(
-		mLogicalDevice, &poolInfo, nullptr, &mCommandPool
-	);
-	VulkanSetup::checkVkResult( result, "Failed to create VkCommandPool.", "PathTracer" );
-	Logger::logInfo( "[PathTracer] Created VkCommandPool." );
-}
-
-
-/**
  * Create a descriptor set.
  * @return {VkDescriptorSet}
  */
@@ -381,25 +364,8 @@ void PathTracer::createRenderPass() {
  * Create semaphores for the draw frames function.
  */
 void PathTracer::createSemaphores() {
-	VkResult result;
-	VkSemaphoreCreateInfo semaphoreInfo = {};
-	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-	result = vkCreateSemaphore(
-		mLogicalDevice, &semaphoreInfo, nullptr, &mImageAvailableSemaphore
-	);
-	VulkanSetup::checkVkResult(
-		result, "Failed to create VkSemaphore (image available).", "PathTracer"
-	);
-	Logger::logDebugVerbose( "[PathTracer] Created VkSemaphore (image available)." );
-
-	result = vkCreateSemaphore(
-		mLogicalDevice, &semaphoreInfo, nullptr, &mRenderFinishedSemaphore
-	);
-	VulkanSetup::checkVkResult(
-		result, "Failed to create VkSemaphore (render finished).", "PathTracer"
-	);
-	Logger::logDebugVerbose( "[PathTracer] Created VkSemaphore (render finished)." );
+	mImageAvailableSemaphore = VulkanSetup::createSemaphore( mLogicalDevice );
+	mRenderFinishedSemaphore = VulkanSetup::createSemaphore( mLogicalDevice );
 }
 
 
@@ -1066,7 +1032,7 @@ void PathTracer::setup( ActionHandler* actionHandler ) {
 	mDescriptorSetLayout = VulkanSetup::createDescriptorSetLayout( &mLogicalDevice );
 	this->createGraphicsPipeline();
 	this->createFramebuffers();
-	this->createCommandPool();
+	mCommandPool = VulkanSetup::createCommandPool( mLogicalDevice, 0, mFamilyIndexGraphics );
 	this->createVertexBuffer();
 	this->createUniformBuffer();
 	mDescriptorPool = VulkanSetup::createDescriptorPool( &mLogicalDevice );

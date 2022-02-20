@@ -9,6 +9,7 @@
 
 #include "../Cfg.h"
 #include "../Logger.h"
+#include "BuilderVk.h"
 #include "../PathTracer.h"
 
 using std::vector;
@@ -32,15 +33,21 @@ class VulkanSetup {
 			const char* errorMessage,
 			const char* className = "VulkanSetup"
 		);
-		static VkExtent2D chooseSwapExtent( const VkSurfaceCapabilitiesKHR& capabilities );
+		static VkExtent2D chooseSwapExtent( VkSurfaceCapabilitiesKHR const &capabilities );
 		static VkPresentModeKHR chooseSwapPresentMode(
 			const vector<VkPresentModeKHR>& availablePresentModes
 		);
 		static VkSurfaceFormatKHR chooseSwapSurfaceFormat(
 			const vector<VkSurfaceFormatKHR>& availableFormats
 		);
+		static VkCommandPool createCommandPool(
+			VkDevice const &device,
+			VkCommandPoolCreateFlags const flags,
+			uint32_t const queueFamilyIndex
+		);
 		static VkDescriptorPool createDescriptorPool( VkDevice* logicalDevice );
 		static VkDescriptorSetLayout createDescriptorSetLayout( VkDevice* logicalDevice );
+		static VkFence createFence( VkDevice const &device, VkFenceCreateFlags const &flags );
 		static VkPipeline createGraphicsPipeline(
 			VkDevice *logicalDevice,
 			VkPipelineLayout* pipelineLayout,
@@ -52,6 +59,7 @@ class VulkanSetup {
 			VkDevice* logicalDevice,
 			VkDescriptorSetLayout* descriptorSetLayout
 		);
+		static VkSemaphore createSemaphore( VkDevice const &device );
 		static VkShaderModule createShaderModule(
 			VkDevice* logicalDevice,
 			const vector<char>& code

@@ -116,7 +116,6 @@ class PathTracer {
 			VkDeviceMemory& bufferMemory
 		);
 		void createCommandBuffers();
-		void createCommandPool();
 		VkDescriptorSet createDescriptorSet();
 		void createFences();
 		void createFramebuffers();

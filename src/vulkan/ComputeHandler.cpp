@@ -4,8 +4,8 @@ using std::vector;
 
 
 vector<VkCommandBuffer> ComputeHandler::allocateCommandBuffers(
-	uint32_t numCmdBuffers,
-	VkCommandPool cmdPool
+	uint32_t const numCmdBuffers,
+	VkCommandPool const &cmdPool
 ) {
 	VkCommandBufferAllocateInfo info {};
 	info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -31,9 +31,9 @@ vector<VkCommandBuffer> ComputeHandler::allocateCommandBuffers(
 
 
 vector<VkDescriptorSet> ComputeHandler::allocateDescriptorSets(
-	uint32_t numImages,
-	VkDescriptorSetLayout layout,
-	VkDescriptorPool pool
+	uint32_t const numImages,
+	VkDescriptorSetLayout const &layout,
+	VkDescriptorPool const &pool
 ) {
 	vector<VkDescriptorSetLayout> layouts( numImages, layout );
 
@@ -41,7 +41,7 @@ vector<VkDescriptorSet> ComputeHandler::allocateDescriptorSets(
 	info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	info.pNext = nullptr;
 	info.descriptorPool = pool;
-	info.descriptorSetCount = static_cast<uint32_t>( layouts.size() );
+	info.descriptorSetCount = layouts.size();
 	info.pSetLayouts = layouts.data();
 
 	VkDevice device = mPathTracer->mLogicalDevice;
@@ -60,7 +60,7 @@ vector<VkDescriptorSet> ComputeHandler::allocateDescriptorSets(
 }
 
 
-VkDeviceMemory ComputeHandler::allocateStorageImageMemory( VkImage image ) {
+VkDeviceMemory ComputeHandler::allocateStorageImageMemory( VkImage const &image ) {
 	VkPhysicalDeviceMemoryProperties memProps;
 	vkGetPhysicalDeviceMemoryProperties( mPathTracer->mPhysicalDevice, &memProps );
 
@@ -98,7 +98,7 @@ VkDeviceMemory ComputeHandler::allocateStorageImageMemory( VkImage image ) {
 }
 
 
-void ComputeHandler::beginCommandBuffer( VkCommandBuffer cmdBuffer ) {
+void ComputeHandler::beginCommandBuffer( VkCommandBuffer const &cmdBuffer ) {
 	VkCommandBufferBeginInfo info {};
 	info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	info.pNext = nullptr;
@@ -115,30 +115,7 @@ void ComputeHandler::beginCommandBuffer( VkCommandBuffer cmdBuffer ) {
 }
 
 
-VkCommandPool ComputeHandler::createCommandPool() {
-	VkCommandPoolCreateInfo info {};
-	info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	info.pNext = nullptr;
-	info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	info.queueFamilyIndex = static_cast<uint32_t>( mPathTracer->mFamilyIndexCompute );
-
-	VkDevice device = mPathTracer->mLogicalDevice;
-	VkCommandPool cmdPool;
-	VkResult result = vkCreateCommandPool( device, &info, nullptr, &cmdPool );
-
-	VulkanSetup::checkVkResult(
-		result,
-		"Failed to create compute command pool.",
-		"ComputeHandler"
-	);
-
-	Logger::logInfo( "[ComputeHandler] Created CommandPool." );
-
-	return cmdPool;
-}
-
-
-VkDescriptorPool ComputeHandler::createDescriptorPool( uint32_t numImages ) {
+VkDescriptorPool ComputeHandler::createDescriptorPool( uint32_t const numImages ) {
 	VkDescriptorPoolSize poolSize {};
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	poolSize.descriptorCount = numImages;
@@ -198,27 +175,14 @@ VkDescriptorSetLayout ComputeHandler::createDescriptorSetLayout() {
 }
 
 
-VkPipeline ComputeHandler::createPipeline( VkPipelineLayout layout, VkShaderModule shaderModule ) {
-	// Some attributes are read-only.
-	const VkPipelineShaderStageCreateInfo stageInfo {
-		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, // sType
-		nullptr,      // pNext
-		0,            // flags
-		VK_SHADER_STAGE_COMPUTE_BIT, // stage
-		shaderModule, // module
-		u8"main",     // pName
-		nullptr       // pSpecializationInfo
-	};
-
-	VkComputePipelineCreateInfo info {};
-	info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-	info.pNext = nullptr;
-	info.flags = 0;
-	info.stage = stageInfo;
-	info.layout = layout;
-	info.basePipelineHandle = VK_NULL_HANDLE;
-	info.basePipelineIndex = -1;
-
+VkPipeline ComputeHandler::createPipeline(
+	VkPipelineLayout const &layout,
+	VkShaderModule const &shaderModule
+) {
+	VkPipelineShaderStageCreateInfo stageInfo = BuilderVk::pipelineShaderStageCreateInfo(
+		VK_SHADER_STAGE_COMPUTE_BIT, shaderModule, u8"main"
+	);
+	VkComputePipelineCreateInfo info = BuilderVk::computePipelineCreateInfo( stageInfo, layout );
 	VkDevice device = mPathTracer->mLogicalDevice;
 	VkPipeline pipe;
 	VkResult result = vkCreateComputePipelines( device, VK_NULL_HANDLE, 1, &info, nullptr, &pipe );
@@ -235,15 +199,9 @@ VkPipeline ComputeHandler::createPipeline( VkPipelineLayout layout, VkShaderModu
 }
 
 
-VkPipelineLayout ComputeHandler::createPipelineLayout( VkDescriptorSetLayout descSetLayout ) {
-	VkPipelineLayoutCreateInfo info {};
-	info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	info.pNext = nullptr;
-	info.flags = 0;
-	info.setLayoutCount = 1;
-	info.pSetLayouts = &descSetLayout;
-	info.pushConstantRangeCount = 0;
-	info.pPushConstantRanges = nullptr;
+VkPipelineLayout ComputeHandler::createPipelineLayout( VkDescriptorSetLayout const &descSetLayout ) {
+	vector<VkDescriptorSetLayout> descSetLayouts = { descSetLayout };
+	VkPipelineLayoutCreateInfo info = BuilderVk::pipelineLayoutCreateInfo( descSetLayouts );
 
 	VkDevice device = mPathTracer->mLogicalDevice;
 	VkPipelineLayout layout;
@@ -261,28 +219,6 @@ VkPipelineLayout ComputeHandler::createPipelineLayout( VkDescriptorSetLayout des
 }
 
 
-VkSemaphore ComputeHandler::createSemaphore() {
-	VkSemaphoreCreateInfo info {};
-	info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	info.pNext = nullptr;
-	info.flags = 0;
-
-	VkDevice device = mPathTracer->mLogicalDevice;
-	VkSemaphore semaphore;
-	VkResult result = vkCreateSemaphore( device, &info, nullptr, &semaphore );
-
-	VulkanSetup::checkVkResult(
-		result,
-		"Failed to create semaphore.",
-		"ComputeHandler"
-	);
-
-	Logger::logInfo( "[ComputeHandler] Created Semaphore." );
-
-	return semaphore;
-}
-
-
 VkShaderModule ComputeHandler::createShader() {
 	auto shaderCode = PathTracer::loadFileSPV( "src/shaders/compute.spv" );
 	Logger::logDebug( "[ComputeHandler] Loaded shader file." );
@@ -295,57 +231,27 @@ VkShaderModule ComputeHandler::createShader() {
 }
 
 
-VkImage ComputeHandler::createStorageImage( uint32_t width, uint32_t height ) {
+VkImage ComputeHandler::createStorageImage( uint32_t const width, uint32_t const height ) {
+	VkImageCreateInfo createInfo = BuilderVk::imageCreateInfo2D(
+		mPathTracer->mSwapchainFormat,
+		width, height,
+		VK_SAMPLE_COUNT_1_BIT,
+		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED
+	);
+
 	VkImage image;
-	VkResult result;
-
-	VkImageCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	createInfo.pNext = nullptr;
-	createInfo.flags = 0;
-	createInfo.imageType = VK_IMAGE_TYPE_2D;
-	createInfo.format = mPathTracer->mSwapchainFormat;
-	createInfo.extent = { width, height, 1 };
-	createInfo.mipLevels = 1;
-	createInfo.arrayLayers = 1;
-	createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	createInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	createInfo.queueFamilyIndexCount = 0;
-	createInfo.pQueueFamilyIndices = nullptr;
-	createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-	result = vkCreateImage( mPathTracer->mLogicalDevice, &createInfo, nullptr, &image );
+	VkResult result = vkCreateImage( mPathTracer->mLogicalDevice, &createInfo, nullptr, &image );
 	VulkanSetup::checkVkResult( result, "Failed to create image.", "ComputeHandler" );
 
 	return image;
 }
 
 
-VkImageView ComputeHandler::createStorageImageView( VkImage image ) {
-	VkComponentMapping components = {};
-	components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-	components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-	components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-	components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
-	VkImageSubresourceRange range = {};
-	range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	range.baseMipLevel = 0;
-	range.levelCount = VK_REMAINING_MIP_LEVELS;
-	range.baseArrayLayer = 0;
-	range.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-	VkImageViewCreateInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	info.pNext = nullptr;
-	info.flags = 0;
-	info.image = image;
-	info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	info.format = mPathTracer->mSwapchainFormat;
-	info.components = components;
-	info.subresourceRange = range;
+VkImageView ComputeHandler::createStorageImageView( VkImage const &image ) {
+	VkImageViewCreateInfo info = BuilderVk::imageViewCreateInfo2D(
+		image, mPathTracer->mSwapchainFormat
+	);
 
 	VkImageView imageView;
 	VkResult result = vkCreateImageView( mPathTracer->mLogicalDevice, &info, nullptr, &imageView );
@@ -355,24 +261,21 @@ VkImageView ComputeHandler::createStorageImageView( VkImage image ) {
 }
 
 
-void ComputeHandler::draw( uint32_t frameIndex ) {
-	this->initCommandBuffers( frameIndex );
-
+void ComputeHandler::draw( uint32_t const frameIndex ) {
 	VkCommandBuffer cmdBuffer = mCmdBuffers[frameIndex];
+	VkDescriptorSet descSet = mDescSets[frameIndex];
+	VkImage image = mPathTracer->mSwapchainImages[frameIndex];
+
+	this->updateDescriptorSet( mStorageImageView, descSet );
+	this->recordCommandBuffer( cmdBuffer, descSet, image );
+
 	VkPipelineStageFlags flags = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-
-	VkSubmitInfo info {};
-	info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	info.pNext = nullptr;
-	info.waitSemaphoreCount = 1;
-	info.pWaitSemaphores = &( mPathTracer->mImageAvailableSemaphore );
-	info.pWaitDstStageMask = &flags;
-	info.commandBufferCount = 1;
-	info.pCommandBuffers = &cmdBuffer;
-	info.signalSemaphoreCount = 1;
-	info.pSignalSemaphores = &mSemaphoreComputeDone;
-
-	vkResetFences( mPathTracer->mLogicalDevice, 1, &mDrawingFence );
+	VkSubmitInfo info = BuilderVk::submitInfo(
+		mPathTracer->mImageAvailableSemaphore,
+		flags,
+		cmdBuffer,
+		mSemaphoreComputeDone
+	);
 
 	VkResult result = vkQueueSubmit( mPathTracer->mComputeQueue, 1, &info, mDrawingFence );
 	VulkanSetup::checkVkResult(
@@ -383,7 +286,7 @@ void ComputeHandler::draw( uint32_t frameIndex ) {
 }
 
 
-void ComputeHandler::endCommandBuffer( VkCommandBuffer cmdBuffer ) {
+void ComputeHandler::endCommandBuffer( VkCommandBuffer const &cmdBuffer ) {
 	VkResult result = vkEndCommandBuffer( cmdBuffer );
 
 	VulkanSetup::checkVkResult(
@@ -394,27 +297,10 @@ void ComputeHandler::endCommandBuffer( VkCommandBuffer cmdBuffer ) {
 }
 
 
-void ComputeHandler::initCommandBuffers( uint32_t index ) {
-	VkImage image = mPathTracer->mSwapchainImages[index];
-
-	VkDescriptorSet descSet = mDescSets[index];
-	VkCommandBuffer cmdBuffer = mCmdBuffers[index];
-
-	this->updateDescriptorSet( mStorageImageView, descSet );
-	this->recordCommandBuffer(
-		cmdBuffer, descSet, image,
-		mPathTracer->mSwapchainExtent.width,
-		mPathTracer->mSwapchainExtent.height
-	);
-}
-
-
 void ComputeHandler::recordCommandBuffer(
-	VkCommandBuffer cmdBuffer,
-	VkDescriptorSet descSet,
-	VkImage image,
-	uint32_t width,
-	uint32_t height
+	VkCommandBuffer const &cmdBuffer,
+	VkDescriptorSet const &descSet,
+	VkImage const &image
 ) {
 	this->beginCommandBuffer( cmdBuffer );
 
@@ -422,24 +308,13 @@ void ComputeHandler::recordCommandBuffer(
 	uint32_t presentQueueIndex = static_cast<uint32_t>( mPathTracer->mFamilyIndexPresentation );
 
 	{
-		VkImageSubresourceRange range {};
-		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		range.baseMipLevel = 0;
-		range.levelCount = VK_REMAINING_MIP_LEVELS;
-		range.baseArrayLayer = 0;
-		range.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-		VkImageMemoryBarrier barrier {};
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.pNext = nullptr;
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.image = mStorageImage;
-		barrier.subresourceRange = range;
+		VkImageMemoryBarrier barrier = BuilderVk::imageMemoryBarrier(
+			mStorageImage,
+			// src -> dst
+			0,                         VK_ACCESS_SHADER_WRITE_BIT,
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+			VK_QUEUE_FAMILY_IGNORED,   VK_QUEUE_FAMILY_IGNORED
+		);
 
 		vkCmdPipelineBarrier(
 			cmdBuffer,
@@ -463,50 +338,24 @@ void ComputeHandler::recordCommandBuffer(
 
 	vkCmdBindPipeline( cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, mPipe );
 
-	vkCmdDispatch( cmdBuffer, width, height, 1 );
+	vkCmdDispatch( cmdBuffer, mPathTracer->mSwapchainExtent.width, mPathTracer->mSwapchainExtent.height, 1 );
 
 	{
-		VkImageSubresourceRange range1 {};
-		range1.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		range1.baseMipLevel = 0;
-		range1.levelCount = VK_REMAINING_MIP_LEVELS;
-		range1.baseArrayLayer = 0;
-		range1.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-		VkImageMemoryBarrier barrier1 {};
-		barrier1.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier1.pNext = nullptr;
-		barrier1.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-		barrier1.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		barrier1.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-		barrier1.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-		barrier1.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier1.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier1.image = mStorageImage;
-		barrier1.subresourceRange = range1;
-
-
-		VkImageSubresourceRange range2 {};
-		range2.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		range2.baseMipLevel = 0;
-		range2.levelCount = VK_REMAINING_MIP_LEVELS;
-		range2.baseArrayLayer = 0;
-		range2.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-		VkImageMemoryBarrier barrier2 {};
-		barrier2.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier2.pNext = nullptr;
-		barrier2.srcAccessMask = 0;
-		barrier2.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier2.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		barrier2.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		barrier2.srcQueueFamilyIndex = presentQueueIndex;
-		barrier2.dstQueueFamilyIndex = computeQueueIndex;
-		barrier2.image = image;
-		barrier2.subresourceRange = range2;
-
-
-		vector<VkImageMemoryBarrier> barriers = { barrier1, barrier2 };
+		VkImageMemoryBarrier barrierStorageImage = BuilderVk::imageMemoryBarrier(
+			mStorageImage,
+			// src -> dst
+			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+			VK_IMAGE_LAYOUT_GENERAL,    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			VK_QUEUE_FAMILY_IGNORED,    VK_QUEUE_FAMILY_IGNORED
+		);
+		VkImageMemoryBarrier barrierSwapchainImage = BuilderVk::imageMemoryBarrier(
+			image,
+			// src -> dst
+			0,                         VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			presentQueueIndex,         computeQueueIndex
+		);
+		vector<VkImageMemoryBarrier> barriers = { barrierStorageImage, barrierSwapchainImage };
 
 		vkCmdPipelineBarrier(
 			cmdBuffer,
@@ -519,12 +368,10 @@ void ComputeHandler::recordCommandBuffer(
 	}
 
 	{
-		VkImageCopy imageCopy = {};
-		imageCopy.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-		imageCopy.srcOffset = { 0, 0, 0 };
-		imageCopy.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-		imageCopy.dstOffset = { 0, 0, 0 };
-		imageCopy.extent = { width, height, 1 };
+		VkImageCopy imageCopy = BuilderVk::imageCopy(
+			mPathTracer->mSwapchainExtent.width,
+			mPathTracer->mSwapchainExtent.height
+		);
 
 		vkCmdCopyImage(
 			cmdBuffer,
@@ -535,24 +382,13 @@ void ComputeHandler::recordCommandBuffer(
 	}
 
 	{
-		VkImageSubresourceRange range {};
-		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		range.baseMipLevel = 0;
-		range.levelCount = VK_REMAINING_MIP_LEVELS;
-		range.baseArrayLayer = 0;
-		range.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-		VkImageMemoryBarrier barrier {};
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.pNext = nullptr;
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		barrier.srcQueueFamilyIndex = computeQueueIndex;
-		barrier.dstQueueFamilyIndex = presentQueueIndex;
-		barrier.image = image;
-		barrier.subresourceRange = range;
+		VkImageMemoryBarrier barrier = BuilderVk::imageMemoryBarrier(
+			image,
+			// src -> dst
+			VK_ACCESS_TRANSFER_WRITE_BIT,         VK_ACCESS_MEMORY_READ_BIT,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			computeQueueIndex,                    presentQueueIndex
+		);
 
 		vkCmdPipelineBarrier(
 			cmdBuffer,
@@ -571,39 +407,38 @@ void ComputeHandler::setup( PathTracer* pt ) {
 	Logger::logDebug( "[ComputeHandler] Setup begin." );
 
 	mPathTracer = pt;
-	const uint32_t numImages = static_cast<uint32_t>( mPathTracer->mSwapchainImages.size() );
+	VkDevice device = mPathTracer->mLogicalDevice;
+	uint32_t const numImages = static_cast<uint32_t>( mPathTracer->mSwapchainImages.size() );
 
-	int w, h;
-	glfwGetFramebufferSize( mPathTracer->mWindow, &w, &h );
-	const uint32_t width = static_cast<uint32_t>( w );
-	const uint32_t height = static_cast<uint32_t>( h );
-
-	mStorageImage = this->createStorageImage( width, height );
+	// Storage image
+	mStorageImage = this->createStorageImage(
+		mPathTracer->mSwapchainExtent.width,
+		mPathTracer->mSwapchainExtent.height
+	);
 	mStorageImageMemory = this->allocateStorageImageMemory( mStorageImage );
 	mStorageImageView = this->createStorageImageView( mStorageImage );
 
+	// Descriptors
 	mDescSetLayout = this->createDescriptorSetLayout();
 	mDescPool = this->createDescriptorPool( numImages );
 	mDescSets = this->allocateDescriptorSets( numImages, mDescSetLayout, mDescPool );
 
+	// Shader and pipeline
 	VkShaderModule shaderModule = this->createShader();
 	mPipeLayout = this->createPipelineLayout( mDescSetLayout );
 	mPipe = this->createPipeline( mPipeLayout, shaderModule );
+	vkDestroyShaderModule( device, shaderModule, nullptr );
 
-	mSemaphoreComputeDone = this->createSemaphore();
+	// Semaphore and fence
+	mSemaphoreComputeDone = VulkanSetup::createSemaphore( device );
+	mDrawingFence = VulkanSetup::createFence( device, VK_FENCE_CREATE_SIGNALED_BIT );
 
-	VkFenceCreateInfo info = {
-		VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-		nullptr,
-		VK_FENCE_CREATE_SIGNALED_BIT
-	};
-	VkResult result = vkCreateFence( mPathTracer->mLogicalDevice, &info, nullptr, &mDrawingFence );
-	VulkanSetup::checkVkResult( result, "Failed to create fence (compute drawing).", "ComputeHandler" );
-
-	mCmdPool = this->createCommandPool();
+	// Commands
+	VkCommandPoolCreateFlags cmdPoolFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	mCmdPool = VulkanSetup::createCommandPool(
+		device, cmdPoolFlags, mPathTracer->mFamilyIndexCompute
+	);
 	mCmdBuffers = this->allocateCommandBuffers( numImages, mCmdPool );
-
-	vkDestroyShaderModule( mPathTracer->mLogicalDevice, shaderModule, nullptr );
 
 	Logger::logDebug( "[ComputeHandler] Setup done." );
 }
@@ -679,7 +514,10 @@ void ComputeHandler::teardown() {
 }
 
 
-void ComputeHandler::updateDescriptorSet( VkImageView imageView, VkDescriptorSet descSet ) {
+void ComputeHandler::updateDescriptorSet(
+	VkImageView const &imageView,
+	VkDescriptorSet const &descSet
+) {
 	VkDescriptorImageInfo imageInfo {};
 	imageInfo.sampler = VK_NULL_HANDLE;
 	imageInfo.imageView = imageView;

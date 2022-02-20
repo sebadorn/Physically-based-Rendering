@@ -14,7 +14,7 @@ bool VulkanSetup::useValidationLayer = true;
  * @param {const char*} className
  */
 void VulkanSetup::checkVkResult(
-	VkResult result, const char* errorMessage, const char* className
+	VkResult result, char const *errorMessage, char const *className
 ) {
 	if( result != VK_SUCCESS ) {
 		Logger::logErrorf( "[%s] %s", className, errorMessage );
@@ -28,7 +28,7 @@ void VulkanSetup::checkVkResult(
  * @param  {const VkSurfaceCapabilities&} capabilities
  * @return {VkExtent2D}
  */
-VkExtent2D VulkanSetup::chooseSwapExtent( const VkSurfaceCapabilitiesKHR& capabilities ) {
+VkExtent2D VulkanSetup::chooseSwapExtent( VkSurfaceCapabilitiesKHR const &capabilities ) {
 	if( capabilities.currentExtent.width != numeric_limits<uint32_t>::max() ) {
 		return capabilities.currentExtent;
 	}
@@ -57,9 +57,9 @@ VkExtent2D VulkanSetup::chooseSwapExtent( const VkSurfaceCapabilitiesKHR& capabi
  * @return {VkPresentModeKHR}
  */
 VkPresentModeKHR VulkanSetup::chooseSwapPresentMode(
-	const vector<VkPresentModeKHR>& availablePresentModes
+	vector<VkPresentModeKHR> const &availablePresentModes
 ) {
-	for( const auto& presentMode : availablePresentModes ) {
+	for( auto const &presentMode : availablePresentModes ) {
 		if( presentMode == VK_PRESENT_MODE_MAILBOX_KHR ) {
 			return presentMode;
 		}
@@ -75,7 +75,7 @@ VkPresentModeKHR VulkanSetup::chooseSwapPresentMode(
  * @return {VkSurfaceFormatKHR}
  */
 VkSurfaceFormatKHR VulkanSetup::chooseSwapSurfaceFormat(
-	const vector<VkSurfaceFormatKHR>& availableFormats
+	vector<VkSurfaceFormatKHR> const &availableFormats
 ) {
 	// Surface has no preferred format.
 	if( availableFormats.size() == 1 && availableFormats[0].format == VK_FORMAT_UNDEFINED ) {
@@ -109,6 +109,28 @@ VkSurfaceFormatKHR VulkanSetup::chooseSwapSurfaceFormat(
 	);
 
 	return availableFormats[0];
+}
+
+
+VkCommandPool VulkanSetup::createCommandPool(
+	VkDevice const &device,
+	VkCommandPoolCreateFlags const flags,
+	uint32_t const queueFamilyIndex
+) {
+	VkCommandPoolCreateInfo info {};
+	info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	info.pNext = nullptr;
+	info.flags = flags;
+	info.queueFamilyIndex = queueFamilyIndex;
+
+	VkCommandPool cmdPool;
+	VkResult result = vkCreateCommandPool( device, &info, nullptr, &cmdPool );
+
+	VulkanSetup::checkVkResult(
+		result, "Failed to create compute command pool.", "VulkanSetup"
+	);
+
+	return cmdPool;
 }
 
 
@@ -175,6 +197,21 @@ VkDescriptorSetLayout VulkanSetup::createDescriptorSetLayout( VkDevice* logicalD
 	VulkanSetup::checkVkResult( result, "Failed to create VkDescriptorSetLayout.", "VulkanSetup" );
 
 	return descriptorSetLayout;
+}
+
+
+VkFence VulkanSetup::createFence( VkDevice const &device, VkFenceCreateFlags const &flags ) {
+	VkFenceCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	info.pNext = nullptr;
+	info.flags = flags;
+
+	VkFence fence;
+	VkResult result = vkCreateFence( device, &info, nullptr, &fence );
+	VulkanSetup::checkVkResult( result, "Failed to create fence.", "VulkanSetup" );
+	vkResetFences( device, 1, &fence );
+
+	return fence;
 }
 
 
@@ -345,6 +382,16 @@ VkPipelineLayout VulkanSetup::createPipelineLayout(
 	Logger::logDebug( "[VulkanSetup] Created VkPipelineLayout." );
 
 	return pipelineLayout;
+}
+
+
+VkSemaphore VulkanSetup::createSemaphore( VkDevice const &device ) {
+	VkSemaphoreCreateInfo info = BuilderVk::semaphoreCreateInfo();
+	VkSemaphore semaphore;
+	VkResult result = vkCreateSemaphore( device, &info, nullptr, &semaphore );
+	VulkanSetup::checkVkResult( result, "Failed to create semaphore.", "VulkanSetup" );
+
+	return semaphore;
 }
 
 
