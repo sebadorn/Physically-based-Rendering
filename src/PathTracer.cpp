@@ -523,25 +523,6 @@ void PathTracer::destroyImageViews() {
  * @return {bool}
  */
 bool PathTracer::drawFrameEmpty() {
-	VkResult result = vkAcquireNextImageKHR(
-		mLogicalDevice,
-		mSwapchain,
-		std::numeric_limits<uint64_t>::max(), // disable timeout
-		mImageAvailableSemaphore,
-		mImageAvailableFence,
-		&mFrameIndex
-	);
-
-	if( result == VK_ERROR_OUT_OF_DATE_KHR ) {
-		this->recreateSwapchain();
-		return true;
-	}
-	else if( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
-		Logger::logError( "[PathTracer] Failed to acquire swapchain image." );
-		throw std::runtime_error( "Failed to acquire swapchain image." );
-	}
-
-
 	this->recordCommand();
 	mImGuiHandler->draw();
 
@@ -571,7 +552,7 @@ bool PathTracer::drawFrameEmpty() {
 	submitInfo.pCommandBuffers = &mCommandBuffersNow[0];
 
 
-	result = vkQueueSubmit( mGraphicsQueue, 1, &submitInfo, mRenderFinishedFence );
+	VkResult result = vkQueueSubmit( mGraphicsQueue, 1, &submitInfo, mRenderFinishedFence );
 	VulkanSetup::checkVkResult( result, "Failed to submit graphics queue.", "PathTracer" );
 
 
@@ -579,7 +560,6 @@ bool PathTracer::drawFrameEmpty() {
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphores;
-
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = &mSwapchain;
 	presentInfo.pImageIndices = &mFrameIndex;
@@ -606,41 +586,20 @@ bool PathTracer::drawFrameEmpty() {
  * @return {bool}
  */
 bool PathTracer::drawFrameModel() {
-	VkResult result = vkAcquireNextImageKHR(
-		mLogicalDevice,
-		mSwapchain,
-		std::numeric_limits<uint64_t>::max(), // disable timeout
-		mImageAvailableSemaphore,
-		mImageAvailableFence,
-		&mFrameIndex
-	);
-
-	if( result == VK_ERROR_OUT_OF_DATE_KHR ) {
-		this->recreateSwapchain();
-		return true;
-	}
-	else if( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
-		Logger::logError( "[PathTracer] Failed to acquire swapchain image." );
-		throw std::runtime_error( "Failed to acquire swapchain image." );
-	}
-
-
 	mModelRenderer->mCompute->draw( mFrameIndex );
 
-
-	VkSemaphore waitFor[] = { mModelRenderer->mCompute->mSemaphoreTransferDone };
+	VkSemaphore waitFor[] = { mModelRenderer->mCompute->mSemaphoreComputeDone };
 
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = waitFor;
-
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = &mSwapchain;
 	presentInfo.pImageIndices = &mFrameIndex;
 	presentInfo.pResults = nullptr;
 
-	result = vkQueuePresentKHR( mPresentQueue, &presentInfo );
+	VkResult result = vkQueuePresentKHR( mPresentQueue, &presentInfo );
 
 	if( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ) {
 		this->recreateSwapchain();
@@ -928,6 +887,24 @@ void PathTracer::mainLoop() {
 		glfwPollEvents();
 		this->updateFPS( &lastTime, &numFrames );
 
+		VkResult result = vkAcquireNextImageKHR(
+			mLogicalDevice,
+			mSwapchain,
+			std::numeric_limits<uint64_t>::max(), // disable timeout
+			mImageAvailableSemaphore,
+			mImageAvailableFence,
+			&mFrameIndex
+		);
+
+		if( result == VK_ERROR_OUT_OF_DATE_KHR ) {
+			this->recreateSwapchain();
+			continue;
+		}
+		else if( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
+			Logger::logError( "[PathTracer] Failed to acquire swapchain image." );
+			throw std::runtime_error( "Failed to acquire swapchain image." );
+		}
+
 		if( mHasModel ) {
 			this->drawFrameModel();
 			this->waitForFencesModel();
@@ -1177,14 +1154,14 @@ void PathTracer::waitForFencesEmpty() {
 	VkResult result = vkWaitForFences(
 		mLogicalDevice,
 		mFences.size(),
-		&mFences[0],
+		mFences.data(),
 		VK_TRUE,
 		std::numeric_limits<uint64_t>::max()
 	);
 
 	VulkanSetup::checkVkResult( result, "Failed to wait for fence(s).", "PathTracer" );
 
-	vkResetFences( mLogicalDevice, mFences.size(), &mFences[0] );
+	vkResetFences( mLogicalDevice, mFences.size(), mFences.data() );
 }
 
 
@@ -1192,7 +1169,7 @@ void PathTracer::waitForFencesEmpty() {
  * Wait for the fences, then reset them.
  */
 void PathTracer::waitForFencesModel() {
-	vector<VkFence> fences = { mImageAvailableFence };
+	vector<VkFence> fences = { mImageAvailableFence, mModelRenderer->mCompute->mDrawingFence };
 
 	VkResult result = vkWaitForFences(
 		mLogicalDevice,
@@ -1204,7 +1181,7 @@ void PathTracer::waitForFencesModel() {
 
 	VulkanSetup::checkVkResult( result, "Failed to wait for fence(s).", "PathTracer" );
 
-	vkResetFences( mLogicalDevice, mFences.size(), &mFences[0] );
+	vkResetFences( mLogicalDevice, fences.size(), fences.data() );
 }
 
 

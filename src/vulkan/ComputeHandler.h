@@ -18,8 +18,11 @@ class ComputeHandler {
 		void setup( PathTracer* pt );
 		void teardown();
 
+		VkDeviceMemory mStorageImageMemory = VK_NULL_HANDLE;
+		VkFence mDrawingFence = VK_NULL_HANDLE;
+		VkImage mStorageImage = VK_NULL_HANDLE;
+		VkImageView mStorageImageView = VK_NULL_HANDLE;
 		VkSemaphore mSemaphoreComputeDone = VK_NULL_HANDLE;
-		VkSemaphore mSemaphoreTransferDone = VK_NULL_HANDLE;
 
 
 	protected:
@@ -32,6 +35,7 @@ class ComputeHandler {
 			VkDescriptorSetLayout layout,
 			VkDescriptorPool pool
 		);
+		VkDeviceMemory allocateStorageImageMemory( VkImage image );
 		void beginCommandBuffer( VkCommandBuffer cmdBuffer );
 		VkCommandPool createCommandPool();
 		VkDescriptorPool createDescriptorPool( uint32_t numImages );
@@ -40,9 +44,10 @@ class ComputeHandler {
 		VkPipelineLayout createPipelineLayout( VkDescriptorSetLayout descSetLayout );
 		VkSemaphore createSemaphore();
 		VkShaderModule createShader();
+		VkImage createStorageImage( uint32_t width, uint32_t height );
+		VkImageView createStorageImageView( VkImage image );
 		void endCommandBuffer( VkCommandBuffer cmdBuffer );
-		void initCommandBuffers();
-		void initCommandBuffersTransfer();
+		void initCommandBuffers( uint32_t index );
 		void recordCommandBuffer(
 			VkCommandBuffer cmdBuffer,
 			VkDescriptorSet descSet,
@@ -57,7 +62,6 @@ class ComputeHandler {
 		PathTracer* mPathTracer;
 
 		vector<VkCommandBuffer> mCmdBuffers;
-		vector<VkCommandBuffer> mCmdBuffersTransfer;
 		vector<VkDescriptorSet> mDescSets;
 		VkCommandPool mCmdPool = VK_NULL_HANDLE;
 		VkDescriptorSetLayout mDescSetLayout = VK_NULL_HANDLE;
